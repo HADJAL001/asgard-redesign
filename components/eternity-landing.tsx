@@ -490,16 +490,23 @@ export function EternityLanding() {
     const eyeLight = new THREE.PointLight(0x00D4FF, 0.6, 0.8)
     scene.add(eyeLight)
 
-    // Параметры карабкания
-    const J_START_SEC = 1.5   // задержка перед появлением
-    const J_CLIMB_DUR = 2.5   // длительность карабкания
-    const J_THETA     = -0.55 // азимут (правая сторона глобуса)
-    const J_PHI_FROM  = 1.78  // старт: низ-правая сторона (за горизонтом)
-    const J_PHI_TO    = 1.08  // финиш: чуть выше экватора
-    const J_SURFACE_R = GLOBE_R + 0.16 // стоит на поверхности
+    // ── Параметры трёхфазной анимации ──────────────────────────────
+    // Фаза 0: появление (scale 0→1, длительность J_APPEAR_DUR сек)
+    // Фаза 1: подтягивание вверх (translateY -0.5→0, длительность J_CLIMB_DUR сек)
+    // Фаза 2: покачивание (bob, бесконечно)
+    const J_START_SEC  = 1.5   // задержка перед стартом
+    const J_APPEAR_DUR = 1.5   // фаза 0: scale 0→1
+    const J_CLIMB_DUR  = 1.0   // фаза 1: translateY -0.5→0
+    const J_THETA      = -0.55 // азимут (правая сторона глобуса)
+    const J_PHI_FROM   = 1.78  // старт: низ-правая (за горизонтом)
+    const J_PHI_TO     = 1.08  // финиш: чуть выше экватора
+    const J_SURFACE_R  = GLOBE_R + 0.16
 
     function easeInOut(t: number): number {
       return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+    }
+    function easeOut(t: number): number {
+      return 1 - Math.pow(1 - t, 3)
     }
 
     let time = 0
@@ -527,71 +534,98 @@ export function EternityLanding() {
       // Время в секундах (каждый тик +0.005, ~60fps → 0.005*60/1 = 0.3 units/sec)
       const tSec = time / 0.3
 
+      // ── Финальная позиция на глобусе (phi = J_PHI_TO) ──────────
+      const phi   = J_PHI_TO
+      const theta = J_THETA
+      const lx = J_SURFACE_R * Math.sin(phi) * Math.cos(theta)
+      const ly = J_SURFACE_R * Math.cos(phi)
+      const lz = J_SURFACE_R * Math.sin(phi) * Math.sin(theta)
+      const localVec = new THREE.Vector3(lx, ly, lz)
+      localVec.applyEuler(orbitGroup.rotation)
+      const baseX = orbitGroup.position.x + localVec.x
+      const baseY = orbitGroup.position.y + localVec.y
+      const baseZ = orbitGroup.position.z + localVec.z
+
+      // ── Ориентация по нормали поверхности (вычисляется один раз) ─
+      const normalWorld = localVec.clone().normalize()
+      const upWorld = new THREE.Vector3(0, 1, 0)
+      const crossAxis = new THREE.Vector3().crossVectors(upWorld, normalWorld)
+      if (crossAxis.lengthSq() > 1e-6) {
+        const crossAngle = Math.acos(Math.max(-1, Math.min(1, upWorld.dot(normalWorld))))
+        const orientQ = new THREE.Quaternion().setFromAxisAngle(crossAxis.normalize(), crossAngle)
+        const faceQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI + theta + 0.3, 0))
+        jarvisGroup.quaternion.copy(orientQ).multiply(faceQ)
+      }
+
       if (tSec < J_START_SEC) {
+        // ── Скрыт до старта ─────────────────────────────────────────
         jarvisGroup.visible = false
+
       } else {
         jarvisGroup.visible = true
+        const elapsed = tSec - J_START_SEC
 
-        const climbRaw = (tSec - J_START_SEC) / J_CLIMB_DUR
-        const climbT   = Math.min(climbRaw, 1)
-        const eased    = easeInOut(climbT)
+        // ── Фаза 0: появление — scale 0 → 1 за J_APPEAR_DUR сек ────
+        const appearT = Math.min(elapsed / J_APPEAR_DUR, 1)
+        const scale   = easeOut(appearT)
+        jarvisGroup.scale.setScalar(0.42 * scale)
 
-        // Полярная позиция на поверхности глобуса
-        const phi   = J_PHI_FROM + (J_PHI_TO - J_PHI_FROM) * eased
-        const theta = J_THETA
+        // opacity fade-in синхронно со scale
+        jarvisGroup.traverse(obj => {
+          if ((obj as THREE.Mesh).isMesh) {
+            const m = (obj as THREE.Mesh).material as THREE.MeshStandardMaterial
+            if (!m.transparent) m.transparent = true
+            m.opacity = scale
+          }
+        })
 
-        // Локальная позиция относительно центра глобуса
-        const lx = J_SURFACE_R * Math.sin(phi) * Math.cos(theta)
-        const ly = J_SURFACE_R * Math.cos(phi)
-        const lz = J_SURFACE_R * Math.sin(phi) * Math.sin(theta)
+        if (elapsed < J_APPEAR_DUR) {
+          // В фазе 0: стоим на месте, просто появляемся
+          jarvisGroup.position.set(baseX, baseY, baseZ)
 
-        // Мировая позиция = orbitGroup + локальная
-        // Учитываем вращение orbitGroup
-        const localVec = new THREE.Vector3(lx, ly, lz)
-        localVec.applyEuler(orbitGroup.rotation)
+        } else {
+          // ── Фаза 1: подтягивание вверх — translateY -0.5 → 0 ─────
+          const climbElapsed = elapsed - J_APPEAR_DUR
+          const climbT = Math.min(climbElapsed / J_CLIMB_DUR, 1)
+          const climbEased = easeInOut(climbT)
+          // смещение вдоль нормали к поверхности (-0.5 → 0)
+          const climbOffset = (1 - climbEased) * (-0.5)
+          const offsetVec = normalWorld.clone().multiplyScalar(climbOffset)
 
-        jarvisGroup.position.set(
-          orbitGroup.position.x + localVec.x,
-          orbitGroup.position.y + localVec.y,
-          orbitGroup.position.z + localVec.z,
-        )
+          jarvisGroup.position.set(
+            baseX + offsetVec.x,
+            baseY + offsetVec.y,
+            baseZ + offsetVec.z,
+          )
 
-        // Ориентация: "вверх" — нормаль к поверхности глобуса
-        const normalWorld = localVec.clone().normalize()
-        const upWorld = new THREE.Vector3(0, 1, 0)
-        // Матрица поворота: local Y -> normalWorld
-        const crossAxis = new THREE.Vector3().crossVectors(upWorld, normalWorld)
-        if (crossAxis.lengthSq() > 1e-6) {
-          const crossAngle = Math.acos(Math.max(-1, Math.min(1, upWorld.dot(normalWorld))))
-          const orientQ = new THREE.Quaternion().setFromAxisAngle(crossAxis.normalize(), crossAngle)
-          // Поворачиваем лицом к камере по азимуту
-          const faceQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI + theta + 0.3, 0))
-          jarvisGroup.quaternion.copy(orientQ).multiply(faceQ)
+          // ── Фаза 2: покачивание после завершения climb ────────────
+          if (climbT >= 1) {
+            const bob = Math.sin(tSec * 1.5) * 0.03
+            const bobVec = normalWorld.clone().multiplyScalar(bob)
+            jarvisGroup.position.set(
+              baseX + bobVec.x,
+              baseY + bobVec.y,
+              baseZ + bobVec.z,
+            )
+
+            // Показываем пузырь
+            const screenPos = jarvisGroup.position.clone().project(camera)
+            const rect = container!.getBoundingClientRect()
+            const sx = (screenPos.x * 0.5 + 0.5) * rect.width + rect.left
+            const sy = (-screenPos.y * 0.5 + 0.5) * rect.height + rect.top
+            bubblePosRef.current = { x: sx, y: sy - 20 }
+            if (!bubbleVisibleRef.current) {
+              bubbleVisibleRef.current = true
+              setBubbleVisible(true)
+            }
+            if (bubbleRef.current) {
+              bubbleRef.current.style.left = `${sx}px`
+              bubbleRef.current.style.top  = `${sy - 20}px`
+            }
+          }
         }
 
-        // Покачивание после приземления
-        if (climbT >= 1) {
-          const bob = Math.sin(tSec * 1.5) * 0.03
-          jarvisGroup.position.y += bob
-
-          // Проецируем позицию ДЖАРВИСА на экран и показываем пузырь
-          const screenPos = jarvisGroup.position.clone().project(camera)
-          const rect = container!.getBoundingClientRect()
-          const sx = (screenPos.x * 0.5 + 0.5) * rect.width + rect.left
-          const sy = (-screenPos.y * 0.5 + 0.5) * rect.height + rect.top
-          bubblePosRef.current = { x: sx, y: sy - 20 }
-          if (!bubbleVisibleRef.current) {
-            bubbleVisibleRef.current = true
-            setBubbleVisible(true)
-          }
-          // Обновляем позицию пузыря напрямую через DOM (без перерендера)
-          if (bubbleRef.current) {
-            bubbleRef.current.style.left = `${sx}px`
-            bubbleRef.current.style.top  = `${sy - 20}px`
-          }
-        }
-
-        // Пульсация глаз и реактора
+        // ── Пульсация глаз и реактора (все фазы) ─────────────────
         const pulse = 1.0 + 0.6 * Math.sin(tSec * 3.8)
         ;(eyeL.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse
         ;(eyeR.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse
@@ -603,16 +637,6 @@ export function EternityLanding() {
         eyeLight.intensity = 0.25 + 0.25 * Math.sin(tSec * 3.8)
         reactorLight.position.copy(jarvisGroup.position)
         reactorLight.intensity = 0.2 + 0.2 * Math.sin(tSec * 3.8)
-
-        // Плавное появление (fade-in первые 0.5s карабкания)
-        const fadeIn = Math.min(climbRaw * 4, 1)
-        jarvisGroup.traverse(obj => {
-          if ((obj as THREE.Mesh).isMesh) {
-            const m = (obj as THREE.Mesh).material as THREE.MeshStandardMaterial
-            if (!m.transparent) m.transparent = true
-            m.opacity = fadeIn
-          }
-        })
       }
 
       renderer.render(scene, camera)
