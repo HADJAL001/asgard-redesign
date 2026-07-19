@@ -1,0 +1,455 @@
+import { Router, Response, NextFunction } from "express"
+import db from "../lib/db"
+import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
+import stripe, {
+  isStripeConfigured,
+  STRIPE_WEBHOOK_SECRET,
+  PLAN_PRICE_IDS,
+  planLevel,
+  FRONTEND_URL,
+  PlanKey,
+} from "../lib/stripe"
+
+
+const router = Router()
+
+const PAID_PLANS: Exclude<PlanKey, "free">[] = ["architect", "master", "legend"]
+const MOCK_PERIOD_MS = 30 * 24 * 60 * 60 * 1000 // 30 дней
+
+/* ================================================================
+   Вспомогательные функции работы с таблицей subscriptions
+   ================================================================ */
+
+type SubscriptionRow = {
+  id: number
+  user_id: number
+  plan: string
+  status: string
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  stripe_price_id: string | null
+  current_period_start: number | null
+  current_period_end: number | null
+  cancel_at_period_end: number
+  canceled_at: number | null
+  created_at: number
+  updated_at: number
+}
+
+function getSubscription(userId: number): SubscriptionRow | undefined {
+  return db.prepare(`SELECT * FROM subscriptions WHERE user_id = ?`).get(userId) as
+    | SubscriptionRow
+    | undefined
+}
+
+function upsertSubscription(userId: number, fields: Partial<SubscriptionRow>) {
+  const existing = getSubscription(userId)
+  const now = Date.now()
+
+  if (!existing) {
+    db.prepare(
+      `INSERT INTO subscriptions (
+        user_id, plan, status, stripe_customer_id, stripe_subscription_id, stripe_price_id,
+        current_period_start, current_period_end, cancel_at_period_end, canceled_at,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      userId,
+      fields.plan ?? "free",
+      fields.status ?? "inactive",
+      fields.stripe_customer_id ?? null,
+      fields.stripe_subscription_id ?? null,
+      fields.stripe_price_id ?? null,
+      fields.current_period_start ?? null,
+      fields.current_period_end ?? null,
+      fields.cancel_at_period_end ?? 0,
+      fields.canceled_at ?? null,
+      now,
+      now,
+    )
+  } else {
+    db.prepare(
+      `UPDATE subscriptions SET
+        plan = ?, status = ?, stripe_customer_id = ?, stripe_subscription_id = ?, stripe_price_id = ?,
+        current_period_start = ?, current_period_end = ?, cancel_at_period_end = ?, canceled_at = ?,
+        updated_at = ?
+       WHERE user_id = ?`,
+    ).run(
+      fields.plan ?? existing.plan,
+      fields.status ?? existing.status,
+      fields.stripe_customer_id ?? existing.stripe_customer_id,
+      fields.stripe_subscription_id ?? existing.stripe_subscription_id,
+      fields.stripe_price_id ?? existing.stripe_price_id,
+      fields.current_period_start ?? existing.current_period_start,
+      fields.current_period_end ?? existing.current_period_end,
+      fields.cancel_at_period_end ?? existing.cancel_at_period_end,
+      fields.canceled_at ?? existing.canceled_at,
+      now,
+      userId,
+    )
+  }
+
+  /* Синхронизируем users.plan для быстрых проверок без JOIN */
+  const finalPlan = fields.plan ?? existing?.plan ?? "free"
+  db.prepare(`UPDATE users SET plan = ? WHERE id = ?`).run(finalPlan, userId)
+}
+
+function serializeSubscription(sub: SubscriptionRow | undefined) {
+  if (!sub) {
+    return {
+      plan: "free" as PlanKey,
+      status: "inactive",
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+      canceledAt: null,
+    }
+  }
+  return {
+    plan: sub.plan as PlanKey,
+    status: sub.status,
+    currentPeriodStart: sub.current_period_start,
+    currentPeriodEnd: sub.current_period_end,
+    cancelAtPeriodEnd: !!sub.cancel_at_period_end,
+    canceledAt: sub.canceled_at,
+  }
+}
+
+function planFromPriceId(priceId: string | null | undefined): PlanKey | null {
+  if (!priceId) return null
+  for (const plan of PAID_PLANS) {
+    if (PLAN_PRICE_IDS[plan] && PLAN_PRICE_IDS[plan] === priceId) return plan
+  }
+  return null
+}
+
+/* ================================================================
+   requirePlan(plan) — middleware проверки доступа по плану подписки.
+
+   Иерархическая проверка: пропускает пользователей с планом >= plan
+   (по уровню PLAN_ORDER). Для платных планов дополнительно требуется
+   status IN ('active', 'trialing'). План 'free' доступен всегда.
+   ================================================================ */
+export function requirePlan(requiredPlan: PlanKey) {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Требуется авторизация" })
+    }
+
+    if (requiredPlan === "free") return next()
+
+    const sub = getSubscription(req.user.userId)
+    const currentPlan = (sub?.plan ?? "free") as PlanKey
+    const status = sub?.status ?? "inactive"
+
+    const hasLevel = planLevel(currentPlan) >= planLevel(requiredPlan)
+    const hasActiveStatus = status === "active" || status === "trialing"
+
+    if (!hasLevel || !hasActiveStatus) {
+      return res.status(403).json({
+        error: `Недостаточный уровень подписки. Требуется план: ${requiredPlan} или выше.`,
+        currentPlan,
+        currentStatus: status,
+        requiredPlan,
+      })
+    }
+
+    next()
+  }
+}
+
+/* ================================================================
+   POST /subscription/create-checkout
+   Создаёт Stripe Checkout Session для оформления платной подписки.
+
+   body: { plan: 'architect' | 'master' | 'legend' }
+
+   Если Stripe не настроен (нет STRIPE_SECRET_KEY) — работает в
+   mock-режиме: сразу активирует подписку локально на 30 дней и
+   возвращает { mock: true, subscription } без реального url Stripe.
+   ================================================================ */
+router.post("/create-checkout", requireAuth, async (req: AuthRequest, res) => {
+  const { plan } = req.body || {}
+
+  if (!PAID_PLANS.includes(plan)) {
+    return res.status(400).json({
+      error: `Некорректный план. Допустимые платные планы: ${PAID_PLANS.join(", ")}`,
+    })
+  }
+
+  const userId = req.user!.userId
+
+  /* ---------------- Mock-режим (Stripe не настроен) ---------------- */
+  if (!isStripeConfigured || !stripe) {
+    const now = Date.now()
+    upsertSubscription(userId, {
+      plan,
+      status: "active",
+      current_period_start: now,
+      current_period_end: now + MOCK_PERIOD_MS,
+      cancel_at_period_end: 0,
+      canceled_at: null,
+    })
+
+    db.prepare(
+      `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+       VALUES (?, 'subscription', ?, 'Stripe (mock)', ?, 'cash_usd', 'done')`,
+    ).run(userId, `Подписка ${plan}`, 0)
+
+    return res.status(200).json({
+      mock: true,
+      url: null,
+      message: "Stripe не настроен — подписка активирована локально (dev-режим).",
+      subscription: serializeSubscription(getSubscription(userId)),
+    })
+  }
+
+  /* ---------------- Реальный режим Stripe ---------------- */
+  const priceId = PLAN_PRICE_IDS[plan as Exclude<PlanKey, "free">]
+  if (!priceId) {
+    return res.status(500).json({
+      error: `Stripe Price ID для плана '${plan}' не настроен (STRIPE_PRICE_${plan.toUpperCase()})`,
+    })
+  }
+
+  try {
+    const user: any = db
+      .prepare(`SELECT id, username, email FROM users WHERE id = ?`)
+      .get(userId)
+    if (!user) return res.status(404).json({ error: "Пользователь не найден" })
+
+    let existingSub = getSubscription(userId)
+    let customerId = existingSub?.stripe_customer_id || undefined
+
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email || undefined,
+        name: user.username,
+        metadata: { userId: String(userId) },
+      })
+      customerId = customer.id
+      upsertSubscription(userId, { stripe_customer_id: customerId })
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer: customerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${FRONTEND_URL}/wallet?checkout=success&plan=${plan}`,
+      cancel_url: `${FRONTEND_URL}/wallet?checkout=cancel`,
+      metadata: { userId: String(userId), plan },
+      subscription_data: {
+        metadata: { userId: String(userId), plan },
+      },
+    })
+
+    res.status(200).json({
+      mock: false,
+      url: session.url,
+      sessionId: session.id,
+    })
+  } catch (err: any) {
+    console.error("[subscription/create-checkout] Stripe error:", err)
+    res.status(500).json({ error: err.message || "Не удалось создать Stripe Checkout Session" })
+  }
+})
+
+/* ================================================================
+   POST /subscription/webhook
+   Обрабатывает события Stripe:
+   - checkout.session.completed
+   - customer.subscription.updated
+   - customer.subscription.deleted
+
+   Важно: этот роут монтируется в server.ts с express.raw()
+   ДО express.json(), чтобы req.body был Buffer для проверки подписи.
+   ================================================================ */
+router.post("/webhook", async (req, res) => {
+  if (!isStripeConfigured || !stripe) {
+    return res.status(503).json({ error: "Stripe не настроен на сервере" })
+  }
+
+  const signature = req.headers["stripe-signature"] as string | undefined
+  let event: any
+
+  try {
+    if (STRIPE_WEBHOOK_SECRET && signature) {
+      /* req.body здесь — Buffer (raw), т.к. роут смонтирован с express.raw() */
+      event = stripe.webhooks.constructEvent(req.body, signature, STRIPE_WEBHOOK_SECRET)
+    } else {
+      /* Секрет вебхука не задан — доверяем телу без проверки подписи (только dev) */
+      const raw = Buffer.isBuffer(req.body) ? req.body.toString("utf8") : req.body
+      event = typeof raw === "string" ? JSON.parse(raw) : raw
+    }
+  } catch (err: any) {
+    console.error("[subscription/webhook] Signature verification failed:", err.message)
+    return res.status(400).json({ error: `Webhook Error: ${err.message}` })
+  }
+
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object
+        const userId = Number(session.metadata?.userId)
+        const plan = session.metadata?.plan as PlanKey | undefined
+
+        if (userId && plan) {
+          const subscriptionId =
+            typeof session.subscription === "string" ? session.subscription : session.subscription?.id
+
+          let periodStart: number | null = null
+          let periodEnd: number | null = null
+          let priceId: string | null = null
+
+          if (subscriptionId) {
+            const stripeSub = await stripe.subscriptions.retrieve(subscriptionId)
+            periodStart = (stripeSub as any).current_period_start * 1000
+            periodEnd = (stripeSub as any).current_period_end * 1000
+            priceId = stripeSub.items.data[0]?.price?.id || null
+          }
+
+          upsertSubscription(userId, {
+            plan,
+            status: "active",
+            stripe_customer_id:
+              typeof session.customer === "string" ? session.customer : session.customer?.id,
+            stripe_subscription_id: subscriptionId || null,
+            stripe_price_id: priceId,
+            current_period_start: periodStart,
+            current_period_end: periodEnd,
+            cancel_at_period_end: 0,
+            canceled_at: null,
+          })
+
+          db.prepare(
+            `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+             VALUES (?, 'subscription', ?, 'Stripe', ?, 'cash_usd', 'done')`,
+          ).run(userId, `Подписка ${plan}`, (session.amount_total ?? 0) / 100)
+        }
+        break
+      }
+
+      case "customer.subscription.updated": {
+        const stripeSub = event.data.object
+        const userId = Number(stripeSub.metadata?.userId)
+        const priceId = stripeSub.items?.data?.[0]?.price?.id || null
+        const plan = planFromPriceId(priceId)
+
+        if (userId) {
+          upsertSubscription(userId, {
+            plan: plan ?? undefined,
+            status: mapStripeStatus(stripeSub.status),
+            stripe_subscription_id: stripeSub.id,
+            stripe_price_id: priceId,
+            current_period_start: stripeSub.current_period_start
+              ? stripeSub.current_period_start * 1000
+              : null,
+            current_period_end: stripeSub.current_period_end
+              ? stripeSub.current_period_end * 1000
+              : null,
+            cancel_at_period_end: stripeSub.cancel_at_period_end ? 1 : 0,
+          })
+        }
+        break
+      }
+
+      case "customer.subscription.deleted": {
+        const stripeSub = event.data.object
+        const userId = Number(stripeSub.metadata?.userId)
+
+        if (userId) {
+          upsertSubscription(userId, {
+            plan: "free",
+            status: "canceled",
+            cancel_at_period_end: 0,
+            canceled_at: Date.now(),
+          })
+        }
+        break
+      }
+
+      default:
+        /* Остальные события Stripe игнорируем */
+        break
+    }
+
+    res.json({ received: true })
+  } catch (err: any) {
+    console.error("[subscription/webhook] Handler error:", err)
+    res.status(500).json({ error: err.message || "Ошибка обработки webhook" })
+  }
+})
+
+function mapStripeStatus(stripeStatus: string): string {
+  switch (stripeStatus) {
+    case "active":
+      return "active"
+    case "trialing":
+      return "trialing"
+    case "past_due":
+      return "past_due"
+    case "canceled":
+      return "canceled"
+    case "unpaid":
+      return "unpaid"
+    default:
+      return "inactive"
+  }
+}
+
+/* ================================================================
+   GET /subscription/status
+   Возвращает текущий план и статус подписки пользователя.
+   Если записи в subscriptions нет — fallback на free/inactive.
+   ================================================================ */
+router.get("/status", requireAuth, (req: AuthRequest, res) => {
+  const sub = getSubscription(req.user!.userId)
+  res.json({ subscription: serializeSubscription(sub) })
+})
+
+/* ================================================================
+   POST /subscription/cancel
+   Отменяет подписку (cancel_at_period_end = true).
+
+   Если у пользователя есть реальная Stripe-подписка — отменяем через
+   Stripe API (подписка остаётся активной до конца периода).
+   Если Stripe не настроен или stripe_subscription_id отсутствует —
+   помечаем cancel_at_period_end локально в БД (mock-режим).
+   ================================================================ */
+router.post("/cancel", requireAuth, async (req: AuthRequest, res) => {
+  const userId = req.user!.userId
+  const sub = getSubscription(userId)
+
+  if (!sub || sub.plan === "free") {
+    return res.status(400).json({ error: "У вас нет активной платной подписки для отмены" })
+  }
+
+  try {
+    if (isStripeConfigured && stripe && sub.stripe_subscription_id) {
+      const updated = await stripe.subscriptions.update(sub.stripe_subscription_id, {
+        cancel_at_period_end: true,
+      })
+
+      upsertSubscription(userId, {
+        cancel_at_period_end: updated.cancel_at_period_end ? 1 : 0,
+        status: mapStripeStatus(updated.status),
+      })
+    } else {
+      /* Mock-режим: помечаем локально, план останется активным до current_period_end */
+      upsertSubscription(userId, {
+        cancel_at_period_end: 1,
+      })
+    }
+
+    res.json({
+      success: true,
+      subscription: serializeSubscription(getSubscription(userId)),
+      message: "Подписка будет отменена в конце оплаченного периода.",
+    })
+  } catch (err: any) {
+    console.error("[subscription/cancel] error:", err)
+    res.status(500).json({ error: err.message || "Не удалось отменить подписку" })
+  }
+})
+
+export default router
