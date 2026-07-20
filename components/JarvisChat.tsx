@@ -1,9 +1,9 @@
 "use client"
 
 /* ================================================================
-   OSGARD · JARVIS Chat Widget
+   OSGARD · ВАЛЛИ Chat Widget
    ----------------------------------------------------------------
-   Чат с ИИ-ассистентом ДЖАРВИС.
+   Чат с ИИ-ассистентом ВАЛЛИ.
 
    Режимы ответа (переключаются кнопками или выпадающим списком):
      - "text"  💬  — только текст в чате, без озвучки
@@ -114,12 +114,12 @@ function stopSpeaking() {
    Компонент
    ---------------------------------------------------------------- */
 
-export function JarvisChat() {
+export function ВАЛЛИChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: "Привет! Я ДЖАРВИС. Спроси меня о балансе, артефактах, проектах — или задай любой другой вопрос.",
+      content: "Привет! Я ВАЛЛИ. Спроси меня о балансе, артефактах, проектах — или задай любой другой вопрос.",
     },
   ])
   const [input, setInput] = useState("")
@@ -127,7 +127,7 @@ export function JarvisChat() {
   const [replyMode, setReplyMode] = useState<ReplyMode>("both")
   const [speaking, setSpeaking] = useState(false)
   const [modeMenuOpen, setModeMenuOpen] = useState(false)
-  /* Текущая экипировка ДЖАРВИСА (skin/voice/accessory) — влияет на 3D-аватар и голос TTS. */
+  /* Текущая экипировка ВАЛЛИА (skin/voice/accessory) — влияет на 3D-аватар и голос TTS. */
   const [equipment, setEquipment] = useState<JarvisEquipment>(EMPTY_EQUIPMENT)
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -139,7 +139,7 @@ export function JarvisChat() {
   }, [])
 
   /* ----------------------------------------------------------------
-     Экипировка ДЖАРВИСА:
+     Экипировка ВАЛЛИА:
      1. Мгновенно показываем то, что уже лежит в localStorage-кэше
         (без ожидания сети) — чтобы аватар не "мигал" пустым при заходе.
      2. Параллельно синхронизируемся с бэкендом (GET /jarvis/my-accessories),
@@ -251,7 +251,7 @@ export function JarvisChat() {
       const errorMsg: ChatMessage = {
         id: `e-${Date.now()}`,
         role: "assistant",
-        content: err?.message || "Не удалось получить ответ от ДЖАРВИСА. Попробуйте позже.",
+        content: err?.message || "Не удалось получить ответ от ВАЛЛИА. Попробуйте позже.",
       }
       setMessages((prev) => [...prev, errorMsg])
     } finally {
@@ -268,15 +268,15 @@ export function JarvisChat() {
 
   return (
     <div className="jarvis-chat">
-      {/* 3D-аватар ДЖАРВИСА — мгновенно отражает текущую экипировку (skin/accessory) */}
-      <JarvisAvatar equipment={equipment} speaking={speaking} height={180} />
+      {/* 3D-аватар ВАЛЛИА — мгновенно отражает текущую экипировку (skin/accessory) */}
+      <ВАЛЛИAvatar equipment={equipment} speaking={speaking} height={180} />
 
       <div className="jarvis-header">
         <div className="jarvis-title">
           <Bot size={18} aria-hidden="true" />
-          <span>ДЖАРВИС</span>
+          <span>ВАЛЛИ</span>
           {(equipment.skin || equipment.accessory || equipment.voice) && (
-            <span className="jarvis-equip-badge" title="Аксессуары ДЖАРВИСА активны">
+            <span className="jarvis-equip-badge" title="Аксессуары ВАЛЛИА активны">
               ✨
             </span>
           )}
@@ -397,7 +397,7 @@ export function JarvisChat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Спросите ДЖАРВИСА..."
+          placeholder="Спросите ВАЛЛИА..."
           disabled={loading}
         />
         <button type="button" onClick={handleSend} disabled={!input.trim() || loading} title="Отправить">
@@ -410,7 +410,7 @@ export function JarvisChat() {
   )
 }
 
-export default JarvisChat
+export default ВАЛЛИChat
 
 /* ================================================================
    Стили

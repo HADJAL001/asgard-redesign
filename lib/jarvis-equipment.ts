@@ -1,7 +1,7 @@
 /* ================================================================
    OSGARD · JARVIS Equipment store
    ----------------------------------------------------------------
-   Единый источник правды об экипировке ДЖАРВИСА (скин / голос /
+   Единый источник правды об экипировке ВАЛЛИА (скин / голос /
    аксессуар), надетой текущим пользователем.
 
    - Кэшируется в localStorage (ключ "jarvis_equipment") для
@@ -28,7 +28,7 @@ export type EquippedAccessory = {
   purchasedAt?: number
 }
 
-/** Текущая экипировка ДЖАРВИСА — по одному предмету на каждый слот (skin/voice/accessory). */
+/** Текущая экипировка ВАЛЛИА — по одному предмету на каждый слот (skin/voice/accessory). */
 export type JarvisEquipment = {
   skin: EquippedAccessory | null
   voice: EquippedAccessory | null
@@ -153,7 +153,7 @@ export function resolveVoiceProfile(voice: EquippedAccessory | null): VoiceProfi
   if (!voice) return { pitch: 1, rate: 1 }
   const name = voice.name.toLowerCase()
   if (name.includes("британ")) return { pitch: 0.95, rate: 0.95, langHint: "en" }
-  if (name.includes("женск") || name.includes("пятниц") || name.includes("friday")) return { pitch: 1.35, rate: 1.05 }
+  if (name.includes("женск") || name.includes("аврор") || name.includes("aurora")) return { pitch: 1.35, rate: 1.05 }
   if (name.includes("робот") || name.includes("бас")) return { pitch: 0.55, rate: 0.9 }
   return { pitch: 1, rate: 1 }
 }

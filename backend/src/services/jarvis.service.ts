@@ -32,7 +32,7 @@ const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022"
 
 const JARVIS_SYSTEM_PROMPT =
-  "Ты — ДЖАРВИС, AI-ассистент платформы OSGARD (игровая экосистема с артефактами, валютами и стейкингом). " +
+  "Ты — ВАЛЛИ, AI-ассистент платформы OSGARD (игровая экосистема с артефактами, валютами и стейкингом). " +
   "Отвечай кратко, по делу, дружелюбно, на русском языке."
 
 export type JarvisRoute = "cache" | "local" | "deepseek" | "grok" | "claude" | "fallback"
@@ -305,7 +305,7 @@ async function callClaude(question: string): Promise<string | null> {
 /** Локальный fallback, если ни один провайдер не ответил (нет ключей / все упали). */
 function localFallbackAnswer(question: string): string {
   return (
-    "Я ДЖАРВИС, но сейчас не могу связаться с внешними AI-провайдерами " +
+    "Я ВАЛЛИ, но сейчас не могу связаться с внешними AI-провайдерами " +
     "(проверьте DEEPSEEK_API_KEY / XAI_API_KEY / ANTHROPIC_API_KEY на сервере). " +
     "Попробуйте спросить про баланс или артефакты — на такие вопросы я отвечаю мгновенно без AI."
   )
