@@ -41,14 +41,15 @@ function LoginPageInner() {
     e.preventDefault()
     setError(null)
 
-    if (!username.trim() || !password) {
-      setError("Заполните все обязательные поля")
-      return
-    }
-
-    if (mode === "register") {
-      if (!email.trim()) {
-        setError("Укажите email")
+    if (mode === "login") {
+      // При входе используем email (или username если введён email)
+      if (!username.trim() || !password) {
+        setError("Заполните все обязательные поля")
+        return
+      }
+    } else {
+      if (!username.trim() || !email.trim() || !password) {
+        setError("Заполните все обязательные поля")
         return
       }
       if (password.length < 6) {
@@ -62,8 +63,20 @@ function LoginPageInner() {
     }
 
     setLoading(true)
-    const result =
-      mode === "login" ? await login(username.trim(), password) : await register(username.trim(), email.trim(), password)
+    let result
+    if (mode === "login") {
+      // Определяем: если введён email (содержит @) — передаём как email, иначе как username
+      const input = username.trim()
+      if (input.includes("@")) {
+        result = await login(input, password)
+      } else {
+        // Пробуем как username — передаём username в поле email для совместимости со старым бэкендом
+        // auth-store отправит { username: input, password }
+        result = await login(input, password)
+      }
+    } else {
+      result = await register(username.trim(), email.trim(), password)
+    }
     setLoading(false)
 
     if (!result.ok) {
@@ -123,15 +136,15 @@ function LoginPageInner() {
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="username" className="text-xs font-medium text-[#6A6A8A]">
-                Username
+                {mode === "login" ? "Email или Username" : "Username"}
               </label>
               <input
                 id="username"
-                type="text"
-                autoComplete="username"
+                type={mode === "login" ? "text" : "text"}
+                autoComplete={mode === "login" ? "email" : "username"}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="alex_odin"
+                placeholder={mode === "login" ? "alex@example.com или alex_odin" : "alex_odin"}
                 className="rounded-lg border border-[#2A2A3E] bg-[#0A0A0F] px-3 py-2.5 text-sm text-white outline-none placeholder:text-[#6A6A8A]/60 focus:border-[#00D4FF] focus:ring-1 focus:ring-[#00D4FF]"
               />
             </div>

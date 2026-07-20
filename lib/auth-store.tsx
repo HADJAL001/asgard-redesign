@@ -58,9 +58,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback<AuthValue["login"]>(async (username, password) => {
     try {
+      // Если введён email (содержит @) — отправляем как email, иначе как username
+      const loginPayload = username.includes("@")
+        ? { email: username, password }
+        : { username, password }
       const data = await apiClient.post<{ token?: string; accessToken?: string; user: User }>(
         "/auth/login",
-        { username, password },
+        loginPayload,
         { skipAuthRedirect: true },
       )
       // поддерживаем оба варианта: token и accessToken
