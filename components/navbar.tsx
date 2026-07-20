@@ -20,7 +20,6 @@ import {
 } from "lucide-react"
 
 import { useOsgard } from "./osgard-store"
-import { TCTickerBar } from "./tc-ticker-bar"
 import { CURRENCIES, CURRENCY_ORDER, formatCurrencyAmount } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { LOCALES, LOCALE_SHORT, LOCALE_LABELS, type Locale } from "@/lib/i18n"
@@ -131,7 +130,6 @@ export function Navbar() {
 
   return (
     <div className="sticky top-0 z-40 font-sans">
-      <TCTickerBar />
       <header
         className="flex h-16 items-center"
         style={{ backgroundColor: "#0A0A0F", borderBottom: "1px solid #2A2A3E", color: "#FFFFFF" }}
