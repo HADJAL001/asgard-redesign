@@ -456,7 +456,7 @@ export function EternityLanding() {
   )
 }
 
-const WM_CSS = `.wm-scene{position:fixed;bottom:40px;right:5vw;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center}.wm-svg{width:130px;height:182px;filter:drop-shadow(0 8px 24px rgba(80,30,10,0.7)) drop-shadow(0 2px 6px rgba(0,0,0,0.95));animation:wm-bob 5s ease-in-out infinite;will-change:transform}.wm-bubble{margin-top:10px;background:rgba(6,8,14,0.96);border:1px solid rgba(139,58,42,0.5);border-radius:8px;padding:8px 14px;font-size:11px;font-weight:500;color:#9A6A5A;white-space:nowrap;letter-spacing:0.04em}@keyframes wm-bob{0%,100%{transform:translateY(0) rotate(-0.5deg)}40%{transform:translateY(-7px) rotate(0.3deg)}70%{transform:translateY(-3px) rotate(-0.2deg)}}@media(max-width:600px){.wm-scene{right:2vw;bottom:20px}.wm-svg{width:100px;height:140px}.wm-bubble{font-size:10px;padding:6px 11px}}`
+const WM_CSS = `.wm-scene{position:fixed;bottom:44px;right:4vw;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center}.wm-svg{width:180px;height:252px;image-rendering:crisp-edges;shape-rendering:geometricPrecision;filter:drop-shadow(0 12px 32px rgba(120,70,20,0.55)) drop-shadow(0 3px 8px rgba(0,0,0,0.9));animation:wm-bob 6s cubic-bezier(0.45,0.05,0.55,0.95) infinite;will-change:transform}.wm-bubble{margin-top:12px;background:rgba(4,5,10,0.97);border:1px solid rgba(180,140,80,0.3);border-radius:6px;padding:7px 16px;font-size:11px;font-weight:400;color:#A08A60;white-space:nowrap;letter-spacing:0.06em;font-family:monospace}@keyframes wm-bob{0%,100%{transform:translateY(0) rotate(-0.4deg)}45%{transform:translateY(-9px) rotate(0.25deg)}75%{transform:translateY(-4px) rotate(-0.15deg)}}@media(max-width:600px){.wm-scene{right:2vw;bottom:24px}.wm-svg{width:140px;height:196px}.wm-bubble{font-size:10px;padding:6px 12px}}`
 
 // ─── ВАЛЛИ минималистичный ──────────────────────────────────────────
 function WalleOnGlobe() {
@@ -464,87 +464,80 @@ function WalleOnGlobe() {
     <div className="wm-scene" aria-label="ВАЛЛИ на глобусе">
       <svg className="wm-svg" viewBox="-10 0 120 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         {/* Антенна */}
-        <line x1="50" y1="10" x2="50" y2="2" stroke="#6B3A1A" strokeWidth="2" strokeLinecap="round"/>
-        <circle cx="50" cy="1" r="3" fill="#5A2E10"/>
-        <circle cx="50" cy="1" r="1.2" fill="#8B4A2A" opacity="0.6"/>
+        <line x1="50" y1="10" x2="50" y2="2" stroke="#8A7050" strokeWidth="1.5" strokeLinecap="round"/>
+        <circle cx="50" cy="1.5" r="2.5" fill="#6A5030"/>
+        <circle cx="50" cy="1.5" r="1" fill="#C8A870" opacity="0.7"/>
 
-        {/* Голова */}
-        <rect x="20" y="10" width="60" height="30" rx="4" fill="#6B3A1A"/>
-        <rect x="20" y="10" width="60" height="6" rx="4" fill="#7A4520" opacity="0.6"/>
-        <rect x="20" y="10" width="3" height="30" rx="0" fill="#3A1A08" opacity="0.5"/>
-        <rect x="77" y="10" width="3" height="30" rx="0" fill="#3A1A08" opacity="0.5"/>
+        {/* Голова — тёмная бронза */}
+        <rect x="20" y="10" width="60" height="30" rx="3" fill="#3C2E1E"/>
+        <rect x="21" y="11" width="58" height="5" rx="2" fill="#5A4530" opacity="0.7"/>
+        <rect x="20" y="36" width="60" height="4" rx="0" fill="#2A1E10" opacity="0.6"/>
 
-        {/* Глаз левый — янтарный */}
-        <circle cx="34" cy="25" r="10" fill="#1A0E06"/>
-        <circle cx="34" cy="25" r="7" fill="#2A1408"/>
-        <circle cx="34" cy="25" r="4.5" fill="#5C2A0A"/>
-        <circle cx="34" cy="25" r="2.5" fill="#8B4010" opacity="0.9"/>
-        <circle cx="35.5" cy="23" r="1.2" fill="#C87040" opacity="0.5"/>
+        {/* Глаз левый — тёплый янтарь */}
+        <circle cx="34" cy="25" r="10" fill="#1C140A"/>
+        <circle cx="34" cy="25" r="7.5" fill="#2C1E10"/>
+        <circle cx="34" cy="25" r="5" fill="#6B4820"/>
+        <circle cx="34" cy="25" r="2.8" fill="#C09050"/>
+        <circle cx="35.5" cy="23" r="1.5" fill="#E8C880" opacity="0.6"/>
+        <circle cx="34" cy="25" r="1" fill="#0A0806"/>
 
-        {/* Глаз правый — янтарный */}
-        <circle cx="66" cy="25" r="10" fill="#1A0E06"/>
-        <circle cx="66" cy="25" r="7" fill="#2A1408"/>
-        <circle cx="66" cy="25" r="4.5" fill="#5C2A0A"/>
-        <circle cx="66" cy="25" r="2.5" fill="#8B4010" opacity="0.9"/>
-        <circle cx="67.5" cy="23" r="1.2" fill="#C87040" opacity="0.5"/>
+        {/* Глаз правый */}
+        <circle cx="66" cy="25" r="10" fill="#1C140A"/>
+        <circle cx="66" cy="25" r="7.5" fill="#2C1E10"/>
+        <circle cx="66" cy="25" r="5" fill="#6B4820"/>
+        <circle cx="66" cy="25" r="2.8" fill="#C09050"/>
+        <circle cx="67.5" cy="23" r="1.5" fill="#E8C880" opacity="0.6"/>
+        <circle cx="66" cy="25" r="1" fill="#0A0806"/>
 
         {/* Шея */}
-        <rect x="43" y="40" width="14" height="12" rx="2" fill="#4A2008"/>
-        <rect x="44" y="41" width="12" height="3" rx="1" fill="#6B3A1A" opacity="0.4"/>
+        <rect x="44" y="40" width="12" height="12" rx="2" fill="#2A1E10"/>
 
         {/* Тело */}
-        <rect x="18" y="52" width="64" height="42" rx="4" fill="#6B3A1A"/>
-        <rect x="18" y="52" width="7" height="42" fill="#3A1A08" opacity="0.5"/>
-        <rect x="75" y="52" width="7" height="42" fill="#3A1A08" opacity="0.5"/>
-        <rect x="20" y="53" width="60" height="5" rx="2" fill="#7A4520" opacity="0.3"/>
-        {/* Ржавые пятна */}
-        <ellipse cx="35" cy="70" rx="6" ry="4" fill="#8B3010" opacity="0.25"/>
-        <ellipse cx="62" cy="65" rx="4" ry="3" fill="#7A2808" opacity="0.2"/>
+        <rect x="18" y="52" width="64" height="42" rx="3" fill="#3C2E1E"/>
+        <rect x="18" y="52" width="5" height="42" fill="#1A1008" opacity="0.6"/>
+        <rect x="77" y="52" width="5" height="42" fill="#1A1008" opacity="0.6"/>
+        <rect x="23" y="53" width="54" height="3" rx="1" fill="#5A4530" opacity="0.4"/>
 
-        {/* Надпись */}
-        <text x="50" y="72" textAnchor="middle" fontFamily="monospace" fontWeight="bold" fontSize="6.5" fill="#3A1A08" opacity="0.7" letterSpacing="1">WALL·E</text>
-        <text x="50" y="71.8" textAnchor="middle" fontFamily="monospace" fontWeight="bold" fontSize="6.5" fill="#A06030" opacity="0.35" letterSpacing="1">WALL·E</text>
+        {/* Панель — благородная медь */}
+        <rect x="26" y="60" width="32" height="20" rx="2" fill="#241A0C"/>
+        <rect x="28" y="62" width="28" height="7" rx="1" fill="#8A6030" opacity="0.3"/>
+        <text x="42" y="75" textAnchor="middle" fontFamily="monospace" fontWeight="600" fontSize="5.5" fill="#8A6830" opacity="0.8" letterSpacing="1.2">WALL·E</text>
 
-        {/* LED — тусклый, изношенный */}
-        <rect x="68" y="76" width="8" height="14" rx="2" fill="#0A0806"/>
-        <rect x="69.5" y="77.5" width="5" height="2" rx="0.5" fill="#3A4A20" opacity="0.8"/>
-        <rect x="69.5" y="81" width="5" height="2" rx="0.5" fill="#2A3A18" opacity="0.6"/>
-        <rect x="69.5" y="84.5" width="5" height="2" rx="0.5" fill="#1A2010" opacity="0.4"/>
-
-        {/* Дверца */}
-        <rect x="24" y="76" width="40" height="16" rx="2" fill="#3A1A08"/>
-        <rect x="26" y="78" width="36" height="8" rx="1" fill="#2A1006"/>
-        <rect x="28" y="80" width="32" height="3" rx="1" fill="#5C2A10" opacity="0.4"/>
+        {/* LED индикатор — тёплый */}
+        <rect x="66" y="62" width="6" height="12" rx="1.5" fill="#180E06"/>
+        <rect x="67" y="63.5" width="4" height="1.8" rx="0.5" fill="#C07820" opacity="0.7"/>
+        <rect x="67" y="67" width="4" height="1.8" rx="0.5" fill="#A06018" opacity="0.5"/>
+        <rect x="67" y="70.5" width="4" height="1.8" rx="0.5" fill="#803010" opacity="0.3"/>
 
         {/* Рука левая */}
-        <rect x="-2" y="56" width="22" height="8" rx="3" fill="#5A2E10"/>
-        <rect x="-8" y="60" width="14" height="14" rx="2" fill="#4A2808"/>
-        <rect x="-7" y="61" width="12" height="3" rx="1" fill="#6B3A1A" opacity="0.3"/>
+        <rect x="0" y="58" width="18" height="6" rx="3" fill="#3C2E1E"/>
+        <rect x="-6" y="62" width="12" height="12" rx="2" fill="#2A1E10"/>
+        <rect x="-5" y="63" width="10" height="3" rx="1" fill="#5A4030" opacity="0.4"/>
 
         {/* Рука правая */}
-        <rect x="80" y="56" width="22" height="8" rx="3" fill="#5A2E10"/>
-        <line x1="102" y1="58" x2="107" y2="53" stroke="#4A2808" strokeWidth="2.5" strokeLinecap="round"/>
-        <line x1="102" y1="62" x2="107" y2="67" stroke="#4A2808" strokeWidth="2.5" strokeLinecap="round"/>
-        <circle cx="108" cy="52" r="2" fill="#3A1A08"/>
-        <circle cx="108" cy="68" r="2" fill="#3A1A08"/>
+        <rect x="82" y="58" width="18" height="6" rx="3" fill="#3C2E1E"/>
+        <line x1="100" y1="60" x2="105" y2="55" stroke="#2A1E10" strokeWidth="2" strokeLinecap="round"/>
+        <line x1="100" y1="63" x2="105" y2="68" stroke="#2A1E10" strokeWidth="2" strokeLinecap="round"/>
+        <circle cx="106" cy="54.5" r="1.8" fill="#1A1008"/>
+        <circle cx="106" cy="68.5" r="1.8" fill="#1A1008"/>
 
-        {/* Гусеницы — тёмный металл */}
-        <rect x="12" y="94" width="28" height="14" rx="6" fill="#1E1408"/>
-        <rect x="14" y="100" width="5" height="5" rx="1" fill="#2A1E10" opacity="0.9"/>
-        <rect x="21" y="100" width="5" height="5" rx="1" fill="#2A1E10" opacity="0.9"/>
-        <rect x="28" y="100" width="5" height="5" rx="1" fill="#2A1E10" opacity="0.9"/>
-        <ellipse cx="14" cy="101" rx="5" ry="6" fill="#281608"/>
-        <ellipse cx="38" cy="101" rx="5" ry="6" fill="#281608"/>
+        {/* Гусеницы — тёмная сталь */}
+        <rect x="12" y="94" width="28" height="14" rx="7" fill="#1C1408"/>
+        <rect x="14" y="100" width="5" height="5" rx="1" fill="#2C2018" opacity="0.9"/>
+        <rect x="21" y="100" width="5" height="5" rx="1" fill="#2C2018" opacity="0.9"/>
+        <rect x="28" y="100" width="5" height="5" rx="1" fill="#2C2018" opacity="0.9"/>
+        <ellipse cx="14.5" cy="101" rx="5" ry="6" fill="#241608"/>
+        <ellipse cx="37.5" cy="101" rx="5" ry="6" fill="#241608"/>
 
-        <rect x="60" y="94" width="28" height="14" rx="6" fill="#1E1408"/>
-        <rect x="62" y="100" width="5" height="5" rx="1" fill="#2A1E10" opacity="0.9"/>
-        <rect x="69" y="100" width="5" height="5" rx="1" fill="#2A1E10" opacity="0.9"/>
-        <rect x="76" y="100" width="5" height="5" rx="1" fill="#2A1E10" opacity="0.9"/>
-        <ellipse cx="62" cy="101" rx="5" ry="6" fill="#281608"/>
-        <ellipse cx="86" cy="101" rx="5" ry="6" fill="#281608"/>
+        <rect x="60" y="94" width="28" height="14" rx="7" fill="#1C1408"/>
+        <rect x="62" y="100" width="5" height="5" rx="1" fill="#2C2018" opacity="0.9"/>
+        <rect x="69" y="100" width="5" height="5" rx="1" fill="#2C2018" opacity="0.9"/>
+        <rect x="76" y="100" width="5" height="5" rx="1" fill="#2C2018" opacity="0.9"/>
+        <ellipse cx="62.5" cy="101" rx="5" ry="6" fill="#241608"/>
+        <ellipse cx="85.5" cy="101" rx="5" ry="6" fill="#241608"/>
 
         {/* Тень */}
-        <ellipse cx="50" cy="118" rx="38" ry="3.5" fill="rgba(0,0,0,0.4)"/>
+        <ellipse cx="50" cy="118" rx="36" ry="3" fill="rgba(0,0,0,0.35)"/>
       </svg>
       <div className="wm-bubble" role="status">
         Привет, архитектор! Я — ВАЛЛИ.
