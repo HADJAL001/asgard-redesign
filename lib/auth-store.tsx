@@ -58,14 +58,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback<AuthValue["login"]>(async (username, password) => {
     try {
-      const data = await apiClient.post<{ token: string; user: User }>(
+      const data = await apiClient.post<{ token?: string; accessToken?: string; user: User }>(
         "/auth/login",
         { username, password },
         { skipAuthRedirect: true },
       )
-      setToken(data.token)
+      // поддерживаем оба варианта: token и accessToken
+      const authToken = data.token || data.accessToken || ""
+      setToken(authToken)
       setStoredUser(data.user)
-      setTokenState(data.token)
+      setTokenState(authToken)
       setUser(data.user)
       return { ok: true }
     } catch (err: any) {
@@ -75,14 +77,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback<AuthValue["register"]>(async (username, email, password) => {
     try {
-      const data = await apiClient.post<{ token: string; user: User }>(
+      const data = await apiClient.post<{ token?: string; accessToken?: string; user: User }>(
         "/auth/register",
         { username, email, password },
         { skipAuthRedirect: true },
       )
-      setToken(data.token)
+      // поддерживаем оба варианта: token и accessToken
+      const authToken = data.token || data.accessToken || ""
+      setToken(authToken)
       setStoredUser(data.user)
-      setTokenState(data.token)
+      setTokenState(authToken)
       setUser(data.user)
       return { ok: true }
     } catch (err: any) {
