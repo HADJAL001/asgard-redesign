@@ -22,19 +22,32 @@
 
 :root {
   color-scheme: dark;
-  --background: #020205;
-  --foreground: #e8ecf2;
-  --card: #0a0c12;
-  --card-foreground: #e8ecf2;
-  --primary: #00f0ff;
-  --primary-foreground: #020205;
-  --secondary: #0f1118;
-  --secondary-foreground: #e8ecf2;
-  --muted: #1a1f2e;
-  --muted-foreground: #7a828f;
-  --border: rgb(255 255 255 / 8%);
-  --ring: #00f0ff;
+
+  /* ── OSGARD NEW WORLD palette ── */
+  /* Платина: #E5E4E2 | Тёмно-синий: #0A1128 | Королевский синий: #1A2A6C */
+  /* Неон-синий: #2D7DD2 | Золото: #C9A84C */
+
+  --background: #0A1128;
+  --foreground: #E5E4E2;
+  --card: #0e1630;
+  --card-foreground: #E5E4E2;
+  --primary: #2D7DD2;
+  --primary-foreground: #E5E4E2;
+  --secondary: #1A2A6C;
+  --secondary-foreground: #E5E4E2;
+  --muted: #162040;
+  --muted-foreground: #8899bb;
+  --border: rgb(229 228 226 / 10%);
+  --ring: #2D7DD2;
   --radius: 1.25rem;
+
+  /* ONW extended tokens */
+  --onw-gold: #C9A84C;
+  --onw-platinum: #E5E4E2;
+  --onw-navy: #0A1128;
+  --onw-royal: #1A2A6C;
+  --onw-neon: #2D7DD2;
+  --onw-purple: #6A5ACD;
 }
 
 * { border-color: var(--border); outline-color: color-mix(in srgb, var(--ring) 50%, transparent); }

@@ -139,10 +139,28 @@ export function Navbar() {
       {/* Logo — 24px inset */}
       <Link
         href="/"
-        className="pl-6 text-[18px] font-light tracking-[0.22em] transition-opacity hover:opacity-90"
-        style={{ color: "#00D4FF" }}
+        className="pl-6 flex items-baseline gap-2 transition-opacity hover:opacity-90"
+        aria-label="OSGARD NEW WORLD — главная"
       >
-        OSGARD
+        <span
+          className="text-[18px] font-semibold tracking-[0.18em]"
+          style={{
+            background: "linear-gradient(135deg, #C9A84C 0%, #E5D4A0 50%, #C9A84C 100%)",
+            WebkitBackgroundClip: "text",
+            backgroundClip: "text",
+            color: "transparent",
+            textShadow: "none",
+            filter: "drop-shadow(0 0 8px rgba(201,168,76,0.45))",
+          }}
+        >
+          OSGARD
+        </span>
+        <span
+          className="text-[13px] font-light tracking-[0.28em]"
+          style={{ color: "#E5E4E2", opacity: 0.9 }}
+        >
+          NEW WORLD
+        </span>
       </Link>
 
       {/* Primary menu — 32px gaps, icon + label, active underline */}

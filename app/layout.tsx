@@ -5,6 +5,7 @@ import "./globals.css"
 import { OsgardStoreProvider } from "@/components/osgard-store"
 import { AuthProvider } from "@/lib/auth-store"
 import { I18nProvider } from "@/lib/i18n/use-translation"
+import { Footer } from "@/components/footer"
 
 
 const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter" })
@@ -21,14 +22,14 @@ const playfair = Playfair_Display({
 })
 
 export const metadata: Metadata = {
-  title: "OSGARD Neural Platform — Build beyond imagination",
-  description: "OSGARD Neural Platform: an AI-powered command interface for designing, building and launching digital products.",
+  title: "OSGARD NEW WORLD — Build beyond imagination",
+  description: "OSGARD NEW WORLD: премиальная AI-платформа нового мира — создавай, торгуй, развивайся в цифровой вселенной.",
   generator: "v0.app",
 }
 
 export const viewport: Viewport = {
   colorScheme: "dark",
-  themeColor: "#07070C",
+  themeColor: "#0A1128",
   width: "device-width",
   initialScale: 1,
   userScalable: true,
@@ -42,7 +43,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       >
         <I18nProvider>
           <AuthProvider>
-            <OsgardStoreProvider>{children}</OsgardStoreProvider>
+            <OsgardStoreProvider>
+              {children}
+              <Footer />
+            </OsgardStoreProvider>
           </AuthProvider>
         </I18nProvider>
 
