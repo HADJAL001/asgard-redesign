@@ -12,6 +12,11 @@ export function runAdminMigration() {
     console.log('✅ Migration 014: added banned column');
   }
 
+  if (!columns.includes('role')) {
+    db.prepare(`ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'`).run();
+    console.log('✅ Migration 014: added role column');
+  }
+
   // Идемпотентно назначаем role='admin' целевому аккаунту разработчика.
   // Самовосстанавливается при каждом рестарте — сработает и если аккаунт
   // регистрируется уже после первого запуска этой миграции.
