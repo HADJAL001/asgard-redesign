@@ -62,18 +62,22 @@ export const UserModel = {
   //        balance_crystals, balance_tc, referral_code, referred_by, is_verified,
   //        twofa_secret, twofa_enabled, nonce, role, created_at, updated_at
   create(data: CreateUserInput): number {
-    const stmt = db.prepare(`
-      INSERT INTO users (
-        email, password_hash, username,
-        referral_code, referred_by, is_verified, twofa_secret, twofa_enabled, nonce, role
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    // display_name существует только в legacy-схеме (backend/src/scripts/init-db.ts,
+    // NOT NULL без default) и отсутствует в 001_initial_schema.ts — заполняем
+    // её только если колонка реально есть, чтобы работать на обеих схемах.
+    const hasDisplayName = (db.prepare(`PRAGMA table_info(users)`).all() as { name: string }[])
+      .some((c) => c.name === 'display_name');
 
-    const info = stmt.run(
-      data.email,
-      data.password_hash,
-      data.username,
+    const columns = ['email', 'password_hash', 'username']
+    const values: any[] = [data.email, data.password_hash, data.username]
+
+    if (hasDisplayName) {
+      columns.push('display_name')
+      values.push(data.username)
+    }
+
+    columns.push('referral_code', 'referred_by', 'is_verified', 'twofa_secret', 'twofa_enabled', 'nonce', 'role')
+    values.push(
       data.referral_code ?? null,
       data.referred_by ?? null,
       data.is_verified ? 1 : 0,
@@ -81,7 +85,14 @@ export const UserModel = {
       data.twofa_enabled ? 1 : 0,
       data.nonce ?? 0,
       data.role ?? 'user',
-    );
+    )
+
+    const stmt = db.prepare(`
+      INSERT INTO users (${columns.join(', ')})
+      VALUES (${columns.map(() => '?').join(', ')})
+    `);
+
+    const info = stmt.run(...values);
 
     return info.lastInsertRowid as number;
   },
