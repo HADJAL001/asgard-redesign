@@ -100,12 +100,6 @@ export function DashboardView() {
   useEffect(() => {
     let cancelled = false
 
-    // Если уже прошёл (localStorage) — не показываем
-    if (typeof window !== "undefined") {
-      const done = localStorage.getItem("osgard_onboarding_done")
-      if (done === "1") return
-    }
-
     ;(async () => {
       try {
         const data = await apiClient.get<{ currentStep: number; completed: boolean }>(
@@ -113,8 +107,6 @@ export function DashboardView() {
         )
         if (!cancelled) {
           if (data.completed) {
-            // помечаем в localStorage чтобы не спрашивать снова
-            if (typeof window !== "undefined") localStorage.setItem("osgard_onboarding_done", "1")
             setOnboardingStep(null)
           } else {
             setOnboardingStep(data.currentStep)
