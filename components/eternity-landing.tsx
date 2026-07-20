@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, type FormEvent } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import * as THREE from "three"
 import {
@@ -17,14 +18,20 @@ import {
 } from "lucide-react"
 
 export function EternityLanding() {
+  const router = useRouter()
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [counter, setCounter] = useState(0)
 
+  // Речевой пузырь ДЖАРВИСА
   const bubbleRef = useRef<HTMLDivElement>(null)
   const [bubbleVisible, setBubbleVisible] = useState(false)
-  const bubblePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
-  const bubbleVisibleRef = useRef(false)
+  const bubbleReadyRef = useRef(false)
+
+  // Mouse tracking для взгляда ДЖАРВИСА
+  const mouseRef = useRef({ x: 0, y: 0 })
+  // Hover/click state
+  const [jarvisHovered, setJarvisHovered] = useState(false)
 
   const [particles, setParticles] = useState<
     { left: string; top: string; duration: string; delay: string }[]
@@ -78,8 +85,9 @@ export function EternityLanding() {
     renderer.setSize(width, height)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 0.85
+    renderer.toneMappingExposure = 1.8
     container.appendChild(renderer.domElement)
+
 
     const loader = new THREE.TextureLoader()
     loader.setCrossOrigin("anonymous")
@@ -243,405 +251,350 @@ export function EternityLanding() {
     orbitGroup.rotation.x = 0.2
     orbitGroup.rotation.z = -0.1
 
-    // =============================================
-    // ДЖАРВИС — полноценный 3D-робот на поверхности глобуса
-    // =============================================
-    const GLOBE_R = 1.26
+    // ── ДЖАРВИС — простая цельная яркая фигура ──
+    const jarvisGroup = new THREE.Group()
 
-    // --- Материалы ---
-    const goldMat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(0xFFD700),
-      metalness: 0.9,
-      roughness: 0.2,
-      envMapIntensity: 1.2,
-    })
-    const goldDarkMat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(0xB8860B),
-      metalness: 0.92,
-      roughness: 0.28,
-    })
-    const goldAccentMat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(0xFFA500),
-      metalness: 0.88,
-      roughness: 0.22,
-      emissive: new THREE.Color(0xCC6600),
-      emissiveIntensity: 0.12,
-    })
-    const eyeMat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(0x00D4FF),
-      emissive: new THREE.Color(0x00D4FF),
-      emissiveIntensity: 2.0,
-      metalness: 0.05,
-      roughness: 0.05,
-    })
-    const darkMat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(0x001830),
-      metalness: 0.5,
-      roughness: 0.6,
-    })
-    const jointMat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(0x333300),
+    // ── МОЩНОЕ ОСВЕЩЕНИЕ СПЕРЕДИ ──
+    const jLight1 = new THREE.PointLight(0xFFFFFF, 6.0, 30)
+    jLight1.position.set(0, 4, 8)
+    scene.add(jLight1)
+    const jLight2 = new THREE.DirectionalLight(0xFFEEDD, 5.0)
+    jLight2.position.set(0, 3, 10)
+    scene.add(jLight2)
+    const jLight3 = new THREE.DirectionalLight(0xFFD700, 3.5)
+    jLight3.position.set(-4, 2, 6)
+    scene.add(jLight3)
+    const jLight4 = new THREE.DirectionalLight(0xFF6600, 3.0)
+    jLight4.position.set(4, 0, 6)
+    scene.add(jLight4)
+
+    // ── МАТЕРИАЛЫ: ЯРКО-КРАСНЫЙ + ЗОЛОТО ──
+    const MAT_RED = new THREE.MeshStandardMaterial({
+      color: 0xFF1111,
       metalness: 0.7,
-      roughness: 0.5,
+      roughness: 0.1,
+      emissive: new THREE.Color(0x660000),
+      emissiveIntensity: 0.6,
+    })
+    const MAT_GOLD = new THREE.MeshStandardMaterial({
+      color: 0xFFD700,
+      metalness: 0.85,
+      roughness: 0.05,
+      emissive: new THREE.Color(0xAA7700),
+      emissiveIntensity: 0.5,
+    })
+    const MAT_EYE = new THREE.MeshStandardMaterial({
+      color: 0xFFFFFF,
+      emissive: new THREE.Color(0x44CCFF),
+      emissiveIntensity: 15.0,
+      metalness: 0,
+      roughness: 0,
+    })
+    const MAT_ARC = new THREE.MeshStandardMaterial({
+      color: 0xAAEEFF,
+      emissive: new THREE.Color(0x00CCFF),
+      emissiveIntensity: 18.0,
+      metalness: 0,
+      roughness: 0,
     })
 
-    // ---- ГОЛОВА ----
+    // ── ГОЛОВА (отдельная группа для слежения за мышью) ──
     const headGroup = new THREE.Group()
 
-    const headGeo = new THREE.BoxGeometry(0.22, 0.24, 0.18)
-    const head = new THREE.Mesh(headGeo, goldMat)
-    headGroup.add(head)
+    // Шлем — золотой купол
+    const helmetMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18, 20, 16),
+      MAT_GOLD
+    )
+    helmetMesh.scale.set(1.0, 1.2, 1.0)
+    headGroup.add(helmetMesh)
 
-    // Лобная пластина
-    const forehead = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.022), goldDarkMat)
-    forehead.position.set(0, 0.06, 0.1)
-    headGroup.add(forehead)
+    // Лицевая пластина — красная
+    const facePlate = new THREE.Mesh(
+      new THREE.BoxGeometry(0.26, 0.16, 0.07),
+      MAT_RED
+    )
+    facePlate.position.set(0, -0.02, 0.15)
+    headGroup.add(facePlate)
 
-    // Боковые щёки
-    const cheekL = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.1, 0.12), goldDarkMat)
-    cheekL.position.set(-0.115, -0.01, 0)
-    const cheekR = cheekL.clone()
-    cheekR.position.set(0.115, -0.01, 0)
-    headGroup.add(cheekL, cheekR)
+    // Глаза — светящиеся щели
+    const eyeGeo = new THREE.BoxGeometry(0.072, 0.022, 0.02)
+    const leftEyeM = new THREE.Mesh(eyeGeo, MAT_EYE)
+    leftEyeM.position.set(-0.062, 0.024, 0.185)
+    headGroup.add(leftEyeM)
+    const rightEyeM = new THREE.Mesh(eyeGeo.clone(), MAT_EYE)
+    rightEyeM.position.set(0.062, 0.024, 0.185)
+    headGroup.add(rightEyeM)
 
-    // Глазные ободки
-    const eyeRimGeo = new THREE.BoxGeometry(0.066, 0.042, 0.018)
-    const eyeRimL = new THREE.Mesh(eyeRimGeo, darkMat)
-    eyeRimL.position.set(-0.056, 0.01, 0.089)
-    const eyeRimR = new THREE.Mesh(eyeRimGeo, darkMat)
-    eyeRimR.position.set(0.056, 0.01, 0.089)
-    headGroup.add(eyeRimL, eyeRimR)
+    headGroup.position.y = 0.90
+    jarvisGroup.add(headGroup)
 
-    // Глаза (светящиеся)
-    const eyeGeo = new THREE.BoxGeometry(0.056, 0.033, 0.026)
-    const eyeL = new THREE.Mesh(eyeGeo, eyeMat)
-    eyeL.position.set(-0.056, 0.01, 0.093)
-    const eyeR = new THREE.Mesh(eyeGeo, eyeMat)
-    eyeR.position.set(0.056, 0.01, 0.093)
-    headGroup.add(eyeL, eyeR)
+    // ── ШЕЯ ──
+    const neckM = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.065, 0.080, 0.10, 12),
+      MAT_GOLD
+    )
+    neckM.position.y = 0.775
+    jarvisGroup.add(neckM)
 
-    // Световая полоска между глаз
-    const eyeBar = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.009, 0.022), eyeMat)
-    eyeBar.position.set(0, 0.01, 0.093)
-    headGroup.add(eyeBar)
+    // ── ТОРС — цельный, широкий, заметный ──
+    // Основа торса (красный)
+    const torsoMain = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.22, 0.18, 0.58, 16),
+      MAT_RED
+    )
+    torsoMain.position.y = 0.20
+    jarvisGroup.add(torsoMain)
 
-    // Антенна на макушке
-    const antennaBase = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.03), goldDarkMat)
-    antennaBase.position.set(0, 0.135, 0)
-    const antennaPole = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.08, 0.012), goldMat)
-    antennaPole.position.set(0, 0.195, 0)
-    const antennaTip = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 8), eyeMat)
-    antennaTip.position.set(0, 0.243, 0)
-    headGroup.add(antennaBase, antennaPole, antennaTip)
-
-    // Вентиляционные пазы на подбородке
-    const slotGeo = new THREE.BoxGeometry(0.1, 0.008, 0.022)
-    const slotYs = [-0.065, -0.08, -0.095]
-    slotYs.forEach(y => {
-      const s = new THREE.Mesh(slotGeo, darkMat)
-      s.position.set(0, y, 0.09)
-      headGroup.add(s)
+    // Нагрудные пластины (золотые) — левая и правая полосы
+    ;[-1, 1].forEach(s => {
+      const chest = new THREE.Mesh(
+        new THREE.BoxGeometry(0.10, 0.28, 0.10),
+        MAT_GOLD
+      )
+      chest.position.set(s * 0.14, 0.24, 0.17)
+      jarvisGroup.add(chest)
     })
 
-    // Подбородок
-    const chin = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.055, 0.14), goldDarkMat)
-    chin.position.set(0, -0.14, 0)
-    headGroup.add(chin)
+    // Поясная пластина (золотая)
+    const waist = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.19, 0.17, 0.08, 14),
+      MAT_GOLD
+    )
+    waist.position.y = -0.10
+    jarvisGroup.add(waist)
 
-    headGroup.position.set(0, 0.48, 0) // центр головы от начала координат группы
+    // Arc Reactor — сердцевина
+    const arcCore = new THREE.Mesh(
+      new THREE.CircleGeometry(0.042, 24),
+      MAT_ARC
+    )
+    arcCore.position.set(0, 0.22, 0.225)
+    jarvisGroup.add(arcCore)
 
-    // ---- ШЕЯ ----
-    const neck = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.1), goldDarkMat)
-    neck.position.set(0, 0.36, 0)
+    // Arc Reactor — кольцо
+    const arcRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.058, 0.010, 10, 28),
+      MAT_ARC
+    )
+    arcRing.position.set(0, 0.22, 0.224)
+    jarvisGroup.add(arcRing)
 
-    // ---- ТОРС ----
-    const torsoGroup = new THREE.Group()
+    // ── ПЛЕЧИ — золотые купола ──
+    ;[-1, 1].forEach(s => {
+      const shoulder = new THREE.Mesh(
+        new THREE.SphereGeometry(0.10, 14, 10),
+        MAT_GOLD
+      )
+      shoulder.position.set(s * 0.33, 0.38, 0)
+      shoulder.scale.set(1.0, 0.9, 0.9)
+      jarvisGroup.add(shoulder)
+    })
 
-    // Основа торса
-    const torsoMain = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.38, 0.22), goldMat)
-    torsoMain.position.set(0, 0.16, 0)
-    torsoGroup.add(torsoMain)
+    // ── РУКИ — цельные (плечо + предплечье + рука как один цилиндр) ──
+    ;[-1, 1].forEach(s => {
+      // Верхняя рука
+      const upperArm = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.060, 0.052, 0.30, 12),
+        MAT_RED
+      )
+      upperArm.position.set(s * 0.34, 0.16, 0)
+      upperArm.rotation.z = s * 0.15
+      jarvisGroup.add(upperArm)
 
-    // Грудная пластина (центральная)
-    const chestPlate = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.22, 0.026), goldDarkMat)
-    chestPlate.position.set(0, 0.18, 0.122)
-    torsoGroup.add(chestPlate)
+      // Нижняя рука
+      const lowerArm = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.048, 0.040, 0.28, 12),
+        MAT_RED
+      )
+      lowerArm.position.set(s * 0.38, -0.12, 0)
+      lowerArm.rotation.z = s * 0.18
+      jarvisGroup.add(lowerArm)
 
-    // Дуговой реактор (светящийся)
-    const reactorRing = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.015, 8, 16), eyeMat)
-    reactorRing.position.set(0, 0.22, 0.138)
-    const reactorCore = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.03), eyeMat)
-    reactorCore.position.set(0, 0.22, 0.136)
-    torsoGroup.add(reactorRing, reactorCore)
+      // Кисть
+      const hand = new THREE.Mesh(
+        new THREE.BoxGeometry(0.085, 0.070, 0.055),
+        MAT_GOLD
+      )
+      hand.position.set(s * 0.41, -0.30, 0)
+      jarvisGroup.add(hand)
+    })
 
-    // Боковые панели торса
-    const sidePanelGeo = new THREE.BoxGeometry(0.04, 0.28, 0.18)
-    const sidePanelL = new THREE.Mesh(sidePanelGeo, goldDarkMat)
-    sidePanelL.position.set(-0.19, 0.16, 0)
-    const sidePanelR = sidePanelL.clone()
-    sidePanelR.position.set(0.19, 0.16, 0)
-    torsoGroup.add(sidePanelL, sidePanelR)
+    // ── НОГИ — цельные ──
+    ;[-1, 1].forEach(s => {
+      // Бедро
+      const thigh = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.080, 0.068, 0.28, 12),
+        MAT_RED
+      )
+      thigh.position.set(s * 0.115, -0.30, 0)
+      jarvisGroup.add(thigh)
 
-    // Нижняя юбка торса (переход к тазу)
-    const hipBridge = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.06, 0.18), goldAccentMat)
-    hipBridge.position.set(0, -0.03, 0)
-    torsoGroup.add(hipBridge)
+      // Колено — золотая пластина
+      const knee = new THREE.Mesh(
+        new THREE.SphereGeometry(0.072, 12, 10),
+        MAT_GOLD
+      )
+      knee.position.set(s * 0.115, -0.50, 0)
+      knee.scale.set(1.0, 0.65, 0.85)
+      jarvisGroup.add(knee)
 
-    torsoGroup.position.set(0, 0, 0)
+      // Голень
+      const shin = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.062, 0.052, 0.28, 12),
+        MAT_RED
+      )
+      shin.position.set(s * 0.115, -0.70, 0)
+      jarvisGroup.add(shin)
 
-    // ---- ТАЗ ----
-    const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.1, 0.2), goldDarkMat)
-    pelvis.position.set(0, -0.1, 0)
+      // Ступня
+      const foot = new THREE.Mesh(
+        new THREE.BoxGeometry(0.096, 0.040, 0.18),
+        MAT_GOLD
+      )
+      foot.position.set(s * 0.115, -0.88, 0.030)
+      jarvisGroup.add(foot)
+    })
 
-    // ---- ЛЕВАЯ РУКА ----
-    const armLGroup = new THREE.Group()
+    // Arc Reactor свет
+    const arcLight = new THREE.PointLight(0x00CCFF, 4.0, 5.0)
+    arcLight.position.set(0, 0.22, 0.60)
+    jarvisGroup.add(arcLight)
 
-    // Плечо
-    const shoulderL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), goldMat)
-    shoulderL.position.set(0, 0, 0)
-
-    // Плечевой сустав
-    const shoulderJointL = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), jointMat)
-    shoulderJointL.position.set(0, 0, 0)
-
-    // Верхняя рука
-    const upperArmL = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.22, 0.085), goldMat)
-    upperArmL.position.set(0, -0.13, 0)
-
-    // Локтевой сустав
-    const elbowL = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), jointMat)
-    elbowL.position.set(0, -0.26, 0)
-
-    // Предплечье
-    const forearmL = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.19, 0.075), goldDarkMat)
-    forearmL.position.set(0, -0.38, 0)
-
-    // Запястье
-    const wristL = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.045, 0.065), goldAccentMat)
-    wristL.position.set(0, -0.5, 0)
-
-    // Кисть (держится за глобус)
-    const handBodyL = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.045), goldMat)
-    handBodyL.position.set(0, -0.57, 0)
-
-    // Пальцы (3 пальца)
-    for (let f = -1; f <= 1; f++) {
-      const finger = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.06, 0.016), goldDarkMat)
-      finger.position.set(f * 0.022, -0.628, 0)
-      armLGroup.add(finger)
-    }
-
-    armLGroup.add(shoulderL, shoulderJointL, upperArmL, elbowL, forearmL, wristL, handBodyL)
-    // Левая рука: позиция от торса, повёрнута вниз-вперёд (держится за глобус)
-    armLGroup.position.set(-0.225, 0.16, 0)
-    armLGroup.rotation.z = 0.35  // отведена слегка в сторону
-    armLGroup.rotation.x = 0.4   // наклонена вперёд
-
-    // ---- ПРАВАЯ РУКА ----
-    const armRGroup = armLGroup.clone()
-    armRGroup.position.set(0.225, 0.16, 0)
-    armRGroup.rotation.z = -0.35
-    armRGroup.rotation.x = 0.4
-
-    // ---- ЛЕВАЯ НОГА ----
-    const legLGroup = new THREE.Group()
-
-    // Бедро
-    const thighL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.24, 0.1), goldMat)
-    thighL.position.set(0, -0.12, 0)
-
-    // Коленный сустав
-    const kneeL = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), jointMat)
-    kneeL.position.set(0, -0.26, 0)
-
-    // Голень
-    const shinL = new THREE.Mesh(new THREE.BoxGeometry(0.088, 0.22, 0.1), goldDarkMat)
-    shinL.position.set(0, -0.39, 0)
-
-    // Лодыжка
-    const ankleL = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.04, 0.075), goldAccentMat)
-    ankleL.position.set(0, -0.515, 0)
-
-    // Ступня
-    const footL = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.045, 0.14), goldMat)
-    footL.position.set(0, -0.548, 0.025)
-
-    legLGroup.add(thighL, kneeL, shinL, ankleL, footL)
-    legLGroup.position.set(-0.1, -0.12, 0)
-    legLGroup.rotation.x = -0.15  // слегка согнуты (стоят на поверхности)
-
-    // ---- ПРАВАЯ НОГА ----
-    const legRGroup = legLGroup.clone()
-    legRGroup.position.set(0.1, -0.12, 0)
-    legRGroup.rotation.x = -0.15
-
-    // ---- Сборка всего тела ----
-    const jarvisGroup = new THREE.Group()
-    jarvisGroup.add(headGroup, neck, torsoGroup, pelvis, armLGroup, armRGroup, legLGroup, legRGroup)
-    jarvisGroup.scale.setScalar(0.42)
-    jarvisGroup.visible = false
+    // Начинаем невидимым — появится плавно
+    jarvisGroup.scale.setScalar(0.0)
     scene.add(jarvisGroup)
 
-    // Свечение от реактора
-    const reactorLight = new THREE.PointLight(0x00D4FF, 0.4, 0.6)
-    scene.add(reactorLight)
+    // ── ОРБИТАЛЬНАЯ АНИМАЦИЯ ──────────────────────────────────
+    // Параметры орбиты
+    const ORBIT_RADIUS = 2.8       // радиус орбиты вокруг глобуса
+    const ORBIT_HEIGHT = 0.7       // высота над экватором
+    const ORBIT_SPEED = (2 * Math.PI) / 12  // 1 оборот за 12 секунд
 
-    // Свечение глаз
-    const eyeLight = new THREE.PointLight(0x00D4FF, 0.6, 0.8)
-    scene.add(eyeLight)
+    let orbitTime = 0
+    let jarvisVisible = false
 
-    // ── Параметры трёхфазной анимации ──────────────────────────────
-    // Фаза 0: появление (scale 0→1, длительность J_APPEAR_DUR сек)
-    // Фаза 1: подтягивание вверх (translateY -0.5→0, длительность J_CLIMB_DUR сек)
-    // Фаза 2: покачивание (bob, бесконечно)
-    const J_START_SEC  = 1.5   // задержка перед стартом
-    const J_APPEAR_DUR = 1.5   // фаза 0: scale 0→1
-    const J_CLIMB_DUR  = 1.0   // фаза 1: translateY -0.5→0
-    const J_THETA      = -0.55 // азимут (правая сторона глобуса)
-    const J_PHI_FROM   = 1.78  // старт: низ-правая (за горизонтом)
-    const J_PHI_TO     = 1.08  // финиш: чуть выше экватора
-    const J_SURFACE_R  = GLOBE_R + 0.16
+    // Раскастер для клика/ховера
+    const raycaster = new THREE.Raycaster()
+    const ndc = new THREE.Vector2()
+    const jarvisMeshes: THREE.Mesh[] = []
+    jarvisGroup.traverse((obj: THREE.Object3D) => {
+      if ((obj as THREE.Mesh).isMesh) jarvisMeshes.push(obj as THREE.Mesh)
+    })
 
-    function easeInOut(t: number): number {
-      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+    const onMouseMove = (e: MouseEvent) => {
+      const rect = container.getBoundingClientRect()
+      mouseRef.current = {
+        x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        y: -((e.clientY - rect.top) / rect.height) * 2 + 1,
+      }
+      ndc.set(mouseRef.current.x, mouseRef.current.y)
+      raycaster.setFromCamera(ndc, camera)
+      const hits = raycaster.intersectObjects(jarvisMeshes, false)
+      setJarvisHovered(hits.length > 0)
+      container.style.cursor = hits.length > 0 ? "pointer" : ""
     }
-    function easeOut(t: number): number {
-      return 1 - Math.pow(1 - t, 3)
+
+    const onMouseClick = (e: MouseEvent) => {
+      const rect = container.getBoundingClientRect()
+      ndc.set(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1,
+      )
+      raycaster.setFromCamera(ndc, camera)
+      const hits = raycaster.intersectObjects(jarvisMeshes, false)
+      if (hits.length > 0) router.push("/jarvis")
     }
 
-    let time = 0
-    const radiusOrbit = 3.0
-    const speedOrbit = 0.08
-    let raf = 0
+    let t2 = 0
+    let rafId = 0
+    const DELTA = 1 / 60
+
+    // Пузырь через 2 секунды после старта
+    setTimeout(() => {
+      if (!bubbleReadyRef.current) {
+        bubbleReadyRef.current = true
+        setBubbleVisible(true)
+      }
+    }, 2000)
 
     function animate() {
-      raf = requestAnimationFrame(animate)
-      time += 0.005
+      rafId = requestAnimationFrame(animate)
+      t2 += 0.01
+      orbitTime += DELTA
 
+      // Глобус — без изменений
       earth.rotation.y += 0.0025
       clouds.rotation.y += 0.0035
-      atmosphere.rotation.y = earth.rotation.y
       orbitGroup.rotation.y += 0.0012
-
-      const offsetX = Math.sin(time * speedOrbit) * radiusOrbit
-      const offsetY = Math.cos(time * speedOrbit * 0.8) * radiusOrbit * 0.6
-      orbitGroup.position.x = offsetX
-      orbitGroup.position.y = offsetY + Math.sin(time * 0.6) * 0.04
-
+      const ox = Math.sin(t2 * 0.08) * 3.0
+      const oy = Math.cos(t2 * 0.064) * 1.8
+      orbitGroup.position.x = ox
+      orbitGroup.position.y = oy + Math.sin(t2 * 0.6) * 0.04
       stars.rotation.y += 0.0001
       stars2.rotation.y -= 0.00005
 
-      // Время в секундах (каждый тик +0.005, ~60fps → 0.005*60/1 = 0.3 units/sec)
-      const tSec = time / 0.3
-
-      // ── Финальная позиция на глобусе (phi = J_PHI_TO) ──────────
-      const phi   = J_PHI_TO
-      const theta = J_THETA
-      const lx = J_SURFACE_R * Math.sin(phi) * Math.cos(theta)
-      const ly = J_SURFACE_R * Math.cos(phi)
-      const lz = J_SURFACE_R * Math.sin(phi) * Math.sin(theta)
-      const localVec = new THREE.Vector3(lx, ly, lz)
-      localVec.applyEuler(orbitGroup.rotation)
-      const baseX = orbitGroup.position.x + localVec.x
-      const baseY = orbitGroup.position.y + localVec.y
-      const baseZ = orbitGroup.position.z + localVec.z
-
-      // ── Ориентация по нормали поверхности (вычисляется один раз) ─
-      const normalWorld = localVec.clone().normalize()
-      const upWorld = new THREE.Vector3(0, 1, 0)
-      const crossAxis = new THREE.Vector3().crossVectors(upWorld, normalWorld)
-      if (crossAxis.lengthSq() > 1e-6) {
-        const crossAngle = Math.acos(Math.max(-1, Math.min(1, upWorld.dot(normalWorld))))
-        const orientQ = new THREE.Quaternion().setFromAxisAngle(crossAxis.normalize(), crossAngle)
-        const faceQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI + theta + 0.3, 0))
-        jarvisGroup.quaternion.copy(orientQ).multiply(faceQ)
+      // Появление Джарвиса (первые 1.5 секунды)
+      if (!jarvisVisible) {
+        const scaleT = Math.min(orbitTime / 1.5, 1.0)
+        const eased = 1 - Math.pow(1 - scaleT, 3)
+        jarvisGroup.scale.setScalar(eased * 1.3)
+        if (scaleT >= 1.0) jarvisVisible = true
       }
 
-      if (tSec < J_START_SEC) {
-        // ── Скрыт до старта ─────────────────────────────────────────
-        jarvisGroup.visible = false
+      // Орбитальный полёт вокруг глобуса
+      // Глобус перемещается вместе с orbitGroup, поэтому следим за его позицией
+      const globeCenter = new THREE.Vector3(
+        orbitGroup.position.x,
+        orbitGroup.position.y,
+        orbitGroup.position.z
+      )
 
-      } else {
-        jarvisGroup.visible = true
-        const elapsed = tSec - J_START_SEC
+      const angle = orbitTime * ORBIT_SPEED
+      // Позиция на орбите относительно центра глобуса
+      const orbitX = globeCenter.x + Math.cos(angle) * ORBIT_RADIUS
+      const orbitY = globeCenter.y + ORBIT_HEIGHT + Math.sin(orbitTime * 0.4) * 0.15 // лёгкое покачивание
+      const orbitZ = globeCenter.z + Math.sin(angle) * ORBIT_RADIUS
 
-        // ── Фаза 0: появление — scale 0 → 1 за J_APPEAR_DUR сек ────
-        const appearT = Math.min(elapsed / J_APPEAR_DUR, 1)
-        const scale   = easeOut(appearT)
-        jarvisGroup.scale.setScalar(0.42 * scale)
+      jarvisGroup.position.set(orbitX, orbitY, orbitZ)
 
-        // opacity fade-in синхронно со scale
-        jarvisGroup.traverse(obj => {
-          if ((obj as THREE.Mesh).isMesh) {
-            const m = (obj as THREE.Mesh).material as THREE.MeshStandardMaterial
-            if (!m.transparent) m.transparent = true
-            m.opacity = scale
-          }
-        })
+      // Поворот к центру глобуса (анализирует Землю)
+      const toGlobe = new THREE.Vector3(
+        globeCenter.x - orbitX,
+        globeCenter.y - orbitY,
+        globeCenter.z - orbitZ
+      ).normalize()
 
-        if (elapsed < J_APPEAR_DUR) {
-          // В фазе 0: стоим на месте, просто появляемся
-          jarvisGroup.position.set(baseX, baseY, baseZ)
+      // lookAt с сохранением "верха"
+      const targetQuat = new THREE.Quaternion()
+      const lookMat = new THREE.Matrix4()
+      const up = new THREE.Vector3(0, 1, 0)
+      lookMat.lookAt(
+        new THREE.Vector3(orbitX, orbitY, orbitZ),
+        new THREE.Vector3(globeCenter.x, globeCenter.y, globeCenter.z),
+        up
+      )
+      targetQuat.setFromRotationMatrix(lookMat)
+      jarvisGroup.quaternion.slerp(targetQuat, 0.08)
 
-        } else {
-          // ── Фаза 1: подтягивание вверх — translateY -0.5 → 0 ─────
-          const climbElapsed = elapsed - J_APPEAR_DUR
-          const climbT = Math.min(climbElapsed / J_CLIMB_DUR, 1)
-          const climbEased = easeInOut(climbT)
-          // смещение вдоль нормали к поверхности (-0.5 → 0)
-          const climbOffset = (1 - climbEased) * (-0.5)
-          const offsetVec = normalWorld.clone().multiplyScalar(climbOffset)
+      // Пульс Arc Reactor
+      const pulse = 0.7 + 0.3 * Math.sin(orbitTime * 3.5)
+      ;(arcCore.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse * 14.0
+      ;(arcRing.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse * 9.0
+      arcLight.intensity = pulse * 4.0
 
-          jarvisGroup.position.set(
-            baseX + offsetVec.x,
-            baseY + offsetVec.y,
-            baseZ + offsetVec.z,
-          )
-
-          // ── Фаза 2: покачивание после завершения climb ────────────
-          if (climbT >= 1) {
-            const bob = Math.sin(tSec * 1.5) * 0.03
-            const bobVec = normalWorld.clone().multiplyScalar(bob)
-            jarvisGroup.position.set(
-              baseX + bobVec.x,
-              baseY + bobVec.y,
-              baseZ + bobVec.z,
-            )
-
-            // Показываем пузырь
-            const screenPos = jarvisGroup.position.clone().project(camera)
-            const rect = container!.getBoundingClientRect()
-            const sx = (screenPos.x * 0.5 + 0.5) * rect.width + rect.left
-            const sy = (-screenPos.y * 0.5 + 0.5) * rect.height + rect.top
-            bubblePosRef.current = { x: sx, y: sy - 20 }
-            if (!bubbleVisibleRef.current) {
-              bubbleVisibleRef.current = true
-              setBubbleVisible(true)
-            }
-            if (bubbleRef.current) {
-              bubbleRef.current.style.left = `${sx}px`
-              bubbleRef.current.style.top  = `${sy - 20}px`
-            }
-          }
-        }
-
-        // ── Пульсация глаз и реактора (все фазы) ─────────────────
-        const pulse = 1.0 + 0.6 * Math.sin(tSec * 3.8)
-        ;(eyeL.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse
-        ;(eyeR.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse
-        ;(eyeBar.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse * 0.7
-        ;(antennaTip.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.8 + 0.5 * Math.sin(tSec * 2.1)
-        ;(reactorRing.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse * 0.9
-        ;(reactorCore.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse * 1.1
-        eyeLight.position.copy(jarvisGroup.position)
-        eyeLight.intensity = 0.25 + 0.25 * Math.sin(tSec * 3.8)
-        reactorLight.position.copy(jarvisGroup.position)
-        reactorLight.intensity = 0.2 + 0.2 * Math.sin(tSec * 3.8)
-      }
+      // Голова следит за мышью (лёгкий поворот)
+      const tRX = mouseRef.current.y * 0.15
+      const tRY = mouseRef.current.x * 0.20
+      headGroup.rotation.x += (tRX - headGroup.rotation.x) * 0.05
+      headGroup.rotation.y += (tRY - headGroup.rotation.y) * 0.05
 
       renderer.render(scene, camera)
     }
     animate()
+
+    container.addEventListener("mousemove", onMouseMove)
+    container.addEventListener("click", onMouseClick)
 
     const onResize = () => {
       const w = container.clientWidth
@@ -655,23 +608,11 @@ export function EternityLanding() {
     window.addEventListener("resize", onResize)
 
     return () => {
-      cancelAnimationFrame(raf)
+      cancelAnimationFrame(rafId)
+      container.removeEventListener("mousemove", onMouseMove)
+      container.removeEventListener("click", onMouseClick)
       window.removeEventListener("resize", onResize)
       renderer.dispose()
-      earthGeometry.dispose()
-      cloudGeometry.dispose()
-      atmosphereGeometry.dispose()
-      starGeometry.dispose()
-      starGeo2.dispose()
-      earthMaterial.dispose()
-      cloudMaterial.dispose()
-      atmosphereMaterial.dispose()
-      starMaterial.dispose()
-      starMat2.dispose()
-      mapTexture.dispose()
-      normalTexture.dispose()
-      specularTexture.dispose()
-      cloudTexture.dispose()
       if (renderer.domElement.parentNode === container) {
         container.removeChild(renderer.domElement)
       }
@@ -844,23 +785,18 @@ export function EternityLanding() {
         </section>
       </div>
 
-      {/* Речевой пузырь ДЖАРВИСА — HTML-оверлей, позиция обновляется из Three.js */}
+      {/* Речевой пузырь ДЖАРВИСА — HTML-оверлей поверх Three.js */}
       {bubbleVisible && (
         <div
           ref={bubbleRef}
-          className="jarvis-bubble"
+          className="jarvis-speech-bubble"
           aria-live="polite"
-          style={{
-            position: "fixed",
-            left: bubblePosRef.current.x,
-            top: bubblePosRef.current.y,
-            zIndex: 10,
-            pointerEvents: "none",
-            transform: "translate(-50%, -100%)",
-          }}
+          style={{ position: "fixed", zIndex: 20, pointerEvents: "none", transform: "translate(-50%, calc(-100% - 20px))" }}
         >
-          <span className="jarvis-text">Привет, архитектор!<br />Я — ДЖАРВИС.</span>
-          <div className="jarvis-cursor" />
+          <span className="jarvis-speech-text">
+            Привет, архитектор!<br />Я — ДЖАРВИС.<br />Анализирую Землю...
+          </span>
+          <div className="jarvis-speech-arrow" />
         </div>
       )}
 
@@ -885,9 +821,9 @@ const CSS = `
 .eternity-page #globe-bg {
   position: fixed; top: 0; left: 0;
   width: 100vw; height: 100vh;
-  z-index: 0; pointer-events: none; overflow: hidden;
+  z-index: 0; pointer-events: auto; overflow: hidden;
 }
-.eternity-page #three-container { width: 100%; height: 100%; display: block; }
+.eternity-page #three-container { width: 100%; height: 100%; display: block; cursor: default; }
 
 .eternity-page #particles {
   position: fixed; top: 0; left: 0;
@@ -1097,183 +1033,63 @@ const CSS = `
   .eternity-page .artifact-form button { width: 100%; height: 44px; }
 }
 
-/* ===================== ДЖАРВИС ОВЕРЛЕЙ ===================== */
-
-/*
-  z-index: 10 — поверх глобуса (z-index: 0) и частиц (z-index: 1)
-  Позиция: правая сторона экрана, центр по вертикали — там где глобус
-*/
-.eternity-page .jarvis-overlay {
-  position: fixed;
-  right: 18%;
-  bottom: 26%;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  pointer-events: none;
-  /* Стартовая позиция: скрыт снизу */
-  transform: translateY(160px) scale(0.92);
-  opacity: 0;
-  transition:
-    transform 1.5s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity   0.8s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform, opacity;
-}
-
-/* Фаза 1: выглядывает — видна только верхняя часть головы */
-.eternity-page .jarvis-overlay.jarvis-peeking {
-  transform: translateY(72px) scale(0.96);
-  opacity: 0.85;
-}
-
-/* Фаза 2: занял позицию на глобусе — лёгкое покачивание */
-.eternity-page .jarvis-overlay.jarvis-settled {
-  transform: translateY(0) scale(1);
-  opacity: 1;
-  animation: jarvis-bob 5s ease-in-out infinite;
-}
-
-@keyframes jarvis-bob {
-  0%,  100% { transform: translateY(0px)   rotate(-0.5deg); }
-  25%        { transform: translateY(-5px)  rotate(0.3deg);  }
-  50%        { transform: translateY(-9px)  rotate(-0.3deg); }
-  75%        { transform: translateY(-4px)  rotate(0.5deg);  }
-}
-
-/* --- SVG-голова --- */
-.eternity-page .jarvis-head {
-  position: relative;
-  width: 92px;
-  height: 100px;
-}
-
-.eternity-page .jarvis-svg {
-  width: 92px;
-  height: 100px;
-  display: block;
-  /* Мягкое золотое свечение вокруг головы */
-  filter:
-    drop-shadow(0 0 6px rgba(255, 215, 0, 0.55))
-    drop-shadow(0 0 18px rgba(255, 180, 0, 0.28))
-    drop-shadow(0 4px 12px rgba(0, 0, 0, 0.7));
-}
-
-/* Пульсация глаз — плавная, без рывков */
-.eternity-page .jarvis-eye-left,
-.eternity-page .jarvis-eye-right {
-  animation: jarvis-eye-pulse 3s ease-in-out infinite;
-}
-.eternity-page .jarvis-eye-right {
-  animation-delay: 0.4s;
-}
-@keyframes jarvis-eye-pulse {
-  0%,  100% { opacity: 1;    filter: drop-shadow(0 0 4px #00D4FF); }
-  50%        { opacity: 0.65; filter: drop-shadow(0 0 10px #00D4FF) drop-shadow(0 0 20px rgba(0,212,255,0.6)); }
-}
-
-/* Орбитальное кольцо вокруг головы */
-.eternity-page .jarvis-halo {
-  position: absolute;
-  top:    -10px;
-  left:   -10px;
-  right:  -10px;
-  bottom: -10px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 215, 0, 0.3);
-  animation: jarvis-halo-spin 8s linear infinite;
-  pointer-events: none;
-}
-.eternity-page .jarvis-halo::before {
-  content: '';
-  position: absolute;
-  top: 18%; left: -3px;
-  width: 5px; height: 5px;
-  border-radius: 50%;
-  background: #FFD700;
-  box-shadow: 0 0 8px #FFD700, 0 0 16px rgba(255, 215, 0, 0.6);
-}
-@keyframes jarvis-halo-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-/* --- Речевой пузырь — появляется через 1.5s после settled --- */
-.eternity-page .jarvis-bubble {
-  position: relative;
-  background: rgba(2, 8, 18, 0.88);
-  border: 1px solid rgba(255, 215, 0, 0.35);
-  border-radius: 12px 12px 12px 4px;
-  padding: 10px 16px;
-  max-width: 200px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+/* ── РЕЧЕВОЙ ПУЗЫРЬ ДЖАРВИСА ─────────────────────────────── */
+.jarvis-speech-bubble {
+  /* позиция задаётся через style={{ left, top }} из animate() */
+  background: rgba(4, 10, 20, 0.82);
+  border: 2px solid #FFD700;
+  border-radius: 14px 14px 14px 4px;
+  padding: 12px 18px;
+  min-width: 200px;
+  max-width: 240px;
+  text-align: center;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   box-shadow:
-    0 0 16px rgba(255, 215, 0, 0.1),
-    0 4px 20px rgba(0, 0, 0, 0.5),
-    inset 0 0 8px rgba(255, 215, 0, 0.04);
-  /* Задержка 1.5s = время появления + небольшой буфер */
-  animation: jarvis-bubble-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) 1.5s both;
+    0 0 24px rgba(255, 215, 0, 0.18),
+    0 0 6px rgba(255, 215, 0, 0.35),
+    0 6px 28px rgba(0, 0, 0, 0.6),
+    inset 0 0 12px rgba(255, 215, 0, 0.05);
+  animation: jarvis-bubble-pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Стрелка пузыря вниз к голове */
-.eternity-page .jarvis-bubble::after {
+@keyframes jarvis-bubble-pop {
+  0%   { opacity: 0; transform: translate(-50%, -100%) scale(0.82); }
+  100% { opacity: 1; transform: translate(-50%, -100%) scale(1);    }
+}
+
+.jarvis-speech-text {
+  font-family: var(--font-inter), 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  color: #FFE566;
+  line-height: 1.55;
+  letter-spacing: 0.03em;
+  text-shadow: 0 0 12px rgba(255, 215, 0, 0.4), 0 1px 3px rgba(0,0,0,0.7);
+  display: block;
+}
+
+/* Стрелка вниз к голове */
+.jarvis-speech-arrow {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-top: 10px solid #FFD700;
+}
+.jarvis-speech-arrow::after {
   content: '';
   position: absolute;
-  bottom: -7px;
-  left: 28px;
-  width: 12px;
-  height: 12px;
-  background: rgba(2, 8, 18, 0.88);
-  border-right: 1px solid rgba(255, 215, 0, 0.35);
-  border-bottom: 1px solid rgba(255, 215, 0, 0.35);
-  transform: rotate(45deg);
-}
-
-@keyframes jarvis-bubble-in {
-  from { opacity: 0; transform: scale(0.88) translateY(-6px); }
-  to   { opacity: 1; transform: scale(1)    translateY(0);    }
-}
-
-.eternity-page .jarvis-text {
-  font-family: var(--font-inter), 'Inter', sans-serif;
-  font-size: 12px;
-  font-weight: 400;
-  color: #e8d880;
-  line-height: 1.55;
-  letter-spacing: 0.04em;
-  display: inline;
-}
-
-/* Мигающий курсор */
-.eternity-page .jarvis-cursor {
-  display: inline-block;
-  width: 2px;
-  height: 13px;
-  background: #FFD700;
-  margin-left: 3px;
-  vertical-align: middle;
-  animation: jarvis-cursor-blink 1s step-end infinite;
-}
-@keyframes jarvis-cursor-blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0; }
-}
-
-@media (max-width: 1100px) {
-  .eternity-page .jarvis-overlay {
-    right: 8%;
-    bottom: 22%;
-  }
-}
-@media (max-width: 768px) {
-  .eternity-page .jarvis-overlay {
-    right: 4%;
-    bottom: 18%;
-  }
-  .eternity-page .jarvis-head  { width: 72px; height: 78px; }
-  .eternity-page .jarvis-svg   { width: 72px; height: 78px; }
-  .eternity-page .jarvis-bubble { max-width: 170px; }
+  top: -12px;
+  left: -7px;
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 8px solid rgba(4, 10, 20, 0.82);
 }
 `
