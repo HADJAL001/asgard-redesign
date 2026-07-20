@@ -16,10 +16,12 @@ import {
   BarChart3,
   Users,
   Sparkle,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react"
 
 import { useOsgard } from "./osgard-store"
+import { useAuth } from "@/lib/auth-store"
 import { CURRENCIES, CURRENCY_ORDER, formatCurrencyAmount } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { LOCALES, LOCALE_SHORT, LOCALE_LABELS, type Locale } from "@/lib/i18n"
@@ -124,9 +126,12 @@ export function Navbar() {
   const pathname = usePathname()
   const { wallet } = useOsgard()
   const { t } = useTranslation()
+  const { user } = useAuth()
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/")
+
+  const navItems = user?.role === "admin" ? [...NAV, { key: "nav.admin", href: "/admin", Icon: ShieldCheck }] : NAV
 
   return (
     <div className="sticky top-0 z-40 font-sans">
@@ -163,7 +168,7 @@ export function Navbar() {
 
       {/* Primary menu — 32px gaps, icon + label, active underline */}
       <nav className="ml-10 hidden items-center gap-8 md:flex" aria-label={t("nav.mainNav")}>
-        {NAV.map(({ key, href, Icon }) => {
+        {navItems.map(({ key, href, Icon }) => {
           const active = isActive(href)
           return (
             <Link
