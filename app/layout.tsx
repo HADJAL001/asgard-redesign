@@ -22,9 +22,30 @@ const playfair = Playfair_Display({
 })
 
 export const metadata: Metadata = {
-  title: "OSGARD NEW WORLD — Build beyond imagination",
+  metadataBase: new URL("https://osgardnewworld.com"),
+  title: {
+    default: "OSGARD NEW WORLD — Build beyond imagination",
+    template: "%s | OSGARD NEW WORLD",
+  },
   description: "OSGARD NEW WORLD: премиальная AI-платформа нового мира — создавай, торгуй, развивайся в цифровой вселенной.",
   generator: "v0.app",
+  alternates: {
+    canonical: "https://osgardnewworld.com",
+  },
+  openGraph: {
+    title: "OSGARD NEW WORLD",
+    description: "Премиальная AI-платформа нового мира",
+    url: "https://osgardnewworld.com",
+    siteName: "OSGARD NEW WORLD",
+    locale: "ru_RU",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "OSGARD NEW WORLD",
+    description: "Премиальная AI-платформа нового мира",
+    site: "@osgardnewworld",
+  },
 }
 
 export const viewport: Viewport = {
