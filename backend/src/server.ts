@@ -69,6 +69,8 @@ import { runTcConvertMigration } from "./migrations/008_tc_convert"
 import { run2FAMigration } from "./migrations/009_2fa"
 import { runNonceMigration } from "./migrations/010_nonce"
 import { runIndexesMigration } from "./migrations/011_indexes"
+import { runWalliSystemMigration } from "./migrations/012_walli_system"
+import walliRoutes from "./routes/walli.routes"
 
 
 
@@ -89,6 +91,9 @@ runNonceMigration()
 
 /* Гарантируем наличие performance-индексов при старте сервера. */
 runIndexesMigration()
+
+/* Гарантируем наличие таблиц системы прокачки ВАЛЛИ. */
+runWalliSystemMigration()
 
 
 
@@ -111,6 +116,7 @@ app.use("/jarvis", jarvisShopRoutes)
 app.use("/twin", twinRoutes)
 app.use("/feedback", feedbackRoutes)
 app.use("/api/tc", tcRoutes)
+app.use("/walli", walliRoutes)
 
 
 
