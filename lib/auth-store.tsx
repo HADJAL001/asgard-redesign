@@ -23,6 +23,8 @@ export type User = {
   avatarUrl?: string | null
   bio?: string | null
   createdAt?: string | number
+  role?: string
+  banned?: boolean
 }
 
 type AuthResult = { ok: boolean; message?: string }

@@ -6,14 +6,24 @@ dotenv.config()
    OSGARD · AI Generator Service
    ----------------------------------------------------------------
    Генерирует контент проекта (описание, бейдж, стартовые артефакты)
-   через Claude API. Если ключ ANTHROPIC_API_KEY не задан или запрос
-   к API упал — используется детерминированный локальный fallback,
-   так что фича работает даже без реального AI-провайдера.
+   через цепочку AI-провайдеров: DeepSeek → Grok → Claude. Первый
+   сконфигурированный и успешно ответивший провайдер побеждает.
+   Если ни один ключ не задан или все запросы упали — используется
+   детерминированный локальный fallback, так что фича работает даже
+   без реального AI-провайдера.
    ================================================================ */
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || ""
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022"
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ""
+const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat"
+
+const GROK_API_KEY = process.env.GROK_API_KEY || ""
+const GROK_API_URL = "https://api.x.ai/v1/chat/completions"
+const GROK_MODEL = process.env.GROK_MODEL || "grok-2-latest"
+
+const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY || ""
+const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
+const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022"
 
 export type AiArtifactSuggestion = {
   name: string
@@ -24,8 +34,8 @@ export type AiProjectGeneration = {
   description: string
   badge: string
   artifacts: AiArtifactSuggestion[]
-  /** "ai" если сгенерировано реальной моделью, "fallback" если локальным генератором */
-  source: "ai" | "fallback"
+  /** источник генерации: конкретный провайдер или "fallback" для локального генератора */
+  source: "deepseek" | "grok" | "claude" | "fallback"
 }
 
 const BADGE_POOL = [
@@ -104,11 +114,8 @@ function isValidType(t: any): t is AiArtifactSuggestion["type"] {
   return ARTIFACT_TYPES.includes(t)
 }
 
-/** Вызывает Claude API для генерации описания проекта, бейджа и стартовых артефактов. */
-async function callClaude(name: string, hint?: string): Promise<AiProjectGeneration | null> {
-  if (!ANTHROPIC_API_KEY) return null
-
-  const prompt = `Ты — генератор контента для игровой платформы OSGARD, где пользователи создают "проекты" и цифровые "артефакты".
+function buildPrompt(name: string, hint?: string): string {
+  return `Ты — генератор контента для игровой платформы OSGARD, где пользователи создают "проекты" и цифровые "артефакты".
 Дан проект с названием: "${name}"${hint ? ` и описанием намерения пользователя: "${hint}"` : ""}.
 
 Верни СТРОГО валидный JSON (без пояснений, без markdown) со следующей структурой:
@@ -122,19 +129,92 @@ async function callClaude(name: string, hint?: string): Promise<AiProjectGenerat
   ]
 }
 Верни ровно 3 артефакта. Ответь только JSON.`
+}
+
+/** Парсит и валидирует JSON-ответ модели в общую структуру генерации. */
+function parseGeneration(text: string, source: AiProjectGeneration["source"]): AiProjectGeneration | null {
+  const parsed = extractJson(text)
+  if (!parsed) return null
+
+  const description = typeof parsed.description === "string" ? parsed.description : null
+  const badge = typeof parsed.badge === "string" && BADGE_POOL.includes(parsed.badge) ? parsed.badge : null
+  const rawArtifacts = Array.isArray(parsed.artifacts) ? parsed.artifacts : []
+
+  const artifacts: AiArtifactSuggestion[] = rawArtifacts
+    .filter((a: any) => a && typeof a.name === "string" && isValidType(a.type))
+    .map((a: any) => ({ name: a.name, type: a.type }))
+    .slice(0, 3)
+
+  if (!description || !badge || artifacts.length === 0) return null
+
+  return { description, badge, artifacts, source }
+}
+
+/** Общий вызов для OpenAI-совместимых chat/completions API (DeepSeek, Grok/xAI). */
+async function callOpenAiCompatible(
+  apiUrl: string,
+  apiKey: string,
+  model: string,
+  name: string,
+  hint: string | undefined,
+  source: "deepseek" | "grok",
+): Promise<AiProjectGeneration | null> {
+  if (!apiKey) return null
 
   try {
-    const res = await fetch(ANTHROPIC_API_URL, {
+    const res = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: buildPrompt(name, hint) }],
+        max_tokens: 1024,
+      }),
+    })
+
+    if (!res.ok) {
+      console.error(`[ai-generator] ${source} API error: ${res.status} ${res.statusText}`)
+      return null
+    }
+
+    const data: any = await res.json()
+    const text: string = data?.choices?.[0]?.message?.content || ""
+    return parseGeneration(text, source)
+  } catch (err) {
+    console.error(`[ai-generator] ${source} API call failed:`, err)
+    return null
+  }
+}
+
+/** Вызывает DeepSeek API для генерации описания проекта, бейджа и стартовых артефактов. */
+async function callDeepSeek(name: string, hint?: string): Promise<AiProjectGeneration | null> {
+  return callOpenAiCompatible(DEEPSEEK_API_URL, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, name, hint, "deepseek")
+}
+
+/** Вызывает Grok (xAI) API для генерации описания проекта, бейджа и стартовых артефактов. */
+async function callGrok(name: string, hint?: string): Promise<AiProjectGeneration | null> {
+  return callOpenAiCompatible(GROK_API_URL, GROK_API_KEY, GROK_MODEL, name, hint, "grok")
+}
+
+/** Вызывает Claude API для генерации описания проекта, бейджа и стартовых артефактов. */
+async function callClaude(name: string, hint?: string): Promise<AiProjectGeneration | null> {
+  if (!CLAUDE_API_KEY) return null
+
+  try {
+    const res = await fetch(CLAUDE_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": CLAUDE_API_KEY,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
+        model: CLAUDE_MODEL,
         max_tokens: 1024,
-        messages: [{ role: "user", content: prompt }],
+        messages: [{ role: "user", content: buildPrompt(name, hint) }],
       }),
     })
 
@@ -145,38 +225,29 @@ async function callClaude(name: string, hint?: string): Promise<AiProjectGenerat
 
     const data: any = await res.json()
     const text: string = data?.content?.[0]?.text || ""
-    const parsed = extractJson(text)
-    if (!parsed) return null
-
-    const description = typeof parsed.description === "string" ? parsed.description : null
-    const badge = typeof parsed.badge === "string" && BADGE_POOL.includes(parsed.badge) ? parsed.badge : null
-    const rawArtifacts = Array.isArray(parsed.artifacts) ? parsed.artifacts : []
-
-    const artifacts: AiArtifactSuggestion[] = rawArtifacts
-      .filter((a: any) => a && typeof a.name === "string" && isValidType(a.type))
-      .map((a: any) => ({ name: a.name, type: a.type }))
-      .slice(0, 3)
-
-    if (!description || !badge || artifacts.length === 0) return null
-
-    return { description, badge, artifacts, source: "ai" }
+    return parseGeneration(text, "claude")
   } catch (err) {
     console.error("[ai-generator] Claude API call failed:", err)
     return null
   }
 }
 
+const PROVIDER_CHAIN = [callDeepSeek, callGrok, callClaude]
+
 /**
- * Основная точка входа: генерирует контент проекта через Claude API,
- * при любой ошибке/отсутствии ключа — откатывается на локальный fallback.
+ * Основная точка входа: пробует провайдеров по очереди (DeepSeek → Grok → Claude),
+ * при отсутствии ключа или ошибке переходит к следующему. Если все отказали —
+ * откатывается на локальный fallback.
  */
 export async function generateProjectContent(name: string, hint?: string): Promise<AiProjectGeneration> {
-  const aiResult = await callClaude(name, hint)
-  if (aiResult) return aiResult
+  for (const provider of PROVIDER_CHAIN) {
+    const result = await provider(name, hint)
+    if (result) return result
+  }
   return localFallbackGeneration(name, hint)
 }
 
-/** true, если реальный AI-провайдер сконфигурирован (иначе всегда используется fallback). */
+/** true, если хотя бы один реальный AI-провайдер сконфигурирован (иначе всегда используется fallback). */
 export function isAiConfigured(): boolean {
-  return !!ANTHROPIC_API_KEY
+  return !!(DEEPSEEK_API_KEY || GROK_API_KEY || CLAUDE_API_KEY)
 }

@@ -14,6 +14,7 @@ export interface User {
   twofa_enabled?: boolean;
   nonce?: number;
   role?: string;
+  banned?: boolean | number;
   created_at?: string | number;
   updated_at?: string | number;
 }
@@ -56,22 +57,32 @@ export const UserModel = {
     }
   },
 
-  // Создать пользователя — совместимо со схемой init-db.ts
-  // Схема: id, email, password_hash, username, display_name, level, avatar_url, bio, created_at
+  // Создать пользователя — совместимо со схемой db/migrations/001_initial_schema.ts
+  // Схема: id, email, password_hash, username, balance_credits, balance_shards,
+  //        balance_crystals, balance_tc, referral_code, referred_by, is_verified,
+  //        twofa_secret, twofa_enabled, nonce, role, created_at, updated_at
   create(data: CreateUserInput): number {
     const stmt = db.prepare(`
-      INSERT INTO users (email, password_hash, username, display_name, level)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO users (
+        email, password_hash, username,
+        referral_code, referred_by, is_verified, twofa_secret, twofa_enabled, nonce, role
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    
+
     const info = stmt.run(
       data.email,
       data.password_hash,
       data.username,
-      data.username, // display_name = username по умолчанию
-      1              // level = 1
+      data.referral_code ?? null,
+      data.referred_by ?? null,
+      data.is_verified ? 1 : 0,
+      data.twofa_secret ?? null,
+      data.twofa_enabled ? 1 : 0,
+      data.nonce ?? 0,
+      data.role ?? 'user',
     );
-    
+
     return info.lastInsertRowid as number;
   },
 

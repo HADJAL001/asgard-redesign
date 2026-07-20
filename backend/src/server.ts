@@ -98,8 +98,10 @@ import { runNonceMigration } from "./migrations/010_nonce"
 import { runIndexesMigration } from "./migrations/011_indexes"
 import { runWalliSystemMigration } from "./migrations/012_walli_system"
 import { runWalliStatsMigration } from "./migrations/013_walli_stats"
+import { runAdminMigration } from "./migrations/014_admin"
 import walliRoutes from "./routes/walli.routes"
 import demoRoutes from "./routes/demo.routes"
+import adminRoutes from "./routes/admin.routes"
 
 
 
@@ -127,6 +129,9 @@ runWalliSystemMigration()
 /* Гарантируем наличие таблицы walli_stats (игровая статистика). */
 runWalliStatsMigration()
 
+/* Гарантируем наличие колонки users.banned и роли admin у аккаунта разработчика. */
+runAdminMigration()
+
 
 
 
@@ -150,6 +155,7 @@ app.use("/feedback", feedbackRoutes)
 app.use("/api/tc", tcRoutes)
 app.use("/walli", walliRoutes)
 app.use("/demo", demoRoutes)
+app.use("/admin", adminRoutes)
 
 
 

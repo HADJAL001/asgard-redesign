@@ -125,6 +125,10 @@ export class AuthController {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
+      if (user.banned) {
+        return res.status(403).json({ error: 'Аккаунт заблокирован' });
+      }
+
       UserModel.updateLastLogin(user.id);
 
       const token = AuthService.generateAccessToken(user.id);
