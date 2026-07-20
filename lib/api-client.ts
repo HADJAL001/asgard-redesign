@@ -9,8 +9,12 @@
      редиректит на /login
    ================================================================ */
 
+// На продакшне всегда используем /api (Next.js прокси → Railway бэкенд)
+// В dev используем переменную или localhost
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003"
+  typeof window !== "undefined"
+    ? (process.env.NEXT_PUBLIC_API_URL || "/api")
+    : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003")
 
 export const TOKEN_KEY = "osgard_token"
 export const USER_KEY = "osgard_user"
