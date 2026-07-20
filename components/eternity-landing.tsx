@@ -456,42 +456,99 @@ export function EternityLanding() {
   )
 }
 
-const WM_CSS = `.wm-scene{position:fixed;bottom:40px;right:5vw;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center;animation:wmIn 0.8s cubic-bezier(0.2,0.8,0.2,1) 0.3s both}@keyframes wmIn{from{opacity:0;transform:translateY(40px) scale(0.8)}to{opacity:1;transform:translateY(0) scale(1)}}.wm-svg{width:120px;height:180px;filter:drop-shadow(0 4px 16px rgba(200,134,26,0.5)) drop-shadow(0 0 8px rgba(0,0,0,0.8));animation:wmBob 4s ease-in-out infinite;will-change:transform}@keyframes wmBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}.wm-bubble{margin-top:8px;background:rgba(10,14,26,0.95);border:1px solid rgba(255,215,0,0.5);border-radius:12px;padding:8px 14px;font-size:12px;font-weight:500;color:#FFD700;white-space:nowrap;letter-spacing:0.02em;box-shadow:0 2px 16px rgba(0,0,0,0.6);animation:wmIn 0.5s cubic-bezier(0.2,0.8,0.2,1) 1s both}@media(max-width:600px){.wm-scene{right:2vw;bottom:20px}.wm-svg{width:90px;height:135px}.wm-bubble{font-size:11px}}`
+const WM_CSS = `.wm-scene{position:fixed;bottom:40px;right:5vw;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center}.wm-svg{width:140px;height:195px;filter:drop-shadow(0 6px 20px rgba(212,160,23,0.6)) drop-shadow(0 2px 8px rgba(0,0,0,0.9))}.wm-bubble{margin-top:10px;background:rgba(8,12,22,0.97);border:1.5px solid #F5C842;border-radius:12px;padding:9px 16px;font-size:12px;font-weight:600;color:#F5C842;white-space:nowrap;letter-spacing:0.03em;box-shadow:0 2px 20px rgba(245,200,66,0.15)}@media(max-width:600px){.wm-scene{right:2vw;bottom:20px}.wm-svg{width:110px;height:154px}.wm-bubble{font-size:11px;padding:7px 12px}}`
 
 // ─── ВАЛЛИ минималистичный ──────────────────────────────────────────
 function WalleOnGlobe() {
   return (
     <div className="wm-scene" aria-label="ВАЛЛИ на глобусе">
-      <svg className="wm-svg" viewBox="0 0 80 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <line x1="40" y1="8" x2="40" y2="0" stroke="#FFD700" strokeWidth="2" strokeLinecap="round"/>
-        <circle cx="40" cy="0" r="3" fill="#FFD700"/>
-        <rect x="20" y="10" width="40" height="28" rx="4" fill="#C8861A" stroke="#FFD700" strokeWidth="1.5"/>
-        <circle cx="32" cy="24" r="8" fill="#0A1A2A" stroke="#FFD700" strokeWidth="1.5"/>
-        <circle cx="32" cy="24" r="4" fill="#1A5A9A"/>
-        <circle cx="34" cy="22" r="1.5" fill="#fff" opacity="0.9"/>
-        <circle cx="48" cy="24" r="8" fill="#0A1A2A" stroke="#FFD700" strokeWidth="1.5"/>
-        <circle cx="48" cy="24" r="4" fill="#1A5A9A"/>
-        <circle cx="50" cy="22" r="1.5" fill="#fff" opacity="0.9"/>
-        <rect x="36" y="38" width="8" height="10" rx="2" fill="#A06010"/>
-        <rect x="18" y="48" width="44" height="36" rx="4" fill="#C8861A" stroke="#FFD700" strokeWidth="1.5"/>
-        <text x="40" y="63" textAnchor="middle" fontFamily="monospace" fontWeight="bold" fontSize="6" fill="#FFD700" letterSpacing="0.5">WALL·E</text>
-        <rect x="50" y="68" width="6" height="12" rx="1" fill="#0A1A0A"/>
-        <rect x="51" y="69" width="4" height="2" rx="0.5" fill="#00FF44"/>
-        <rect x="51" y="72" width="4" height="2" rx="0.5" fill="#00FF44"/>
-        <rect x="51" y="75" width="4" height="2" rx="0.5" fill="#00FF44"/>
-        <rect x="4" y="52" width="14" height="6" rx="3" fill="#A06010"/>
-        <rect x="0" y="54" width="10" height="10" rx="1.5" fill="#8A7050" stroke="#5A4030" strokeWidth="1"/>
-        <rect x="62" y="52" width="14" height="6" rx="3" fill="#A06010"/>
-        <line x1="76" y1="55" x2="80" y2="50" stroke="#7A5008" strokeWidth="2.5" strokeLinecap="round"/>
-        <line x1="76" y1="55" x2="80" y2="60" stroke="#7A5008" strokeWidth="2.5" strokeLinecap="round"/>
-        <rect x="10" y="84" width="24" height="12" rx="6" fill="#2A1A08"/>
-        <rect x="12" y="91" width="4" height="4" rx="1" fill="#1A0A04"/>
-        <rect x="18" y="91" width="4" height="4" rx="1" fill="#1A0A04"/>
-        <rect x="24" y="91" width="4" height="4" rx="1" fill="#1A0A04"/>
-        <rect x="46" y="84" width="24" height="12" rx="6" fill="#2A1A08"/>
-        <rect x="48" y="91" width="4" height="4" rx="1" fill="#1A0A04"/>
-        <rect x="54" y="91" width="4" height="4" rx="1" fill="#1A0A04"/>
-        <rect x="60" y="91" width="4" height="4" rx="1" fill="#1A0A04"/>
+      <svg className="wm-svg" viewBox="-10 0 120 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        {/* Антенна */}
+        <line x1="50" y1="10" x2="50" y2="2" stroke="#F5C842" strokeWidth="2.5" strokeLinecap="round"/>
+        <circle cx="50" cy="1" r="3.5" fill="#F5C842"/>
+        <circle cx="50" cy="1" r="1.5" fill="#fff"/>
+
+        {/* Голова — бинокль */}
+        <rect x="20" y="10" width="60" height="30" rx="5" fill="#D4A017" stroke="#5C3A21" strokeWidth="1.5"/>
+        {/* Подсветка головы */}
+        <rect x="22" y="12" width="56" height="8" rx="3" fill="#F5C842" opacity="0.25"/>
+
+        {/* Глаз левый */}
+        <circle cx="34" cy="25" r="10" fill="#1A1A2E" stroke="#F5C842" strokeWidth="2"/>
+        <circle cx="34" cy="25" r="6" fill="#1A4A8A"/>
+        <circle cx="34" cy="25" r="3" fill="#0A2A5A"/>
+        <circle cx="36" cy="22" r="2" fill="#4A9AFF" opacity="0.8"/>
+        <circle cx="37" cy="21" r="1" fill="#fff" opacity="0.9"/>
+
+        {/* Глаз правый */}
+        <circle cx="66" cy="25" r="10" fill="#1A1A2E" stroke="#F5C842" strokeWidth="2"/>
+        <circle cx="66" cy="25" r="6" fill="#1A4A8A"/>
+        <circle cx="66" cy="25" r="3" fill="#0A2A5A"/>
+        <circle cx="68" cy="22" r="2" fill="#4A9AFF" opacity="0.8"/>
+        <circle cx="69" cy="21" r="1" fill="#fff" opacity="0.9"/>
+
+        {/* Шея */}
+        <rect x="43" y="40" width="14" height="12" rx="3" fill="#B8860B" stroke="#5C3A21" strokeWidth="1"/>
+        <rect x="44" y="42" width="12" height="4" rx="1" fill="#F5C842" opacity="0.3"/>
+
+        {/* Тело */}
+        <rect x="18" y="52" width="64" height="42" rx="5" fill="#D4A017" stroke="#5C3A21" strokeWidth="2"/>
+        {/* Боковые тени */}
+        <rect x="18" y="52" width="8" height="42" rx="0" fill="#5C3A21" opacity="0.4"/>
+        <rect x="74" y="52" width="8" height="42" rx="0" fill="#5C3A21" opacity="0.4"/>
+        {/* Верхняя полоса (светлая) */}
+        <rect x="20" y="54" width="60" height="6" rx="2" fill="#F5C842" opacity="0.2"/>
+
+        {/* WALL·E надпись */}
+        <text x="50" y="72" textAnchor="middle" fontFamily="monospace" fontWeight="bold" fontSize="7" fill="#F5C842" letterSpacing="1">WALL·E</text>
+        <text x="50" y="71.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold" fontSize="7" fill="#5C3A21" opacity="0.5" letterSpacing="1">WALL·E</text>
+
+        {/* LED полоса (зелёная) */}
+        <rect x="68" y="76" width="8" height="14" rx="2" fill="#0A0F0A" stroke="#1A2A1A" strokeWidth="0.5"/>
+        <rect x="69.5" y="77.5" width="5" height="2" rx="0.5" fill="#00FF44"/>
+        <rect x="69.5" y="81" width="5" height="2" rx="0.5" fill="#00FF44"/>
+        <rect x="69.5" y="84.5" width="5" height="2" rx="0.5" fill="#00CC33"/>
+        <rect x="69.5" y="88" width="5" height="2" rx="0.5" fill="#005A15" opacity="0.6"/>
+
+        {/* Дверца компрессора */}
+        <rect x="24" y="76" width="40" height="16" rx="2" fill="#5C3A21" stroke="#3A2010" strokeWidth="1"/>
+        <rect x="26" y="78" width="36" height="8" rx="1" fill="#3A2010"/>
+        <rect x="28" y="80" width="32" height="3" rx="1" fill="#B8860B" opacity="0.5"/>
+
+        {/* Рука ЛЕВАЯ — широкий отступ */}
+        <rect x="-2" y="56" width="22" height="8" rx="4" fill="#D4A017" stroke="#5C3A21" strokeWidth="1.5"/>
+        {/* Кубик */}
+        <rect x="-8" y="60" width="14" height="14" rx="2" fill="#8A7050" stroke="#F5C842" strokeWidth="1.5"/>
+        <rect x="-7" y="61" width="12" height="4" rx="1" fill="#F5C842" opacity="0.25"/>
+        <rect x="-6" y="66" width="4" height="4" rx="1" fill="#5C3A21" opacity="0.6"/>
+        <rect x="0" y="65" width="3" height="5" rx="1" fill="#7A6040" opacity="0.7"/>
+
+        {/* Рука ПРАВАЯ — широкий отступ, яркий цвет */}
+        <rect x="80" y="56" width="22" height="8" rx="4" fill="#D4A017" stroke="#F5C842" strokeWidth="2"/>
+        {/* Клешня — видная */}
+        <line x1="102" y1="58" x2="108" y2="52" stroke="#F5C842" strokeWidth="3" strokeLinecap="round"/>
+        <line x1="102" y1="62" x2="108" y2="68" stroke="#F5C842" strokeWidth="3" strokeLinecap="round"/>
+        <circle cx="109" cy="51" r="2.5" fill="#F5C842"/>
+        <circle cx="109" cy="69" r="2.5" fill="#F5C842"/>
+
+        {/* Гусеница левая */}
+        <rect x="12" y="94" width="28" height="14" rx="7" fill="#2A2A2A" stroke="#444" strokeWidth="1.5"/>
+        <rect x="14" y="101" width="5" height="5" rx="1" fill="#555"/>
+        <rect x="21" y="101" width="5" height="5" rx="1" fill="#555"/>
+        <rect x="28" y="101" width="5" height="5" rx="1" fill="#555"/>
+        <ellipse cx="14" cy="101" rx="5" ry="6" fill="#383838"/>
+        <ellipse cx="38" cy="101" rx="5" ry="6" fill="#383838"/>
+
+        {/* Гусеница правая */}
+        <rect x="60" y="94" width="28" height="14" rx="7" fill="#2A2A2A" stroke="#444" strokeWidth="1.5"/>
+        <rect x="62" y="101" width="5" height="5" rx="1" fill="#555"/>
+        <rect x="69" y="101" width="5" height="5" rx="1" fill="#555"/>
+        <rect x="76" y="101" width="5" height="5" rx="1" fill="#555"/>
+        <ellipse cx="62" cy="101" rx="5" ry="6" fill="#383838"/>
+        <ellipse cx="86" cy="101" rx="5" ry="6" fill="#383838"/>
+
+        {/* Тень */}
+        <ellipse cx="50" cy="118" rx="40" ry="4" fill="rgba(0,0,0,0.35)"/>
       </svg>
       <div className="wm-bubble" role="status">
         Привет, архитектор! Я — ВАЛЛИ.
@@ -500,6 +557,7 @@ function WalleOnGlobe() {
     </div>
   )
 }
+
 
 const CSS = `
 .eternity-page {
