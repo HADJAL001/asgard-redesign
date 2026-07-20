@@ -43,22 +43,12 @@ export function runReferralMigration() {
   addColumnIfMissing("users", "referred_by", "INTEGER REFERENCES users(id) ON DELETE SET NULL")
   addColumnIfMissing("users", "onboarding_step", "INTEGER NOT NULL DEFAULT 0")
 
-  /* ---------------- 2. Таблица referrals (журнал начислений) ---------------- */
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS referrals (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      referrer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      referred_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      kind TEXT NOT NULL DEFAULT 'signup' CHECK (kind IN ('signup', 'reward', 'purchase')),
-      amount_credits REAL NOT NULL DEFAULT 0,
-      amount_tc REAL NOT NULL DEFAULT 0,
-      created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
-    );
-  `)
+  /* ---------------- 2. Таблица referrals ----------------
+     Таблица уже создаётся в db/migrations/001_initial_schema.ts со схемой
+     (referrer_id, referee_id, reward_amount, status, created_at) — здесь её
+     НЕ трогаем, чтобы не создать конфликтующие индексы на несуществующих колонках. */
 
   db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_id);
-    CREATE INDEX IF NOT EXISTS idx_referrals_referred ON referrals(referred_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code);
   `)
 

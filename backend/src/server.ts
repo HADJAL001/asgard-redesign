@@ -87,6 +87,7 @@ import jarvisShopRoutes from "./routes/jarvis-shop.routes"
 import twinRoutes from "./routes/twin.routes"
 import feedbackRoutes from "./routes/feedback.routes"
 import tcRoutes from "./routes/tc.routes"
+import { runReferralMigration } from "./migrations/002_referral_system"
 import { runPremiumUpgradeMigration } from "./migrations/003_premium_upgrade"
 import { runSubscriptionsMigration } from "./migrations/004_subscriptions"
 import "./migrations/005_digital_twin"
@@ -104,6 +105,9 @@ import demoRoutes from "./routes/demo.routes"
 import adminRoutes from "./routes/admin.routes"
 
 
+
+/* Гарантируем наличие колонок users.referral_code/referred_by/onboarding_step и таблицы referrals при старте сервера. */
+runReferralMigration()
 
 /* Гарантируем наличие колонки artifacts.visual_effect при старте сервера. */
 runPremiumUpgradeMigration()
