@@ -70,6 +70,7 @@ import { run2FAMigration } from "./migrations/009_2fa"
 import { runNonceMigration } from "./migrations/010_nonce"
 import { runIndexesMigration } from "./migrations/011_indexes"
 import { runWalliSystemMigration } from "./migrations/012_walli_system"
+import { runWalliStatsMigration } from "./migrations/013_walli_stats"
 import walliRoutes from "./routes/walli.routes"
 
 
@@ -94,6 +95,9 @@ runIndexesMigration()
 
 /* Гарантируем наличие таблиц системы прокачки ВАЛЛИ. */
 runWalliSystemMigration()
+
+/* Гарантируем наличие таблицы walli_stats (игровая статистика). */
+runWalliStatsMigration()
 
 
 

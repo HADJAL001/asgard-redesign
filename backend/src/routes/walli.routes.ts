@@ -42,12 +42,33 @@ const TRAINING_PRICES: Record<number, number> = { 1: 15, 2: 20, 3: 25, 4: 30, 5:
    СПОСОБНОСТИ
    ───────────────────────────────────────────────────────────────── */
 
+/* ─────────────────────────────────────────────────────────────────
+   ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ: получить/создать walli_stats
+   ───────────────────────────────────────────────────────────────── */
+
+function getOrCreateStats(userId: number) {
+  let stats = db.prepare(`SELECT * FROM walli_stats WHERE user_id = ?`).get(userId) as Record<string, unknown> | undefined
+  if (!stats) {
+    db.prepare(`
+      INSERT INTO walli_stats (user_id, level, skill, trash_collected, artifacts_found, rare_found, earned, xp)
+      VALUES (?, 1, 0, 0, 0, 0, 0.0, 0)
+    `).run(userId)
+    stats = db.prepare(`SELECT * FROM walli_stats WHERE user_id = ?`).get(userId) as Record<string, unknown>
+  }
+  return stats
+}
+
+/** Порог XP для следующего уровня */
+const XP_PER_LEVEL = 100
+
 /**
  * GET /walli/stats
- * Возвращает все способности + активное обучение + экипированные предметы.
+ * Возвращает все способности + активное обучение + экипированные предметы + walli_stats.
  */
 router.get('/stats', requireAuth, (req: Request, res: Response) => {
   const userId = (req as any).user.userId
+
+  const walliStats = getOrCreateStats(userId)
 
   const abilities = db.prepare(`
     SELECT ability_type, level, bonus, updated_at
@@ -76,7 +97,115 @@ router.get('/stats', requireAuth, (req: Request, res: Response) => {
     LIMIT 10
   `).all(userId)
 
-  res.json({ abilities, training: training ?? null, equipped, quests })
+  res.json({
+    stats: walliStats,
+    abilities,
+    training: training ?? null,
+    equipped,
+    quests,
+  })
+})
+
+/**
+ * POST /walli/stats/update
+ * Обновить игровую статистику (вызывается из фронтенда после сбора мусора и т.д.).
+ * Body: { trash_collected?, artifacts_found?, rare_found?, earned?, xp? }
+ */
+router.post('/stats/update', requireAuth, (req: Request, res: Response) => {
+  const userId = (req as any).user.userId
+  const {
+    trash_collected = 0,
+    artifacts_found = 0,
+    rare_found = 0,
+    earned = 0,
+    xp = 0,
+  } = req.body as Record<string, number>
+
+  const stats = getOrCreateStats(userId) as {
+    id: number; level: number; skill: number; trash_collected: number;
+    artifacts_found: number; rare_found: number; earned: number; xp: number
+  }
+
+  const newXp = stats.xp + xp
+  const newLevel = Math.max(stats.level, Math.floor(newXp / XP_PER_LEVEL) + 1)
+  // Skill растёт с уровнем: min(99, level * 14)
+  const newSkill = Math.min(99, newLevel * 14)
+
+  db.prepare(`
+    UPDATE walli_stats
+    SET
+      trash_collected = trash_collected + ?,
+      artifacts_found = artifacts_found + ?,
+      rare_found      = rare_found + ?,
+      earned          = earned + ?,
+      xp              = ?,
+      level           = ?,
+      skill           = ?,
+      updated_at      = strftime('%s','now')
+    WHERE user_id = ?
+  `).run(
+    trash_collected, artifacts_found, rare_found,
+    earned, newXp, newLevel, newSkill, userId,
+  )
+
+  const updated = db.prepare(`SELECT * FROM walli_stats WHERE user_id = ?`).get(userId)
+  res.json({ ok: true, stats: updated })
+})
+
+/**
+ * GET /walli/economy
+ * Полная экономическая сводка: stats + цены на улучшения + баланс способностей.
+ */
+router.get('/economy', requireAuth, (req: Request, res: Response) => {
+  const userId = (req as any).user.userId
+
+  const stats = getOrCreateStats(userId)
+  const abilities = db.prepare(`SELECT ability_type, level, bonus FROM walli_abilities WHERE user_id = ?`).all(userId) as { ability_type: string; level: number; bonus: number }[]
+
+  // Следующие цены на улучшение каждой способности
+  const abilitiesWithPrices = ['find_artifacts', 'trade', 'analyze'].map((type) => {
+    const existing = abilities.find((a) => a.ability_type === type)
+    const currentLevel = existing ? existing.level : 0
+    const nextLevel = currentLevel + 1
+    const price = abilityPrice(nextLevel)
+    return {
+      ability_type: type,
+      current_level: currentLevel,
+      bonus: existing ? existing.bonus : 0,
+      next_level: nextLevel,
+      upgrade_price_usd: price,
+    }
+  })
+
+  // Активное обучение
+  const training = db.prepare(`
+    SELECT training_level, start_date, end_date, active FROM walli_training
+    WHERE user_id = ? AND active = 1 ORDER BY id DESC LIMIT 1
+  `).get(userId)
+
+  // XP до следующего уровня
+  const walliStats = stats as { xp: number; level: number; skill: number; earned: number; trash_collected: number }
+  const xpInCurrentLevel = walliStats.xp % XP_PER_LEVEL
+  const xpToNextLevel = XP_PER_LEVEL - xpInCurrentLevel
+
+  res.json({
+    stats: walliStats,
+    abilities: abilitiesWithPrices,
+    training: training ?? null,
+    pricing: {
+      ability_levels:  ABILITY_UPGRADE_PRICES,
+      training_levels: TRAINING_PRICES,
+      shop_items: SHOP_CATALOG.map(({ item_key, item_type, name, price_usd, price_tc }) => ({
+        item_key, item_type, name, price_usd, price_tc,
+      })),
+    },
+    xp_progress: {
+      current_xp: walliStats.xp,
+      xp_in_level: xpInCurrentLevel,
+      xp_to_next: xpToNextLevel,
+      level: walliStats.level,
+    },
+  })
 })
 
 /**
