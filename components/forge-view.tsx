@@ -419,11 +419,11 @@ export function ForgeView() {
             <button
               type="button"
               onClick={doForge}
-              disabled={!canForge || submitting || loading}
+              disabled={!canForge || submitting}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
             >
-              {(submitting || loading) && <Loader2 size={16} className="animate-spin" />}
+              {submitting && <Loader2 size={16} className="animate-spin" />}
               {t("forge.createBtn", { amount: fmtTC(FORGE_COST_TC) })}
             </button>
 
