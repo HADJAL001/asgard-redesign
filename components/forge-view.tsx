@@ -584,15 +584,6 @@ export function ForgeView() {
         </div>
       </main>
 
-      <style jsx global>{`
-        @keyframes osgard-aura-pulse {
-          0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,0.15), 0 0 14px 1px rgba(255,255,255,0.25); }
-          50% { box-shadow: 0 0 0 1px rgba(255,255,255,0.3), 0 0 26px 4px rgba(255,255,255,0.45); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          [style*="osgard-aura-pulse"] { animation: none !important; }
-        }
-      `}</style>
     </div>
   )
 }
