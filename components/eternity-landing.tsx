@@ -456,451 +456,94 @@ export function EternityLanding() {
   )
 }
 
-// ─── ВАЛЛИ на глобусе ────────────────────────────────────────────────────────
+// ─── ВАЛЛИ минималистичный ──────────────────────────────────────────
 function WalleOnGlobe() {
-  const [dustParticles] = useState(() =>
-    Array.from({ length: 28 }).map((_, i) => ({
-      id: i,
-      x: 40 + Math.random() * 220,
-      y: 60 + Math.random() * 120,
-      size: 1 + Math.random() * 3,
-      dur: 2.5 + Math.random() * 4,
-      delay: Math.random() * 5,
-      drift: (Math.random() - 0.5) * 40,
-    }))
-  )
-  const [trashPieces] = useState(() =>
-    Array.from({ length: 12 }).map((_, i) => ({
-      id: i,
-      x: 20 + Math.random() * 260,
-      y: 120 + Math.random() * 60,
-      rot: Math.random() * 360,
-      size: 4 + Math.random() * 8,
-    }))
-  )
-
   return (
-    <div className="walle-scene" aria-label="ВАЛЛИ стоит на глобусе">
-      {/* Атмосфера тёплого света */}
-      <div className="walle-warm-glow" />
-
-      {/* Частицы пыли */}
-      <svg className="walle-dust-svg" viewBox="0 0 300 200" aria-hidden="true">
-        {dustParticles.map((p) => (
-          <circle
-            key={p.id}
-            cx={p.x}
-            cy={p.y}
-            r={p.size}
-            fill="rgba(210,160,80,0.35)"
-            style={{
-              animation: `walleDustFloat ${p.dur}s ${p.delay}s infinite ease-in-out`,
-              transformOrigin: `${p.x}px ${p.y}px`,
-            }}
-          />
-        ))}
-        {/* Мусор на земле */}
-        {trashPieces.map((t) => (
-          <g key={t.id} transform={`translate(${t.x},${t.y}) rotate(${t.rot})`}>
-            <rect
-              x={-t.size / 2}
-              y={-t.size / 4}
-              width={t.size}
-              height={t.size / 2}
-              rx="1"
-              fill={`hsl(${20 + Math.random() * 30},40%,${25 + Math.random() * 20}%)`}
-              opacity="0.7"
-            />
-          </g>
-        ))}
+    <div className="wm-scene" aria-label="ВАЛЛИ на глобусе">
+      <svg className="wm-svg" viewBox="0 0 80 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <line x1="40" y1="8" x2="40" y2="0" stroke="#FFD700" strokeWidth="2" strokeLinecap="round"/>
+        <circle cx="40" cy="0" r="3" fill="#FFD700"/>
+        <rect x="20" y="10" width="40" height="28" rx="4" fill="#C8861A" stroke="#FFD700" strokeWidth="1.5"/>
+        <circle cx="32" cy="24" r="8" fill="#0A1A2A" stroke="#FFD700" strokeWidth="1.5"/>
+        <circle cx="32" cy="24" r="4" fill="#1A5A9A"/>
+        <circle cx="34" cy="22" r="1.5" fill="#fff" opacity="0.9"/>
+        <circle cx="48" cy="24" r="8" fill="#0A1A2A" stroke="#FFD700" strokeWidth="1.5"/>
+        <circle cx="48" cy="24" r="4" fill="#1A5A9A"/>
+        <circle cx="50" cy="22" r="1.5" fill="#fff" opacity="0.9"/>
+        <rect x="36" y="38" width="8" height="10" rx="2" fill="#A06010"/>
+        <rect x="18" y="48" width="44" height="36" rx="4" fill="#C8861A" stroke="#FFD700" strokeWidth="1.5"/>
+        <text x="40" y="63" textAnchor="middle" fontFamily="monospace" fontWeight="bold" fontSize="6" fill="#FFD700" letterSpacing="0.5">WALL·E</text>
+        <rect x="50" y="68" width="6" height="12" rx="1" fill="#0A1A0A"/>
+        <rect x="51" y="69" width="4" height="2" rx="0.5" fill="#00FF44"/>
+        <rect x="51" y="72" width="4" height="2" rx="0.5" fill="#00FF44"/>
+        <rect x="51" y="75" width="4" height="2" rx="0.5" fill="#00FF44"/>
+        <rect x="4" y="52" width="14" height="6" rx="3" fill="#A06010"/>
+        <rect x="0" y="54" width="10" height="10" rx="1.5" fill="#8A7050" stroke="#5A4030" strokeWidth="1"/>
+        <rect x="62" y="52" width="14" height="6" rx="3" fill="#A06010"/>
+        <line x1="76" y1="55" x2="80" y2="50" stroke="#7A5008" strokeWidth="2.5" strokeLinecap="round"/>
+        <line x1="76" y1="55" x2="80" y2="60" stroke="#7A5008" strokeWidth="2.5" strokeLinecap="round"/>
+        <rect x="10" y="84" width="24" height="12" rx="6" fill="#2A1A08"/>
+        <rect x="12" y="91" width="4" height="4" rx="1" fill="#1A0A04"/>
+        <rect x="18" y="91" width="4" height="4" rx="1" fill="#1A0A04"/>
+        <rect x="24" y="91" width="4" height="4" rx="1" fill="#1A0A04"/>
+        <rect x="46" y="84" width="24" height="12" rx="6" fill="#2A1A08"/>
+        <rect x="48" y="91" width="4" height="4" rx="1" fill="#1A0A04"/>
+        <rect x="54" y="91" width="4" height="4" rx="1" fill="#1A0A04"/>
+        <rect x="60" y="91" width="4" height="4" rx="1" fill="#1A0A04"/>
       </svg>
-
-      {/* ВАЛЛИ SVG */}
-      <svg
-        className="walle-svg"
-        viewBox="0 0 120 180"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-      >
-        <defs>
-          {/* Ржавый оранжево-жёлтый металл */}
-          <linearGradient id="wBodyGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#C8861A" />
-            <stop offset="40%" stopColor="#A86A10" />
-            <stop offset="100%" stopColor="#7A4A08" />
-          </linearGradient>
-          <linearGradient id="wBodyFront" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#D4920E" />
-            <stop offset="60%" stopColor="#B07010" />
-            <stop offset="100%" stopColor="#804808" />
-          </linearGradient>
-          {/* Гусеница */}
-          <linearGradient id="wTrackGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3A2A18" />
-            <stop offset="100%" stopColor="#1A1008" />
-          </linearGradient>
-          {/* Линза */}
-          <radialGradient id="wLensL" cx="35%" cy="30%">
-            <stop offset="0%" stopColor="#C8E8FF" />
-            <stop offset="40%" stopColor="#6AACDF" />
-            <stop offset="100%" stopColor="#1A3A5A" />
-          </radialGradient>
-          <radialGradient id="wLensR" cx="35%" cy="30%">
-            <stop offset="0%" stopColor="#C8E8FF" />
-            <stop offset="40%" stopColor="#6AACDF" />
-            <stop offset="100%" stopColor="#1A3A5A" />
-          </radialGradient>
-          {/* Свечение LED */}
-          <filter id="ledGlow">
-            <feGaussianBlur stdDeviation="1.5" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-          <filter id="bodyGlow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-          {/* Ржавчина */}
-          <filter id="rust">
-            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" result="noise" />
-            <feColorMatrix type="matrix"
-              values="0.3 0 0 0 0.5
-                      0 0.2 0 0 0.2
-                      0 0 0.1 0 0
-                      0 0 0 0.4 0"
-              result="rustColor" />
-            <feBlend in="SourceGraphic" in2="rustColor" mode="multiply" />
-          </filter>
-          <clipPath id="lensClipL">
-            <ellipse cx="36" cy="50" rx="13" ry="12" />
-          </clipPath>
-          <clipPath id="lensClipR">
-            <ellipse cx="84" cy="50" rx="13" ry="12" />
-          </clipPath>
-        </defs>
-
-        {/* ── ГУСЕНИЦЫ ── */}
-        {/* Левая гусеница */}
-        <ellipse cx="30" cy="148" rx="22" ry="9" fill="url(#wTrackGrad)" />
-        <rect x="10" y="140" width="40" height="16" rx="8" fill="url(#wTrackGrad)" />
-        {/* Зубья гусеницы */}
-        {[14, 20, 26, 32, 38, 44].map((x, i) => (
-          <rect key={i} x={x} y="153" width="4" height="5" rx="1" fill="#2A1A0A" />
-        ))}
-        {/* Колёса */}
-        {[16, 26, 36].map((x, i) => (
-          <circle key={i} cx={x} cy="148" r="5" fill="#4A3010" stroke="#2A1A08" strokeWidth="1" />
-        ))}
-        {[16, 26, 36].map((x, i) => (
-          <circle key={i} cx={x} cy="148" r="2" fill="#1A0A04" />
-        ))}
-
-        {/* Правая гусеница */}
-        <ellipse cx="90" cy="148" rx="22" ry="9" fill="url(#wTrackGrad)" />
-        <rect x="70" y="140" width="40" height="16" rx="8" fill="url(#wTrackGrad)" />
-        {[74, 80, 86, 92, 98, 104].map((x, i) => (
-          <rect key={i} x={x} y="153" width="4" height="5" rx="1" fill="#2A1A0A" />
-        ))}
-        {[76, 86, 96].map((x, i) => (
-          <circle key={i} cx={x} cy="148" r="5" fill="#4A3010" stroke="#2A1A08" strokeWidth="1" />
-        ))}
-        {[76, 86, 96].map((x, i) => (
-          <circle key={i} cx={x} cy="148" r="2" fill="#1A0A04" />
-        ))}
-
-        {/* ── ОСНОВНОЕ ТЕЛО ── */}
-        <rect x="22" y="90" width="76" height="55" rx="6" fill="url(#wBodyGrad)" filter="url(#rust)" />
-        {/* Передняя панель */}
-        <rect x="22" y="90" width="76" height="55" rx="6" fill="url(#wBodyFront)" opacity="0.85" />
-        {/* Тёмные грани */}
-        <rect x="22" y="90" width="76" height="3" rx="2" fill="rgba(0,0,0,0.4)" />
-        <rect x="22" y="142" width="76" height="3" rx="2" fill="rgba(0,0,0,0.5)" />
-
-        {/* Надпись WALL•E */}
-        <text x="60" y="108" textAnchor="middle" fontFamily="monospace" fontWeight="bold"
-          fontSize="7.5" fill="rgba(0,0,0,0.7)" letterSpacing="0.5">WALL•E</text>
-        <text x="60" y="107.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold"
-          fontSize="7.5" fill="rgba(255,200,80,0.5)" letterSpacing="0.5">WALL•E</text>
-
-        {/* Компрессор — дверца (приоткрыта) */}
-        <rect x="30" y="113" width="44" height="26" rx="3" fill="#6A4008" stroke="#3A2004" strokeWidth="1" />
-        <rect x="32" y="115" width="40" height="12" rx="2" fill="#3A2004" opacity="0.8" />
-        {/* Внутренний пресс */}
-        <rect x="34" y="118" width="36" height="5" rx="1" fill="#5A3A0A" />
-        <rect x="36" y="120" width="32" height="2" rx="1" fill="#8A6020" />
-
-        {/* LED полоса (зелёная) */}
-        <rect x="78" y="113" width="12" height="26" rx="3" fill="#0A1A0A" filter="url(#ledGlow)" />
-        {[116, 120, 124, 126, 128, 130, 132, 134].map((y, i) => (
-          <rect key={i} x="80" y={y} width="8" height="2" rx="1"
-            fill={i < 6 ? "#00FF44" : "#004A10"}
-            opacity={i < 6 ? 0.9 : 0.4}
-            filter={i < 6 ? "url(#ledGlow)" : undefined}
-          />
-        ))}
-
-        {/* Боковые направляющие */}
-        <rect x="18" y="95" width="6" height="45" rx="2" fill="#8A5A10" />
-        <rect x="96" y="95" width="6" height="45" rx="2" fill="#8A5A10" />
-        {/* Заклёпки */}
-        {[98, 108, 118, 128].map((y, i) => (
-          <circle key={i} cx="21" cy={y} r="1.5" fill="#A07020" />
-        ))}
-        {[98, 108, 118, 128].map((y, i) => (
-          <circle key={i} cx="99" cy={y} r="1.5" fill="#A07020" />
-        ))}
-
-        {/* ── РУКА ЛЕВАЯ (с кубиком) ── */}
-        <rect x="2" y="100" width="8" height="28" rx="3" fill="#9A6810" />
-        <rect x="0" y="122" width="12" height="6" rx="2" fill="#7A5008" />
-        {/* Кубик металлолома */}
-        <rect x="-4" y="124" width="14" height="14" rx="2" fill="#8A7050"
-          stroke="#5A4030" strokeWidth="1" />
-        {/* Текстура кубика */}
-        <rect x="-2" y="126" width="4" height="4" rx="1" fill="#6A5040" opacity="0.7" />
-        <rect x="4" y="128" width="3" height="5" rx="1" fill="#7A6050" opacity="0.6" />
-        <rect x="-1" y="132" width="5" height="3" rx="1" fill="#5A4030" opacity="0.8" />
-        {/* Отблеск */}
-        <rect x="-3" y="124" width="14" height="2" rx="1" fill="rgba(255,220,120,0.2)" />
-
-        {/* ── РУКА ПРАВАЯ ── */}
-        <rect x="110" y="100" width="8" height="28" rx="3" fill="#9A6810" />
-        {/* Клешня */}
-        <line x1="114" y1="128" x2="108" y2="136" stroke="#7A5008" strokeWidth="3" strokeLinecap="round" />
-        <line x1="114" y1="128" x2="120" y2="136" stroke="#7A5008" strokeWidth="3" strokeLinecap="round" />
-        <line x1="114" y1="128" x2="114" y2="138" stroke="#7A5008" strokeWidth="3" strokeLinecap="round" />
-
-        {/* ── ШЕЯ (телескопическая) ── */}
-        <rect x="48" y="65" width="10" height="28" rx="3" fill="#8A6010" />
-        <rect x="51" y="60" width="7" height="32" rx="3" fill="#A07818" />
-        <rect x="53" y="55" width="5" height="35" rx="2" fill="#B88A20" />
-        {/* Сегменты шеи */}
-        {[68, 74, 80].map((y, i) => (
-          <rect key={i} x="47" y={y} width="12" height="3" rx="1" fill="#6A4808" opacity="0.6" />
-        ))}
-
-        {/* Второй сегмент шеи (правая сторона) */}
-        <rect x="62" y="65" width="10" height="28" rx="3" fill="#8A6010" />
-        <rect x="63" y="60" width="7" height="32" rx="3" fill="#A07818" />
-        <rect x="64" y="55" width="5" height="35" rx="2" fill="#B88A20" />
-
-        {/* ── ГОЛОВА ("бинокль") ── */}
-        {/* Корпус головы */}
-        <rect x="26" y="28" width="68" height="38" rx="8" fill="url(#wBodyGrad)" />
-        <rect x="26" y="28" width="68" height="38" rx="8" fill="url(#wBodyFront)" opacity="0.9" />
-
-        {/* Левый "бинокль" — корпус */}
-        <ellipse cx="36" cy="50" rx="15" ry="14" fill="#6A4808" stroke="#3A2404" strokeWidth="1.5" />
-        {/* Левая линза */}
-        <ellipse cx="36" cy="50" rx="13" ry="12" fill="url(#wLensL)" />
-        {/* Механическая диафрагма — кольца */}
-        <ellipse cx="36" cy="50" rx="13" ry="12" fill="none" stroke="#1A3A5A" strokeWidth="1" opacity="0.6" />
-        <ellipse cx="36" cy="50" rx="9" ry="8" fill="none" stroke="#2A5A8A" strokeWidth="0.8" opacity="0.5" />
-        {/* Лепестки диафрагмы */}
-        {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => (
-          <line key={i}
-            x1={36 + 5 * Math.cos(deg * Math.PI / 180)}
-            y1={50 + 4.5 * Math.sin(deg * Math.PI / 180)}
-            x2={36 + 11 * Math.cos(deg * Math.PI / 180)}
-            y2={50 + 10 * Math.sin(deg * Math.PI / 180)}
-            stroke="rgba(40,80,120,0.5)" strokeWidth="1.2" strokeLinecap="round"
-          />
-        ))}
-        {/* Блик линзы */}
-        <ellipse cx="30" cy="44" rx="3" ry="2.5" fill="rgba(255,255,255,0.35)" transform="rotate(-20,30,44)" />
-        <circle cx="31" cy="43" r="1" fill="rgba(255,255,255,0.5)" />
-        {/* Зрачок (активен, смотрит на зрителя) */}
-        <circle cx="36" cy="50" r="4" fill="#0A1A2A" />
-        <circle cx="36" cy="50" r="2.5" fill="#1A2A3A" />
-        <circle cx="37.5" cy="48.5" r="1" fill="rgba(255,255,255,0.7)" />
-
-        {/* Правый "бинокль" — корпус */}
-        <ellipse cx="84" cy="50" rx="15" ry="14" fill="#6A4808" stroke="#3A2404" strokeWidth="1.5" />
-        {/* Правая линза */}
-        <ellipse cx="84" cy="50" rx="13" ry="12" fill="url(#wLensR)" />
-        <ellipse cx="84" cy="50" rx="13" ry="12" fill="none" stroke="#1A3A5A" strokeWidth="1" opacity="0.6" />
-        <ellipse cx="84" cy="50" rx="9" ry="8" fill="none" stroke="#2A5A8A" strokeWidth="0.8" opacity="0.5" />
-        {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => (
-          <line key={i}
-            x1={84 + 5 * Math.cos(deg * Math.PI / 180)}
-            y1={50 + 4.5 * Math.sin(deg * Math.PI / 180)}
-            x2={84 + 11 * Math.cos(deg * Math.PI / 180)}
-            y2={50 + 10 * Math.sin(deg * Math.PI / 180)}
-            stroke="rgba(40,80,120,0.5)" strokeWidth="1.2" strokeLinecap="round"
-          />
-        ))}
-        <ellipse cx="78" cy="44" rx="3" ry="2.5" fill="rgba(255,255,255,0.35)" transform="rotate(-20,78,44)" />
-        <circle cx="79" cy="43" r="1" fill="rgba(255,255,255,0.5)" />
-        <circle cx="84" cy="50" r="4" fill="#0A1A2A" />
-        <circle cx="84" cy="50" r="2.5" fill="#1A2A3A" />
-        <circle cx="85.5" cy="48.5" r="1" fill="rgba(255,255,255,0.7)" />
-
-        {/* Перемычка между глазами */}
-        <rect x="50" y="44" width="20" height="12" rx="3" fill="#7A5010" />
-        <rect x="52" y="46" width="16" height="3" rx="1" fill="#5A3808" opacity="0.6" />
-
-        {/* Мелкие детали головы */}
-        <rect x="28" y="30" width="64" height="8" rx="4" fill="rgba(0,0,0,0.15)" />
-        {/* Антенна */}
-        <line x1="60" y1="28" x2="60" y2="16" stroke="#8A6010" strokeWidth="2.5" strokeLinecap="round" />
-        <circle cx="60" cy="14" r="3" fill="#FFD700" filter="url(#ledGlow)" />
-        <circle cx="60" cy="14" r="1.5" fill="#FFF8A0" />
-
-        {/* Ушные крепления */}
-        <rect x="22" y="38" width="6" height="14" rx="3" fill="#7A5010" />
-        <rect x="92" y="38" width="6" height="14" rx="3" fill="#7A5010" />
-
-        {/* Тёплый свет на теле снизу */}
-        <ellipse cx="60" cy="160" rx="45" ry="6" fill="rgba(220,150,50,0.12)" />
-      </svg>
-
-      {/* Речевой пузырь */}
-      <div className="walle-bubble" role="status" aria-live="polite">
-        <span className="walle-bubble-text">Привет, архитектор! Я — ВАЛЛИ.</span>
-        <div className="walle-bubble-tail" />
+      <div className="wm-bubble" role="status">
+        Привет, архитектор! Я — ВАЛЛИ.
       </div>
-
-      <style>{WALLE_CSS}</style>
+      <style>{\`
+        .wm-scene {
+          position: fixed;
+          bottom: 40px;
+          right: 5vw;
+          z-index: 10;
+          pointer-events: none;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          animation: wmIn 0.8s cubic-bezier(0.2,0.8,0.2,1) 0.3s both;
+        }
+        @keyframes wmIn {
+          from { opacity:0; transform:translateY(40px) scale(0.8); }
+          to   { opacity:1; transform:translateY(0) scale(1); }
+        }
+        .wm-svg {
+          width: 120px;
+          height: 180px;
+          filter: drop-shadow(0 4px 16px rgba(200,134,26,0.5)) drop-shadow(0 0 8px rgba(0,0,0,0.8));
+          animation: wmBob 4s ease-in-out infinite;
+          will-change: transform;
+        }
+        @keyframes wmBob {
+          0%,100% { transform: translateY(0); }
+          50%      { transform: translateY(-8px); }
+        }
+        .wm-bubble {
+          margin-top: 8px;
+          background: rgba(10,14,26,0.95);
+          border: 1px solid rgba(255,215,0,0.5);
+          border-radius: 12px;
+          padding: 8px 14px;
+          font-size: 12px;
+          font-weight: 500;
+          color: #FFD700;
+          white-space: nowrap;
+          letter-spacing: 0.02em;
+          box-shadow: 0 2px 16px rgba(0,0,0,0.6);
+          animation: wmIn 0.5s cubic-bezier(0.2,0.8,0.2,1) 1s both;
+        }
+        @media (max-width: 600px) {
+          .wm-scene { right: 2vw; bottom: 20px; }
+          .wm-svg { width: 90px; height: 135px; }
+          .wm-bubble { font-size: 11px; }
+        }
+      \`}</style>
     </div>
   )
 }
-
-const WALLE_CSS = `
-.walle-scene {
-  position: fixed;
-  bottom: 60px;
-  right: 6vw;
-  width: 220px;
-  z-index: 10;
-  pointer-events: none;
-  animation: walleEntrance 1.2s cubic-bezier(0.2,0.8,0.2,1) 0.5s both;
-}
-
-@keyframes walleEntrance {
-  0%   { opacity: 0; transform: translateY(60px) scale(0.7); }
-  60%  { transform: translateY(-10px) scale(1.04); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* Тёплое кинематографическое свечение */
-.walle-warm-glow {
-  position: absolute;
-  bottom: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 180px;
-  height: 80px;
-  background: radial-gradient(ellipse, rgba(230,160,60,0.22) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-  animation: walleGlowPulse 3s ease-in-out infinite;
-}
-
-@keyframes walleGlowPulse {
-  0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
-  50% { opacity: 1; transform: translateX(-50%) scale(1.1); }
-}
-
-/* SVG пыль */
-.walle-dust-svg {
-  position: absolute;
-  bottom: -10px;
-  left: -40px;
-  width: 300px;
-  height: 200px;
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0.6;
-}
-
-@keyframes walleDustFloat {
-  0%   { transform: translate(0, 0) scale(1); opacity: 0.1; }
-  25%  { transform: translate(var(--drift, 8px), -18px) scale(1.2); opacity: 0.5; }
-  50%  { transform: translate(calc(var(--drift, 8px) * 0.5), -35px) scale(0.9); opacity: 0.3; }
-  75%  { transform: translate(0, -50px) scale(0.6); opacity: 0.15; }
-  100% { transform: translate(0, -60px) scale(0.3); opacity: 0; }
-}
-
-/* ВАЛЛИ SVG */
-.walle-svg {
-  position: relative;
-  z-index: 2;
-  width: 140px;
-  height: 210px;
-  margin: 0 auto;
-  display: block;
-  filter: drop-shadow(0 8px 24px rgba(180,100,20,0.45)) drop-shadow(0 2px 8px rgba(0,0,0,0.6));
-  animation: walleBob 3.5s ease-in-out infinite;
-}
-
-@keyframes walleBob {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  30%       { transform: translateY(-6px) rotate(0.8deg); }
-  60%       { transform: translateY(-3px) rotate(-0.5deg); }
-}
-
-/* Речевой пузырь */
-.walle-bubble {
-  position: absolute;
-  top: -10px;
-  right: 130px;
-  background: rgba(15, 20, 30, 0.92);
-  border: 1px solid rgba(255, 200, 80, 0.4);
-  border-radius: 16px 16px 4px 16px;
-  padding: 10px 14px;
-  min-width: 170px;
-  max-width: 200px;
-  backdrop-filter: blur(8px);
-  box-shadow:
-    0 4px 24px rgba(0,0,0,0.5),
-    0 0 20px rgba(255,200,80,0.08),
-    inset 0 1px 0 rgba(255,255,255,0.06);
-  z-index: 3;
-  pointer-events: none;
-  animation: walleBubblePop 0.6s cubic-bezier(0.2,0.8,0.2,1) 1.5s both;
-}
-
-@keyframes walleBubblePop {
-  0%   { opacity: 0; transform: scale(0.6) translateX(20px); }
-  70%  { transform: scale(1.05) translateX(-2px); }
-  100% { opacity: 1; transform: scale(1) translateX(0); }
-}
-
-.walle-bubble-text {
-  font-family: var(--font-inter, 'Inter', sans-serif);
-  font-size: 12px;
-  font-weight: 500;
-  color: #E8D080;
-  line-height: 1.5;
-  letter-spacing: 0.02em;
-  display: block;
-}
-
-.walle-bubble-tail {
-  position: absolute;
-  bottom: -8px;
-  right: 16px;
-  width: 0;
-  height: 0;
-  border-left: 8px solid transparent;
-  border-right: 0;
-  border-top: 8px solid rgba(255,200,80,0.4);
-}
-
-@media (max-width: 700px) {
-  .walle-scene {
-    bottom: 40px;
-    right: 2vw;
-    width: 160px;
-  }
-  .walle-svg { width: 110px; height: 165px; }
-  .walle-bubble {
-    right: 100px;
-    min-width: 140px;
-    font-size: 11px;
-  }
-}
-`
 
 const CSS = `
 .eternity-page {
