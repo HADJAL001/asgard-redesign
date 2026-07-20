@@ -99,6 +99,7 @@ import { runIndexesMigration } from "./migrations/011_indexes"
 import { runWalliSystemMigration } from "./migrations/012_walli_system"
 import { runWalliStatsMigration } from "./migrations/013_walli_stats"
 import walliRoutes from "./routes/walli.routes"
+import demoRoutes from "./routes/demo.routes"
 
 
 
@@ -148,6 +149,7 @@ app.use("/twin", twinRoutes)
 app.use("/feedback", feedbackRoutes)
 app.use("/api/tc", tcRoutes)
 app.use("/walli", walliRoutes)
+app.use("/demo", demoRoutes)
 
 
 

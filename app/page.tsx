@@ -14,15 +14,23 @@ const EternityLanding = dynamic(
   }
 )
 
-const DemoWidget = dynamic(() => import("@/components/demo-widget").then((m) => m.DemoWidget), {
-  loading: () => null,
-  ssr: false,
-})
+const DemoProjectGenerator = dynamic(
+  () => import("@/components/DemoProjectGenerator").then((m) => m.DemoProjectGenerator),
+  { loading: () => null, ssr: false }
+)
+
+const DemoWidget = dynamic(
+  () => import("@/components/demo-widget").then((m) => m.DemoWidget),
+  { loading: () => null, ssr: false }
+)
 
 export default function Page() {
   return (
     <>
       <EternityLanding />
+      {/* Новый AI-генератор проектов с эффектом ИКЕА */}
+      <DemoProjectGenerator />
+      {/* Старый 4-шаговый виджет (показывает ценность: токен → доход) */}
       <DemoWidget />
     </>
   )

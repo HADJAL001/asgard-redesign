@@ -5,6 +5,7 @@ import { OsgardStoreProvider } from "@/components/osgard-store"
 import { AuthProvider } from "@/lib/auth-store"
 import { I18nProvider } from "@/lib/i18n/use-translation"
 import { Footer } from "@/components/footer"
+import { AppShell } from "@/components/AppShell"
 
 
 const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter" })
@@ -64,8 +65,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <I18nProvider>
           <AuthProvider>
             <OsgardStoreProvider>
-              {children}
-              <Footer />
+              <AppShell>
+                {children}
+                <Footer />
+              </AppShell>
             </OsgardStoreProvider>
           </AuthProvider>
         </I18nProvider>

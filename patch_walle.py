@@ -1,5 +1,5 @@
 import sys
-p = 'a:/HADJAL/Рабочий стол/asgard-redesign/components/eternity-landing.tsx'
+p = 'a:/HADJAL/Рабочий стол/asgard-redesign/app/walli-room/page.tsx'
 with open(p, 'r', encoding='utf-8') as f:
     c = f.read()
 
