@@ -225,6 +225,10 @@ export function ForgeView() {
                   style={{
                     width: size,
                     height: size,
+                    top: "50%",
+                    left: "50%",
+                    marginTop: -size / 2,
+                    marginLeft: -size / 2,
                     border: `1px solid rgba(0,212,255,${0.15 + i * 0.1})`,
                     animation: `forge-ring-spin ${3 + i * 1.5}s linear infinite ${i % 2 === 0 ? "" : "reverse"}`,
                     opacity: forgePhase === "charging" ? 1 : forgePhase === "burst" ? 0 : 0,
@@ -265,12 +269,16 @@ export function ForgeView() {
                   style={{
                     width: 6,
                     height: 6,
+                    top: "50%",
+                    left: "50%",
+                    marginTop: -3,
+                    marginLeft: -3,
                     background: i % 3 === 0 ? "#00D4FF" : i % 3 === 1 ? "#fff" : "#B57BFF",
-                    animation: `forge-particle-${i % 4} 0.6s ease-out forwards`,
-                    transformOrigin: "center",
-                    transform: `rotate(${i * 30}deg) translateX(60px)`,
-                    opacity: 0,
-                  }}
+                    animation: `forge-particle-burst 0.7s ease-out forwards`,
+                    animationDelay: `${i * 0.02}s`,
+                    transformOrigin: "center center",
+                    "--particle-angle": `${i * 30}deg`,
+                  } as React.CSSProperties}
                 />
               ))}
             </div>
@@ -453,7 +461,7 @@ export function ForgeView() {
                 </p>
               </div>
             ) : (
-              <div className="mt-6 flex flex-col items-center rounded-xl px-6 py-10" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${RARITY[resultRarity]?.color || COLORS.border}` }}>
+              <div className="forge-reveal mt-6 flex flex-col items-center rounded-xl px-6 py-10" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${RARITY[resultRarity]?.color || COLORS.border}` }}>
                 <span className="flex size-24 items-center justify-center rounded-2xl" style={{ border: `1px solid ${RARITY[resultRarity]?.color || COLORS.border}` }}>
                   <ResultTypeIcon size={44} strokeWidth={1.25} style={{ color: RARITY[resultRarity]?.color || COLORS.accent }} aria-hidden="true" />
                 </span>
