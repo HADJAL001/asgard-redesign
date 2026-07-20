@@ -7,16 +7,17 @@ import db from '../db/database';
 
 // Схемы валидации
 const registerSchema = Joi.object({
-  email: Joi.string().email().required(),
+  email: Joi.string().email().optional(),
   password: Joi.string().min(6).required(),
-  username: Joi.string().alphanum().min(3).max(30).required(),
+  username: Joi.string().min(3).max(30).required(),
   referralCode: Joi.string().optional()
 });
 
 const loginSchema = Joi.object({
-  email: Joi.string().email().required(),
+  email: Joi.string().email().optional(),
+  username: Joi.string().optional(),
   password: Joi.string().required()
-});
+}).or('email', 'username');
 
 const changePasswordSchema = Joi.object({
   oldPassword: Joi.string().required(),
@@ -50,14 +51,11 @@ export class AuthController {
         if (referrer) referredBy = referrer.id;
       }
 
+      // Создаём пользователя согласно схеме init-db (без balance_* — баланс в таблице wallets)
       const userId = UserModel.create({
         email,
         password_hash: hashedPassword,
         username,
-        balance_credits: 100,
-        balance_shards: 0,
-        balance_crystals: 0,
-        balance_tc: 0,
         referral_code: refCode,
         referred_by: referredBy,
         is_verified: false,
@@ -67,21 +65,35 @@ export class AuthController {
         role: 'user'
       });
 
-      // Начисляем бонус рефереру
-      if (referredBy) {
-        UserModel.updateBalance(referredBy, 'tc', 5);
+      // Создаём кошелёк в таблице wallets (стартовый бонус 100 credits)
+      try {
         db.prepare(`
-          INSERT INTO referrals (referrer_id, referee_id, reward_amount, status)
-          VALUES (?, ?, ?, 'active')
-        `).run(referredBy, userId, 5);
+          INSERT OR IGNORE INTO wallets (user_id, credits, shards, crystals, timecoin, cash_usd)
+          VALUES (?, 100, 0, 0, 0, 0)
+        `).run(userId);
+      } catch (e) {
+        // wallets таблица может не существовать — игнорируем
       }
 
-      const accessToken = AuthService.generateAccessToken(userId);
+      // Начисляем бонус рефереру
+      if (referredBy) {
+        try {
+          db.prepare(`UPDATE wallets SET timecoin = timecoin + 5 WHERE user_id = ?`).run(referredBy);
+          db.prepare(`
+            INSERT OR IGNORE INTO referrals (referrer_id, referee_id, reward_amount, status)
+            VALUES (?, ?, ?, 'active')
+          `).run(referredBy, userId, 5);
+        } catch (e) {
+          // referrals таблица может не существовать
+        }
+      }
+
+      const token = AuthService.generateAccessToken(userId);
       const refreshToken = AuthService.generateRefreshToken(userId);
 
       res.status(201).json({
         success: true,
-        accessToken,
+        token,
         refreshToken,
         user: { id: userId, email, username, referralCode: refCode }
       });
@@ -100,8 +112,9 @@ export class AuthController {
         return res.status(400).json({ error: error.details[0].message });
       }
 
-      const { email, password } = req.body;
-      const user = UserModel.findByEmail(email);
+      const { email, username, password } = req.body;
+      // поиск по email или username
+      const user = email ? UserModel.findByEmail(email) : UserModel.findByUsername(username);
       
       if (!user) {
         return res.status(401).json({ error: 'Invalid credentials' });
@@ -114,12 +127,12 @@ export class AuthController {
 
       UserModel.updateLastLogin(user.id);
 
-      const accessToken = AuthService.generateAccessToken(user.id);
+      const token = AuthService.generateAccessToken(user.id);
       const refreshToken = AuthService.generateRefreshToken(user.id);
 
       res.json({
         success: true,
-        accessToken,
+        token,
         refreshToken,
         user: {
           id: user.id,

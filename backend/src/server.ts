@@ -9,7 +9,19 @@ dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 3002
-const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3000"
+
+// Разрешённые origin: из env или по умолчанию localhost + vercel
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map(o => o.trim())
+  .filter(Boolean)
+
+if (!ALLOWED_ORIGINS.includes("http://localhost:3000")) {
+  ALLOWED_ORIGINS.push("http://localhost:3000")
+}
+if (!ALLOWED_ORIGINS.includes("http://localhost:3001")) {
+  ALLOWED_ORIGINS.push("http://localhost:3001")
+}
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -23,7 +35,22 @@ app.use(helmet({
   }
 }))
 
-app.use(cors({ origin: CORS_ORIGIN, credentials: true }))
+app.use(cors({
+  origin: (origin, callback) => {
+    // разрешаем запросы без origin (мобильные, curl, postman)
+    if (!origin) return callback(null, true)
+    // разрешаем vercel.app и заданные origins
+    if (
+      ALLOWED_ORIGINS.includes(origin) ||
+      /\.vercel\.app$/.test(origin) ||
+      /\.railway\.app$/.test(origin)
+    ) {
+      return callback(null, true)
+    }
+    callback(new Error(`CORS blocked: ${origin}`))
+  },
+  credentials: true
+}))
 app.use(morgan("dev"))
 app.use(compression({ level: 9, threshold: 1024 })) // сжимаем ответы > 1KB
 
