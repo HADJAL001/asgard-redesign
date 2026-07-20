@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef, useState, type FormEvent } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import * as THREE from "three"
 import {
@@ -18,20 +17,10 @@ import {
 } from "lucide-react"
 
 export function EternityLanding() {
-  const router = useRouter()
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [counter, setCounter] = useState(0)
 
-  // Речевой пузырь ДЖАРВИСА
-  const bubbleRef = useRef<HTMLDivElement>(null)
-  const [bubbleVisible, setBubbleVisible] = useState(false)
-  const bubbleReadyRef = useRef(false)
-
-  // Mouse tracking для взгляда ДЖАРВИСА
-  const mouseRef = useRef({ x: 0, y: 0 })
-  // Hover/click state
-  const [jarvisHovered, setJarvisHovered] = useState(false)
 
   const [particles, setParticles] = useState<
     { left: string; top: string; duration: string; delay: string }[]
@@ -251,279 +240,13 @@ export function EternityLanding() {
     orbitGroup.rotation.x = 0.2
     orbitGroup.rotation.z = -0.1
 
-    // ── ДЖАРВИС — простая цельная яркая фигура ──
-    const jarvisGroup = new THREE.Group()
-
-    // ── МОЩНОЕ ОСВЕЩЕНИЕ СПЕРЕДИ ──
-    const jLight1 = new THREE.PointLight(0xFFFFFF, 6.0, 30)
-    jLight1.position.set(0, 4, 8)
-    scene.add(jLight1)
-    const jLight2 = new THREE.DirectionalLight(0xFFEEDD, 5.0)
-    jLight2.position.set(0, 3, 10)
-    scene.add(jLight2)
-    const jLight3 = new THREE.DirectionalLight(0xFFD700, 3.5)
-    jLight3.position.set(-4, 2, 6)
-    scene.add(jLight3)
-    const jLight4 = new THREE.DirectionalLight(0xFF6600, 3.0)
-    jLight4.position.set(4, 0, 6)
-    scene.add(jLight4)
-
-    // ── МАТЕРИАЛЫ: ЯРКО-КРАСНЫЙ + ЗОЛОТО ──
-    const MAT_RED = new THREE.MeshStandardMaterial({
-      color: 0xFF1111,
-      metalness: 0.7,
-      roughness: 0.1,
-      emissive: new THREE.Color(0x660000),
-      emissiveIntensity: 0.6,
-    })
-    const MAT_GOLD = new THREE.MeshStandardMaterial({
-      color: 0xFFD700,
-      metalness: 0.85,
-      roughness: 0.05,
-      emissive: new THREE.Color(0xAA7700),
-      emissiveIntensity: 0.5,
-    })
-    const MAT_EYE = new THREE.MeshStandardMaterial({
-      color: 0xFFFFFF,
-      emissive: new THREE.Color(0x44CCFF),
-      emissiveIntensity: 15.0,
-      metalness: 0,
-      roughness: 0,
-    })
-    const MAT_ARC = new THREE.MeshStandardMaterial({
-      color: 0xAAEEFF,
-      emissive: new THREE.Color(0x00CCFF),
-      emissiveIntensity: 18.0,
-      metalness: 0,
-      roughness: 0,
-    })
-
-    // ── ГОЛОВА (отдельная группа для слежения за мышью) ──
-    const headGroup = new THREE.Group()
-
-    // Шлем — золотой купол
-    const helmetMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.18, 20, 16),
-      MAT_GOLD
-    )
-    helmetMesh.scale.set(1.0, 1.2, 1.0)
-    headGroup.add(helmetMesh)
-
-    // Лицевая пластина — красная
-    const facePlate = new THREE.Mesh(
-      new THREE.BoxGeometry(0.26, 0.16, 0.07),
-      MAT_RED
-    )
-    facePlate.position.set(0, -0.02, 0.15)
-    headGroup.add(facePlate)
-
-    // Глаза — светящиеся щели
-    const eyeGeo = new THREE.BoxGeometry(0.072, 0.022, 0.02)
-    const leftEyeM = new THREE.Mesh(eyeGeo, MAT_EYE)
-    leftEyeM.position.set(-0.062, 0.024, 0.185)
-    headGroup.add(leftEyeM)
-    const rightEyeM = new THREE.Mesh(eyeGeo.clone(), MAT_EYE)
-    rightEyeM.position.set(0.062, 0.024, 0.185)
-    headGroup.add(rightEyeM)
-
-    headGroup.position.y = 0.90
-    jarvisGroup.add(headGroup)
-
-    // ── ШЕЯ ──
-    const neckM = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.065, 0.080, 0.10, 12),
-      MAT_GOLD
-    )
-    neckM.position.y = 0.775
-    jarvisGroup.add(neckM)
-
-    // ── ТОРС — цельный, широкий, заметный ──
-    // Основа торса (красный)
-    const torsoMain = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.22, 0.18, 0.58, 16),
-      MAT_RED
-    )
-    torsoMain.position.y = 0.20
-    jarvisGroup.add(torsoMain)
-
-    // Нагрудные пластины (золотые) — левая и правая полосы
-    ;[-1, 1].forEach(s => {
-      const chest = new THREE.Mesh(
-        new THREE.BoxGeometry(0.10, 0.28, 0.10),
-        MAT_GOLD
-      )
-      chest.position.set(s * 0.14, 0.24, 0.17)
-      jarvisGroup.add(chest)
-    })
-
-    // Поясная пластина (золотая)
-    const waist = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.19, 0.17, 0.08, 14),
-      MAT_GOLD
-    )
-    waist.position.y = -0.10
-    jarvisGroup.add(waist)
-
-    // Arc Reactor — сердцевина
-    const arcCore = new THREE.Mesh(
-      new THREE.CircleGeometry(0.042, 24),
-      MAT_ARC
-    )
-    arcCore.position.set(0, 0.22, 0.225)
-    jarvisGroup.add(arcCore)
-
-    // Arc Reactor — кольцо
-    const arcRing = new THREE.Mesh(
-      new THREE.TorusGeometry(0.058, 0.010, 10, 28),
-      MAT_ARC
-    )
-    arcRing.position.set(0, 0.22, 0.224)
-    jarvisGroup.add(arcRing)
-
-    // ── ПЛЕЧИ — золотые купола ──
-    ;[-1, 1].forEach(s => {
-      const shoulder = new THREE.Mesh(
-        new THREE.SphereGeometry(0.10, 14, 10),
-        MAT_GOLD
-      )
-      shoulder.position.set(s * 0.33, 0.38, 0)
-      shoulder.scale.set(1.0, 0.9, 0.9)
-      jarvisGroup.add(shoulder)
-    })
-
-    // ── РУКИ — цельные (плечо + предплечье + рука как один цилиндр) ──
-    ;[-1, 1].forEach(s => {
-      // Верхняя рука
-      const upperArm = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.060, 0.052, 0.30, 12),
-        MAT_RED
-      )
-      upperArm.position.set(s * 0.34, 0.16, 0)
-      upperArm.rotation.z = s * 0.15
-      jarvisGroup.add(upperArm)
-
-      // Нижняя рука
-      const lowerArm = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.048, 0.040, 0.28, 12),
-        MAT_RED
-      )
-      lowerArm.position.set(s * 0.38, -0.12, 0)
-      lowerArm.rotation.z = s * 0.18
-      jarvisGroup.add(lowerArm)
-
-      // Кисть
-      const hand = new THREE.Mesh(
-        new THREE.BoxGeometry(0.085, 0.070, 0.055),
-        MAT_GOLD
-      )
-      hand.position.set(s * 0.41, -0.30, 0)
-      jarvisGroup.add(hand)
-    })
-
-    // ── НОГИ — цельные ──
-    ;[-1, 1].forEach(s => {
-      // Бедро
-      const thigh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.080, 0.068, 0.28, 12),
-        MAT_RED
-      )
-      thigh.position.set(s * 0.115, -0.30, 0)
-      jarvisGroup.add(thigh)
-
-      // Колено — золотая пластина
-      const knee = new THREE.Mesh(
-        new THREE.SphereGeometry(0.072, 12, 10),
-        MAT_GOLD
-      )
-      knee.position.set(s * 0.115, -0.50, 0)
-      knee.scale.set(1.0, 0.65, 0.85)
-      jarvisGroup.add(knee)
-
-      // Голень
-      const shin = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.062, 0.052, 0.28, 12),
-        MAT_RED
-      )
-      shin.position.set(s * 0.115, -0.70, 0)
-      jarvisGroup.add(shin)
-
-      // Ступня
-      const foot = new THREE.Mesh(
-        new THREE.BoxGeometry(0.096, 0.040, 0.18),
-        MAT_GOLD
-      )
-      foot.position.set(s * 0.115, -0.88, 0.030)
-      jarvisGroup.add(foot)
-    })
-
-    // Arc Reactor свет
-    const arcLight = new THREE.PointLight(0x00CCFF, 4.0, 5.0)
-    arcLight.position.set(0, 0.22, 0.60)
-    jarvisGroup.add(arcLight)
-
-    // Начинаем невидимым — появится плавно
-    jarvisGroup.scale.setScalar(0.0)
-    scene.add(jarvisGroup)
-
-    // ── ОРБИТАЛЬНАЯ АНИМАЦИЯ ──────────────────────────────────
-    // Параметры орбиты
-    const ORBIT_RADIUS = 2.8       // радиус орбиты вокруг глобуса
-    const ORBIT_HEIGHT = 0.7       // высота над экватором
-    const ORBIT_SPEED = (2 * Math.PI) / 12  // 1 оборот за 12 секунд
-
-    let orbitTime = 0
-    let jarvisVisible = false
-
-    // Раскастер для клика/ховера
-    const raycaster = new THREE.Raycaster()
-    const ndc = new THREE.Vector2()
-    const jarvisMeshes: THREE.Mesh[] = []
-    jarvisGroup.traverse((obj: THREE.Object3D) => {
-      if ((obj as THREE.Mesh).isMesh) jarvisMeshes.push(obj as THREE.Mesh)
-    })
-
-    const onMouseMove = (e: MouseEvent) => {
-      const rect = container.getBoundingClientRect()
-      mouseRef.current = {
-        x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        y: -((e.clientY - rect.top) / rect.height) * 2 + 1,
-      }
-      ndc.set(mouseRef.current.x, mouseRef.current.y)
-      raycaster.setFromCamera(ndc, camera)
-      const hits = raycaster.intersectObjects(jarvisMeshes, false)
-      setJarvisHovered(hits.length > 0)
-      container.style.cursor = hits.length > 0 ? "pointer" : ""
-    }
-
-    const onMouseClick = (e: MouseEvent) => {
-      const rect = container.getBoundingClientRect()
-      ndc.set(
-        ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top) / rect.height) * 2 + 1,
-      )
-      raycaster.setFromCamera(ndc, camera)
-      const hits = raycaster.intersectObjects(jarvisMeshes, false)
-      if (hits.length > 0) router.push("/jarvis")
-    }
-
     let t2 = 0
     let rafId = 0
-    const DELTA = 1 / 60
-
-    // Пузырь через 2 секунды после старта
-    setTimeout(() => {
-      if (!bubbleReadyRef.current) {
-        bubbleReadyRef.current = true
-        setBubbleVisible(true)
-      }
-    }, 2000)
 
     function animate() {
       rafId = requestAnimationFrame(animate)
       t2 += 0.01
-      orbitTime += DELTA
 
-      // Глобус — без изменений
       earth.rotation.y += 0.0025
       clouds.rotation.y += 0.0035
       orbitGroup.rotation.y += 0.0012
@@ -534,67 +257,9 @@ export function EternityLanding() {
       stars.rotation.y += 0.0001
       stars2.rotation.y -= 0.00005
 
-      // Появление Джарвиса (первые 1.5 секунды)
-      if (!jarvisVisible) {
-        const scaleT = Math.min(orbitTime / 1.5, 1.0)
-        const eased = 1 - Math.pow(1 - scaleT, 3)
-        jarvisGroup.scale.setScalar(eased * 1.3)
-        if (scaleT >= 1.0) jarvisVisible = true
-      }
-
-      // Орбитальный полёт вокруг глобуса
-      // Глобус перемещается вместе с orbitGroup, поэтому следим за его позицией
-      const globeCenter = new THREE.Vector3(
-        orbitGroup.position.x,
-        orbitGroup.position.y,
-        orbitGroup.position.z
-      )
-
-      const angle = orbitTime * ORBIT_SPEED
-      // Позиция на орбите относительно центра глобуса
-      const orbitX = globeCenter.x + Math.cos(angle) * ORBIT_RADIUS
-      const orbitY = globeCenter.y + ORBIT_HEIGHT + Math.sin(orbitTime * 0.4) * 0.15 // лёгкое покачивание
-      const orbitZ = globeCenter.z + Math.sin(angle) * ORBIT_RADIUS
-
-      jarvisGroup.position.set(orbitX, orbitY, orbitZ)
-
-      // Поворот к центру глобуса (анализирует Землю)
-      const toGlobe = new THREE.Vector3(
-        globeCenter.x - orbitX,
-        globeCenter.y - orbitY,
-        globeCenter.z - orbitZ
-      ).normalize()
-
-      // lookAt с сохранением "верха"
-      const targetQuat = new THREE.Quaternion()
-      const lookMat = new THREE.Matrix4()
-      const up = new THREE.Vector3(0, 1, 0)
-      lookMat.lookAt(
-        new THREE.Vector3(orbitX, orbitY, orbitZ),
-        new THREE.Vector3(globeCenter.x, globeCenter.y, globeCenter.z),
-        up
-      )
-      targetQuat.setFromRotationMatrix(lookMat)
-      jarvisGroup.quaternion.slerp(targetQuat, 0.08)
-
-      // Пульс Arc Reactor
-      const pulse = 0.7 + 0.3 * Math.sin(orbitTime * 3.5)
-      ;(arcCore.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse * 14.0
-      ;(arcRing.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse * 9.0
-      arcLight.intensity = pulse * 4.0
-
-      // Голова следит за мышью (лёгкий поворот)
-      const tRX = mouseRef.current.y * 0.15
-      const tRY = mouseRef.current.x * 0.20
-      headGroup.rotation.x += (tRX - headGroup.rotation.x) * 0.05
-      headGroup.rotation.y += (tRY - headGroup.rotation.y) * 0.05
-
       renderer.render(scene, camera)
     }
     animate()
-
-    container.addEventListener("mousemove", onMouseMove)
-    container.addEventListener("click", onMouseClick)
 
     const onResize = () => {
       const w = container.clientWidth
@@ -609,8 +274,6 @@ export function EternityLanding() {
 
     return () => {
       cancelAnimationFrame(rafId)
-      container.removeEventListener("mousemove", onMouseMove)
-      container.removeEventListener("click", onMouseClick)
       window.removeEventListener("resize", onResize)
       renderer.dispose()
       if (renderer.domElement.parentNode === container) {
@@ -656,6 +319,9 @@ export function EternityLanding() {
           />
         ))}
       </div>
+
+      {/* ВАЛЛИ на глобусе */}
+      <WalleOnGlobe />
 
       {/* Основной контент */}
       <div className="container">
@@ -785,25 +451,456 @@ export function EternityLanding() {
         </section>
       </div>
 
-      {/* Речевой пузырь ДЖАРВИСА — HTML-оверлей поверх Three.js */}
-      {bubbleVisible && (
-        <div
-          ref={bubbleRef}
-          className="jarvis-speech-bubble"
-          aria-live="polite"
-          style={{ position: "fixed", zIndex: 20, pointerEvents: "none", transform: "translate(-50%, calc(-100% - 20px))" }}
-        >
-          <span className="jarvis-speech-text">
-            Привет, архитектор!<br />Я — ДЖАРВИС.<br />Анализирую Землю...
-          </span>
-          <div className="jarvis-speech-arrow" />
-        </div>
-      )}
-
       <style>{CSS}</style>
     </div>
   )
 }
+
+// ─── ВАЛЛИ на глобусе ────────────────────────────────────────────────────────
+function WalleOnGlobe() {
+  const [dustParticles] = useState(() =>
+    Array.from({ length: 28 }).map((_, i) => ({
+      id: i,
+      x: 40 + Math.random() * 220,
+      y: 60 + Math.random() * 120,
+      size: 1 + Math.random() * 3,
+      dur: 2.5 + Math.random() * 4,
+      delay: Math.random() * 5,
+      drift: (Math.random() - 0.5) * 40,
+    }))
+  )
+  const [trashPieces] = useState(() =>
+    Array.from({ length: 12 }).map((_, i) => ({
+      id: i,
+      x: 20 + Math.random() * 260,
+      y: 120 + Math.random() * 60,
+      rot: Math.random() * 360,
+      size: 4 + Math.random() * 8,
+    }))
+  )
+
+  return (
+    <div className="walle-scene" aria-label="ВАЛЛИ стоит на глобусе">
+      {/* Атмосфера тёплого света */}
+      <div className="walle-warm-glow" />
+
+      {/* Частицы пыли */}
+      <svg className="walle-dust-svg" viewBox="0 0 300 200" aria-hidden="true">
+        {dustParticles.map((p) => (
+          <circle
+            key={p.id}
+            cx={p.x}
+            cy={p.y}
+            r={p.size}
+            fill="rgba(210,160,80,0.35)"
+            style={{
+              animation: `walleDustFloat ${p.dur}s ${p.delay}s infinite ease-in-out`,
+              transformOrigin: `${p.x}px ${p.y}px`,
+            }}
+          />
+        ))}
+        {/* Мусор на земле */}
+        {trashPieces.map((t) => (
+          <g key={t.id} transform={`translate(${t.x},${t.y}) rotate(${t.rot})`}>
+            <rect
+              x={-t.size / 2}
+              y={-t.size / 4}
+              width={t.size}
+              height={t.size / 2}
+              rx="1"
+              fill={`hsl(${20 + Math.random() * 30},40%,${25 + Math.random() * 20}%)`}
+              opacity="0.7"
+            />
+          </g>
+        ))}
+      </svg>
+
+      {/* ВАЛЛИ SVG */}
+      <svg
+        className="walle-svg"
+        viewBox="0 0 120 180"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <defs>
+          {/* Ржавый оранжево-жёлтый металл */}
+          <linearGradient id="wBodyGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#C8861A" />
+            <stop offset="40%" stopColor="#A86A10" />
+            <stop offset="100%" stopColor="#7A4A08" />
+          </linearGradient>
+          <linearGradient id="wBodyFront" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#D4920E" />
+            <stop offset="60%" stopColor="#B07010" />
+            <stop offset="100%" stopColor="#804808" />
+          </linearGradient>
+          {/* Гусеница */}
+          <linearGradient id="wTrackGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#3A2A18" />
+            <stop offset="100%" stopColor="#1A1008" />
+          </linearGradient>
+          {/* Линза */}
+          <radialGradient id="wLensL" cx="35%" cy="30%">
+            <stop offset="0%" stopColor="#C8E8FF" />
+            <stop offset="40%" stopColor="#6AACDF" />
+            <stop offset="100%" stopColor="#1A3A5A" />
+          </radialGradient>
+          <radialGradient id="wLensR" cx="35%" cy="30%">
+            <stop offset="0%" stopColor="#C8E8FF" />
+            <stop offset="40%" stopColor="#6AACDF" />
+            <stop offset="100%" stopColor="#1A3A5A" />
+          </radialGradient>
+          {/* Свечение LED */}
+          <filter id="ledGlow">
+            <feGaussianBlur stdDeviation="1.5" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <filter id="bodyGlow">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          {/* Ржавчина */}
+          <filter id="rust">
+            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" result="noise" />
+            <feColorMatrix type="matrix"
+              values="0.3 0 0 0 0.5
+                      0 0.2 0 0 0.2
+                      0 0 0.1 0 0
+                      0 0 0 0.4 0"
+              result="rustColor" />
+            <feBlend in="SourceGraphic" in2="rustColor" mode="multiply" />
+          </filter>
+          <clipPath id="lensClipL">
+            <ellipse cx="36" cy="50" rx="13" ry="12" />
+          </clipPath>
+          <clipPath id="lensClipR">
+            <ellipse cx="84" cy="50" rx="13" ry="12" />
+          </clipPath>
+        </defs>
+
+        {/* ── ГУСЕНИЦЫ ── */}
+        {/* Левая гусеница */}
+        <ellipse cx="30" cy="148" rx="22" ry="9" fill="url(#wTrackGrad)" />
+        <rect x="10" y="140" width="40" height="16" rx="8" fill="url(#wTrackGrad)" />
+        {/* Зубья гусеницы */}
+        {[14, 20, 26, 32, 38, 44].map((x, i) => (
+          <rect key={i} x={x} y="153" width="4" height="5" rx="1" fill="#2A1A0A" />
+        ))}
+        {/* Колёса */}
+        {[16, 26, 36].map((x, i) => (
+          <circle key={i} cx={x} cy="148" r="5" fill="#4A3010" stroke="#2A1A08" strokeWidth="1" />
+        ))}
+        {[16, 26, 36].map((x, i) => (
+          <circle key={i} cx={x} cy="148" r="2" fill="#1A0A04" />
+        ))}
+
+        {/* Правая гусеница */}
+        <ellipse cx="90" cy="148" rx="22" ry="9" fill="url(#wTrackGrad)" />
+        <rect x="70" y="140" width="40" height="16" rx="8" fill="url(#wTrackGrad)" />
+        {[74, 80, 86, 92, 98, 104].map((x, i) => (
+          <rect key={i} x={x} y="153" width="4" height="5" rx="1" fill="#2A1A0A" />
+        ))}
+        {[76, 86, 96].map((x, i) => (
+          <circle key={i} cx={x} cy="148" r="5" fill="#4A3010" stroke="#2A1A08" strokeWidth="1" />
+        ))}
+        {[76, 86, 96].map((x, i) => (
+          <circle key={i} cx={x} cy="148" r="2" fill="#1A0A04" />
+        ))}
+
+        {/* ── ОСНОВНОЕ ТЕЛО ── */}
+        <rect x="22" y="90" width="76" height="55" rx="6" fill="url(#wBodyGrad)" filter="url(#rust)" />
+        {/* Передняя панель */}
+        <rect x="22" y="90" width="76" height="55" rx="6" fill="url(#wBodyFront)" opacity="0.85" />
+        {/* Тёмные грани */}
+        <rect x="22" y="90" width="76" height="3" rx="2" fill="rgba(0,0,0,0.4)" />
+        <rect x="22" y="142" width="76" height="3" rx="2" fill="rgba(0,0,0,0.5)" />
+
+        {/* Надпись WALL•E */}
+        <text x="60" y="108" textAnchor="middle" fontFamily="monospace" fontWeight="bold"
+          fontSize="7.5" fill="rgba(0,0,0,0.7)" letterSpacing="0.5">WALL•E</text>
+        <text x="60" y="107.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold"
+          fontSize="7.5" fill="rgba(255,200,80,0.5)" letterSpacing="0.5">WALL•E</text>
+
+        {/* Компрессор — дверца (приоткрыта) */}
+        <rect x="30" y="113" width="44" height="26" rx="3" fill="#6A4008" stroke="#3A2004" strokeWidth="1" />
+        <rect x="32" y="115" width="40" height="12" rx="2" fill="#3A2004" opacity="0.8" />
+        {/* Внутренний пресс */}
+        <rect x="34" y="118" width="36" height="5" rx="1" fill="#5A3A0A" />
+        <rect x="36" y="120" width="32" height="2" rx="1" fill="#8A6020" />
+
+        {/* LED полоса (зелёная) */}
+        <rect x="78" y="113" width="12" height="26" rx="3" fill="#0A1A0A" filter="url(#ledGlow)" />
+        {[116, 120, 124, 126, 128, 130, 132, 134].map((y, i) => (
+          <rect key={i} x="80" y={y} width="8" height="2" rx="1"
+            fill={i < 6 ? "#00FF44" : "#004A10"}
+            opacity={i < 6 ? 0.9 : 0.4}
+            filter={i < 6 ? "url(#ledGlow)" : undefined}
+          />
+        ))}
+
+        {/* Боковые направляющие */}
+        <rect x="18" y="95" width="6" height="45" rx="2" fill="#8A5A10" />
+        <rect x="96" y="95" width="6" height="45" rx="2" fill="#8A5A10" />
+        {/* Заклёпки */}
+        {[98, 108, 118, 128].map((y, i) => (
+          <circle key={i} cx="21" cy={y} r="1.5" fill="#A07020" />
+        ))}
+        {[98, 108, 118, 128].map((y, i) => (
+          <circle key={i} cx="99" cy={y} r="1.5" fill="#A07020" />
+        ))}
+
+        {/* ── РУКА ЛЕВАЯ (с кубиком) ── */}
+        <rect x="2" y="100" width="8" height="28" rx="3" fill="#9A6810" />
+        <rect x="0" y="122" width="12" height="6" rx="2" fill="#7A5008" />
+        {/* Кубик металлолома */}
+        <rect x="-4" y="124" width="14" height="14" rx="2" fill="#8A7050"
+          stroke="#5A4030" strokeWidth="1" />
+        {/* Текстура кубика */}
+        <rect x="-2" y="126" width="4" height="4" rx="1" fill="#6A5040" opacity="0.7" />
+        <rect x="4" y="128" width="3" height="5" rx="1" fill="#7A6050" opacity="0.6" />
+        <rect x="-1" y="132" width="5" height="3" rx="1" fill="#5A4030" opacity="0.8" />
+        {/* Отблеск */}
+        <rect x="-3" y="124" width="14" height="2" rx="1" fill="rgba(255,220,120,0.2)" />
+
+        {/* ── РУКА ПРАВАЯ ── */}
+        <rect x="110" y="100" width="8" height="28" rx="3" fill="#9A6810" />
+        {/* Клешня */}
+        <line x1="114" y1="128" x2="108" y2="136" stroke="#7A5008" strokeWidth="3" strokeLinecap="round" />
+        <line x1="114" y1="128" x2="120" y2="136" stroke="#7A5008" strokeWidth="3" strokeLinecap="round" />
+        <line x1="114" y1="128" x2="114" y2="138" stroke="#7A5008" strokeWidth="3" strokeLinecap="round" />
+
+        {/* ── ШЕЯ (телескопическая) ── */}
+        <rect x="48" y="65" width="10" height="28" rx="3" fill="#8A6010" />
+        <rect x="51" y="60" width="7" height="32" rx="3" fill="#A07818" />
+        <rect x="53" y="55" width="5" height="35" rx="2" fill="#B88A20" />
+        {/* Сегменты шеи */}
+        {[68, 74, 80].map((y, i) => (
+          <rect key={i} x="47" y={y} width="12" height="3" rx="1" fill="#6A4808" opacity="0.6" />
+        ))}
+
+        {/* Второй сегмент шеи (правая сторона) */}
+        <rect x="62" y="65" width="10" height="28" rx="3" fill="#8A6010" />
+        <rect x="63" y="60" width="7" height="32" rx="3" fill="#A07818" />
+        <rect x="64" y="55" width="5" height="35" rx="2" fill="#B88A20" />
+
+        {/* ── ГОЛОВА ("бинокль") ── */}
+        {/* Корпус головы */}
+        <rect x="26" y="28" width="68" height="38" rx="8" fill="url(#wBodyGrad)" />
+        <rect x="26" y="28" width="68" height="38" rx="8" fill="url(#wBodyFront)" opacity="0.9" />
+
+        {/* Левый "бинокль" — корпус */}
+        <ellipse cx="36" cy="50" rx="15" ry="14" fill="#6A4808" stroke="#3A2404" strokeWidth="1.5" />
+        {/* Левая линза */}
+        <ellipse cx="36" cy="50" rx="13" ry="12" fill="url(#wLensL)" />
+        {/* Механическая диафрагма — кольца */}
+        <ellipse cx="36" cy="50" rx="13" ry="12" fill="none" stroke="#1A3A5A" strokeWidth="1" opacity="0.6" />
+        <ellipse cx="36" cy="50" rx="9" ry="8" fill="none" stroke="#2A5A8A" strokeWidth="0.8" opacity="0.5" />
+        {/* Лепестки диафрагмы */}
+        {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => (
+          <line key={i}
+            x1={36 + 5 * Math.cos(deg * Math.PI / 180)}
+            y1={50 + 4.5 * Math.sin(deg * Math.PI / 180)}
+            x2={36 + 11 * Math.cos(deg * Math.PI / 180)}
+            y2={50 + 10 * Math.sin(deg * Math.PI / 180)}
+            stroke="rgba(40,80,120,0.5)" strokeWidth="1.2" strokeLinecap="round"
+          />
+        ))}
+        {/* Блик линзы */}
+        <ellipse cx="30" cy="44" rx="3" ry="2.5" fill="rgba(255,255,255,0.35)" transform="rotate(-20,30,44)" />
+        <circle cx="31" cy="43" r="1" fill="rgba(255,255,255,0.5)" />
+        {/* Зрачок (активен, смотрит на зрителя) */}
+        <circle cx="36" cy="50" r="4" fill="#0A1A2A" />
+        <circle cx="36" cy="50" r="2.5" fill="#1A2A3A" />
+        <circle cx="37.5" cy="48.5" r="1" fill="rgba(255,255,255,0.7)" />
+
+        {/* Правый "бинокль" — корпус */}
+        <ellipse cx="84" cy="50" rx="15" ry="14" fill="#6A4808" stroke="#3A2404" strokeWidth="1.5" />
+        {/* Правая линза */}
+        <ellipse cx="84" cy="50" rx="13" ry="12" fill="url(#wLensR)" />
+        <ellipse cx="84" cy="50" rx="13" ry="12" fill="none" stroke="#1A3A5A" strokeWidth="1" opacity="0.6" />
+        <ellipse cx="84" cy="50" rx="9" ry="8" fill="none" stroke="#2A5A8A" strokeWidth="0.8" opacity="0.5" />
+        {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => (
+          <line key={i}
+            x1={84 + 5 * Math.cos(deg * Math.PI / 180)}
+            y1={50 + 4.5 * Math.sin(deg * Math.PI / 180)}
+            x2={84 + 11 * Math.cos(deg * Math.PI / 180)}
+            y2={50 + 10 * Math.sin(deg * Math.PI / 180)}
+            stroke="rgba(40,80,120,0.5)" strokeWidth="1.2" strokeLinecap="round"
+          />
+        ))}
+        <ellipse cx="78" cy="44" rx="3" ry="2.5" fill="rgba(255,255,255,0.35)" transform="rotate(-20,78,44)" />
+        <circle cx="79" cy="43" r="1" fill="rgba(255,255,255,0.5)" />
+        <circle cx="84" cy="50" r="4" fill="#0A1A2A" />
+        <circle cx="84" cy="50" r="2.5" fill="#1A2A3A" />
+        <circle cx="85.5" cy="48.5" r="1" fill="rgba(255,255,255,0.7)" />
+
+        {/* Перемычка между глазами */}
+        <rect x="50" y="44" width="20" height="12" rx="3" fill="#7A5010" />
+        <rect x="52" y="46" width="16" height="3" rx="1" fill="#5A3808" opacity="0.6" />
+
+        {/* Мелкие детали головы */}
+        <rect x="28" y="30" width="64" height="8" rx="4" fill="rgba(0,0,0,0.15)" />
+        {/* Антенна */}
+        <line x1="60" y1="28" x2="60" y2="16" stroke="#8A6010" strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="60" cy="14" r="3" fill="#FFD700" filter="url(#ledGlow)" />
+        <circle cx="60" cy="14" r="1.5" fill="#FFF8A0" />
+
+        {/* Ушные крепления */}
+        <rect x="22" y="38" width="6" height="14" rx="3" fill="#7A5010" />
+        <rect x="92" y="38" width="6" height="14" rx="3" fill="#7A5010" />
+
+        {/* Тёплый свет на теле снизу */}
+        <ellipse cx="60" cy="160" rx="45" ry="6" fill="rgba(220,150,50,0.12)" />
+      </svg>
+
+      {/* Речевой пузырь */}
+      <div className="walle-bubble" role="status" aria-live="polite">
+        <span className="walle-bubble-text">Привет, архитектор! Я — ВАЛЛИ.</span>
+        <div className="walle-bubble-tail" />
+      </div>
+
+      <style>{WALLE_CSS}</style>
+    </div>
+  )
+}
+
+const WALLE_CSS = `
+.walle-scene {
+  position: fixed;
+  bottom: 60px;
+  right: 6vw;
+  width: 220px;
+  z-index: 10;
+  pointer-events: none;
+  animation: walleEntrance 1.2s cubic-bezier(0.2,0.8,0.2,1) 0.5s both;
+}
+
+@keyframes walleEntrance {
+  0%   { opacity: 0; transform: translateY(60px) scale(0.7); }
+  60%  { transform: translateY(-10px) scale(1.04); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Тёплое кинематографическое свечение */
+.walle-warm-glow {
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 180px;
+  height: 80px;
+  background: radial-gradient(ellipse, rgba(230,160,60,0.22) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  animation: walleGlowPulse 3s ease-in-out infinite;
+}
+
+@keyframes walleGlowPulse {
+  0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
+  50% { opacity: 1; transform: translateX(-50%) scale(1.1); }
+}
+
+/* SVG пыль */
+.walle-dust-svg {
+  position: absolute;
+  bottom: -10px;
+  left: -40px;
+  width: 300px;
+  height: 200px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.6;
+}
+
+@keyframes walleDustFloat {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0.1; }
+  25%  { transform: translate(var(--drift, 8px), -18px) scale(1.2); opacity: 0.5; }
+  50%  { transform: translate(calc(var(--drift, 8px) * 0.5), -35px) scale(0.9); opacity: 0.3; }
+  75%  { transform: translate(0, -50px) scale(0.6); opacity: 0.15; }
+  100% { transform: translate(0, -60px) scale(0.3); opacity: 0; }
+}
+
+/* ВАЛЛИ SVG */
+.walle-svg {
+  position: relative;
+  z-index: 2;
+  width: 140px;
+  height: 210px;
+  margin: 0 auto;
+  display: block;
+  filter: drop-shadow(0 8px 24px rgba(180,100,20,0.45)) drop-shadow(0 2px 8px rgba(0,0,0,0.6));
+  animation: walleBob 3.5s ease-in-out infinite;
+}
+
+@keyframes walleBob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  30%       { transform: translateY(-6px) rotate(0.8deg); }
+  60%       { transform: translateY(-3px) rotate(-0.5deg); }
+}
+
+/* Речевой пузырь */
+.walle-bubble {
+  position: absolute;
+  top: -10px;
+  right: 130px;
+  background: rgba(15, 20, 30, 0.92);
+  border: 1px solid rgba(255, 200, 80, 0.4);
+  border-radius: 16px 16px 4px 16px;
+  padding: 10px 14px;
+  min-width: 170px;
+  max-width: 200px;
+  backdrop-filter: blur(8px);
+  box-shadow:
+    0 4px 24px rgba(0,0,0,0.5),
+    0 0 20px rgba(255,200,80,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+  z-index: 3;
+  pointer-events: none;
+  animation: walleBubblePop 0.6s cubic-bezier(0.2,0.8,0.2,1) 1.5s both;
+}
+
+@keyframes walleBubblePop {
+  0%   { opacity: 0; transform: scale(0.6) translateX(20px); }
+  70%  { transform: scale(1.05) translateX(-2px); }
+  100% { opacity: 1; transform: scale(1) translateX(0); }
+}
+
+.walle-bubble-text {
+  font-family: var(--font-inter, 'Inter', sans-serif);
+  font-size: 12px;
+  font-weight: 500;
+  color: #E8D080;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  display: block;
+}
+
+.walle-bubble-tail {
+  position: absolute;
+  bottom: -8px;
+  right: 16px;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 0;
+  border-top: 8px solid rgba(255,200,80,0.4);
+}
+
+@media (max-width: 700px) {
+  .walle-scene {
+    bottom: 40px;
+    right: 2vw;
+    width: 160px;
+  }
+  .walle-svg { width: 110px; height: 165px; }
+  .walle-bubble {
+    right: 100px;
+    min-width: 140px;
+    font-size: 11px;
+  }
+}
+`
 
 const CSS = `
 .eternity-page {
@@ -1033,63 +1130,4 @@ const CSS = `
   .eternity-page .artifact-form button { width: 100%; height: 44px; }
 }
 
-/* ── РЕЧЕВОЙ ПУЗЫРЬ ДЖАРВИСА ─────────────────────────────── */
-.jarvis-speech-bubble {
-  /* позиция задаётся через style={{ left, top }} из animate() */
-  background: rgba(4, 10, 20, 0.82);
-  border: 2px solid #FFD700;
-  border-radius: 14px 14px 14px 4px;
-  padding: 12px 18px;
-  min-width: 200px;
-  max-width: 240px;
-  text-align: center;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow:
-    0 0 24px rgba(255, 215, 0, 0.18),
-    0 0 6px rgba(255, 215, 0, 0.35),
-    0 6px 28px rgba(0, 0, 0, 0.6),
-    inset 0 0 12px rgba(255, 215, 0, 0.05);
-  animation: jarvis-bubble-pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes jarvis-bubble-pop {
-  0%   { opacity: 0; transform: translate(-50%, -100%) scale(0.82); }
-  100% { opacity: 1; transform: translate(-50%, -100%) scale(1);    }
-}
-
-.jarvis-speech-text {
-  font-family: var(--font-inter), 'Inter', sans-serif;
-  font-size: 15px;
-  font-weight: 500;
-  color: #FFE566;
-  line-height: 1.55;
-  letter-spacing: 0.03em;
-  text-shadow: 0 0 12px rgba(255, 215, 0, 0.4), 0 1px 3px rgba(0,0,0,0.7);
-  display: block;
-}
-
-/* Стрелка вниз к голове */
-.jarvis-speech-arrow {
-  position: absolute;
-  bottom: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 9px solid transparent;
-  border-right: 9px solid transparent;
-  border-top: 10px solid #FFD700;
-}
-.jarvis-speech-arrow::after {
-  content: '';
-  position: absolute;
-  top: -12px;
-  left: -7px;
-  width: 0;
-  height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-top: 8px solid rgba(4, 10, 20, 0.82);
-}
 `
