@@ -456,6 +456,8 @@ export function EternityLanding() {
   )
 }
 
+const WM_CSS = `.wm-scene{position:fixed;bottom:40px;right:5vw;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center;animation:wmIn 0.8s cubic-bezier(0.2,0.8,0.2,1) 0.3s both}@keyframes wmIn{from{opacity:0;transform:translateY(40px) scale(0.8)}to{opacity:1;transform:translateY(0) scale(1)}}.wm-svg{width:120px;height:180px;filter:drop-shadow(0 4px 16px rgba(200,134,26,0.5)) drop-shadow(0 0 8px rgba(0,0,0,0.8));animation:wmBob 4s ease-in-out infinite;will-change:transform}@keyframes wmBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}.wm-bubble{margin-top:8px;background:rgba(10,14,26,0.95);border:1px solid rgba(255,215,0,0.5);border-radius:12px;padding:8px 14px;font-size:12px;font-weight:500;color:#FFD700;white-space:nowrap;letter-spacing:0.02em;box-shadow:0 2px 16px rgba(0,0,0,0.6);animation:wmIn 0.5s cubic-bezier(0.2,0.8,0.2,1) 1s both}@media(max-width:600px){.wm-scene{right:2vw;bottom:20px}.wm-svg{width:90px;height:135px}.wm-bubble{font-size:11px}}`
+
 // ─── ВАЛЛИ минималистичный ──────────────────────────────────────────
 function WalleOnGlobe() {
   return (
@@ -494,53 +496,7 @@ function WalleOnGlobe() {
       <div className="wm-bubble" role="status">
         Привет, архитектор! Я — ВАЛЛИ.
       </div>
-      <style>{\`
-        .wm-scene {
-          position: fixed;
-          bottom: 40px;
-          right: 5vw;
-          z-index: 10;
-          pointer-events: none;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          animation: wmIn 0.8s cubic-bezier(0.2,0.8,0.2,1) 0.3s both;
-        }
-        @keyframes wmIn {
-          from { opacity:0; transform:translateY(40px) scale(0.8); }
-          to   { opacity:1; transform:translateY(0) scale(1); }
-        }
-        .wm-svg {
-          width: 120px;
-          height: 180px;
-          filter: drop-shadow(0 4px 16px rgba(200,134,26,0.5)) drop-shadow(0 0 8px rgba(0,0,0,0.8));
-          animation: wmBob 4s ease-in-out infinite;
-          will-change: transform;
-        }
-        @keyframes wmBob {
-          0%,100% { transform: translateY(0); }
-          50%      { transform: translateY(-8px); }
-        }
-        .wm-bubble {
-          margin-top: 8px;
-          background: rgba(10,14,26,0.95);
-          border: 1px solid rgba(255,215,0,0.5);
-          border-radius: 12px;
-          padding: 8px 14px;
-          font-size: 12px;
-          font-weight: 500;
-          color: #FFD700;
-          white-space: nowrap;
-          letter-spacing: 0.02em;
-          box-shadow: 0 2px 16px rgba(0,0,0,0.6);
-          animation: wmIn 0.5s cubic-bezier(0.2,0.8,0.2,1) 1s both;
-        }
-        @media (max-width: 600px) {
-          .wm-scene { right: 2vw; bottom: 20px; }
-          .wm-svg { width: 90px; height: 135px; }
-          .wm-bubble { font-size: 11px; }
-        }
-      \`}</style>
+      <style dangerouslySetInnerHTML={{__html: WM_CSS}} />
     </div>
   )
 }
