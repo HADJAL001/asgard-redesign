@@ -29,10 +29,12 @@ async function handler(
   req.nextUrl.searchParams.forEach((v, k) => targetUrl.searchParams.set(k, v))
 
   // Пересылаем заголовки, убираем host
+  // Отключаем compression — Node.js fetch не всегда автодекомпрессирует
   const headers = new Headers()
   req.headers.forEach((v, k) => {
-    if (k !== "host" && k !== "connection") headers.set(k, v)
+    if (k !== "host" && k !== "connection" && k !== "accept-encoding") headers.set(k, v)
   })
+  headers.set("accept-encoding", "identity")
 
   let body: ArrayBuffer | undefined
   if (req.method !== "GET" && req.method !== "HEAD") {
