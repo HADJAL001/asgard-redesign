@@ -17,6 +17,11 @@ export function runAdminMigration() {
     console.log('✅ Migration 014: added role column');
   }
 
+  if (!columns.includes('is_verified')) {
+    db.prepare(`ALTER TABLE users ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0`).run();
+    console.log('✅ Migration 014: added is_verified column');
+  }
+
   // Идемпотентно назначаем role='admin' целевому аккаунту разработчика.
   // Самовосстанавливается при каждом рестарте — сработает и если аккаунт
   // регистрируется уже после первого запуска этой миграции.

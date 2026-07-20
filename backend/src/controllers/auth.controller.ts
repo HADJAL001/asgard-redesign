@@ -35,7 +35,7 @@ export class AuthController {
 
       const { email, password, username, referralCode } = req.body;
 
-      if (UserModel.findByEmail(email)) {
+      if (email && UserModel.findByEmail(email)) {
         return res.status(409).json({ error: 'Email already exists' });
       }
       if (UserModel.findByUsername(username)) {
