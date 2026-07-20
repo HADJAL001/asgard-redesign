@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, type FormEvent, useCallback } from "react"
 import Link from "next/link"
 import * as THREE from "three"
 import {
@@ -14,13 +14,127 @@ import {
   BarChart2,
   Users,
   LogIn,
+  CheckCircle,
+  Sparkles,
+  X,
 } from "lucide-react"
+
+// ─── Кастомный модальный компонент ─────────────────────────────────────
+function ArtifactSuccessModal({
+  artifactName,
+  onClose,
+}: {
+  artifactName: string
+  onClose: () => void
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+
+    const confetti: {
+      x: number; y: number; vx: number; vy: number
+      color: string; size: number; rotation: number; rotSpeed: number; opacity: number
+    }[] = []
+
+    const colors = ["#FFD700", "#FFA500", "#FF6B6B", "#7AACFF", "#A855F7", "#34D399", "#F472B6"]
+
+    for (let i = 0; i < 120; i++) {
+      confetti.push({
+        x: Math.random() * canvas.width,
+        y: -20 - Math.random() * 200,
+        vx: (Math.random() - 0.5) * 4,
+        vy: 2 + Math.random() * 5,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 4 + Math.random() * 8,
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.2,
+        opacity: 1,
+      })
+    }
+
+    let rafId = 0
+    let t = 0
+    const animate = () => {
+      t++
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      let allDone = true
+      for (const p of confetti) {
+        p.x += p.vx
+        p.y += p.vy
+        p.vy += 0.08
+        p.rotation += p.rotSpeed
+        if (t > 80) p.opacity -= 0.012
+        if (p.opacity > 0) allDone = false
+        ctx.save()
+        ctx.globalAlpha = Math.max(0, p.opacity)
+        ctx.translate(p.x, p.y)
+        ctx.rotate(p.rotation)
+        ctx.fillStyle = p.color
+        ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2)
+        ctx.restore()
+      }
+      if (!allDone) rafId = requestAnimationFrame(animate)
+    }
+    rafId = requestAnimationFrame(animate)
+
+    return () => cancelAnimationFrame(rafId)
+  }, [])
+
+  // закрытие по Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [onClose])
+
+  return (
+    <div className="artifact-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Артефакт создан">
+      <canvas ref={canvasRef} className="artifact-confetti-canvas" />
+      <div className="artifact-modal-card" onClick={(e) => e.stopPropagation()}>
+        <button className="artifact-modal-close" onClick={onClose} aria-label="Закрыть">
+          <X size={18} />
+        </button>
+        <div className="artifact-modal-icon">
+          <div className="artifact-modal-icon-ring" />
+          <CheckCircle size={40} strokeWidth={1.5} />
+        </div>
+        <div className="artifact-modal-title">Запрос принят!</div>
+        <div className="artifact-modal-subtitle">
+          Твой артефакт
+        </div>
+        <div className="artifact-modal-name">
+          <Sparkles size={14} strokeWidth={1.5} />
+          &ldquo;{artifactName}&rdquo;
+          <Sparkles size={14} strokeWidth={1.5} />
+        </div>
+        <div className="artifact-modal-desc">
+          скоро появится в <span className="artifact-modal-highlight">Зале Славы</span>
+        </div>
+        <button className="artifact-modal-btn" onClick={onClose}>
+          Отлично! <ArrowRight size={16} strokeWidth={2} />
+        </button>
+      </div>
+    </div>
+  )
+}
 
 export function EternityLanding() {
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [counter, setCounter] = useState(0)
+  const [modalArtifact, setModalArtifact] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const closeModal = useCallback(() => setModalArtifact(null), [])
 
   const [particles, setParticles] = useState<
     { left: string; top: string; duration: string; delay: string }[]
@@ -289,14 +403,19 @@ export function EternityLanding() {
     const query = el.value.trim()
     if (!query) {
       el.style.borderColor = "#FF6B6B"
+      el.style.boxShadow = "0 0 20px rgba(255, 107, 107, 0.3)"
       setTimeout(() => {
         el.style.borderColor = ""
+        el.style.boxShadow = ""
       }, 1500)
       return
     }
-    // eslint-disable-next-line no-alert
-    alert(`Ваш запрос принят:\n\n"${query}"\n\nСкоро ваш артефакт появится в Зале Славы!`)
-    el.value = ""
+    setIsSubmitting(true)
+    setTimeout(() => {
+      setModalArtifact(query)
+      setIsSubmitting(false)
+      el.value = ""
+    }, 400)
   }
 
   return (
@@ -323,6 +442,11 @@ export function EternityLanding() {
       {/* ВАЛЛИ на глобусе */}
       <WalleOnGlobe />
 
+      {/* Модальное окно успеха */}
+      {modalArtifact && (
+        <ArtifactSuccessModal artifactName={modalArtifact} onClose={closeModal} />
+      )}
+
       {/* Основной контент */}
       <div className="container">
         <header className="hero-content">
@@ -338,8 +462,12 @@ export function EternityLanding() {
           {/* Миниатюрное окно ввода (всегда видимо) */}
           <form className="artifact-form" onSubmit={handleSubmit}>
             <input ref={inputRef} type="text" placeholder="Опиши свой артефакт..." autoComplete="off" aria-label="Опиши свой артефакт" />
-            <button type="submit">
-              Создать <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
+            <button type="submit" disabled={isSubmitting} className={isSubmitting ? "submitting" : ""}>
+              {isSubmitting ? (
+                <><span className="btn-spinner" /> Создаём...</>
+              ) : (
+                <>Создать <ArrowRight size={18} strokeWidth={2} aria-hidden="true" /></>
+              )}
             </button>
           </form>
 
@@ -775,5 +903,135 @@ const CSS = `
   .eternity-page .artifact-form input,
   .eternity-page .artifact-form button { width: 100%; height: 44px; }
 }
+
+/* ─── Spinner на кнопке ─── */
+.eternity-page .artifact-form button.submitting {
+  opacity: 0.85; cursor: wait;
+}
+.btn-spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(10,13,20,0.3);
+  border-top-color: #0A0D14;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Модальное окно ─── */
+.artifact-modal-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(2, 4, 8, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: modal-fade-in 0.25s ease-out forwards;
+}
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.artifact-confetti-canvas {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 10000;
+}
+
+.artifact-modal-card {
+  position: relative; z-index: 10001;
+  background: linear-gradient(145deg, #0E1420, #0A0D18);
+  border: 1px solid rgba(255, 215, 0, 0.18);
+  border-radius: 20px;
+  padding: 48px 40px 40px;
+  max-width: 420px; width: calc(100% - 32px);
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  text-align: center;
+  box-shadow: 0 0 80px rgba(255, 215, 0, 0.08), 0 32px 64px rgba(0,0,0,0.6);
+  animation: modal-card-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+@keyframes modal-card-in {
+  from { opacity: 0; transform: scale(0.88) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.artifact-modal-close {
+  position: absolute; top: 16px; right: 16px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 50%; width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  color: #6A7A8A; cursor: pointer; transition: all 0.2s;
+}
+.artifact-modal-close:hover {
+  background: rgba(255,255,255,0.1); color: #fff;
+  border-color: rgba(255,215,0,0.3);
+}
+
+.artifact-modal-icon {
+  position: relative; width: 80px; height: 80px;
+  display: flex; align-items: center; justify-content: center;
+  color: #FFD700; margin-bottom: 4px;
+}
+.artifact-modal-icon-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 2px solid rgba(255,215,0,0.3);
+  animation: icon-ring-pulse 2s ease-in-out infinite;
+}
+@keyframes icon-ring-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.4; }
+  50%       { transform: scale(1.15); opacity: 0.9; }
+}
+.artifact-modal-icon svg {
+  filter: drop-shadow(0 0 20px rgba(255,215,0,0.5));
+  animation: icon-appear 0.5s cubic-bezier(0.2,0.8,0.2,1) 0.15s both;
+}
+@keyframes icon-appear {
+  from { transform: scale(0) rotate(-20deg); opacity: 0; }
+  to   { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.artifact-modal-title {
+  font-family: var(--font-playfair), 'Playfair Display', serif;
+  font-size: 28px; font-weight: 700; color: #fff;
+  letter-spacing: 2px;
+}
+.artifact-modal-subtitle {
+  font-size: 14px; color: #6A7A8A; letter-spacing: 0.04em;
+}
+.artifact-modal-name {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 16px; font-weight: 600; color: #FFD700;
+  background: rgba(255,215,0,0.06);
+  border: 1px solid rgba(255,215,0,0.15);
+  border-radius: 12px; padding: 10px 20px;
+  letter-spacing: 0.02em; word-break: break-word;
+  max-width: 100%;
+}
+.artifact-modal-name svg { flex-shrink: 0; color: #FFA500; }
+.artifact-modal-desc {
+  font-size: 14px; color: #8090A8; letter-spacing: 0.03em;
+}
+.artifact-modal-highlight {
+  color: #FFD700; font-weight: 600;
+  filter: drop-shadow(0 0 8px rgba(255,215,0,0.3));
+}
+.artifact-modal-btn {
+  margin-top: 12px;
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  border: none; border-radius: 40px; padding: 12px 32px;
+  font-family: var(--font-inter), 'Inter', sans-serif;
+  font-weight: 700; font-size: 15px; color: #0A0D14;
+  cursor: pointer; transition: all 0.3s ease;
+  display: flex; align-items: center; gap: 8px;
+  letter-spacing: 0.04em;
+  box-shadow: 0 0 30px rgba(255,215,0,0.2);
+}
+.artifact-modal-btn:hover {
+  transform: scale(1.04);
+  box-shadow: 0 0 50px rgba(255,215,0,0.4);
+}
+.artifact-modal-btn svg { stroke: #0A0D14; }
 
 `
