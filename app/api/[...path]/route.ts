@@ -1,14 +1,11 @@
 /**
  * Next.js API proxy — пересылает все запросы /api/* на Railway бэкенд.
  * Vercel env: BACKEND_URL = https://<your-service>.up.railway.app
- *
- * Это решает CORS-проблему: фронтенд стучится на свой же домен /api/*,
- * а Next.js сервер-сайд пересылает запрос на Railway без CORS-ограничений.
  */
 
 import { NextRequest, NextResponse } from "next/server"
 
-const BACKEND_URL = (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/$/, "")
+const BACKEND_URL = (process.env.BACKEND_URL || "").replace(/\/$/, "")
 
 export const dynamic = "force-dynamic"
 
@@ -24,39 +21,41 @@ async function handler(
     return NextResponse.json({ error: "Backend URL not configured" }, { status: 503 })
   }
 
-  // Собираем URL: BACKEND_URL + /path + ?query
+  // Собираем целевой URL
   const targetUrl = new URL(`${BACKEND_URL}/${pathStr}`)
   req.nextUrl.searchParams.forEach((v, k) => targetUrl.searchParams.set(k, v))
 
-  // Пересылаем заголовки, убираем host
-  // Отключаем compression — Node.js fetch не всегда автодекомпрессирует
-  const headers = new Headers()
-  req.headers.forEach((v, k) => {
-    if (k !== "host" && k !== "connection" && k !== "accept-encoding") headers.set(k, v)
-  })
-  headers.set("accept-encoding", "identity")
+  // Минимальный набор заголовков — только то что нужно бэкенду
+  const forwardHeaders: Record<string, string> = {
+    "content-type": req.headers.get("content-type") || "application/json",
+    "accept": req.headers.get("accept") || "application/json",
+  }
 
-  let body: ArrayBuffer | undefined
+  // Пробрасываем Authorization если есть
+  const auth = req.headers.get("authorization")
+  if (auth) forwardHeaders["authorization"] = auth
+
+  // Читаем тело для не-GET методов
+  let body: string | undefined
   if (req.method !== "GET" && req.method !== "HEAD") {
-    body = await req.arrayBuffer()
+    body = await req.text()
   }
 
   try {
     const upstream = await fetch(targetUrl.toString(), {
       method: req.method,
-      headers,
-      body: body ? body : undefined,
+      headers: forwardHeaders,
+      body: body,
     })
 
-    const responseHeaders = new Headers()
-    upstream.headers.forEach((v, k) => {
-      if (k !== "transfer-encoding") responseHeaders.set(k, v)
-    })
+    const responseText = await upstream.text()
+    const contentType = upstream.headers.get("content-type") || "application/json"
 
-    const responseBody = await upstream.arrayBuffer()
-    return new NextResponse(responseBody, {
+    return new NextResponse(responseText, {
       status: upstream.status,
-      headers: responseHeaders,
+      headers: {
+        "content-type": contentType,
+      },
     })
   } catch (err: unknown) {
     console.error("Proxy error:", err)

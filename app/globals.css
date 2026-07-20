@@ -283,9 +283,25 @@ svg { width: 1rem; height: 1rem; flex: none; }
 .cal-input::placeholder { color: rgba(255, 255, 255, 0.3); }
 .cal-input:focus { border-color: #00d4ff; }
 
+/* ===== Forge cinematic effect animations ===== */
+@keyframes forge-ring-spin { to { transform: rotate(360deg); } }
+@keyframes forge-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 30px 10px rgba(0,212,255,0.4); }
+  50% { transform: scale(1.12); box-shadow: 0 0 50px 20px rgba(0,212,255,0.7); }
+}
+@keyframes forge-particle-0 { to { transform: rotate(0deg) translateX(90px) scale(0); opacity: 0; } from { opacity: 1; transform: rotate(0deg) translateX(10px); } }
+@keyframes forge-particle-1 { to { transform: rotate(90deg) translateX(90px) scale(0); opacity: 0; } from { opacity: 1; transform: rotate(90deg) translateX(10px); } }
+@keyframes forge-particle-2 { to { transform: rotate(180deg) translateX(90px) scale(0); opacity: 0; } from { opacity: 1; transform: rotate(180deg) translateX(10px); } }
+@keyframes forge-particle-3 { to { transform: rotate(270deg) translateX(90px) scale(0); opacity: 0; } from { opacity: 1; transform: rotate(270deg) translateX(10px); } }
+@keyframes forge-reveal {
+  from { opacity: 0; transform: scale(0.7) translateY(20px); filter: blur(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+.forge-reveal { animation: forge-reveal 0.6s cubic-bezier(0.22,1,0.36,1) both; }
+
 /* Exchange ticker marquee */
 @keyframes osgard-ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
- .osgard-ticker { animation: osgard-ticker 40s linear infinite; }
+ .osgard-ticker { animation: osgard-ticker 90s linear infinite; }
 .osgard-ticker:hover { animation-play-state: paused; }
 
 /* ===== Hall of Fame · Вечные творения ===== */

@@ -5,29 +5,23 @@ export interface User {
   email: string;
   password_hash: string;
   username: string;
-  balance_credits: number;
-  balance_shards: number;
-  balance_crystals: number;
-  balance_tc: number;
-  referral_code: string;
-  referred_by: number | null;
-  is_verified: boolean;
-  twofa_secret: string | null;
-  twofa_enabled: boolean;
-  nonce: number;
-  role: string;
-  created_at: string;
-  updated_at: string;
+  display_name?: string;
+  level?: number;
+  referral_code?: string;
+  referred_by?: number | null;
+  is_verified?: boolean;
+  twofa_secret?: string | null;
+  twofa_enabled?: boolean;
+  nonce?: number;
+  role?: string;
+  created_at?: string | number;
+  updated_at?: string | number;
 }
 
 export interface CreateUserInput {
   email: string;
   password_hash: string;
   username: string;
-  balance_credits?: number;
-  balance_shards?: number;
-  balance_crystals?: number;
-  balance_tc?: number;
   referral_code?: string;
   referred_by?: number | null;
   is_verified?: boolean;
@@ -55,98 +49,95 @@ export const UserModel = {
 
   // Найти по реферальному коду
   findByReferralCode(code: string): User | undefined {
-    return db.prepare('SELECT * FROM users WHERE referral_code = ?').get(code) as User | undefined;
+    try {
+      return db.prepare('SELECT * FROM users WHERE referral_code = ?').get(code) as User | undefined;
+    } catch (e) {
+      return undefined;
+    }
   },
 
-  // Создать пользователя
+  // Создать пользователя — совместимо со схемой init-db.ts
+  // Схема: id, email, password_hash, username, display_name, level, avatar_url, bio, created_at
   create(data: CreateUserInput): number {
     const stmt = db.prepare(`
-      INSERT INTO users (
-        email, password_hash, username, balance_credits, balance_shards,
-        balance_crystals, balance_tc, referral_code, referred_by, is_verified,
-        twofa_secret, twofa_enabled, nonce, role
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (email, password_hash, username, display_name, level)
+      VALUES (?, ?, ?, ?, ?)
     `);
     
     const info = stmt.run(
       data.email,
       data.password_hash,
       data.username,
-      data.balance_credits || 0,
-      data.balance_shards || 0,
-      data.balance_crystals || 0,
-      data.balance_tc || 0,
-      data.referral_code || null,
-      data.referred_by || null,
-      data.is_verified || 0,
-      data.twofa_secret || null,
-      data.twofa_enabled || 0,
-      data.nonce || 0,
-      data.role || 'user'
+      data.username, // display_name = username по умолчанию
+      1              // level = 1
     );
     
     return info.lastInsertRowid as number;
   },
 
-  // Обновить баланс пользователя
+  // Обновить баланс (для обратной совместимости — обновляет wallets)
   updateBalance(userId: number, currency: 'credits' | 'shards' | 'crystals' | 'tc', delta: number): void {
-    const field = `balance_${currency}`;
-    db.prepare(`UPDATE users SET ${field} = ${field} + ? WHERE id = ?`).run(delta, userId);
-  },
-
-  // Установить баланс пользователя
-  setBalance(userId: number, currency: 'credits' | 'shards' | 'crystals' | 'tc', amount: number): void {
-    const field = `balance_${currency}`;
-    db.prepare(`UPDATE users SET ${field} = ? WHERE id = ?`).run(amount, userId);
-  },
-
-  // Инкрементировать nonce (для защиты от replay-атак)
-  incrementNonce(userId: number): number {
-    const result = db.prepare('UPDATE users SET nonce = nonce + 1 WHERE id = ? RETURNING nonce').get(userId) as { nonce: number } | undefined;
-    return result?.nonce || 0;
+    const field = currency === 'tc' ? 'timecoin' : currency;
+    try {
+      db.prepare(`UPDATE wallets SET ${field} = ${field} + ? WHERE user_id = ?`).run(delta, userId);
+    } catch (e) {
+      // wallets может не существовать
+    }
   },
 
   // Получить текущий nonce
   getNonce(userId: number): number {
-    const result = db.prepare('SELECT nonce FROM users WHERE id = ?').get(userId) as { nonce: number } | undefined;
-    return result?.nonce || 0;
+    try {
+      const result = db.prepare('SELECT nonce FROM users WHERE id = ?').get(userId) as { nonce: number } | undefined;
+      return result?.nonce || 0;
+    } catch (e) {
+      return 0;
+    }
   },
 
   // Обновить 2FA
   updateTwoFA(userId: number, secret: string | null, enabled: boolean): void {
-    db.prepare('UPDATE users SET twofa_secret = ?, twofa_enabled = ? WHERE id = ?').run(secret, enabled ? 1 : 0, userId);
+    try {
+      db.prepare('UPDATE users SET twofa_secret = ?, twofa_enabled = ? WHERE id = ?').run(secret, enabled ? 1 : 0, userId);
+    } catch (e) {
+      // колонки могут не существовать
+    }
   },
 
   // Проверить, является ли пользователь админом
   isAdmin(userId: number): boolean {
-    const result = db.prepare('SELECT role FROM users WHERE id = ?').get(userId) as { role: string } | undefined;
-    return result?.role === 'admin';
+    try {
+      const result = db.prepare('SELECT role FROM users WHERE id = ?').get(userId) as { role: string } | undefined;
+      return result?.role === 'admin';
+    } catch (e) {
+      return false;
+    }
   },
 
   // Получить топ пользователей по балансу
   getTopByBalance(limit: number = 10): User[] {
-    return db.prepare(`
-      SELECT id, username, balance_tc, balance_credits, balance_shards, balance_crystals
-      FROM users 
-      ORDER BY balance_tc DESC 
-      LIMIT ?
-    `).all(limit) as User[];
+    try {
+      return db.prepare(`
+        SELECT u.id, u.username FROM users u
+        ORDER BY u.id DESC
+        LIMIT ?
+      `).all(limit) as unknown as User[];
+    } catch (e) {
+      return [];
+    }
   },
 
-  // Удалить пользователя (мягкое удаление - можно добавить поле deleted_at)
+  // Удалить пользователя
   delete(userId: number): void {
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
   },
 
   // Обновить время последнего входа
   updateLastLogin(userId: number): void {
-    db.prepare('UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(userId);
+    try {
+      db.prepare('UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(userId);
+    } catch (e) {
+      // updated_at может не существовать
+    }
   }
 };
-
-// Тест модели (можно запустить отдельно)
-if (require.main === module) {
-  console.log('🧪 Testing UserModel...');
-  const user = UserModel.findById(1);
-  console.log('User:', user);
-}

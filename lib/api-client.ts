@@ -121,8 +121,16 @@ async function request<T = any>(path: string, options: RequestOptions = {}): Pro
     throw new ApiError(0, "Не удалось соединиться с сервером")
   }
 
+  // Редиректим на логин только если нет токена вообще,
+  // или если это явный auth-endpoint (не skipAuthRedirect)
   if (res.status === 401 && !skipAuthRedirect) {
-    redirectToLogin()
+    const tok = getToken()
+    // Если токена нет — редирект на логин
+    if (!tok) {
+      redirectToLogin()
+    }
+    // Если токен есть но 401 — просто бросаем ошибку без редиректа
+    // (пользователь остаётся на странице, компонент сам обработает)
     throw new ApiError(401, "Требуется авторизация")
   }
 

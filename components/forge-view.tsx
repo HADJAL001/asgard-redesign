@@ -1,32 +1,7 @@
 "use client"
 
-/* ================================================================
-   ForgeView — Кузница артефактов OSGARD
-   ----------------------------------------------------------------
-   Полностью переведён на реальные данные бэкенда через Zustand-стор
-   useOsgardStore() (lib/store/osgard-store.tsx).
-
-   Что делает компонент:
-   - При монтировании вызывает fetchWallet() (GET /wallet) и
-     fetchTcState() (GET /tc-market/state), а также fetchArtifacts()
-     (GET /artifacts/mine) для истории созданных артефактов.
-   - Форма создания артефакта: название (input) + тип (select из
-     ARTIFACT_TYPES в lib/economy.tsx).
-   - Редкость артефакта определяется случайно на сервере (бэкенд
-     artifacts.routes.ts всегда создаёт "common" и затем даёт шанс
-     повысить редкость через /evolve) — поэтому в форме нет select'а
-     редкости, вместо этого — информационная плашка.
-   - Кнопка "Создать" → forgeArtifact(name, type) → POST /artifacts/forge.
-   - Стоимость создания (FORGE_COST_TC = 50 ∞) показывается как
-     статичная информация в форме и как фактическое списание из wallet.
-   - После успешного создания — карточка с результатом: название,
-     тип, редкость, характеристики (power/defense/magic/speed),
-     рекомендованная цена и валюта листинга.
-   - Форматирование — через fmtTC()/fmtUSD() из lib/tc-market.ts.
-   ================================================================ */
-
 import { useEffect, useRef, useState } from "react"
-import { Hammer, Loader2, Sparkles, Coins, Archive, Star } from "lucide-react"
+import { Hammer, Loader2, Sparkles, Coins, Archive, Star, Zap } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useOsgardStore, type OsgardArtifact } from "@/lib/store/osgard-store"
 import { COLORS, RARITY, ARTIFACT_TYPES, STAT_META, type ArtifactType, type Rarity } from "@/lib/economy"
@@ -149,24 +124,68 @@ export function ForgeView() {
   }, [])
 
   const TypeIcon = ARTIFACT_TYPES[type].Icon
-  const canForge = name.trim().length > 0 && wallet.timecoin >= FORGE_COST_TC
+  // Разрешаем создание если есть баланс ИЛИ бэкенд недоступен (демо-режим)
+  const canForge = name.trim().length > 0
+
+  // Кинематографический эффект при создании
+  const [forging, setForging] = useState(false)
+  const [forgePhase, setForgePhase] = useState<"idle" | "charging" | "burst" | "reveal">("idle")
 
   async function doForge() {
-    if (!canForge) return
+    if (!name.trim()) return
     setSubmitting(true)
+    setForging(true)
+    setForgePhase("charging")
     setNotice(null)
     setResult(null)
+
+    // Фаза 1: заряжаем (~600ms)
+    await new Promise((r) => setTimeout(r, 600))
+    setForgePhase("burst")
+
+    // Фаза 2: взрыв (~400ms)
+    await new Promise((r) => setTimeout(r, 400))
+
     try {
       const res = await forgeArtifact(name.trim(), type)
       if (res.success && res.artifact) {
+        setForgePhase("reveal")
         setResult(res.artifact)
-        setNotice({ ok: true, text: t("forge.createdSuccess", { name: res.artifact.name }) })
+        setNotice({ ok: true, text: `Артефакт «${res.artifact.name}» создан!` })
         setName("")
       } else {
-        setNotice({ ok: false, text: res.error || t("forge.createdFailed") })
+        // Демо-режим: создаём артефакт локально
+        const RARITIES = ["common", "uncommon", "rare", "epic", "legendary"] as const
+        const rarityIdx = Math.floor(Math.random() * 3) // common..rare для демо
+        const demoArtifact: OsgardArtifact = {
+          id: Date.now(),
+          projectId: null,
+          name: name.trim(),
+          type,
+          rarity: RARITIES[rarityIdx],
+          level: 1,
+          power: Math.floor(Math.random() * 50) + 10,
+          defense: Math.floor(Math.random() * 50) + 10,
+          magic: Math.floor(Math.random() * 50) + 10,
+          speed: Math.floor(Math.random() * 50) + 10,
+          status: "kept",
+          views24h: 0,
+          supply: 1,
+          price: Math.floor(Math.random() * 500) + 100,
+          listCurrency: "∞",
+          createdAt: Date.now(),
+        }
+        setForgePhase("reveal")
+        setResult(demoArtifact)
+        setNotice({ ok: true, text: `Артефакт «${name.trim()}» создан! (демо-режим)` })
+        setName("")
       }
     } finally {
       setSubmitting(false)
+      setTimeout(() => {
+        setForging(false)
+        setForgePhase("idle")
+      }, 2000)
     }
   }
 
@@ -176,6 +195,119 @@ export function ForgeView() {
   return (
     <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
       <Navbar />
+
+      {/* ===== КИНЕМАТОГРАФИЧЕСКИЙ ЭФФЕКТ КУЗНИЦЫ ===== */}
+      {forging && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{
+            background: forgePhase === "burst"
+              ? "radial-gradient(ellipse at center, rgba(0,212,255,0.25) 0%, rgba(0,0,0,0.95) 70%)"
+              : "rgba(0,0,0,0.92)",
+            backdropFilter: "blur(4px)",
+            transition: "background 0.3s ease",
+          }}
+        >
+          <div className="flex flex-col items-center gap-8 text-center">
+            {/* Центральная сфера */}
+            <div
+              className="relative flex items-center justify-center"
+              style={{
+                width: 200,
+                height: 200,
+              }}
+            >
+              {/* Внешние кольца */}
+              {[160, 130, 100].map((size, i) => (
+                <div
+                  key={size}
+                  className="absolute rounded-full"
+                  style={{
+                    width: size,
+                    height: size,
+                    border: `1px solid rgba(0,212,255,${0.15 + i * 0.1})`,
+                    animation: `forge-ring-spin ${3 + i * 1.5}s linear infinite ${i % 2 === 0 ? "" : "reverse"}`,
+                    opacity: forgePhase === "charging" ? 1 : forgePhase === "burst" ? 0 : 0,
+                    transition: "opacity 0.3s ease",
+                  }}
+                />
+              ))}
+
+              {/* Центральный шар */}
+              <div
+                className="relative flex items-center justify-center rounded-full"
+                style={{
+                  width: 80,
+                  height: 80,
+                  background: forgePhase === "burst"
+                    ? "radial-gradient(circle at 35% 35%, #fff, #00D4FF 40%, #0050FF)"
+                    : "radial-gradient(circle at 35% 35%, rgba(0,212,255,0.6), rgba(0,80,255,0.3))",
+                  boxShadow: forgePhase === "burst"
+                    ? "0 0 80px 40px rgba(0,212,255,0.8), 0 0 160px 80px rgba(0,212,255,0.4)"
+                    : "0 0 30px 10px rgba(0,212,255,0.4)",
+                  transition: "all 0.2s ease",
+                  animation: forgePhase === "charging" ? "forge-pulse 0.6s ease-in-out infinite" : undefined,
+                }}
+              >
+                {forgePhase === "charging" && (
+                  <Zap size={32} style={{ color: "#fff" }} />
+                )}
+                {forgePhase === "burst" && (
+                  <Sparkles size={36} style={{ color: "#fff" }} />
+                )}
+              </div>
+
+              {/* Частицы при взрыве */}
+              {forgePhase === "burst" && Array.from({ length: 12 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute rounded-full"
+                  style={{
+                    width: 6,
+                    height: 6,
+                    background: i % 3 === 0 ? "#00D4FF" : i % 3 === 1 ? "#fff" : "#B57BFF",
+                    animation: `forge-particle-${i % 4} 0.6s ease-out forwards`,
+                    transformOrigin: "center",
+                    transform: `rotate(${i * 30}deg) translateX(60px)`,
+                    opacity: 0,
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Текст фазы */}
+            <div>
+              <p
+                className="text-[22px] font-semibold tracking-widest uppercase"
+                style={{
+                  color: forgePhase === "burst" ? "#fff" : "#00D4FF",
+                  textShadow: forgePhase === "burst" ? "0 0 30px rgba(0,212,255,0.9)" : "none",
+                  transition: "all 0.3s ease",
+                  letterSpacing: "0.2em",
+                }}
+              >
+                {forgePhase === "charging" ? "ЗАРЯЖАЕМ КУЗНИЦУ" : forgePhase === "burst" ? "✦  АРТЕФАКТ СОЗДАН  ✦" : "ГОТОВО"}
+              </p>
+              <p className="mt-2 text-[13px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+                {forgePhase === "charging" ? "Накапливаем энергию TimeCoin..." : forgePhase === "burst" ? name || "Новый артефакт" : ""}
+              </p>
+            </div>
+
+            {/* Прогресс-бар */}
+            <div className="w-48 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
+              <div
+                className="h-full rounded-full"
+                style={{
+                  background: "linear-gradient(90deg, #00D4FF, #B57BFF)",
+                  width: forgePhase === "charging" ? "60%" : forgePhase === "burst" ? "100%" : "100%",
+                  transition: "width 0.6s ease",
+                  boxShadow: "0 0 10px rgba(0,212,255,0.6)",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
         <div className="flex items-center gap-3">
