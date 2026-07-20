@@ -8,10 +8,15 @@
 
 import { NextRequest, NextResponse } from "next/server"
 
-const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || ""
+const BACKEND_URL = (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/$/, "")
 
-async function handler(req: NextRequest, context: { params: { path: string[] } }) {
-  const { path } = context.params
+export const dynamic = "force-dynamic"
+
+async function handler(
+  req: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> }
+) {
+  const { path } = await params
   const pathStr = path.join("/")
 
   if (!BACKEND_URL) {
@@ -20,8 +25,8 @@ async function handler(req: NextRequest, context: { params: { path: string[] } }
   }
 
   // Собираем URL: BACKEND_URL + /path + ?query
-  const url = new URL(`${BACKEND_URL}/${pathStr}`)
-  req.nextUrl.searchParams.forEach((v, k) => url.searchParams.set(k, v))
+  const targetUrl = new URL(`${BACKEND_URL}/${pathStr}`)
+  req.nextUrl.searchParams.forEach((v, k) => targetUrl.searchParams.set(k, v))
 
   // Пересылаем заголовки, убираем host
   const headers = new Headers()
@@ -29,23 +34,20 @@ async function handler(req: NextRequest, context: { params: { path: string[] } }
     if (k !== "host" && k !== "connection") headers.set(k, v)
   })
 
-  let body: BodyInit | undefined
+  let body: ArrayBuffer | undefined
   if (req.method !== "GET" && req.method !== "HEAD") {
     body = await req.arrayBuffer()
   }
 
   try {
-    const upstream = await fetch(url.toString(), {
+    const upstream = await fetch(targetUrl.toString(), {
       method: req.method,
       headers,
-      body,
-      // @ts-ignore — Node 18+
-      duplex: "half",
+      body: body ? body : undefined,
     })
 
     const responseHeaders = new Headers()
     upstream.headers.forEach((v, k) => {
-      // не пробрасываем transfer-encoding — Next.js сам управляет этим
       if (k !== "transfer-encoding") responseHeaders.set(k, v)
     })
 
@@ -54,7 +56,7 @@ async function handler(req: NextRequest, context: { params: { path: string[] } }
       status: upstream.status,
       headers: responseHeaders,
     })
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Proxy error:", err)
     return NextResponse.json({ error: "Не удалось соединиться с сервером" }, { status: 502 })
   }
