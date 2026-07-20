@@ -553,7 +553,7 @@ function WalleOnGlobe() {
       <div className="wm-bubble" role="status">
         Привет, архитектор! Я — ВАЛЛИ.
       </div>
-      <style dangerouslySetInnerHTML={{__html: WM_CSS}} />
+      <style>{WM_CSS}</style>
     </div>
   )
 }
