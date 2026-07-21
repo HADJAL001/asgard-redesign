@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import Database from 'better-sqlite3';
 import path from 'path';
+import fs from 'fs';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { authenticate } from '../middleware/auth.middleware';
 import { SolanaService } from '../services/solana.service';
@@ -10,8 +11,12 @@ import { TwoFAService } from '../services/twofa.service';
 const router = Router();
 const solanaService = new SolanaService();
 
-// Подключаемся к БД
-const dbPath = path.join(__dirname, '../../data/osgard.db');
+// Подключаемся к БД (тот же путь, что и в lib/db.ts — уважает DB_PATH из окружения)
+const dbPath = process.env.DB_PATH || path.join(__dirname, '../../data/osgard.db');
+const dbDir = path.dirname(dbPath);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
 const db = new Database(dbPath);
 
 // ========== ТИПЫ ==========
