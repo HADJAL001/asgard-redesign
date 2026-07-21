@@ -163,7 +163,7 @@ export function EconomyView() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3E" vertical={false} />
                 <XAxis dataKey="label" stroke="#6A6A8A" fontSize={12} tickLine={false} axisLine={false} minTickGap={40} />
                 <YAxis stroke="#6A6A8A" fontSize={12} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => `$${v}`} domain={["auto", "auto"]} />
-                <Tooltip contentStyle={tooltipStyle()} formatter={(v: number) => [`$${v.toFixed(2)}`, "Цена"]} />
+                <Tooltip contentStyle={tooltipStyle()} formatter={(v) => [`$${Number(v).toFixed(2)}`, "Цена"]} />
                 <Area type="monotone" dataKey="price" stroke={UP} strokeWidth={2} fill="url(#tcprice)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -187,7 +187,7 @@ export function EconomyView() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3E" vertical={false} />
                 <XAxis dataKey="month" stroke="#6A6A8A" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#6A6A8A" fontSize={12} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => `${v / 1000}k`} />
-                <Tooltip contentStyle={tooltipStyle()} formatter={(v: number) => [`${formatTokens(v)} ∞`, "В обороте"]} />
+                <Tooltip contentStyle={tooltipStyle()} formatter={(v) => [`${formatTokens(Number(v))} ∞`, "В обороте"]} />
                 <Area type="monotone" dataKey="circulating" stroke="#00D4FF" strokeWidth={2} fill="url(#circ)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -205,7 +205,7 @@ export function EconomyView() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3E" vertical={false} />
                 <XAxis dataKey="month" stroke="#6A6A8A" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#6A6A8A" fontSize={12} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => `${v / 1000}k`} />
-                <Tooltip contentStyle={tooltipStyle()} formatter={(v: number, n) => [`${formatTokens(v)} ∞`, n === "treasury" ? "Казна" : "Сожжено"]} />
+                <Tooltip contentStyle={tooltipStyle()} formatter={(v, n) => [`${formatTokens(Number(v))} ∞`, n === "treasury" ? "Казна" : "Сожжено"]} />
                 <Line type="monotone" dataKey="treasury" stroke="#4ADE80" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="burned" stroke="#F87171" strokeWidth={2} dot={false} />
               </LineChart>

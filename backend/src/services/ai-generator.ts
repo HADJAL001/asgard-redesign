@@ -65,7 +65,7 @@ export function hashString(str: string): number {
 }
 
 /** Локальный fallback-генератор — работает без внешнего API, без сети, без ключей. */
-function localFallbackGeneration(name: string, hint?: string): AiProjectGeneration {
+export function localFallbackGeneration(name: string, hint?: string): AiProjectGeneration {
   const seed = hashString(name + (hint || ""))
   const badge = BADGE_POOL[seed % BADGE_POOL.length]
 
@@ -160,6 +160,7 @@ export async function callOpenAiCompatible<T>(
   prompt: string,
   parser: (text: string) => T | null,
   logLabel: string,
+  maxTokens: number = 1024,
 ): Promise<T | null> {
   if (!apiKey) return null
 
@@ -173,7 +174,7 @@ export async function callOpenAiCompatible<T>(
       body: JSON.stringify({
         model,
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 1024,
+        max_tokens: maxTokens,
       }),
     })
 
@@ -207,8 +208,8 @@ async function callGrok(name: string, hint?: string): Promise<AiProjectGeneratio
   )
 }
 
-/** Вызывает Claude API для генерации описания проекта, бейджа и стартовых артефактов. */
-async function callClaude(name: string, hint?: string): Promise<AiProjectGeneration | null> {
+/** Общий вызов Claude API (Anthropic messages endpoint), возвращает сырой текст ответа. */
+export async function callClaudeApi(prompt: string, maxTokens: number = 1024): Promise<string | null> {
   if (!CLAUDE_API_KEY) return null
 
   try {
@@ -221,8 +222,8 @@ async function callClaude(name: string, hint?: string): Promise<AiProjectGenerat
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: 1024,
-        messages: [{ role: "user", content: buildPrompt(name, hint) }],
+        max_tokens: maxTokens,
+        messages: [{ role: "user", content: prompt }],
       }),
     })
 
@@ -232,15 +233,35 @@ async function callClaude(name: string, hint?: string): Promise<AiProjectGenerat
     }
 
     const data: any = await res.json()
-    const text: string = data?.content?.[0]?.text || ""
-    return parseGeneration(text, "claude")
+    return data?.content?.[0]?.text || ""
   } catch (err) {
     console.error("[ai-generator] Claude API call failed:", err)
     return null
   }
 }
 
+/** Вызывает Claude API для генерации описания проекта, бейджа и стартовых артефактов. */
+async function callClaude(name: string, hint?: string): Promise<AiProjectGeneration | null> {
+  const text = await callClaudeApi(buildPrompt(name, hint), 1024)
+  if (text == null) return null
+  return parseGeneration(text, "claude")
+}
+
 const PROVIDER_CHAIN = [callClaude, callDeepSeek, callGrok]
+
+/** Сырые (без JSON-парсинга) вызовы провайдеров — переиспользуются генератором реальных приложений
+ *  (`app-generator.ts`), где ответ — это исходный код файла, а не JSON-структура. */
+export async function callClaudeRaw(prompt: string, maxTokens: number): Promise<string | null> {
+  return callClaudeApi(prompt, maxTokens)
+}
+
+export async function callDeepSeekRaw(prompt: string, maxTokens: number): Promise<string | null> {
+  return callOpenAiCompatible(DEEPSEEK_API_URL, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, prompt, (t) => t, "deepseek-raw", maxTokens)
+}
+
+export async function callGrokRaw(prompt: string, maxTokens: number): Promise<string | null> {
+  return callOpenAiCompatible(GROK_API_URL, GROK_API_KEY, GROK_MODEL, prompt, (t) => t, "grok-raw", maxTokens)
+}
 
 /**
  * Основная точка входа: пробует провайдеров по очереди (Claude → DeepSeek → Grok),

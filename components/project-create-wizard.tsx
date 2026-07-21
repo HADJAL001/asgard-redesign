@@ -54,7 +54,7 @@ type Props = {
 
 export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated }: Props) {
   const { t } = useTranslation()
-  const { createProject, generateProject } = useOsgardStore()
+  const { createProject, generateProject, pollProjectStatus } = useOsgardStore()
 
   const [step, setStep] = useState(1)
   const [name, setName] = useState("")
@@ -64,7 +64,8 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
   const [description, setDescription] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [aiSource, setAiSource] = useState<"ai" | "fallback" | null>(null)
+  /** true, пока идёт фоновая генерация файлов реального приложения (после создания проекта). */
+  const [generatingApp, setGeneratingApp] = useState(false)
 
   const totalSteps = 3
   const progress = (step / totalSteps) * 100
@@ -90,10 +91,23 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
     setSubmitting(true)
     try {
       if (mode === "ai") {
+        // POST /projects/generate отвечает сразу (проект уже создан, status='generating'),
+        // а реальные файлы приложения генерируются в фоне на сервере — опрашиваем статус.
         const res = await generateProject(name.trim(), theme?.hint)
         if (res.success && res.project) {
-          setAiSource(res.aiSource ?? null)
-          onCreated(res.project.id)
+          setGeneratingApp(true)
+          const finalProject = await pollProjectStatus(res.project.id)
+          setGeneratingApp(false)
+
+          if (finalProject?.status === "ready") {
+            onCreated(finalProject.id)
+          } else if (finalProject?.status === "failed") {
+            setError(finalProject.generationError || t("projectWizard.generationFailed"))
+          } else {
+            // таймаут поллинга — проект всё ещё генерируется, но пользователь может
+            // перейти к нему и посмотреть прогресс на странице проекта
+            onCreated(res.project.id)
+          }
         } else {
           setError(res.error || t("projectWizard.errorGenerate"))
         }
@@ -310,10 +324,17 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
                 </div>
               )}
 
-              {mode === "ai" && (
+              {mode === "ai" && !generatingApp && (
                 <p className="mt-4 flex items-center gap-2 text-[12px]" style={{ color: COLORS.label }}>
                   <Wand2 size={14} strokeWidth={1.75} />
                   {t("projectWizard.aiWillGenerate", { name: name || "…", theme: theme?.label || t("projectWizard.noTheme") })}
+                </p>
+              )}
+
+              {generatingApp && (
+                <p className="mt-4 flex items-center gap-2 text-[12px]" style={{ color: COLORS.accent }}>
+                  <Loader2 size={14} className="animate-spin" />
+                  {t("projectWizard.generatingApp")}
                 </p>
               )}
             </div>
@@ -360,7 +381,11 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
               {submitting ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  {mode === "ai" ? t("projectWizard.generating") : t("projectWizard.creating")}
+                  {mode === "ai"
+                    ? generatingApp
+                      ? t("projectWizard.generatingApp")
+                      : t("projectWizard.generating")
+                    : t("projectWizard.creating")}
                 </>
               ) : (
                 <>

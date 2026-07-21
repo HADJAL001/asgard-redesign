@@ -111,7 +111,7 @@ export function MarketGrowthOverlay() {
                     }}
                     labelStyle={{ color: "#8FC2E0" }}
                     itemStyle={{ color: "#8FE6FF" }}
-                    formatter={(v: number) => [`${v}`, "Index"]}
+                    formatter={(v) => [`${v}`, "Index"]}
                   />
                   <Area
                     type="monotone"

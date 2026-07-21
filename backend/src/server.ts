@@ -4,6 +4,7 @@ import morgan from "morgan"
 import dotenv from "dotenv"
 import helmet from "helmet"
 import compression from "compression"
+import db from "./lib/db"
 
 dotenv.config()
 
@@ -120,6 +121,9 @@ import "./migrations/023_core_economy_tables"
 import "./migrations/024_ensure_projects_schema"
 import "./migrations/025_ai_artifacts"
 import "./migrations/026_twin_ai"
+import "./migrations/027_project_files"
+import "./migrations/028_github_publish"
+import "./migrations/029_netlify_deploy"
 import walliRoutes from "./routes/walli.routes"
 import demoRoutes from "./routes/demo.routes"
 import adminRoutes from "./routes/admin.routes"
@@ -161,6 +165,14 @@ runSocialLoginMigration()
 
 /* Ослабляем NOT NULL на users.email/password_hash — нужно для чисто соц-аккаунтов без пароля/email. */
 runRelaxRequiredFieldsMigration()
+
+/* Самолечение: если процесс перезапустился во время генерации приложения (in-memory
+   состояние джоба теряется), зависшие в "generating" проекты переводим в "failed" —
+   иначе они зависли бы навсегда. */
+db.prepare(`UPDATE projects SET status = 'failed', generation_error = 'Генерация прервана перезапуском сервера' WHERE status = 'generating'`).run()
+
+/* Аналогичное самолечение для зависших деплоев на Netlify. */
+db.prepare(`UPDATE projects SET deploy_status = 'failed', deploy_error = 'Деплой прерван перезапуском сервера' WHERE deploy_status = 'deploying'`).run()
 
 
 

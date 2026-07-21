@@ -416,6 +416,8 @@
     "create": "Создать",
     "generating": "Генерация…",
     "creating": "Создание…",
+    "generatingApp": "AI генерирует полноценное приложение… это может занять до пары минут",
+    "generationFailed": "Не удалось сгенерировать файлы приложения",
     "errorGenerate": "Не удалось сгенерировать проект",
     "errorCreate": "Не удалось создать проект"
   },
@@ -428,7 +430,22 @@
     "soldStat": "Продано",
     "incomeStat": "Доход",
     "artifactsTitle": "Артефакты проекта",
-    "noArtifacts": "В этом проекте пока нет артефактов"
+    "noArtifacts": "В этом проекте пока нет артефактов",
+    "artifactsTab": "Артефакты",
+    "filesTab": "Файлы",
+    "filesLoading": "Загрузка файлов…",
+    "noFiles": "У проекта пока нет файлов",
+    "saveFile": "Сохранить",
+    "fileSaved": "Сохранено",
+    "publishGithub": "Опубликовать в GitHub",
+    "publishSuccess": "Проект опубликован в GitHub",
+    "publishFailed": "Не удалось опубликовать проект",
+    "connectGithub": "Подключить GitHub",
+    "githubConnected": "GitHub успешно подключён — теперь можно опубликовать проект",
+    "githubConnectFailed": "Не удалось подключить GitHub",
+    "deployNetlify": "Задеплоить на Netlify",
+    "deploying": "Деплой выполняется…",
+    "deployed": "Проект задеплоен:"
   }
 }
 

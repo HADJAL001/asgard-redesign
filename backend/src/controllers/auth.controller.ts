@@ -200,7 +200,7 @@ export class AuthController {
       }
 
       const user = UserModel.findById(userId);
-      const { password_hash, twofa_secret, ...safeUser } = user || ({} as any);
+      const { password_hash, twofa_secret, github_publish_token_encrypted, ...safeUser } = user || ({} as any);
 
       res.json({ success: true, message: 'Провайдер успешно привязан', user: safeUser });
 
@@ -244,10 +244,20 @@ export class AuthController {
         return res.status(404).json({ error: 'User not found', code: 'USER_NOT_FOUND' });
       }
 
-      const { password_hash, twofa_secret, display_name, avatar_url, ...safeUser } = user;
+      const {
+        password_hash, twofa_secret, display_name, avatar_url,
+        github_publish_token_encrypted, github_publish_username, github_publish_connected_at,
+        ...safeUser
+      } = user;
       res.json({
         success: true,
-        user: { ...safeUser, displayName: display_name ?? null, avatarUrl: avatar_url ?? null },
+        user: {
+          ...safeUser,
+          displayName: display_name ?? null,
+          avatarUrl: avatar_url ?? null,
+          githubPublishConnected: Boolean(github_publish_token_encrypted),
+          githubPublishUsername: github_publish_username ?? null,
+        },
       });
 
     } catch (error: any) {

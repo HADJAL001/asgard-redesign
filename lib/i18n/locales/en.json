@@ -408,6 +408,8 @@
     "create": "Create",
     "generating": "Generating…",
     "creating": "Creating…",
+    "generatingApp": "AI is generating a full application… this can take a couple of minutes",
+    "generationFailed": "Failed to generate application files",
     "errorGenerate": "Failed to generate project",
     "errorCreate": "Failed to create project"
   },
@@ -420,7 +422,22 @@
     "soldStat": "Sold",
     "incomeStat": "Income",
     "artifactsTitle": "Project Artifacts",
-    "noArtifacts": "This project has no artifacts yet"
+    "noArtifacts": "This project has no artifacts yet",
+    "artifactsTab": "Artifacts",
+    "filesTab": "Files",
+    "filesLoading": "Loading files…",
+    "noFiles": "This project has no files yet",
+    "saveFile": "Save",
+    "fileSaved": "Saved",
+    "publishGithub": "Publish to GitHub",
+    "publishSuccess": "Project published to GitHub",
+    "publishFailed": "Failed to publish project",
+    "connectGithub": "Connect GitHub",
+    "githubConnected": "GitHub connected — you can now publish the project",
+    "githubConnectFailed": "Failed to connect GitHub",
+    "deployNetlify": "Deploy to Netlify",
+    "deploying": "Deploying…",
+    "deployed": "Project deployed:"
   }
 }
 

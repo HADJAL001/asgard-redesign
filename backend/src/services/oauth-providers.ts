@@ -18,13 +18,13 @@ export function generateState(): string {
   return crypto.randomBytes(24).toString('base64url');
 }
 
-export function buildAuthUrl(provider: SocialProvider, state: string, codeChallenge: string): string {
+export function buildAuthUrl(provider: SocialProvider, state: string, codeChallenge: string, scopeOverride?: string): string {
   const cfg = OAUTH_CONFIG[provider];
   const params = new URLSearchParams({
     client_id: cfg.clientId,
     redirect_uri: getRedirectUri(provider),
     response_type: 'code',
-    scope: cfg.scope,
+    scope: scopeOverride || cfg.scope,
     state,
   });
 

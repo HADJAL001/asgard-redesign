@@ -24,6 +24,8 @@ export type User = {
   createdAt?: string | number
   role?: string
   banned?: boolean
+  githubPublishConnected?: boolean
+  githubPublishUsername?: string | null
 }
 
 type AuthResult = { ok: boolean; message?: string }

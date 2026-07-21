@@ -408,6 +408,8 @@
     "create": "Құру",
     "generating": "Жасалуда…",
     "creating": "Құрылуда…",
+    "generatingApp": "AI толыққанды қолданбаны жасауда… бұл бірнеше минутқа созылуы мүмкін",
+    "generationFailed": "Қолданба файлдарын жасау мүмкін болмады",
     "errorGenerate": "Жобаны жасау мүмкін болмады",
     "errorCreate": "Жобаны құру мүмкін болмады"
   },
@@ -420,7 +422,22 @@
     "soldStat": "Сатылды",
     "incomeStat": "Табыс",
     "artifactsTitle": "Жоба артефакттары",
-    "noArtifacts": "Бұл жобада әлі артефакттар жоқ"
+    "noArtifacts": "Бұл жобада әлі артефакттар жоқ",
+    "artifactsTab": "Артефакттар",
+    "filesTab": "Файлдар",
+    "filesLoading": "Файлдар жүктелуде…",
+    "noFiles": "Жобада әлі файлдар жоқ",
+    "saveFile": "Сақтау",
+    "fileSaved": "Сақталды",
+    "publishGithub": "GitHub-қа жариялау",
+    "publishSuccess": "Жоба GitHub-қа жарияланды",
+    "publishFailed": "Жобаны жариялау сәтсіз аяқталды",
+    "connectGithub": "GitHub-ты қосу",
+    "githubConnected": "GitHub сәтті қосылды — енді жобаны жариялауға болады",
+    "githubConnectFailed": "GitHub-ты қосу сәтсіз аяқталды",
+    "deployNetlify": "Netlify-ге деплой жасау",
+    "deploying": "Деплой орындалуда…",
+    "deployed": "Жоба деплой жасалды:"
   }
 }
 

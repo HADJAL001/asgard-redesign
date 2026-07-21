@@ -284,7 +284,24 @@ export interface OsgardProject {
   artifactCount: number
   sold: number
   income: number
+  /** Статус генерации реального приложения: generating → ready | failed. */
+  status: "generating" | "ready" | "failed"
+  /** Сообщение об ошибке генерации (или синтаксические ошибки валидации сгенерированных файлов). */
+  generationError?: string | null
+  /** Источник генерации файлов приложения: "ai" (сгенерировано провайдером) или "fallback". */
+  aiSource?: "ai" | "fallback" | null
+  /** Статус деплоя на Netlify (независим от status — проект можно передеплоить много раз). */
+  deployStatus?: "deploying" | "deployed" | "failed" | null
+  deployError?: string | null
+  liveUrl?: string | null
   createdAt: number
+}
+
+/** Один файл сгенерированного приложения (см. GET /projects/:id/files). */
+export interface OsgardProjectFile {
+  path: string
+  content: string
+  updatedAt: number
 }
 
 /** Результат createProject/generateProject/updateProject — унифицированный ответ для UI. */
@@ -292,8 +309,29 @@ export interface ProjectActionResult {
   success: boolean
   project?: OsgardProject
   artifacts?: OsgardArtifact[]
-  aiSource?: "ai" | "fallback"
   aiConfigured?: boolean
+  error?: string
+}
+
+/** Результат publishProjectToGithub (см. POST /projects/:id/publish-github). */
+export interface GithubPublishActionResult {
+  success: boolean
+  repoUrl?: string
+  commitSha?: string
+  error?: string
+}
+
+/** Результат saveProjectFile (см. PUT /projects/:id/files/*). */
+export interface SaveFileActionResult {
+  success: boolean
+  errors?: string[]
+  error?: string
+}
+
+/** Результат deployProjectToNetlify (см. POST /projects/:id/deploy-netlify). */
+export interface NetlifyDeployActionResult {
+  success: boolean
+  project?: OsgardProject
   error?: string
 }
 
@@ -326,6 +364,8 @@ export interface OsgardStoreState {
   /** Артефакты открытого проекта + сам проект (см. GET /projects/:id). */
   currentProject: OsgardProject | null
   currentProjectArtifacts: OsgardArtifact[]
+  /** Файлы сгенерированного приложения открытого проекта (см. GET /projects/:id/files). */
+  currentProjectFiles: OsgardProjectFile[]
 
   /* ---- служебное состояние ---- */
 
@@ -408,13 +448,27 @@ export interface OsgardStoreState {
   fetchProject: (id: number, opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   /** POST /projects — создать проект вручную (name, description?, badge?). */
   createProject: (name: string, description?: string, badge?: string) => Promise<ProjectActionResult>
-  /** POST /projects/generate — AI-генерация проекта (name, hint?). */
+  /** POST /projects/generate — запускает асинхронную генерацию реального приложения (name, hint?).
+   *  Отвечает немедленно (HTTP 202) проектом со статусом 'generating' — прогресс отслеживается
+   *  через pollProjectStatus/fetchProject, а не через этот единственный вызов. */
   generateProject: (name: string, hint?: string) => Promise<ProjectActionResult>
+  /** Опрашивает GET /projects/:id, пока project.status не станет 'ready'/'failed' (или не истечёт таймаут). */
+  pollProjectStatus: (id: number, opts?: { intervalMs?: number; timeoutMs?: number }) => Promise<OsgardProject | null>
+  /** GET /projects/:id/files — файлы сгенерированного приложения. */
+  fetchProjectFiles: (id: number, opts?: { skipAuthRedirect?: boolean }) => Promise<void>
+  /** POST /projects/:id/publish-github — публикует файлы проекта в GitHub одним коммитом. */
+  publishProjectToGithub: (id: number, opts?: { repoName?: string; private?: boolean }) => Promise<GithubPublishActionResult>
+  /** PUT /projects/:id/files/* — сохраняет содержимое одного файла (Monaco-редактор). */
+  saveProjectFile: (id: number, path: string, content: string) => Promise<SaveFileActionResult>
+  /** POST /projects/:id/deploy-netlify — запускает асинхронный деплой на Netlify (deploy_status='deploying'). */
+  deployProjectToNetlify: (id: number) => Promise<NetlifyDeployActionResult>
+  /** Опрашивает GET /projects/:id, пока project.deployStatus не выйдет из 'deploying' (или не истечёт таймаут). */
+  pollDeployStatus: (id: number, opts?: { intervalMs?: number; timeoutMs?: number }) => Promise<OsgardProject | null>
   /** PATCH /projects/:id — обновить название/описание/бейдж проекта. */
   updateProject: (id: number, patch: { name?: string; description?: string; badge?: string }) => Promise<ProjectActionResult>
   /** DELETE /projects/:id — удалить проект. */
   deleteProject: (id: number) => Promise<{ success: boolean; error?: string }>
-  /** Сбрасывает currentProject/currentProjectArtifacts (например, при выходе со страницы проекта). */
+  /** Сбрасывает currentProject/currentProjectArtifacts/currentProjectFiles (например, при выходе со страницы проекта). */
   clearCurrentProject: () => void
 
   /* ---- TC Wallet: балансы резерва и пользователя ---- */
@@ -505,6 +559,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   projects: [],
   currentProject: null,
   currentProjectArtifacts: [],
+  currentProjectFiles: [],
 
   loading: false,
   error: null,
@@ -950,7 +1005,13 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   fetchProject: async (id, opts) => {
     try {
       const res = await apiClient.get<{ project: OsgardProject; artifacts: OsgardArtifact[] }>(`/projects/${id}`, opts)
-      set({ currentProject: res.project, currentProjectArtifacts: res.artifacts, error: null })
+      set((s) => ({
+        currentProject: res.project,
+        currentProjectArtifacts: res.artifacts,
+        // синхронизируем и список проектов — карточка в списке тоже видит смену status
+        projects: s.projects.map((p) => (p.id === id ? res.project : p)),
+        error: null,
+      }))
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить проект") })
     }
@@ -976,14 +1037,16 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     }
   },
 
-  /* ---- проекты: POST /projects/generate — AI-генерация проекта ---- */
+  /* ---- проекты: POST /projects/generate — запуск асинхронной генерации реального приложения ----
+     Отвечает немедленно (HTTP 202): проект уже создан со status='generating' и стартовыми
+     артефактами, но файлы приложения ещё генерируются в фоне на сервере. Вызывающий код
+     (визард) должен продолжить через pollProjectStatus, а не считать проект готовым сразу. */
   generateProject: async (name, hint) => {
     set({ loading: true, error: null })
     try {
       const res = await apiClient.post<{
         project: OsgardProject
         artifacts: OsgardArtifact[]
-        aiSource: "ai" | "fallback"
         aiConfigured: boolean
       }>("/projects/generate", { name, hint })
 
@@ -993,20 +1056,123 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
         error: null,
       }))
 
-      // синхронизация артефактов пользователя (новые артефакты проекта уже созданы на сервере)
+      // синхронизация артефактов пользователя (стартовые артефакты проекта уже созданы на сервере)
       await get().fetchArtifacts()
 
       return {
         success: true,
         project: res.project,
         artifacts: res.artifacts,
-        aiSource: res.aiSource,
         aiConfigured: res.aiConfigured,
       }
     } catch (err) {
       const message = extractErrorMessage(err, "Не удалось сгенерировать проект")
       set({ loading: false, error: message })
       return { success: false, error: message }
+    }
+  },
+
+  /* ---- проекты: опрос статуса генерации до перехода из 'generating' в 'ready'/'failed' ---- */
+  pollProjectStatus: async (id, opts) => {
+    const intervalMs = opts?.intervalMs ?? 2000
+    const timeoutMs = opts?.timeoutMs ?? 120000
+    const startedAt = Date.now()
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      await get().fetchProject(id)
+      const project = get().projects.find((p) => p.id === id) ?? get().currentProject
+      if (project && project.id === id && project.status !== "generating") {
+        return project
+      }
+      if (Date.now() - startedAt >= timeoutMs) {
+        return project ?? null
+      }
+      await new Promise((resolve) => setTimeout(resolve, intervalMs))
+    }
+  },
+
+  /* ---- проекты: GET /projects/:id/files — файлы сгенерированного приложения ---- */
+  fetchProjectFiles: async (id, opts) => {
+    try {
+      const { files } = await apiClient.get<{ files: OsgardProjectFile[] }>(`/projects/${id}/files`, opts)
+      set({ currentProjectFiles: files, error: null })
+    } catch (err) {
+      set({ error: extractErrorMessage(err, "Не удалось загрузить файлы проекта") })
+    }
+  },
+
+  /* ---- проекты: POST /projects/:id/publish-github — публикация файлов проекта одним коммитом ---- */
+  publishProjectToGithub: async (id, opts) => {
+    set({ loading: true, error: null })
+    try {
+      const res = await apiClient.post<{ repoUrl: string; commitSha: string }>(`/projects/${id}/publish-github`, opts || {})
+      set({ loading: false, error: null })
+      return { success: true, repoUrl: res.repoUrl, commitSha: res.commitSha }
+    } catch (err) {
+      const message = extractErrorMessage(err, "Не удалось опубликовать проект в GitHub")
+      set({ loading: false, error: message })
+      return { success: false, error: message }
+    }
+  },
+
+  /* ---- проекты: PUT /projects/:id/files/* — сохранить содержимое одного файла ---- */
+  saveProjectFile: async (id, path, content) => {
+    try {
+      const res = await apiClient.put<{ path: string; updatedAt: number; errors: string[] }>(
+        `/projects/${id}/files/${path}`,
+        { content },
+      )
+      set((s) => ({
+        currentProjectFiles: s.currentProjectFiles.map((f) =>
+          f.path === path ? { ...f, content, updatedAt: res.updatedAt } : f,
+        ),
+        error: null,
+      }))
+      return { success: true, errors: res.errors }
+    } catch (err) {
+      const message = extractErrorMessage(err, "Не удалось сохранить файл")
+      set({ error: message })
+      return { success: false, error: message }
+    }
+  },
+
+  /* ---- проекты: POST /projects/:id/deploy-netlify — запуск асинхронного деплоя ---- */
+  deployProjectToNetlify: async (id) => {
+    set({ loading: true, error: null })
+    try {
+      const res = await apiClient.post<{ project: OsgardProject }>(`/projects/${id}/deploy-netlify`)
+      set((s) => ({
+        loading: false,
+        error: null,
+        currentProject: s.currentProject?.id === id ? res.project : s.currentProject,
+        projects: s.projects.map((p) => (p.id === id ? res.project : p)),
+      }))
+      return { success: true, project: res.project }
+    } catch (err) {
+      const message = extractErrorMessage(err, "Не удалось запустить деплой на Netlify")
+      set({ loading: false, error: message })
+      return { success: false, error: message }
+    }
+  },
+
+  /* ---- проекты: опрос статуса деплоя до перехода из 'deploying' в 'deployed'/'failed' ---- */
+  pollDeployStatus: async (id, opts) => {
+    const intervalMs = opts?.intervalMs ?? 2000
+    const timeoutMs = opts?.timeoutMs ?? 180000
+    const startedAt = Date.now()
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      await get().fetchProject(id)
+      const project = get().projects.find((p) => p.id === id) ?? get().currentProject
+      if (project && project.id === id && project.deployStatus !== "deploying") {
+        return project
+      }
+      if (Date.now() - startedAt >= timeoutMs) {
+        return project ?? null
+      }
+      await new Promise((resolve) => setTimeout(resolve, intervalMs))
     }
   },
 
@@ -1055,7 +1221,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
 
   /* ---- проекты: локальный сброс текущего открытого проекта ---- */
   clearCurrentProject: () => {
-    set({ currentProject: null, currentProjectArtifacts: [] })
+    set({ currentProject: null, currentProjectArtifacts: [], currentProjectFiles: [] })
   },
 
   /* ---- ШАГ 5: refreshAll — последовательно обновляет все данные стора.
@@ -1129,6 +1295,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       projects: [],
       currentProject: null,
       currentProjectArtifacts: [],
+      currentProjectFiles: [],
       loading: false,
       error: null,
     })

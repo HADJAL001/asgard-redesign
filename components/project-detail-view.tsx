@@ -18,16 +18,30 @@
      отфильтровано по currentProjectArtifacts)
    ================================================================ */
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { ArrowLeft, Hammer, Boxes, TrendingUp, Coins, Loader2, Trash2, Store, Archive, CheckCircle2 } from "lucide-react"
+import { useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import {
+  ArrowLeft, Hammer, Boxes, TrendingUp, Coins, Loader2, Trash2, Store, Archive, CheckCircle2,
+  Rocket, Download, ExternalLink, AlertTriangle, Code2, Link2,
+} from "lucide-react"
 import { Navbar } from "./navbar"
+import { ProjectFileEditor } from "./project-file-editor"
 import { useOsgardStore } from "@/lib/store/osgard-store"
+import { useAuth } from "@/lib/auth-store"
 import { COLORS, badgeIcon, RARITY, ARTIFACT_TYPES, STAT_META, type ArtifactType, type Rarity } from "@/lib/economy"
 import { fmtTC, fmtUSD } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
+import { API_BASE_URL } from "@/lib/api-client"
 
 type ArtifactStatus = "kept" | "listed" | "sold"
+
+function GithubIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
+      <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.57.1.78-.25.78-.55v-2.02c-3.2.7-3.88-1.54-3.88-1.54-.52-1.34-1.28-1.69-1.28-1.69-1.04-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.64 1.6.24 2.76.12 3.05.74.81 1.18 1.84 1.18 3.1 0 4.43-2.7 5.4-5.26 5.69.41.36.78 1.06.78 2.14v3.17c0 .3.2.66.79.55A10.52 10.52 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z" />
+    </svg>
+  )
+}
 
 function safeType(t: string): ArtifactType {
   return (t in ARTIFACT_TYPES ? (t as ArtifactType) : "artifact")
@@ -43,16 +57,26 @@ type Props = {
 export function ProjectDetailView({ projectId }: Props) {
   const { t } = useTranslation()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { user, refreshMe } = useAuth()
   const {
     currentProject,
     currentProjectArtifacts,
     fetchProject,
     clearCurrentProject,
     deleteProject,
+    publishProjectToGithub,
+    deployProjectToNetlify,
+    pollDeployStatus,
     tcPrice,
     loading,
     error,
   } = useOsgardStore()
+
+  const [tab, setTab] = useState<"artifacts" | "files">("artifacts")
+  const [publishing, setPublishing] = useState(false)
+  const [publishResult, setPublishResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const [deploying, setDeploying] = useState(false)
 
   const STATUS_META: Record<ArtifactStatus, { label: string; color: string; Icon: typeof Store }> = {
     listed: { label: t("artifacts.statusListed"), color: "#00D4FF", Icon: Store },
@@ -66,6 +90,19 @@ export function ProjectDetailView({ projectId }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
 
+  useEffect(() => {
+    const connected = searchParams.get("githubPublishConnected")
+    if (connected === null) return
+    if (connected === "1") {
+      refreshMe()
+      setPublishResult({ ok: true, message: t("projectDetail.githubConnected") })
+    } else {
+      setPublishResult({ ok: false, message: t("projectDetail.githubConnectFailed") })
+    }
+    router.replace(`/projects/${projectId}`)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
   async function handleDeleteProject() {
     if (!confirm(t("projects.confirmDelete"))) return
     const res = await deleteProject(projectId)
@@ -74,6 +111,36 @@ export function ProjectDetailView({ projectId }: Props) {
 
   function goCreateArtifact() {
     router.push(`/forge?projectId=${projectId}`)
+  }
+
+  async function handlePublishGithub() {
+    setPublishing(true)
+    setPublishResult(null)
+    try {
+      const res = await publishProjectToGithub(projectId)
+      setPublishResult(
+        res.success
+          ? { ok: true, message: t("projectDetail.publishSuccess") }
+          : { ok: false, message: res.error || t("projectDetail.publishFailed") },
+      )
+      if (res.success && res.repoUrl) window.open(res.repoUrl, "_blank", "noopener,noreferrer")
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  async function handleDeploy() {
+    setDeploying(true)
+    try {
+      const res = await deployProjectToNetlify(projectId)
+      if (res.success) await pollDeployStatus(projectId)
+    } finally {
+      setDeploying(false)
+    }
+  }
+
+  function handleExportZip() {
+    window.open(`${API_BASE_URL}/projects/${projectId}/export.zip`, "_blank")
   }
 
   if (loading && !currentProject) {
@@ -152,6 +219,54 @@ export function ProjectDetailView({ projectId }: Props) {
               <Hammer size={16} strokeWidth={1.75} />
               {t("projectDetail.createArtifact")}
             </button>
+            {currentProject.status === "ready" && (
+              <>
+                {user?.githubPublishConnected ? (
+                  <button
+                    type="button"
+                    onClick={handlePublishGithub}
+                    disabled={publishing}
+                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors disabled:opacity-50"
+                    style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+                  >
+                    {publishing ? <Loader2 size={16} className="animate-spin" /> : <GithubIcon size={16} />}
+                    {t("projectDetail.publishGithub")}
+                  </button>
+                ) : (
+                  <a
+                    href={`/api/auth/github/publish/connect?returnTo=${encodeURIComponent(`/projects/${projectId}`)}`}
+                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors"
+                    style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+                  >
+                    <Link2 size={16} strokeWidth={1.75} />
+                    {t("projectDetail.connectGithub")}
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={handleDeploy}
+                  disabled={deploying || currentProject.deployStatus === "deploying"}
+                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors disabled:opacity-50"
+                  style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+                >
+                  {deploying || currentProject.deployStatus === "deploying" ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Rocket size={16} strokeWidth={1.75} />
+                  )}
+                  {t("projectDetail.deployNetlify")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportZip}
+                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors"
+                  style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+                >
+                  <Download size={16} strokeWidth={1.75} />
+                  {t("projectDetail.exportZip")}
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={handleDeleteProject}
@@ -164,6 +279,79 @@ export function ProjectDetailView({ projectId }: Props) {
             </button>
           </div>
         </div>
+
+        {/* Status banners: генерация приложения, деплой, публикация */}
+        {currentProject.status === "generating" && (
+          <div
+            className="mt-6 flex items-center gap-3 rounded-xl px-4 py-3"
+            style={{ backgroundColor: "rgba(0,212,255,0.06)", border: `1px solid ${COLORS.accent}` }}
+          >
+            <Loader2 size={16} className="animate-spin" style={{ color: COLORS.accent, flexShrink: 0 }} />
+            <p className="text-[13px]">{t("projectWizard.generatingApp")}</p>
+          </div>
+        )}
+        {currentProject.status === "failed" && currentProject.generationError && (
+          <div
+            className="mt-6 flex items-start gap-3 rounded-xl px-4 py-3"
+            style={{ backgroundColor: "rgba(248,113,113,0.06)", border: `1px solid ${COLORS.red}` }}
+          >
+            <AlertTriangle size={16} style={{ color: COLORS.red, flexShrink: 0, marginTop: 2 }} />
+            <p className="whitespace-pre-wrap text-[13px]">{currentProject.generationError}</p>
+          </div>
+        )}
+        {currentProject.deployStatus === "deploying" && (
+          <div
+            className="mt-6 flex items-center gap-3 rounded-xl px-4 py-3"
+            style={{ backgroundColor: "rgba(0,212,255,0.06)", border: `1px solid ${COLORS.accent}` }}
+          >
+            <Loader2 size={16} className="animate-spin" style={{ color: COLORS.accent, flexShrink: 0 }} />
+            <p className="text-[13px]">{t("projectDetail.deploying")}</p>
+          </div>
+        )}
+        {currentProject.deployStatus === "deployed" && currentProject.liveUrl && (
+          <div
+            className="mt-6 flex items-center gap-3 rounded-xl px-4 py-3"
+            style={{ backgroundColor: "rgba(74,222,128,0.06)", border: `1px solid ${COLORS.green}` }}
+          >
+            <CheckCircle2 size={16} style={{ color: COLORS.green, flexShrink: 0 }} />
+            <span className="text-[13px]">{t("projectDetail.deployed")}</span>
+            <a
+              href={currentProject.liveUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[13px] underline"
+              style={{ color: COLORS.accent }}
+            >
+              {currentProject.liveUrl}
+              <ExternalLink size={12} strokeWidth={1.75} />
+            </a>
+          </div>
+        )}
+        {currentProject.deployStatus === "failed" && currentProject.deployError && (
+          <div
+            className="mt-6 flex items-start gap-3 rounded-xl px-4 py-3"
+            style={{ backgroundColor: "rgba(248,113,113,0.06)", border: `1px solid ${COLORS.red}` }}
+          >
+            <AlertTriangle size={16} style={{ color: COLORS.red, flexShrink: 0, marginTop: 2 }} />
+            <p className="whitespace-pre-wrap text-[13px]">{currentProject.deployError}</p>
+          </div>
+        )}
+        {publishResult && (
+          <div
+            className="mt-6 flex items-center gap-3 rounded-xl px-4 py-3"
+            style={{
+              backgroundColor: publishResult.ok ? "rgba(74,222,128,0.06)" : "rgba(248,113,113,0.06)",
+              border: `1px solid ${publishResult.ok ? COLORS.green : COLORS.red}`,
+            }}
+          >
+            {publishResult.ok ? (
+              <CheckCircle2 size={16} style={{ color: COLORS.green, flexShrink: 0 }} />
+            ) : (
+              <AlertTriangle size={16} style={{ color: COLORS.red, flexShrink: 0 }} />
+            )}
+            <p className="text-[13px]">{publishResult.message}</p>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-3">
@@ -184,11 +372,40 @@ export function ProjectDetailView({ projectId }: Props) {
           </div>
         </div>
 
-        {/* Artifacts */}
+        {/* Tabs: Артефакты / Файлы */}
         <div className="mt-10">
-          <h2 className="text-[18px] font-semibold">{t("projectDetail.artifactsTitle")}</h2>
+          <div className="flex items-center gap-1 border-b" style={{ borderColor: COLORS.border }}>
+            <button
+              type="button"
+              onClick={() => setTab("artifacts")}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium transition-colors"
+              style={{
+                color: tab === "artifacts" ? COLORS.accent : COLORS.label,
+                borderBottom: `2px solid ${tab === "artifacts" ? COLORS.accent : "transparent"}`,
+              }}
+            >
+              <Boxes size={14} strokeWidth={1.75} />
+              {t("projectDetail.artifactsTab")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("files")}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium transition-colors"
+              style={{
+                color: tab === "files" ? COLORS.accent : COLORS.label,
+                borderBottom: `2px solid ${tab === "files" ? COLORS.accent : "transparent"}`,
+              }}
+            >
+              <Code2 size={14} strokeWidth={1.75} />
+              {t("projectDetail.filesTab")}
+            </button>
+          </div>
 
-          {currentProjectArtifacts.length === 0 ? (
+          {tab === "files" ? (
+            <div className="mt-6">
+              <ProjectFileEditor projectId={projectId} />
+            </div>
+          ) : currentProjectArtifacts.length === 0 ? (
             <div className="mt-6 flex flex-col items-center gap-4 rounded-2xl px-6 py-16 text-center" style={{ backgroundColor: COLORS.card, border: `1px dashed ${COLORS.border}` }}>
               <Boxes size={32} strokeWidth={1.25} style={{ color: COLORS.label }} />
               <p className="text-[15px]" style={{ color: COLORS.label }}>{t("projectDetail.noArtifacts")}</p>

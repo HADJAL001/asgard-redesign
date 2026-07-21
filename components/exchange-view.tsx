@@ -9,7 +9,7 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
-  type TooltipProps,
+  type TooltipContentProps,
 } from "recharts"
 import { TrendingUp, TrendingDown, ArrowUpDown, ArrowRightLeft, Infinity as InfinityIcon, Boxes } from "lucide-react"
 import { Navbar } from "./navbar"
@@ -58,7 +58,7 @@ function CandleShape(props: any) {
   )
 }
 
-function ChartTooltip({ active, payload, currency }: TooltipProps<number, string> & { currency: CurrencyId }) {
+function ChartTooltip({ active, payload, currency }: Partial<TooltipContentProps<number, string>> & { currency: CurrencyId }) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload as Candle
   const sym = CURRENCIES[currency].symbol

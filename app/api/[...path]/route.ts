@@ -76,6 +76,19 @@ async function forwardToBackend(
     body,
   })
 
+  const contentType = upstream.headers.get("content-type") || "application/json"
+  const contentDisposition = upstream.headers.get("content-disposition") || undefined
+
+  /* Бинарные ответы (например ZIP-экспорт проекта) нельзя читать через .text() —
+     это портит содержимое. JSON/текстовые ответы, наоборот, должны остаться как .text(),
+     т.к. handleAuthIssue/handleAuthSession читают upstream.json напрямую. */
+  const isBinary = !/^(application\/json|text\/)/i.test(contentType)
+
+  if (isBinary) {
+    const buffer = await upstream.arrayBuffer()
+    return { status: upstream.status, text: "", json: null, contentType, contentDisposition, isBinary: true as const, buffer }
+  }
+
   const text = await upstream.text()
   let json: any = null
   try {
@@ -84,7 +97,19 @@ async function forwardToBackend(
     /* не JSON — оставляем как есть */
   }
 
-  return { status: upstream.status, text, json, contentType: upstream.headers.get("content-type") || "application/json" }
+  return { status: upstream.status, text, json, contentType, contentDisposition, isBinary: false as const, buffer: undefined }
+}
+
+/** Строит NextResponse из результата forwardToBackend, сохраняя бинарное тело как есть
+ *  (ArrayBuffer) вместо .text() — иначе бинарные ответы (например ZIP-экспорт) портятся. */
+function buildUpstreamResponse(upstream: Awaited<ReturnType<typeof forwardToBackend>>) {
+  const headers: Record<string, string> = { "content-type": upstream.contentType }
+  if (upstream.contentDisposition) headers["content-disposition"] = upstream.contentDisposition
+
+  if (upstream.isBinary) {
+    return new NextResponse(upstream.buffer, { status: upstream.status, headers })
+  }
+  return new NextResponse(upstream.text, { status: upstream.status, headers })
 }
 
 /** login / register: выставляет httpOnly cookie, скрывает токены из тела ответа. */
@@ -125,6 +150,42 @@ async function handleAuthSession(req: NextRequest) {
   const res = NextResponse.json(me.json, { status: 200 })
   setSessionCookies(res, token, refreshToken)
   return res
+}
+
+/**
+ * GET auth/github/publish/connect — редиректит на GitHub OAuth consent screen.
+ * Бэкенд-эндпоинт защищён Bearer-авторизацией и отвечает 302, поэтому его нельзя
+ * пропустить через общий forwardToBackend: fetch() по умолчанию сам бы прошёл по
+ * редиректу и вернул тело GitHub-страницы вместо серверного редиректа браузера.
+ * Здесь читаем access-токен из httpOnly cookie, дергаем бэкенд с redirect: "manual"
+ * и ретранслируем полученный Location обратно клиенту.
+ */
+async function handleGithubPublishConnect(req: NextRequest) {
+  const accessToken = req.cookies.get(ACCESS_COOKIE)?.value
+  if (!accessToken) {
+    return NextResponse.redirect(new URL("/login", req.url))
+  }
+
+  const targetUrl = new URL(`${BACKEND_URL}/auth/github/publish/connect`)
+  const returnTo = req.nextUrl.searchParams.get("returnTo")
+  if (returnTo) targetUrl.searchParams.set("returnTo", returnTo)
+
+  try {
+    const upstream = await fetch(targetUrl.toString(), {
+      headers: { authorization: `Bearer ${accessToken}` },
+      redirect: "manual",
+    })
+
+    const location = upstream.headers.get("location")
+    if (upstream.status >= 300 && upstream.status < 400 && location) {
+      return NextResponse.redirect(location)
+    }
+
+    return NextResponse.redirect(new URL("/projects?githubPublishConnected=0", req.url))
+  } catch (err) {
+    console.error("GitHub publish connect proxy error:", err)
+    return NextResponse.redirect(new URL("/projects?githubPublishConnected=0", req.url))
+  }
 }
 
 function handleAuthLogout(req: NextRequest) {
@@ -188,6 +249,9 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
   if (req.method === "POST" && pathStr === "auth/logout") {
     return handleAuthLogout(req)
   }
+  if (req.method === "GET" && pathStr === "auth/github/publish/connect") {
+    return handleGithubPublishConnect(req)
+  }
 
   const accessToken = req.cookies.get(ACCESS_COOKIE)?.value
 
@@ -199,10 +263,7 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
 
       if ("token" in refreshResult) {
         upstream = await forwardToBackend(pathStr, req, { authToken: refreshResult.token })
-        const res = new NextResponse(upstream.text, {
-          status: upstream.status,
-          headers: { "content-type": upstream.contentType },
-        })
+        const res = buildUpstreamResponse(upstream)
         res.cookies.set(ACCESS_COOKIE, refreshResult.token, cookieOptions(ACCESS_MAX_AGE))
         return res
       }
@@ -217,10 +278,7 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
       }
     }
 
-    const res = new NextResponse(upstream.text, {
-      status: upstream.status,
-      headers: { "content-type": upstream.contentType },
-    })
+    const res = buildUpstreamResponse(upstream)
     if (upstream.status === 401) clearSessionCookies(res)
     return res
   } catch (err: unknown) {

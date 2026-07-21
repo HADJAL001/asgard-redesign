@@ -176,7 +176,7 @@ export function SanctumView() {
                   <Tooltip
                     contentStyle={{ backgroundColor: "#0A0A0F", border: `1px solid ${BORDER}`, borderRadius: 8, color: "#FFFFFF" }}
                     labelStyle={{ color: LABEL }}
-                    formatter={(v: number) => [`${formatTokens(v)} ∞`, "Капитал"]}
+                    formatter={(v) => [`${formatTokens(Number(v))} ∞`, "Капитал"]}
                   />
                   <Area type="monotone" dataKey="capital" stroke={GOLD} strokeWidth={2} fill="url(#capGold)" />
                 </AreaChart>

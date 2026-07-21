@@ -3,6 +3,7 @@ import db from '../db/database';
 import { UserModel } from '../models/user.model';
 import { AuthService } from '../services/auth.service';
 import { authenticate } from '../middleware/auth.middleware';
+import { encrypt } from '../utils/encryption';
 import {
   isSocialProvider,
   SocialProvider,
@@ -23,7 +24,23 @@ interface OAuthStateEntry {
   codeVerifier: string;
   createdAt: number;
   linkUserId?: number;
+  /** 'publish' — подключение GitHub для публикации сгенерированных проектов (scope repo),
+   *  отдельно от обычного входа/привязки аккаунта (scope read:user user:email). */
+  purpose?: 'login' | 'publish';
+  /** Путь на фронтенде, куда вернуть пользователя после успешного подключения (только 'publish'). */
+  returnTo?: string;
 }
+
+/** Разрешает только относительные пути ("/projects/5"), чтобы state.returnTo нельзя было
+ *  использовать для open-redirect на внешний домен. */
+function sanitizeReturnTo(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  if (!value.startsWith('/') || value.startsWith('//')) return undefined;
+  return value;
+}
+
+/** Scope для подключения GitHub с целью публикации репозиториев (Git Data API). */
+const GITHUB_PUBLISH_SCOPE = 'repo read:user';
 
 const STATE_TTL_MS = 5 * 60 * 1000;
 const stateStore = new Map<string, OAuthStateEntry>();
@@ -85,9 +102,32 @@ router.get('/:provider', (req: Request, res: Response) => {
 
   const state = generateState();
   const { codeVerifier, codeChallenge } = generatePkcePair();
-  stateStore.set(state, { provider, codeVerifier, createdAt: Date.now(), linkUserId });
+  stateStore.set(state, { provider, codeVerifier, createdAt: Date.now(), linkUserId, purpose: 'login' });
 
   res.redirect(buildAuthUrl(provider, state, codeChallenge));
+});
+
+// ===== Подключение GitHub для публикации проектов: GET /auth/github/publish/connect =====
+// Требует scope repo (в отличие от read:user user:email для обычного входа), поэтому
+// не переиспользует GET /:provider — это отдельный, явно авторизованный flow.
+router.get('/github/publish/connect', authenticate, (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const state = generateState();
+  const { codeVerifier, codeChallenge } = generatePkcePair();
+  stateStore.set(state, {
+    provider: 'github',
+    codeVerifier,
+    createdAt: Date.now(),
+    linkUserId: userId,
+    purpose: 'publish',
+    returnTo: sanitizeReturnTo(req.query.returnTo),
+  });
+
+  res.redirect(buildAuthUrl('github', state, codeChallenge, GITHUB_PUBLISH_SCOPE));
 });
 
 // ===== Callback: GET /auth/:provider/callback =====
@@ -116,6 +156,25 @@ router.get('/:provider/callback', async (req: Request, res: Response) => {
 
   try {
     const accessToken = await exchangeCodeForToken(provider, code, entry.codeVerifier);
+
+    // Режим подключения GitHub для публикации (scope repo) — токен шифруется и
+    // сохраняется отдельно от identity-only github_id. Нужен именно login (не display
+    // name) — это "owner" для последующих вызовов Git Data API при публикации.
+    if (entry.purpose === 'publish' && entry.linkUserId) {
+      const ghUser = await (
+        await fetch('https://api.github.com/user', {
+          headers: { Authorization: `Bearer ${accessToken}`, 'User-Agent': 'osgard-backend' },
+        })
+      ).json() as { login?: string };
+
+      db.prepare(
+        `UPDATE users SET github_publish_token_encrypted = ?, github_publish_username = ?, github_publish_connected_at = ? WHERE id = ?`,
+      ).run(encrypt(accessToken), ghUser.login || null, Date.now(), entry.linkUserId);
+      const target = entry.returnTo || '/dashboard';
+      const separator = target.includes('?') ? '&' : '?';
+      return res.redirect(`${FRONTEND_URL}${target}${separator}githubPublishConnected=1`);
+    }
+
     const profile = await fetchNormalizedProfile(provider, accessToken);
 
     // Режим привязки соцаккаунта к уже залогиненному пользователю
