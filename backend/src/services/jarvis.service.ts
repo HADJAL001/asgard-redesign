@@ -1,6 +1,7 @@
 import dotenv from "dotenv"
 import db from "../lib/db"
 import { callDeepSeek as routerCallDeepSeek, callGrok as routerCallGrok, callClaudeApi, isAiConfigured } from "./ai-router"
+import { applyPersonality, isValidMode, MODE_ICONS, MODE_LABELS, type JarvisMode } from "./jarvis-personality.service"
 
 dotenv.config()
 
@@ -31,6 +32,9 @@ export type JarvisAnswer = {
   answer: string
   route: JarvisRoute
   cached: boolean
+  mode: JarvisMode
+  icon: string
+  label: string
 }
 
 /* ================================================================
@@ -47,13 +51,13 @@ function normalizeQuestion(question: string): string {
   return question.trim().toLowerCase().replace(/\s+/g, " ").replace(/[?!.,;:]+$/g, "")
 }
 
-/** Ключ кеша учитывает userId, т.к. локальные ответы (баланс) — персональные. */
-function cacheKey(userId: number, question: string): string {
-  return `${userId}::${normalizeQuestion(question)}`
+/** Ключ кеша учитывает userId и режим личности — один вопрос даёт разный "окрашенный" ответ в разных режимах. */
+function cacheKey(userId: number, question: string, mode: JarvisMode): string {
+  return `${userId}::${mode}::${normalizeQuestion(question)}`
 }
 
-function getFromCache(userId: number, question: string): CacheEntry | null {
-  const key = cacheKey(userId, question)
+function getFromCache(userId: number, question: string, mode: JarvisMode): CacheEntry | null {
+  const key = cacheKey(userId, question, mode)
   const entry = cache.get(key)
   if (!entry) return null
   if (Date.now() > entry.expiresAt) {
@@ -63,9 +67,30 @@ function getFromCache(userId: number, question: string): CacheEntry | null {
   return entry
 }
 
-function setCache(userId: number, question: string, answer: string, route: JarvisRoute) {
-  const key = cacheKey(userId, question)
+function setCache(userId: number, question: string, mode: JarvisMode, answer: string, route: JarvisRoute) {
+  const key = cacheKey(userId, question, mode)
   cache.set(key, { answer, route, expiresAt: Date.now() + CACHE_TTL_MS })
+}
+
+/* ================================================================
+   Личность ВАЛЛИ — хранение выбранного режима в БД (jarvis_personality)
+   ================================================================ */
+
+/** Возвращает сохранённый режим пользователя (или "default", если ещё не выбирался). */
+export function getStoredJarvisMode(userId: number): JarvisMode {
+  const row = db.prepare(`SELECT mode FROM jarvis_personality WHERE user_id = ?`).get(userId) as
+    | { mode: string }
+    | undefined
+  return row && isValidMode(row.mode) ? row.mode : "default"
+}
+
+/** Сохраняет выбор режима пользователя (upsert). */
+export function setStoredJarvisMode(userId: number, mode: JarvisMode): void {
+  db.prepare(
+    `INSERT INTO jarvis_personality (user_id, mode, updated_at)
+     VALUES (?, ?, strftime('%s','now'))
+     ON CONFLICT(user_id) DO UPDATE SET mode = excluded.mode, updated_at = excluded.updated_at`,
+  ).run(userId, mode)
 }
 
 /** Полностью очищает кеш (все пользователи). */
@@ -223,30 +248,44 @@ async function routeToProvider(question: string): Promise<{ answer: string; rout
    Основная точка входа
    ================================================================ */
 
-export async function askJarvis(userId: number, rawQuestion: string): Promise<JarvisAnswer> {
+export async function askJarvis(userId: number, rawQuestion: string, requestedMode?: string): Promise<JarvisAnswer> {
   const question = (rawQuestion || "").trim()
+
+  /* Режим личности: если передан и валиден — сохраняем как новое предпочтение, иначе читаем сохранённый. */
+  let mode: JarvisMode
+  if (requestedMode !== undefined && isValidMode(requestedMode)) {
+    setStoredJarvisMode(userId, requestedMode)
+    mode = requestedMode
+  } else {
+    mode = getStoredJarvisMode(userId)
+  }
+  const icon = MODE_ICONS[mode]
+  const label = MODE_LABELS[mode]
+
   if (!question) {
-    return { answer: "Задайте вопрос, и я постараюсь помочь.", route: "fallback", cached: false }
+    return { answer: "Задайте вопрос, и я постараюсь помочь.", route: "fallback", cached: false, mode, icon, label }
   }
 
   /* 1. Кеш */
-  const cached = getFromCache(userId, question)
+  const cached = getFromCache(userId, question, mode)
   if (cached) {
-    return { answer: cached.answer, route: cached.route, cached: true }
+    return { answer: cached.answer, route: cached.route, cached: true, mode, icon, label }
   }
 
   /* 2. Локальные ответы (баланс/артефакты/проекты) — без AI, без кеша не нужны, но кешируем тоже */
   const localAnswer = tryLocalAnswer(userId, question)
   if (localAnswer) {
-    setCache(userId, question, localAnswer, "local")
-    return { answer: localAnswer, route: "local", cached: false }
+    const styled = applyPersonality(mode, localAnswer)
+    setCache(userId, question, mode, styled.text, "local")
+    return { answer: styled.text, route: "local", cached: false, mode, icon, label }
   }
 
   /* 3-5. Маршрутизация к внешним AI: DeepSeek → Grok → Claude */
   const { answer, route } = await routeToProvider(question)
+  const styled = applyPersonality(mode, answer)
 
-  setCache(userId, question, answer, route)
-  return { answer, route, cached: false }
+  setCache(userId, question, mode, styled.text, route)
+  return { answer: styled.text, route, cached: false, mode, icon, label }
 }
 
 export function isAnyProviderConfigured(): boolean {

@@ -29,6 +29,15 @@ import {
   subscribeToEquipmentChanges,
   resolveVoiceProfile,
 } from "@/lib/jarvis-equipment"
+import {
+  type JarvisMode,
+  ALL_MODES,
+  MODE_ICONS,
+  MODE_LABELS,
+  loadPersonalityModeFromCache,
+  savePersonalityModeToCache,
+  fetchPersonalityFromServer,
+} from "@/lib/jarvis-personality-client"
 
 /* ----------------------------------------------------------------
    Типы
@@ -41,6 +50,7 @@ type ChatMessage = {
   role: "user" | "assistant"
   content: string
   route?: string
+  personalityIcon?: string
 }
 
 const REPLY_MODE_KEY = "jarvis_reply_mode"
@@ -127,15 +137,27 @@ export function ВАЛЛИChat() {
   const [replyMode, setReplyMode] = useState<ReplyMode>("both")
   const [speaking, setSpeaking] = useState(false)
   const [modeMenuOpen, setModeMenuOpen] = useState(false)
+  /* Режим личности ВАЛЛИ (обычный/цитаты/вредный/поэт/новости) — влияет на стиль ответов. */
+  const [personalityMode, setPersonalityMode] = useState<JarvisMode>("default")
+  const [personalityMenuOpen, setPersonalityMenuOpen] = useState(false)
   /* Текущая экипировка ВАЛЛИА (skin/voice/accessory) — влияет на 3D-аватар и голос TTS. */
   const [equipment, setEquipment] = useState<JarvisEquipment>(EMPTY_EQUIPMENT)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const personalityMenuRef = useRef<HTMLDivElement>(null)
 
   /* Восстановление режима ответа из localStorage при монтировании */
   useEffect(() => {
     setReplyMode(loadReplyMode())
+  }, [])
+
+  /* Режим личности: мгновенно из кэша, затем сверяемся с сервером (GET /jarvis/personality). */
+  useEffect(() => {
+    setPersonalityMode(loadPersonalityModeFromCache())
+    fetchPersonalityFromServer().then((mode) => {
+      if (mode) setPersonalityMode(mode)
+    })
   }, [])
 
   /* ----------------------------------------------------------------
@@ -169,11 +191,14 @@ export function ВАЛЛИChat() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
   }, [messages, loading])
 
-  /* Закрытие выпадающего меню режима по клику снаружи */
+  /* Закрытие выпадающих меню (режим ответа + личность) по клику снаружи */
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setModeMenuOpen(false)
+      }
+      if (personalityMenuRef.current && !personalityMenuRef.current.contains(e.target as Node)) {
+        setPersonalityMenuOpen(false)
       }
     }
     document.addEventListener("mousedown", handleClickOutside)
@@ -184,6 +209,12 @@ export function ВАЛЛИChat() {
   useEffect(() => {
     return () => stopSpeaking()
   }, [])
+
+  function handleSetPersonalityMode(mode: JarvisMode) {
+    setPersonalityMode(mode)
+    savePersonalityModeToCache(mode)
+    setPersonalityMenuOpen(false)
+  }
 
   function handleSetReplyMode(mode: ReplyMode) {
     setReplyMode(mode)
@@ -230,13 +261,22 @@ export function ВАЛЛИChat() {
     setLoading(true)
 
     try {
-      const res = await apiClient.post<{ answer: string; route: string }>("/jarvis/ask", { question })
+      const res = await apiClient.post<{ answer: string; route: string; mode?: JarvisMode; icon?: string }>(
+        "/jarvis/ask",
+        { question, mode: personalityMode },
+      )
+
+      if (res.mode) {
+        setPersonalityMode(res.mode)
+        savePersonalityModeToCache(res.mode)
+      }
 
       const assistantMsg: ChatMessage = {
         id: `a-${Date.now()}`,
         role: "assistant",
         content: res.answer,
         route: res.route,
+        personalityIcon: res.icon,
       }
       setMessages((prev) => [...prev, assistantMsg])
 
@@ -335,6 +375,35 @@ export function ВАЛЛИChat() {
             )}
           </div>
 
+          {/* Выпадающий список личности ВАЛЛИ (обычный/цитаты/вредный/поэт/новости) */}
+          <div className="jarvis-mode-select" ref={personalityMenuRef}>
+            <button
+              type="button"
+              className="jarvis-mode-btn"
+              onClick={() => setPersonalityMenuOpen((v) => !v)}
+              title="Личность ВАЛЛИ"
+            >
+              <span className="jarvis-mode-icon">{MODE_ICONS[personalityMode]}</span>
+              <span className="jarvis-mode-label">{MODE_LABELS[personalityMode]}</span>
+            </button>
+
+            {personalityMenuOpen && (
+              <div className="jarvis-mode-menu">
+                {ALL_MODES.map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={`jarvis-mode-option ${personalityMode === mode ? "active" : ""}`}
+                    onClick={() => handleSetPersonalityMode(mode)}
+                  >
+                    <span className="jarvis-mode-icon">{MODE_ICONS[mode]}</span>
+                    {MODE_LABELS[mode]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Индикатор озвучки + кнопка остановки */}
           {speaking && (
             <button
@@ -372,7 +441,12 @@ export function ВАЛЛИChat() {
                 ) : (
                   <span className="jarvis-msg-text">{m.content}</span>
                 )}
-                {m.route && !hideAssistantText && <span className="jarvis-msg-route">{m.route}</span>}
+                {!hideAssistantText && (m.route || m.personalityIcon) && (
+                  <span className="jarvis-msg-route">
+                    {m.personalityIcon ? `${m.personalityIcon} ` : ""}
+                    {m.route}
+                  </span>
+                )}
               </div>
             </div>
           )
