@@ -77,6 +77,7 @@ export function ProjectDetailView({ projectId }: Props) {
   const [publishing, setPublishing] = useState(false)
   const [publishResult, setPublishResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [deploying, setDeploying] = useState(false)
+  const [deployRequestError, setDeployRequestError] = useState<string | null>(null)
 
   const STATUS_META: Record<ArtifactStatus, { label: string; color: string; Icon: typeof Store }> = {
     listed: { label: t("artifacts.statusListed"), color: "#00D4FF", Icon: Store },
@@ -131,9 +132,14 @@ export function ProjectDetailView({ projectId }: Props) {
 
   async function handleDeploy() {
     setDeploying(true)
+    setDeployRequestError(null)
     try {
       const res = await deployProjectToNetlify(projectId)
-      if (res.success) await pollDeployStatus(projectId)
+      if (res.success) {
+        await pollDeployStatus(projectId)
+      } else {
+        setDeployRequestError(res.error || t("projectDetail.deployRequestFailed"))
+      }
     } finally {
       setDeploying(false)
     }
@@ -334,6 +340,15 @@ export function ProjectDetailView({ projectId }: Props) {
           >
             <AlertTriangle size={16} style={{ color: COLORS.red, flexShrink: 0, marginTop: 2 }} />
             <p className="whitespace-pre-wrap text-[13px]">{currentProject.deployError}</p>
+          </div>
+        )}
+        {deployRequestError && (
+          <div
+            className="mt-6 flex items-start gap-3 rounded-xl px-4 py-3"
+            style={{ backgroundColor: "rgba(248,113,113,0.06)", border: `1px solid ${COLORS.red}` }}
+          >
+            <AlertTriangle size={16} style={{ color: COLORS.red, flexShrink: 0, marginTop: 2 }} />
+            <p className="whitespace-pre-wrap text-[13px]">{deployRequestError}</p>
           </div>
         )}
         {publishResult && (

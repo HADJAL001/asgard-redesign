@@ -43,6 +43,7 @@ export function ProjectFileEditor({ projectId }: Props) {
   const [saving, setSaving] = useState(false)
   const [saveErrors, setSaveErrors] = useState<string[]>([])
   const [savedAt, setSavedAt] = useState<number | null>(null)
+  const [saveFailure, setSaveFailure] = useState<string | null>(null)
 
   useEffect(() => {
     setLoadingFiles(true)
@@ -70,22 +71,28 @@ export function ProjectFileEditor({ projectId }: Props) {
     setDraft(selectedFile?.content ?? "")
     setSaveErrors([])
     setSavedAt(null)
+    setSaveFailure(null)
   }, [selectedFile?.path])
 
   const dirty = selectedFile !== null && draft !== selectedFile.content
 
   function selectFile(path: string) {
+    if (path === selectedPath) return
+    if (dirty && !confirm(t("projectDetail.confirmDiscardChanges"))) return
     setSelectedPath(path)
   }
 
   async function handleSave() {
     if (!selectedFile || !dirty || saving) return
     setSaving(true)
+    setSaveFailure(null)
     try {
       const res = await saveProjectFile(projectId, selectedFile.path, draft)
       if (res.success) {
         setSaveErrors(res.errors || [])
         setSavedAt(Date.now())
+      } else {
+        setSaveFailure(res.error || t("projectDetail.saveFileFailed"))
       }
     } finally {
       setSaving(false)
@@ -179,6 +186,13 @@ export function ProjectFileEditor({ projectId }: Props) {
             />
           )}
         </div>
+
+        {saveFailure && (
+          <div className="flex items-start gap-2 px-4 py-3 text-[12px]" style={{ borderTop: `1px solid ${COLORS.border}`, color: COLORS.red }}>
+            <AlertTriangle size={14} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>{saveFailure}</span>
+          </div>
+        )}
 
         {saveErrors.length > 0 && (
           <div className="flex items-start gap-2 px-4 py-3 text-[12px]" style={{ borderTop: `1px solid ${COLORS.border}`, color: COLORS.amber }}>

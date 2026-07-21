@@ -437,6 +437,8 @@
     "noFiles": "У проекта пока нет файлов",
     "saveFile": "Сохранить",
     "fileSaved": "Сохранено",
+    "saveFileFailed": "Не удалось сохранить файл",
+    "confirmDiscardChanges": "В файле есть несохранённые изменения. Перейти к другому файлу и потерять их?",
     "publishGithub": "Опубликовать в GitHub",
     "publishSuccess": "Проект опубликован в GitHub",
     "publishFailed": "Не удалось опубликовать проект",
@@ -445,7 +447,8 @@
     "githubConnectFailed": "Не удалось подключить GitHub",
     "deployNetlify": "Задеплоить на Netlify",
     "deploying": "Деплой выполняется…",
-    "deployed": "Проект задеплоен:"
+    "deployed": "Проект задеплоен:",
+    "deployRequestFailed": "Не удалось запустить деплой"
   }
 }
 

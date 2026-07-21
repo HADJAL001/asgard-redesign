@@ -429,6 +429,8 @@
     "noFiles": "This project has no files yet",
     "saveFile": "Save",
     "fileSaved": "Saved",
+    "saveFileFailed": "Failed to save the file",
+    "confirmDiscardChanges": "This file has unsaved changes. Switch files and discard them?",
     "publishGithub": "Publish to GitHub",
     "publishSuccess": "Project published to GitHub",
     "publishFailed": "Failed to publish project",
@@ -437,7 +439,8 @@
     "githubConnectFailed": "Failed to connect GitHub",
     "deployNetlify": "Deploy to Netlify",
     "deploying": "Deploying…",
-    "deployed": "Project deployed:"
+    "deployed": "Project deployed:",
+    "deployRequestFailed": "Failed to start deployment"
   }
 }
 

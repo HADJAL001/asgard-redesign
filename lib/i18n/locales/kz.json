@@ -429,6 +429,8 @@
     "noFiles": "Жобада әлі файлдар жоқ",
     "saveFile": "Сақтау",
     "fileSaved": "Сақталды",
+    "saveFileFailed": "Файлды сақтау мүмкін болмады",
+    "confirmDiscardChanges": "Файлда сақталмаған өзгерістер бар. Басқа файлға өтіп, оларды жоғалту керек пе?",
     "publishGithub": "GitHub-қа жариялау",
     "publishSuccess": "Жоба GitHub-қа жарияланды",
     "publishFailed": "Жобаны жариялау сәтсіз аяқталды",
@@ -437,7 +439,8 @@
     "githubConnectFailed": "GitHub-ты қосу сәтсіз аяқталды",
     "deployNetlify": "Netlify-ге деплой жасау",
     "deploying": "Деплой орындалуда…",
-    "deployed": "Жоба деплой жасалды:"
+    "deployed": "Жоба деплой жасалды:",
+    "deployRequestFailed": "Деплойды бастау мүмкін болмады"
   }
 }
 

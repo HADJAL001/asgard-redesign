@@ -62,7 +62,7 @@ router.get("/mine", requireAuth, (req: AuthRequest, res) => {
     .prepare(
       `SELECT id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
               status, views_24h as views24h, supply, price, list_currency as listCurrency,
-              description, lore, ai_visual as aiVisual, source, created_at as createdAt
+              description, lore, ai_visual as aiVisual, visual_effect as visualEffect, source, created_at as createdAt
        FROM artifacts WHERE owner_id = ? ORDER BY created_at DESC`,
     )
     .all(req.user!.userId)

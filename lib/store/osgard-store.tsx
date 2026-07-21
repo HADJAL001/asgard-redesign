@@ -288,8 +288,9 @@ export interface OsgardProject {
   status: "generating" | "ready" | "failed"
   /** Сообщение об ошибке генерации (или синтаксические ошибки валидации сгенерированных файлов). */
   generationError?: string | null
-  /** Источник генерации файлов приложения: "ai" (сгенерировано провайдером) или "fallback". */
-  aiSource?: "ai" | "fallback" | null
+  /** Источник генерации файлов приложения: "ai"/"template-ai" (сгенерировано провайдером,
+      напрямую или через сохранённый шаблон) или "fallback"/"template-local" (без AI). */
+  aiSource?: "ai" | "fallback" | "template-ai" | "template-local" | null
   /** Статус деплоя на Netlify (независим от status — проект можно передеплоить много раз). */
   deployStatus?: "deploying" | "deployed" | "failed" | null
   deployError?: string | null
@@ -1006,8 +1007,12 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     try {
       const res = await apiClient.get<{ project: OsgardProject; artifacts: OsgardArtifact[] }>(`/projects/${id}`, opts)
       set((s) => ({
-        currentProject: res.project,
-        currentProjectArtifacts: res.artifacts,
+        // Обновляем currentProject только если пользователь всё ещё смотрит именно этот
+        // проект (или ни один не открыт) — иначе фоновый поллинг чужого проекта (например,
+        // из визарда создания, открытого поверх уже просматриваемого проекта) затирает
+        // currentProject/currentProjectArtifacts данными другого проекта.
+        currentProject: !s.currentProject || s.currentProject.id === id ? res.project : s.currentProject,
+        currentProjectArtifacts: !s.currentProject || s.currentProject.id === id ? res.artifacts : s.currentProjectArtifacts,
         // синхронизируем и список проектов — карточка в списке тоже видит смену status
         projects: s.projects.map((p) => (p.id === id ? res.project : p)),
         error: null,
