@@ -27,7 +27,7 @@ export default function ReferralView() {
     try {
       setLoading(true)
       setError(null)
-      const data = await apiClient.get<ReferralStats>("/referral/stats")
+      const data = await apiClient.get<ReferralStats>("/referral/stats", { skipAuthRedirect: true })
       setStats(data)
     } catch (err) {
       console.error(err)

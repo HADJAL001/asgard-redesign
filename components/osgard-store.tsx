@@ -83,12 +83,16 @@ export function OsgardStoreProvider({ children }: { children: ReactNode }) {
   const real = useOsgardStore()
 
   useEffect(() => {
-    real.fetchWallet()
-    real.fetchTcState()
-    real.fetchOrderBook()
-    real.fetchTrades()
-    real.fetchStakes()
-    real.fetchTransactions()
+    // skipAuthRedirect: это фоновая гидратация при монтировании (на ВСЕХ страницах,
+    // включая гостевые/публичные) — гостю с истёкшей/отсутствующей сессией нельзя
+    // насильно рвать навигацию редиректом на /login из-за неё.
+    const opts = { skipAuthRedirect: true }
+    real.fetchWallet(opts)
+    real.fetchTcState(opts)
+    real.fetchOrderBook(opts)
+    real.fetchTrades(opts)
+    real.fetchStakes(opts)
+    real.fetchTransactions(opts)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

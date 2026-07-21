@@ -64,7 +64,7 @@ export function ArtifactsView() {
   const { artifacts, fetchArtifacts, tcPrice, loading, error } = useOsgardStore()
 
   useEffect(() => {
-    fetchArtifacts()
+    fetchArtifacts({ skipAuthRedirect: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

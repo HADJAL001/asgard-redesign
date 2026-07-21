@@ -139,6 +139,11 @@ export interface OsgardArtifact {
   listCurrency: string
   /** Уникальный визуальный эффект (появляется при level >= 10 через премиум-усиление). */
   visualEffect?: string | null
+  /** Поля AI-генерации (POST /artifacts/generate-ai) — null/undefined для вручную скованных артефактов. */
+  description?: string | null
+  lore?: string | null
+  aiVisual?: string | null
+  source?: string | null
   createdAt: number
 }
 
@@ -249,6 +254,14 @@ export interface ForgeActionResult {
   error?: string
 }
 
+/** Результат generateAiArtifact (см. POST /artifacts/generate-ai) — унифицированный ответ для UI. */
+export interface AiArtifactActionResult {
+  success: boolean
+  artifact?: OsgardArtifact
+  aiSource?: "grok" | "deepseek" | "fallback"
+  error?: string
+}
+
 /** Результат premiumUpgradeArtifact (см. POST /artifacts/:id/premium-upgrade) — унифицированный ответ для UI. */
 export interface PremiumUpgradeActionResult {
   success: boolean
@@ -324,14 +337,14 @@ export interface OsgardStoreState {
   error: string | null
 
   /* ---- fetch-функции ---- */
-  fetchWallet: () => Promise<void>
-  fetchTcState: () => Promise<void>
-  fetchOrderBook: () => Promise<void>
-  fetchTrades: () => Promise<void>
+  fetchWallet: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
+  fetchTcState: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
+  fetchOrderBook: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
+  fetchTrades: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
 
   /* ---- работа с заявками (ШАГ 2) ---- */
   /** GET /tc-market/orders — заявки текущего пользователя. */
-  fetchUserOrders: () => Promise<void>
+  fetchUserOrders: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   /** POST /tc-market/order — разместить лимитную заявку. */
   createLimitOrder: (
     side: "buy" | "sell",
@@ -349,7 +362,7 @@ export interface OsgardStoreState {
 
   /* ---- стейкинг и конвертация (ШАГ 4) ---- */
   /** GET /stakes — стейки текущего пользователя. */
-  fetchStakes: () => Promise<void>
+  fetchStakes: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   /** POST /stakes — открыть стейк TimeCoin на amount на срок days. */
   stakeTC: (amount: number, days: number) => Promise<StakeActionResult>
   /** POST /stakes/:id/unstake — закрыть стейк. */
@@ -363,33 +376,36 @@ export interface OsgardStoreState {
 
   /* ---- кузница артефактов ---- */
   /** GET /artifacts/mine — артефакты текущего пользователя. */
-  fetchArtifacts: () => Promise<void>
+  fetchArtifacts: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
 
   /** POST /artifacts/forge — создать новый артефакт (name, type). */
   forgeArtifact: (name: string, type: string) => Promise<ForgeActionResult>
+
+  /** POST /artifacts/generate-ai — AI-генерация уникального артефакта (Grok → DeepSeek → fallback). */
+  generateAiArtifact: (hint?: string) => Promise<AiArtifactActionResult>
 
   /** POST /artifacts/:id/premium-upgrade — премиум-усиление артефакта за TimeCoin (мгновенно, до уровня 10, 25% шанс крита). */
   premiumUpgradeArtifact: (artifactId: number) => Promise<PremiumUpgradeActionResult>
 
   /* ---- маркетплейс ---- */
   /** GET /marketplace/listings — список всех активных лотов на продаже. */
-  fetchListings: () => Promise<void>
+  fetchListings: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   /** POST /marketplace/:id/buy — купить лот по id. */
   buyListing: (listingId: number) => Promise<ForgeActionResult>
 
   /* ---- рейтинг архитекторов ---- */
   /** GET /leaderboard — рейтинг пользователей по доходу/продажам/уровню. */
-  fetchLeaderboard: () => Promise<void>
+  fetchLeaderboard: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
 
   /* ---- история транзакций ---- */
   /** GET /transactions — история транзакций текущего пользователя. */
-  fetchTransactions: () => Promise<void>
+  fetchTransactions: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
 
   /* ---- проекты ---- */
   /** GET /projects/mine — список проектов текущего пользователя. */
-  fetchProjects: () => Promise<void>
+  fetchProjects: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   /** GET /projects/:id — один проект + его артефакты. */
-  fetchProject: (id: number) => Promise<void>
+  fetchProject: (id: number, opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   /** POST /projects — создать проект вручную (name, description?, badge?). */
   createProject: (name: string, description?: string, badge?: string) => Promise<ProjectActionResult>
   /** POST /projects/generate — AI-генерация проекта (name, hint?). */
@@ -412,7 +428,7 @@ export interface OsgardStoreState {
   tcBalanceError: string | null
 
   /** GET /wallet/tc-balance — загружает tcReserveBalance и tcUserBalance. */
-  fetchTcBalance: () => Promise<void>
+  fetchTcBalance: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   /** POST /wallet/convert-to-tc — конвертирует ∞ в TC на Solana-адрес. Проверяет баланс перед запросом. nonce — текущий nonce пользователя (защита от replay-атак). */
   convertToTc: (amount: number, solanaAddress: string, nonce?: number) => Promise<{ success: boolean; txId?: string; error?: string }>
   /** POST /wallet/convert-from-tc — принимает on-chain txSignature и зачисляет ∞. */
@@ -504,9 +520,9 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
 
 
   /* ---- fetch: GET /wallet ---- */
-  fetchWallet: async () => {
+  fetchWallet: async (opts) => {
     try {
-      const { wallet } = await apiClient.get<{ wallet: OsgardWallet }>("/wallet")
+      const { wallet } = await apiClient.get<{ wallet: OsgardWallet }>("/wallet", opts)
       set({ wallet, error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить кошелёк") })
@@ -514,9 +530,9 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   },
 
   /* ---- fetch: GET /tc-market/state ---- */
-  fetchTcState: async () => {
+  fetchTcState: async (opts) => {
     try {
-      const state = await apiClient.get<TcPriceState & { history?: PricePoint[] }>("/tc-market/state")
+      const state = await apiClient.get<TcPriceState & { history?: PricePoint[] }>("/tc-market/state", opts)
       const { history, ...tcPrice } = state
       set({
         tcPrice,
@@ -529,9 +545,9 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   },
 
   /* ---- fetch: GET /tc-market/orderbook ---- */
-  fetchOrderBook: async () => {
+  fetchOrderBook: async (opts) => {
     try {
-      const book = await apiClient.get<OrderBookState>("/tc-market/orderbook")
+      const book = await apiClient.get<OrderBookState>("/tc-market/orderbook", opts)
       set({ orderBook: book, error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить стакан заявок") })
@@ -539,9 +555,9 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   },
 
   /* ---- fetch: GET /tc-market/trades ---- */
-  fetchTrades: async () => {
+  fetchTrades: async (opts) => {
     try {
-      const { trades } = await apiClient.get<{ trades: TcTrade[] }>("/tc-market/trades")
+      const { trades } = await apiClient.get<{ trades: TcTrade[] }>("/tc-market/trades", opts)
       set({ trades, error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить историю сделок") })
@@ -549,9 +565,9 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   },
 
   /* ---- fetch: GET /tc-market/orders — заявки текущего пользователя ---- */
-  fetchUserOrders: async () => {
+  fetchUserOrders: async (opts) => {
     try {
-      const { orders } = await apiClient.get<{ orders: UserOrder[] }>("/tc-market/orders")
+      const { orders } = await apiClient.get<{ orders: UserOrder[] }>("/tc-market/orders", opts)
       set({ userOrders: orders, error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить заявки пользователя") })
@@ -674,9 +690,9 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   },
 
   /* ---- fetch: GET /stakes — стейки текущего пользователя ---- */
-  fetchStakes: async () => {
+  fetchStakes: async (opts) => {
     try {
-      const { stakes } = await apiClient.get<{ stakes: OsgardStake[] }>("/stakes")
+      const { stakes } = await apiClient.get<{ stakes: OsgardStake[] }>("/stakes", opts)
       set({ stakes, error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить стейки") })
@@ -773,9 +789,9 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   },
 
   /* ---- fetch: GET /artifacts/mine — артефакты текущего пользователя ---- */
-  fetchArtifacts: async () => {
+  fetchArtifacts: async (opts) => {
     try {
-      const { artifacts } = await apiClient.get<{ artifacts: OsgardArtifact[] }>("/artifacts/mine")
+      const { artifacts } = await apiClient.get<{ artifacts: OsgardArtifact[] }>("/artifacts/mine", opts)
       set({ artifacts, error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить артефакты") })
@@ -800,6 +816,32 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       return { success: true, artifact: res.artifact }
     } catch (err) {
       const message = extractErrorMessage(err, "Не удалось создать артефакт")
+      set({ loading: false, error: message })
+      return { success: false, error: message }
+    }
+  },
+
+  /* ---- action: POST /artifacts/generate-ai — AI-генерация уникального артефакта ---- */
+  generateAiArtifact: async (hint) => {
+    set({ loading: true, error: null })
+    try {
+      const res = await apiClient.post<{ artifact: OsgardArtifact; aiSource: "grok" | "deepseek" | "fallback" }>(
+        "/artifacts/generate-ai",
+        { hint },
+      )
+
+      set((s) => ({
+        artifacts: [res.artifact, ...s.artifacts],
+        loading: false,
+        error: null,
+      }))
+
+      // синхронизация с сервером после мутации
+      await get().fetchWallet()
+
+      return { success: true, artifact: res.artifact, aiSource: res.aiSource }
+    } catch (err) {
+      const message = extractErrorMessage(err, "Не удалось сгенерировать артефакт")
       set({ loading: false, error: message })
       return { success: false, error: message }
     }
@@ -840,9 +882,9 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   },
 
   /* ---- fetch: GET /marketplace/listings — все активные лоты маркетплейса ---- */
-  fetchListings: async () => {
+  fetchListings: async (opts) => {
     try {
-      const { listings } = await apiClient.get<{ listings: MarketListing[] }>("/marketplace/listings")
+      const { listings } = await apiClient.get<{ listings: MarketListing[] }>("/marketplace/listings", opts)
       set({ marketplaceListings: listings, error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить лоты маркетплейса") })
@@ -874,9 +916,9 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   },
 
   /* ---- fetch: GET /leaderboard — рейтинг архитекторов по доходу/продажам/уровню ---- */
-  fetchLeaderboard: async () => {
+  fetchLeaderboard: async (opts) => {
     try {
-      const { leaderboard } = await apiClient.get<{ leaderboard: LeaderboardEntry[] }>("/leaderboard")
+      const { leaderboard } = await apiClient.get<{ leaderboard: LeaderboardEntry[] }>("/leaderboard", opts)
       set({ leaderboard, error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить рейтинг архитекторов") })
@@ -884,9 +926,9 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   },
 
   /* ---- fetch: GET /transactions — история транзакций текущего пользователя ---- */
-  fetchTransactions: async () => {
+  fetchTransactions: async (opts) => {
     try {
-      const { transactions } = await apiClient.get<{ transactions: OsgardTransaction[] }>("/transactions")
+      const { transactions } = await apiClient.get<{ transactions: OsgardTransaction[] }>("/transactions", opts)
       set({ transactions, error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить историю транзакций") })
@@ -895,9 +937,9 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
 
 
   /* ---- проекты: GET /projects/mine — список проектов текущего пользователя ---- */
-  fetchProjects: async () => {
+  fetchProjects: async (opts) => {
     try {
-      const { projects } = await apiClient.get<{ projects: OsgardProject[] }>("/projects/mine")
+      const { projects } = await apiClient.get<{ projects: OsgardProject[] }>("/projects/mine", opts)
       set({ projects, error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить проекты") })
@@ -905,9 +947,9 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   },
 
   /* ---- проекты: GET /projects/:id — один проект + его артефакты ---- */
-  fetchProject: async (id) => {
+  fetchProject: async (id, opts) => {
     try {
-      const res = await apiClient.get<{ project: OsgardProject; artifacts: OsgardArtifact[] }>(`/projects/${id}`)
+      const res = await apiClient.get<{ project: OsgardProject; artifacts: OsgardArtifact[] }>(`/projects/${id}`, opts)
       set({ currentProject: res.project, currentProjectArtifacts: res.artifacts, error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить проект") })
@@ -1102,10 +1144,10 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
      Загружает tcReserveBalance (резерв пула) и tcUserBalance (баланс юзера)
      и сохраняет их в стор.
      ---------------------------------------------------------------- */
-  fetchTcBalance: async () => {
+  fetchTcBalance: async (opts) => {
     set({ tcBalanceLoading: true, tcBalanceError: null })
     try {
-      const data = await apiClient.get<{ reserveBalance: number; userBalance: number }>("/wallet/tc-balance")
+      const data = await apiClient.get<{ reserveBalance: number; userBalance: number }>("/wallet/tc-balance", opts)
       set({
         tcReserveBalance: data.reserveBalance,
         tcUserBalance: data.userBalance,

@@ -138,10 +138,20 @@ function handleAuthLogout(req: NextRequest) {
   return res
 }
 
-/** Пробует обновить access-токен через refresh-cookie. Возвращает новый токен либо null. */
-async function tryRefresh(req: NextRequest): Promise<string | null> {
+type RefreshResult = { token: string } | { error: "invalid" } | { error: "transient" }
+
+/**
+ * Пробует обновить access-токен через refresh-cookie.
+ *
+ * Важно различать ПОЧЕМУ обновление не удалось: если refresh-токен реально
+ * истёк/невалиден (бэкенд явно ответил 401/403) — сессия действительно
+ * закончилась, и куки нужно чистить. Но если бэкенд временно недоступен
+ * (сеть, холодный старт Railway, 5xx) — это НЕ повод разлогинивать
+ * пользователя, иначе любой сетевой сбой выглядит как принудительный логаут.
+ */
+async function tryRefresh(req: NextRequest): Promise<RefreshResult> {
   const refreshToken = req.cookies.get(REFRESH_COOKIE)?.value
-  if (!refreshToken) return null
+  if (!refreshToken) return { error: "invalid" }
 
   const targetUrl = `${BACKEND_URL}/auth/refresh`
   try {
@@ -150,11 +160,13 @@ async function tryRefresh(req: NextRequest): Promise<string | null> {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ refreshToken }),
     })
-    if (!upstream.ok) return null
+    if (upstream.status === 401 || upstream.status === 403) return { error: "invalid" }
+    if (!upstream.ok) return { error: "transient" }
     const data = await upstream.json().catch(() => null)
-    return data?.accessToken || null
+    if (!data?.accessToken) return { error: "transient" }
+    return { token: data.accessToken }
   } catch {
-    return null
+    return { error: "transient" }
   }
 }
 
@@ -182,16 +194,26 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
   try {
     let upstream = await forwardToBackend(pathStr, req, { authToken: accessToken })
 
-    if (upstream.status === 401 && accessToken) {
-      const newToken = await tryRefresh(req)
-      if (newToken) {
-        upstream = await forwardToBackend(pathStr, req, { authToken: newToken })
+    if (upstream.status === 401) {
+      const refreshResult = await tryRefresh(req)
+
+      if ("token" in refreshResult) {
+        upstream = await forwardToBackend(pathStr, req, { authToken: refreshResult.token })
         const res = new NextResponse(upstream.text, {
           status: upstream.status,
           headers: { "content-type": upstream.contentType },
         })
-        res.cookies.set(ACCESS_COOKIE, newToken, cookieOptions(ACCESS_MAX_AGE))
+        res.cookies.set(ACCESS_COOKIE, refreshResult.token, cookieOptions(ACCESS_MAX_AGE))
         return res
+      }
+
+      if (refreshResult.error === "transient") {
+        // Бэкенд временно недоступен — НЕ трогаем сессионные куки и не отдаём 401,
+        // чтобы клиент не воспринял это как разлогин. Клиент может повторить запрос.
+        return NextResponse.json(
+          { error: "Сервис временно недоступен, попробуйте ещё раз" },
+          { status: 503 },
+        )
       }
     }
 

@@ -61,7 +61,7 @@ export function ProjectDetailView({ projectId }: Props) {
   }
 
   useEffect(() => {
-    fetchProject(projectId)
+    fetchProject(projectId, { skipAuthRedirect: true })
     return () => clearCurrentProject()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])

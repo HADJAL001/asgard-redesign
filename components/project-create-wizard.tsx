@@ -29,6 +29,8 @@ type Theme = {
   badge: string
 }
 
+const CUSTOM_THEME_ID = "custom"
+
 const THEMES: Theme[] = [
   { id: "scifi", label: "Sci-Fi", hint: "научно-фантастическая вселенная, космос, технологии будущего", badge: "rocket" },
   { id: "fantasy", label: "Fantasy", hint: "фэнтезийный мир, магия, мифические существа", badge: "wand" },
@@ -36,6 +38,12 @@ const THEMES: Theme[] = [
   { id: "mythology", label: "Mythology", hint: "древняя мифология, боги и герои, легенды", badge: "crown" },
   { id: "steampunk", label: "Steampunk", hint: "стимпанк, паровые механизмы, викторианская эпоха", badge: "cog" },
   { id: "postapoc", label: "Post-Apocalypse", hint: "постапокалипсис, выживание, руины цивилизации", badge: "skull" },
+  { id: "horror", label: "Horror", hint: "мистический хоррор, потусторонние сущности, страх и напряжение", badge: "eye" },
+  { id: "pirates", label: "Pirates", hint: "пиратские приключения, океаны, сокровища, абордажи", badge: "compass" },
+  { id: "superhero", label: "Superhero", hint: "супергерои, суперспособности, спасение мира", badge: "shieldcheck" },
+  { id: "noir", label: "Noir", hint: "детектив-нуар, расследования, тайны большого города", badge: "target" },
+  { id: "western", label: "Western", hint: "дикий запад, ковбои, перестрелки, золотая лихорадка", badge: "trophy" },
+  { id: "atlantis", label: "Atlantis", hint: "затонувшая цивилизация, подводный мир, древние артефакты", badge: "gem" },
 ]
 
 type Props = {
@@ -51,6 +59,7 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
   const [step, setStep] = useState(1)
   const [name, setName] = useState("")
   const [theme, setTheme] = useState<Theme | null>(null)
+  const [customThemeText, setCustomThemeText] = useState("")
   const [mode, setMode] = useState<"manual" | "ai">(initialMode)
   const [description, setDescription] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -191,7 +200,57 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
                     </button>
                   )
                 })}
+                {(() => {
+                  const active = theme?.id === CUSTOM_THEME_ID
+                  return (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTheme(
+                          active
+                            ? null
+                            : {
+                                id: CUSTOM_THEME_ID,
+                                label: customThemeText.trim() || t("projectWizard.customThemeLabel"),
+                                hint: customThemeText.trim(),
+                                badge: "sparkles",
+                              },
+                        )
+                      }
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-3 text-[13px] font-medium transition-colors"
+                      style={{
+                        border: `1px solid ${active ? COLORS.accent : COLORS.border}`,
+                        color: active ? COLORS.accent : COLORS.text,
+                        backgroundColor: active ? "rgba(0,212,255,0.06)" : "transparent",
+                      }}
+                    >
+                      <PenLine size={14} strokeWidth={1.75} />
+                      {t("projectWizard.customThemeOption")}
+                    </button>
+                  )
+                })()}
               </div>
+
+              {theme?.id === CUSTOM_THEME_ID && (
+                <input
+                  type="text"
+                  autoFocus
+                  value={customThemeText}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setCustomThemeText(value)
+                    setTheme({
+                      id: CUSTOM_THEME_ID,
+                      label: value.trim() || t("projectWizard.customThemeLabel"),
+                      hint: value.trim(),
+                      badge: "sparkles",
+                    })
+                  }}
+                  placeholder={t("projectWizard.customThemePlaceholder")}
+                  className="cal-input mt-3"
+                />
+              )}
+
               <p className="mt-3 text-[12px]" style={{ color: COLORS.label }}>
                 {t("projectWizard.themeHint")}
               </p>

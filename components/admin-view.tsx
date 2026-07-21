@@ -120,7 +120,7 @@ export function AdminView() {
 
   const loadStats = useCallback(async () => {
     try {
-      const data = await apiClient.get<{ stats: AdminStats }>("/admin/stats")
+      const data = await apiClient.get<{ stats: AdminStats }>("/admin/stats", { skipAuthRedirect: true })
       setStats(data.stats)
     } catch {
       /* игнорируем — карточки просто не заполнятся */
@@ -134,6 +134,7 @@ export function AdminView() {
       if (searchTerm) params.set("search", searchTerm)
       const data = await apiClient.get<{ users: AdminUser[]; totalPages: number }>(
         `/admin/users?${params.toString()}`,
+        { skipAuthRedirect: true },
       )
       setUsers(data.users)
       setTotalPages(data.totalPages)
@@ -158,6 +159,7 @@ export function AdminView() {
       const params = new URLSearchParams({ page: String(pageNum), limit: "50" })
       const data = await apiClient.get<{ logs: AdminLog[]; totalPages: number }>(
         `/admin/logs?${params.toString()}`,
+        { skipAuthRedirect: true },
       )
       setLogs(data.logs)
       setLogsTotalPages(data.totalPages)

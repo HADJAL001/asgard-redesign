@@ -6,13 +6,12 @@ dotenv.config()
 /* ================================================================
    OSGARD · JARVIS Service
    ----------------------------------------------------------------
-   Обрабатывает вопросы пользователя с 4-уровневой маршрутизацией:
+   Обрабатывает вопросы пользователя с многоуровневой маршрутизацией:
 
    1. КЕШ (in-memory)      — мгновенный ответ на повторяющиеся вопросы
    2. ЛОКАЛЬНЫЕ ОТВЕТЫ     — баланс/артефакты/проекты из БД, без AI
-   3. DeepSeek             — простые/непредсказуемые вопросы (дёшево и быстро)
-   4. Grok (xAI)           — вопросы средней сложности
-   5. Claude (Anthropic)   — сложные/творческие вопросы
+   3. DeepSeek             — основной AI-провайдер для ответов ВАЛЛИ
+   4. Grok (xAI) / Claude  — резерв, если DeepSeek недоступен или упал
 
    Если ключ провайдера не задан или запрос упал — откат на
    следующий уровень по цепочке DeepSeek → Grok → Claude → fallback-текст,
@@ -25,7 +24,7 @@ const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat"
 
 const XAI_API_KEY = process.env.XAI_API_KEY || ""
 const XAI_API_URL = "https://api.x.ai/v1/chat/completions"
-const XAI_MODEL = process.env.XAI_MODEL || "grok-2-latest"
+const XAI_MODEL = process.env.XAI_MODEL || "grok-4-fast" /* grok-2-latest снят с производства xAI, возвращает "Model not found" */
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || ""
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
@@ -184,30 +183,7 @@ function tryLocalAnswer(userId: number, question: string): string | null {
 }
 
 /* ================================================================
-   3. Классификация сложности вопроса (простая эвристика)
-   ================================================================ */
-
-type Complexity = "simple" | "medium" | "complex"
-
-const COMPLEX_HINTS = [
-  "напиши", "придумай", "сочини", "стих", "рассказ", "сценарий", "код", "функци",
-  "алгоритм", "объясни подробно", "проанализируй", "сравни", "стратег", "план",
-  "почему", "как лучше", "оптимизир",
-]
-
-const MEDIUM_HINTS = [
-  "как", "что такое", "расскажи", "объясни", "разница", "чем отличается", "посоветуй",
-]
-
-function classifyComplexity(question: string): Complexity {
-  const q = question.toLowerCase()
-  if (COMPLEX_HINTS.some((h) => q.includes(h)) || question.length > 180) return "complex"
-  if (MEDIUM_HINTS.some((h) => q.includes(h)) || question.length > 60) return "medium"
-  return "simple"
-}
-
-/* ================================================================
-   4. Вызовы внешних AI-провайдеров
+   3. Вызовы внешних AI-провайдеров
    ================================================================ */
 
 async function callDeepSeek(question: string): Promise<string | null> {
@@ -311,32 +287,15 @@ function localFallbackAnswer(question: string): string {
   )
 }
 
-/**
- * Маршрутизация по цепочке провайдеров в зависимости от сложности:
- * simple → DeepSeek → Grok → Claude → fallback
- * medium → Grok → DeepSeek → Claude → fallback
- * complex → Claude → Grok → DeepSeek → fallback
- */
-async function routeToProvider(question: string, complexity: Complexity): Promise<{ answer: string; route: JarvisRoute }> {
-  const chains: Record<Complexity, Array<{ name: JarvisRoute; fn: (q: string) => Promise<string | null> }>> = {
-    simple: [
-      { name: "deepseek", fn: callDeepSeek },
-      { name: "grok", fn: callGrok },
-      { name: "claude", fn: callClaude },
-    ],
-    medium: [
-      { name: "grok", fn: callGrok },
-      { name: "deepseek", fn: callDeepSeek },
-      { name: "claude", fn: callClaude },
-    ],
-    complex: [
-      { name: "claude", fn: callClaude },
-      { name: "grok", fn: callGrok },
-      { name: "deepseek", fn: callDeepSeek },
-    ],
-  }
+/** Маршрутизация по единой цепочке провайдеров: DeepSeek → Grok → Claude → fallback. */
+async function routeToProvider(question: string): Promise<{ answer: string; route: JarvisRoute }> {
+  const chain: Array<{ name: JarvisRoute; fn: (q: string) => Promise<string | null> }> = [
+    { name: "deepseek", fn: callDeepSeek },
+    { name: "grok", fn: callGrok },
+    { name: "claude", fn: callClaude },
+  ]
 
-  for (const provider of chains[complexity]) {
+  for (const provider of chain) {
     const answer = await provider.fn(question)
     if (answer) return { answer, route: provider.name }
   }
@@ -367,9 +326,8 @@ export async function askJarvis(userId: number, rawQuestion: string): Promise<Ja
     return { answer: localAnswer, route: "local", cached: false }
   }
 
-  /* 3-5. Маршрутизация к внешним AI по сложности вопроса */
-  const complexity = classifyComplexity(question)
-  const { answer, route } = await routeToProvider(question, complexity)
+  /* 3-5. Маршрутизация к внешним AI: DeepSeek → Grok → Claude */
+  const { answer, route } = await routeToProvider(question)
 
   setCache(userId, question, answer, route)
   return { answer, route, cached: false }

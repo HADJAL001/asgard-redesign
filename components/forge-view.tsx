@@ -13,6 +13,9 @@ const TYPE_KEYS = Object.keys(ARTIFACT_TYPES) as ArtifactType[]
 /** Фиксированная стоимость создания артефакта (см. backend/artifacts.routes.ts FORGE_COST_TC). */
 const FORGE_COST_TC = 50
 
+/** Стоимость AI-генерации артефакта (см. backend/artifacts.routes.ts AI_GENERATE_COST_TC = FORGE_COST_TC). */
+const AI_GENERATE_COST_TC = FORGE_COST_TC
+
 /* ---------------- Премиум-усиление (см. backend/artifacts.routes.ts) ----------------
    - Обычное усиление (/evolve): до уровня 5, шанс крита 5%, занимает 24 часа (эмулируется).
    - Премиум усиление (/premium-upgrade): до уровня 10, за TimeCoin, мгновенно.
@@ -60,6 +63,7 @@ export function ForgeView() {
     artifacts,
     fetchArtifacts,
     forgeArtifact,
+    generateAiArtifact,
     premiumUpgradeArtifact,
     loading,
     error,
@@ -70,6 +74,12 @@ export function ForgeView() {
   const [submitting, setSubmitting] = useState(false)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [result, setResult] = useState<OsgardArtifact | null>(null)
+
+  /** AI-Генератор артефактов (см. POST /artifacts/generate-ai) — независимое состояние от ручной ковки. */
+  const [aiHint, setAiHint] = useState("")
+  const [aiSubmitting, setAiSubmitting] = useState(false)
+  const [aiNotice, setAiNotice] = useState<{ ok: boolean; text: string } | null>(null)
+  const [aiResult, setAiResult] = useState<OsgardArtifact | null>(null)
 
   /** id артефакта, для которого сейчас выполняется премиум-усиление (для disable/spinner на конкретной карточке). */
   const [upgradingId, setUpgradingId] = useState<number | null>(null)
@@ -117,9 +127,9 @@ export function ForgeView() {
 
 
   useEffect(() => {
-    fetchWallet()
-    fetchTcState()
-    fetchArtifacts()
+    fetchWallet({ skipAuthRedirect: true })
+    fetchTcState({ skipAuthRedirect: true })
+    fetchArtifacts({ skipAuthRedirect: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -165,6 +175,26 @@ export function ForgeView() {
       }, 2000)
     }
   }
+
+  async function doGenerateAi() {
+    setAiSubmitting(true)
+    setAiNotice(null)
+    try {
+      const res = await generateAiArtifact(aiHint.trim() || undefined)
+      if (res.success && res.artifact) {
+        setAiResult(res.artifact)
+        setAiNotice({ ok: true, text: t("forge.aiGenerate.success", { name: res.artifact.name }) })
+        setAiHint("")
+      } else {
+        setAiNotice({ ok: false, text: res.error || t("forge.aiGenerate.failed") })
+      }
+    } finally {
+      setAiSubmitting(false)
+    }
+  }
+
+  const canGenerateAi = !aiSubmitting && wallet.timecoin >= AI_GENERATE_COST_TC
+  const aiResultRarity: Rarity = (aiResult?.rarity as Rarity) || "common"
 
   const resultRarity: Rarity = (result?.rarity as Rarity) || "common"
   const ResultTypeIcon = result ? ARTIFACT_TYPES[(result.type as ArtifactType) in ARTIFACT_TYPES ? (result.type as ArtifactType) : "artifact"].Icon : Sparkles
@@ -324,7 +354,8 @@ export function ForgeView() {
         </div>
 
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_0.9fr]">
-          {/* ---- Left: creation form ---- */}
+          {/* ---- Left: creation form + AI-генератор ---- */}
+          <div className="flex flex-col gap-6">
           <section className="rounded-2xl p-6" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
             <h2 className="text-[16px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLORS.label }}>
               {t("forge.formTitle")}
@@ -423,6 +454,73 @@ export function ForgeView() {
               </p>
             )}
           </section>
+
+          {/* ---- AI-Генератор артефактов (POST /artifacts/generate-ai) ---- */}
+          <section className="rounded-2xl p-6" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+            <h2 className="flex items-center gap-2 text-[16px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLORS.label }}>
+              <Sparkles size={16} strokeWidth={1.75} style={{ color: COLORS.accent }} aria-hidden="true" />
+              {t("forge.aiGenerate.title")}
+            </h2>
+            <p className="mt-1 text-[13px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+              {t("forge.aiGenerate.subtitle")}
+            </p>
+
+            <div className="mt-5">
+              <input
+                id="ai-generate-hint"
+                type="text"
+                value={aiHint}
+                onChange={(e) => { setAiHint(e.target.value); setAiNotice(null) }}
+                placeholder={t("forge.aiGenerate.hintPlaceholder")}
+                className="cal-input"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={doGenerateAi}
+              disabled={!canGenerateAi}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ backgroundColor: "transparent", border: `1px solid ${COLORS.accent}`, color: COLORS.accent }}
+            >
+              {aiSubmitting && <Loader2 size={16} className="animate-spin" />}
+              {t("forge.aiGenerate.button", { amount: fmtTC(AI_GENERATE_COST_TC) })}
+            </button>
+
+            {aiNotice && (
+              <p className="mt-3 text-[13px]" role="status" style={{ color: aiNotice.ok ? COLORS.green : COLORS.red }}>
+                {aiNotice.text}
+              </p>
+            )}
+
+            {aiResult && (
+              <div className="mt-5 rounded-xl px-4 py-4" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${RARITY[aiResultRarity]?.color || COLORS.border}` }}>
+                <div className="flex items-center justify-between">
+                  <p className="text-[15px] font-medium">{aiResult.name}</p>
+                  <span className="text-[12px]" style={{ color: RARITY[aiResultRarity]?.color || COLORS.label }}>
+                    {RARITY[aiResultRarity]?.label || aiResult.rarity}
+                  </span>
+                </div>
+                {aiResult.description && (
+                  <p className="mt-2 text-[13px]" style={{ color: "rgba(255,255,255,0.75)" }}>
+                    {aiResult.description}
+                  </p>
+                )}
+                {aiResult.lore && (
+                  <p className="mt-2 text-[12px] italic" style={{ color: COLORS.label }}>
+                    {aiResult.lore}
+                  </p>
+                )}
+                {aiResult.aiVisual && (
+                  <p className="mt-3 flex items-center gap-1.5 text-[12px]" style={{ color: COLORS.accent }}>
+                    <Sparkles size={13} strokeWidth={1.75} aria-hidden="true" />
+                    {aiResult.aiVisual}
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+          </div>
 
           {/* ---- Right: result ---- */}
           <section className="rounded-2xl p-6" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>

@@ -1,13 +1,24 @@
+import dotenv from "dotenv"
+import { callOpenAiCompatible, extractJson } from "./ai-generator"
+
+dotenv.config()
+
 /* ================================================================
    OSGARD · Digital Twin Service
    ----------------------------------------------------------------
    Логика "обучения" цифрового близнеца на артефактах пользователя
    и генерации новых артефактов в его стиле.
 
-   Работает без внешнего AI по умолчанию (детерминированный генератор
-   на основе style_vector), но если задан ANTHROPIC_API_KEY — можно
-   расширить генерацию названий через Claude (не обязательно для MVP).
+   Статы/тип/редкость генерируются детерминированно (на основе
+   style_vector) — это сохраняет экономический паритет и не требует
+   AI. Описание артефакта дополнительно обогащается через DeepSeek —
+   основной AI-провайдер для ИИ-близнеца; если ключ не задан или
+   запрос упал, используется детерминированное локальное описание.
    ================================================================ */
+
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ""
+const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat"
 
 export type StyleVector = {
   /** Средние показатели характеристик артефактов пользователя. */
@@ -29,6 +40,8 @@ export type TwinArtifactDraft = {
   magic: number
   speed: number
   styleTag: string
+  description: string
+  source: "deepseek" | "local"
 }
 
 const TYPE_POOL = ["neural", "crystal", "weapon", "shield", "artifact"]
@@ -187,6 +200,9 @@ export function generateTwinArtifact(
     ? `${prefix} · ${prompt.trim().slice(0, 24)}`
     : `${prefix} ${suffix}`
 
+  const description = `Артефакт в стиле «${styleTag}», рождённый из накопленного опыта близнеца.` +
+    (prompt && prompt.trim() ? ` Вдохновлён запросом: «${prompt.trim()}».` : "")
+
   return {
     name,
     type,
@@ -196,7 +212,50 @@ export function generateTwinArtifact(
     magic: Math.max(1, magic),
     speed: Math.max(1, speed),
     styleTag,
+    description,
+    source: "local",
   }
+}
+
+function buildTwinDescriptionPrompt(draft: TwinArtifactDraft, prompt?: string): string {
+  return `Ты — генератор описаний для цифрового артефакта, созданного ИИ-близнецом пользователя на платформе OSGARD.
+Артефакт уже имеет название "${draft.name}", тип "${draft.type}", редкость "${draft.rarity}", стиль "${draft.styleTag}"${prompt ? `, и создан по запросу пользователя: "${prompt}"` : ""}.
+Верни СТРОГО валидный JSON (без markdown, без пояснений) со структурой:
+{ "description": "яркое описание артефакта на русском языке, 1-2 предложения" }
+Ответь только JSON.`
+}
+
+function parseTwinDescription(text: string): { description: string } | null {
+  const parsed = extractJson(text)
+  if (!parsed) return null
+  const description = typeof parsed.description === "string" ? parsed.description.trim() : null
+  if (!description) return null
+  return { description }
+}
+
+async function callDeepSeekForTwin(draft: TwinArtifactDraft, prompt?: string): Promise<{ description: string } | null> {
+  return callOpenAiCompatible(
+    DEEPSEEK_API_URL, DEEPSEEK_API_KEY, DEEPSEEK_MODEL,
+    buildTwinDescriptionPrompt(draft, prompt), parseTwinDescription, "twin-deepseek",
+  )
+}
+
+/**
+ * Генерирует артефакт в стиле близнеца (детерминированно, как `generateTwinArtifact`)
+ * и пытается обогатить его описание через DeepSeek — основной AI-провайдер для
+ * ИИ-близнеца. Если ключ не задан или запрос упал, остаётся локальное описание.
+ */
+export async function generateTwinArtifactWithAi(
+  vector: StyleVector,
+  level: number,
+  prompt?: string,
+): Promise<TwinArtifactDraft> {
+  const draft = generateTwinArtifact(vector, level, prompt)
+  const enriched = await callDeepSeekForTwin(draft, prompt)
+  if (enriched) {
+    return { ...draft, description: enriched.description, source: "deepseek" }
+  }
+  return draft
 }
 
 /** Рекомендованная цена аренды близнеца в TimeCoin/сутки на основе уровня. */

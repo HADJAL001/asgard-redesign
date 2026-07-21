@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-store"
 import Globe3D from "./globe-3d"
 import {
   ArrowLeft,
@@ -150,6 +151,7 @@ function CountUp({
 
 export function AsgardDashboard({ view = "landing" }: { view?: "landing" | "workspace" | "command" }) {
   const router = useRouter()
+  const { logout } = useAuth()
   const currentScreen: "auth" | "dashboard" = view === "landing" ? "auth" : "dashboard"
   const [prompt, setPrompt] = useState("")
   const [mode, setMode] = useState("Auto")
@@ -208,7 +210,7 @@ export function AsgardDashboard({ view = "landing" }: { view?: "landing" | "work
             handleAvatarChange={handleAvatarChange}
             profileOpen={profileOpen}
             setProfileOpen={setProfileOpen}
-            onLogout={() => router.push("/")}
+            onLogout={logout}
             sidebarOpen={sidebarOpen}
             setSidebarOpen={setSidebarOpen}
             projectMenu={projectMenu}

@@ -164,6 +164,7 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
       try {
         const data = await apiClient.get<{ currentStep: number; completed: boolean }>(
           "/onboarding/status",
+          { skipAuthRedirect: true },
         )
         if (!cancelled) {
           setCurrentStep(data.currentStep)
@@ -197,7 +198,7 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
       setJustEarned(res.reward)
 
       // Синхронизируем кошелёк с бэкендом, чтобы UI сразу показал новый баланс
-      await fetchWallet()
+      await fetchWallet({ skipAuthRedirect: true })
 
       setTimeout(() => {
         setJustEarned(null)

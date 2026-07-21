@@ -47,8 +47,8 @@ export function StakeView() {
   const [unstakingId, setUnstakingId] = useState<number | string | null>(null)
 
   useEffect(() => {
-    fetchStakes()
-    fetchWallet()
+    fetchStakes({ skipAuthRedirect: true })
+    fetchWallet({ skipAuthRedirect: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

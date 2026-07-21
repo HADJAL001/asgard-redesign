@@ -60,7 +60,7 @@ export function MarketplaceView() {
   const { marketplaceListings, fetchListings, buyListing, loading, error } = useOsgardStore()
 
   useEffect(() => {
-    fetchListings()
+    fetchListings({ skipAuthRedirect: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

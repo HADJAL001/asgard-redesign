@@ -58,6 +58,11 @@ CREATE TABLE IF NOT EXISTS artifacts (
   price REAL NOT NULL DEFAULT 0,
   list_currency TEXT NOT NULL DEFAULT 'credits',
   visual_effect TEXT,
+  description TEXT,
+  lore TEXT,
+  ai_visual TEXT,
+  source TEXT,
+  unique_hash TEXT,
   created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
 );
 

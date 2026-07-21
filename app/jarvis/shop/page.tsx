@@ -68,7 +68,7 @@ export default function JarvisShopPage() {
   async function loadShop() {
     setLoading(true)
     try {
-      const data = await apiClient.get<{ items: ShopItem[] }>("/jarvis/shop")
+      const data = await apiClient.get<{ items: ShopItem[] }>("/jarvis/shop", { skipAuthRedirect: true })
       setItems(data.items)
     } catch (err: any) {
       setNotice({ ok: false, text: err?.message || "Не удалось загрузить магазин" })

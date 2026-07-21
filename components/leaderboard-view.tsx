@@ -56,7 +56,7 @@ export function LeaderboardView() {
   ]
 
   useEffect(() => {
-    fetchLeaderboard()
+    fetchLeaderboard({ skipAuthRedirect: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

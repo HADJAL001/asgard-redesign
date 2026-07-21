@@ -104,6 +104,7 @@ export function DashboardView() {
       try {
         const data = await apiClient.get<{ currentStep: number; completed: boolean }>(
           "/onboarding/status",
+          { skipAuthRedirect: true },
         )
         if (!cancelled) {
           if (data.completed) {

@@ -7,7 +7,7 @@ import {
   xpForSample,
   levelForXp,
   styleTagsFromVector,
-  generateTwinArtifact,
+  generateTwinArtifactWithAi,
   suggestedRentalPrice,
   type StyleVector,
 } from "../services/twin.service"
@@ -63,7 +63,7 @@ router.get("/artifacts", requireAuth, (req: AuthRequest, res) => {
   const artifacts = db
     .prepare(
       `SELECT id, twin_id as twinId, owner_id as ownerId, name, type, rarity, power, defense, magic, speed,
-              style_tag as styleTag, prompt, created_at as createdAt
+              style_tag as styleTag, prompt, description, source, created_at as createdAt
        FROM twin_artifacts WHERE twin_id = ? ORDER BY created_at DESC`,
     )
     .all(twin.id)
@@ -165,7 +165,7 @@ router.post("/train", requireAuth, (req: AuthRequest, res) => {
 ------------------------------------------------------------------------------------------------- */
 const TWIN_GENERATE_COST_CREDITS = 30
 
-router.post("/generate", requireAuth, (req: AuthRequest, res) => {
+router.post("/generate", requireAuth, async (req: AuthRequest, res) => {
   const userId = req.user!.userId
   const { prompt } = req.body || {}
 
@@ -180,15 +180,15 @@ router.post("/generate", requireAuth, (req: AuthRequest, res) => {
   }
 
   const vector: StyleVector = JSON.parse(twinRow.style_vector || "{}")
-  const draft = generateTwinArtifact(vector, twinRow.level, typeof prompt === "string" ? prompt : undefined)
+  const draft = await generateTwinArtifactWithAi(vector, twinRow.level, typeof prompt === "string" ? prompt : undefined)
   const now = Date.now()
 
   db.prepare(`UPDATE wallets SET credits = credits - ? WHERE user_id = ?`).run(TWIN_GENERATE_COST_CREDITS, userId)
 
   const info = db
     .prepare(
-      `INSERT INTO twin_artifacts (twin_id, owner_id, name, type, rarity, power, defense, magic, speed, style_tag, prompt, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO twin_artifacts (twin_id, owner_id, name, type, rarity, power, defense, magic, speed, style_tag, prompt, description, source, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       twinRow.id,
@@ -202,6 +202,8 @@ router.post("/generate", requireAuth, (req: AuthRequest, res) => {
       draft.speed,
       draft.styleTag,
       typeof prompt === "string" ? prompt : "",
+      draft.description,
+      draft.source,
       now,
     )
 

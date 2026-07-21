@@ -113,9 +113,9 @@ export function WalletView() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    fetchWallet()
-    fetchTcState()
-    fetchTcBalance()
+    fetchWallet({ skipAuthRedirect: true })
+    fetchTcState({ skipAuthRedirect: true })
+    fetchTcBalance({ skipAuthRedirect: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -153,7 +153,7 @@ export function WalletView() {
           }),
         })
         setAmount("")
-        fetchTcBalance()
+        fetchTcBalance({ skipAuthRedirect: true })
       } else {
         setNotice({ ok: false, text: res.error || t("wallet.exchangeFailed") })
       }
@@ -200,7 +200,7 @@ export function WalletView() {
         setDepositNotice({ ok: true, text: "TC успешно зачислены в ∞" })
         setTxSignature("")
         setDepositAmount("")
-        fetchWallet()
+        fetchWallet({ skipAuthRedirect: true })
       } else {
         setDepositNotice({ ok: false, text: res.error ?? "Ошибка подтверждения" })
       }

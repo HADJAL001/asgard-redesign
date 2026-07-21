@@ -62,6 +62,8 @@ type TwinArtifact = {
   speed: number
   styleTag: string
   prompt: string
+  description?: string | null
+  source?: string | null
   createdAt: number
 }
 
@@ -115,11 +117,12 @@ export default function TwinPage() {
   async function loadAll() {
     setLoading(true)
     try {
+      const opts = { skipAuthRedirect: true }
       const [twinData, artifactsData, marketplaceData, myArtifactsData] = await Promise.all([
-        apiClient.get<{ twin: Twin }>("/twin/mine"),
-        apiClient.get<{ artifacts: TwinArtifact[] }>("/twin/artifacts"),
-        apiClient.get<{ listings: MarketplaceTwin[] }>("/twin/marketplace"),
-        apiClient.get<{ artifacts: MyArtifact[] }>("/artifacts/mine"),
+        apiClient.get<{ twin: Twin }>("/twin/mine", opts),
+        apiClient.get<{ artifacts: TwinArtifact[] }>("/twin/artifacts", opts),
+        apiClient.get<{ listings: MarketplaceTwin[] }>("/twin/marketplace", opts),
+        apiClient.get<{ artifacts: MyArtifact[] }>("/artifacts/mine", opts),
       ])
       setTwin(twinData.twin)
       setArtifacts(artifactsData.artifacts)
@@ -465,6 +468,11 @@ export default function TwinPage() {
                       <div className="text-xs" style={{ color: "#6A6A8A" }}>
                         {a.type} · {a.styleTag}
                       </div>
+                      {a.description && (
+                        <p className="mt-2 text-xs italic" style={{ color: "#9A9AB5" }}>
+                          {a.description}
+                        </p>
+                      )}
                       <div className="mt-2 grid grid-cols-4 gap-1 text-[11px]" style={{ color: "#6A6A8A" }}>
                         <span>⚔ {a.power}</span>
                         <span>🛡 {a.defense}</span>

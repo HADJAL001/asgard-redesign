@@ -30,7 +30,8 @@ import {
 import { Infinity as InfinityIcon, Lock, DollarSign } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useOsgard } from "./osgard-store"
-import { ARTIFACTS, TRANSACTIONS, ARCHITECTS, SELF, formatTokens } from "@/lib/economy"
+import { useOsgardStore } from "@/lib/store/osgard-store"
+import { formatTokens } from "@/lib/economy"
 import { UP, DAY_MS } from "@/lib/tc-market"
 
 /* ---- Palette ----
@@ -46,13 +47,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "achievements", label: "Достижения" },
   { id: "activity", label: "Активность" },
   { id: "settings", label: "Настройки" },
-]
-
-const METRICS = [
-  { Icon: FolderKanban, n: "12", l: "Проектов" },
-  { Icon: Coins, n: "7 340", l: "Токенов" },
-  { Icon: TrendingUp, n: "12", l: "Уровень" },
-  { Icon: Trophy, n: "#47", l: "Рейтинг" },
 ]
 
 type Achievement = {
@@ -95,6 +89,34 @@ const ACTIVITY_STATS = [
 
 export function ProfileView() {
   const [tab, setTab] = useState<Tab>("overview")
+  const { user } = useAuth()
+  const { wallet } = useOsgard()
+  const projects = useOsgardStore((s) => s.projects)
+  const leaderboard = useOsgardStore((s) => s.leaderboard)
+  const fetchProjects = useOsgardStore((s) => s.fetchProjects)
+  const fetchArtifacts = useOsgardStore((s) => s.fetchArtifacts)
+  const fetchLeaderboard = useOsgardStore((s) => s.fetchLeaderboard)
+
+  // artifacts/projects/leaderboard не гидратируются глобально (в отличие от
+  // wallet/tcState/stakes/transactions в OsgardStoreProvider) — подгружаем
+  // их здесь один раз, только для авторизованного пользователя.
+  useEffect(() => {
+    if (!user) return
+    fetchProjects({ skipAuthRedirect: true })
+    fetchArtifacts({ skipAuthRedirect: true })
+    fetchLeaderboard({ skipAuthRedirect: true })
+  }, [user, fetchProjects, fetchArtifacts, fetchLeaderboard])
+
+  const rank = user ? leaderboard.findIndex((e) => e.userId === user.id) + 1 : 0
+  const displayName = user?.displayName || user?.username || "Пользователь"
+  const level = user?.level ?? 1
+
+  const metrics = [
+    { Icon: FolderKanban, n: String(projects.length), l: "Проектов" },
+    { Icon: Coins, n: `${formatTokens(wallet.timecoin)} ∞`, l: "Токенов" },
+    { Icon: TrendingUp, n: String(level), l: "Уровень" },
+    { Icon: Trophy, n: rank > 0 ? `#${rank}` : "—", l: "Рейтинг" },
+  ]
 
   function handleShare() {
     if (typeof window === "undefined") return
@@ -110,7 +132,7 @@ export function ProfileView() {
         <div>
           <h1 className="text-[32px] font-semibold leading-tight">Профиль</h1>
           <p className="mt-1 text-[14px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Архитектор вселенной — уровень 12
+            Архитектор вселенной — уровень {level}
           </p>
         </div>
 
@@ -122,8 +144,8 @@ export function ProfileView() {
             style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
           >
             <img
-              src={AVATAR || "/placeholder.svg"}
-              alt="Alex Odin"
+              src={user?.avatarUrl || AVATAR || "/placeholder.svg"}
+              alt={displayName}
               className="size-32 rounded-full object-cover"
               style={{ border: "2px solid #2A2A3E" }}
             />
@@ -135,21 +157,10 @@ export function ProfileView() {
             style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
           >
             <div>
-              <h2 className="text-[24px] font-semibold leading-tight">Alex Odin</h2>
+              <h2 className="text-[24px] font-semibold leading-tight">{displayName}</h2>
               <p className="mt-1 text-[16px]" style={{ color: "#6A6A8A" }}>
-                Архитектор · Lvl. 12
+                Архитектор · Lvl. {level}
               </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[14px]">
-              <span className="inline-flex items-center gap-2">
-                <Trophy size={16} strokeWidth={1.5} style={{ color: "#6A6A8A" }} aria-hidden="true" />
-                48 достижений
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <Star size={16} strokeWidth={1.5} style={{ color: "#6A6A8A" }} aria-hidden="true" />
-                3 легендарных
-              </span>
             </div>
 
             <div className="mt-1 flex flex-wrap gap-3">
@@ -161,7 +172,7 @@ export function ProfileView() {
 
         {/* Metrics */}
         <section className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {METRICS.map(({ Icon, n, l }) => (
+          {metrics.map(({ Icon, n, l }) => (
             <div
               key={l}
               className="rounded-xl p-5"
@@ -301,7 +312,7 @@ function OverviewTab() {
       <TCHoldingsPanel />
       <EarningsPanel />
 
-      <Panel title="Достижения" extra="48">
+      <Panel title="Достижения">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {ACHIEVEMENTS.slice(0, 4).map((a) => (
             <AchievementCard key={a.name} a={a} />
@@ -397,14 +408,17 @@ function TCHoldingsPanel() {
 }
 
 function EarningsPanel() {
-  // Derive earnings from the shared economy model
-  const totalEarned = TRANSACTIONS.filter((t) => t.type === "sell" || t.type === "dividend").reduce(
-    (sum, t) => sum + t.amount,
-    0,
-  )
-  const sold = ARTIFACTS.filter((a) => a.status === "sold").length
-  const listed = ARTIFACTS.filter((a) => a.status === "listed").length
-  const rank = ARCHITECTS.findIndex((a) => a.name === SELF.name) + 1
+  const { user } = useAuth()
+  const artifacts = useOsgardStore((s) => s.artifacts)
+  const transactions = useOsgardStore((s) => s.transactions)
+  const leaderboard = useOsgardStore((s) => s.leaderboard)
+
+  const totalEarned = transactions
+    .filter((t) => t.currency === "timecoin" && (t.type === "sell" || t.type === "dividend"))
+    .reduce((sum, t) => sum + t.amount, 0)
+  const sold = artifacts.filter((a) => a.status === "sold").length
+  const listed = artifacts.filter((a) => a.status === "listed").length
+  const rank = user ? leaderboard.findIndex((e) => e.userId === user.id) + 1 : 0
 
   const stats = [
     { Icon: Wallet, n: formatTokens(totalEarned), l: "Заработано, токенов", color: "#00D4FF" },
@@ -463,7 +477,7 @@ function EarningsPanel() {
 
 function AchievementsTab() {
   return (
-    <Panel title="Достижения" extra="48">
+    <Panel title="Достижения">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {ACHIEVEMENTS.map((a) => (
           <AchievementCard key={a.name} a={a} />

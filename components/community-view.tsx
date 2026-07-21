@@ -101,7 +101,7 @@ export function CommunityView() {
     setLoading(true)
     setError(null)
     try {
-      const data = await apiClient.get<{ posts: Post[] }>("/posts")
+      const data = await apiClient.get<{ posts: Post[] }>("/posts", { skipAuthRedirect: true })
       setPosts(data.posts)
     } catch (err: any) {
       setError(err?.message || "Не удалось загрузить посты")
@@ -139,7 +139,7 @@ export function CommunityView() {
 
     setCommentsLoading((prev) => ({ ...prev, [postId]: true }))
     try {
-      const data = await apiClient.get<{ comments: Comment[] }>(`/posts/${postId}/comments`)
+      const data = await apiClient.get<{ comments: Comment[] }>(`/posts/${postId}/comments`, { skipAuthRedirect: true })
       setComments((prev) => ({ ...prev, [postId]: data.comments }))
     } catch {
       setComments((prev) => ({ ...prev, [postId]: [] }))

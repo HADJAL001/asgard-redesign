@@ -81,6 +81,22 @@
     "currencyBalances": "Currency balances",
     "language": "Language"
   },
+  "referral": {
+    "title": "Referral program",
+    "subtitle": "Invite friends and earn rewards in ∞",
+    "errorLoad": "Failed to load referral program data",
+    "claimSuccess": "Reward claimed successfully!",
+    "claimError": "Failed to claim reward",
+    "yourCode": "Your referral code",
+    "yourLink": "Your referral link",
+    "copied": "Copied",
+    "copyLink": "Copy link",
+    "invites": "Invited",
+    "earned": "Earned ∞",
+    "claimable": "Available to claim",
+    "progressToNext": "Progress to next reward",
+    "claimReward": "Claim reward"
+  },
   "wallet": {
     "title": "Wallet",
     "subtitle": "Balance of all OSGARD currencies and cross-tier exchange",
@@ -373,6 +389,9 @@
     "errorNameRequired": "Please enter a project name",
     "themeLabel": "Choose a theme",
     "themeHint": "The theme helps the AI generate a fitting description and artifacts",
+    "customThemeOption": "Custom theme",
+    "customThemeLabel": "Custom theme",
+    "customThemePlaceholder": "Describe your theme in a few words…",
     "methodLabel": "Creation method",
     "aiOption": "AI Generation",
     "aiOptionDesc": "Automatically describes the project and creates starter artifacts",

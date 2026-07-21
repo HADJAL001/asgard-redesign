@@ -117,18 +117,21 @@ export function TCMarketPanel() {
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null)
 
-  /* ---- начальная загрузка + polling ---- */
+  /* ---- начальная загрузка + polling ----
+     skipAuthRedirect: транзитная ошибка (сеть/холодный старт) во время фонового
+     опроса не должна кидать пользователя на /login — он же не нажимал "Выйти". */
   useEffect(() => {
-    fetchTcState()
-    fetchOrderBook()
-    fetchTrades()
-    fetchUserOrders()
-    fetchWallet()
+    const opts = { skipAuthRedirect: true }
+    fetchTcState(opts)
+    fetchOrderBook(opts)
+    fetchTrades(opts)
+    fetchUserOrders(opts)
+    fetchWallet(opts)
 
     const id = setInterval(() => {
-      fetchTcState()
-      fetchOrderBook()
-      fetchTrades()
+      fetchTcState(opts)
+      fetchOrderBook(opts)
+      fetchTrades(opts)
     }, POLL_MS)
 
     return () => clearInterval(id)

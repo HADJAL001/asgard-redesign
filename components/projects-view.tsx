@@ -36,7 +36,7 @@ export function ProjectsView() {
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
   useEffect(() => {
-    fetchProjects()
+    fetchProjects({ skipAuthRedirect: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

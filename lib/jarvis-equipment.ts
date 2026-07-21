@@ -106,7 +106,7 @@ export function setEquipmentAndBroadcast(equipment: JarvisEquipment) {
  */
 export async function fetchEquipmentFromServer(): Promise<JarvisEquipment> {
   try {
-    const data = await apiClient.get<{ items: EquippedAccessory[] }>("/jarvis/my-accessories")
+    const data = await apiClient.get<{ items: EquippedAccessory[] }>("/jarvis/my-accessories", { skipAuthRedirect: true })
     const equipment = buildEquipmentFromItems(data.items || [])
     setEquipmentAndBroadcast(equipment)
     return equipment

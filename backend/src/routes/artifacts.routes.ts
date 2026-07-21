@@ -1,6 +1,7 @@
 import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
+import { generateAiArtifactContent, computeUniqueHash, ARTIFACT_RARITIES } from "../services/ai-artifact-generator"
 
 const router = Router()
 
@@ -24,6 +25,9 @@ const LIST_CURRENCY_BY_RARITY: Record<string, string> = {
 const FORGE_COST_TC = 50 /* стоимость создания артефакта в TimeCoin */
 const EVOLVE_COST_TC = 30 /* стоимость улучшения (уровень +1) */
 const EVOLVE_RARITY_COST_TC = 120 /* стоимость перехода на следующую редкость (каждые 5 уровней) */
+
+const AI_GENERATE_COST_TC = FORGE_COST_TC /* стоимость AI-генерации — паритет с ручной ковкой */
+const AI_UNIQUENESS_MAX_ATTEMPTS = 3 /* попыток регенерации при коллизии имени, затем — суффикс */
 
 /* ---------------- Премиум-усиление (за TimeCoin, мгновенно) ----------------
    Правила:
@@ -56,7 +60,8 @@ router.get("/mine", requireAuth, (req: AuthRequest, res) => {
   const artifacts = db
     .prepare(
       `SELECT id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
-              status, views_24h as views24h, supply, price, list_currency as listCurrency, created_at as createdAt
+              status, views_24h as views24h, supply, price, list_currency as listCurrency,
+              description, lore, ai_visual as aiVisual, source, created_at as createdAt
        FROM artifacts WHERE owner_id = ? ORDER BY created_at DESC`,
     )
     .all(req.user!.userId)
@@ -132,6 +137,95 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
     .get(Number(info.lastInsertRowid))
 
   res.status(201).json({ artifact })
+})
+
+/* ---------------- POST /artifacts/generate-ai ----------------
+   AI-генерация уникального артефакта (Grok → DeepSeek → локальный fallback).
+   Работает РЯДОМ с ручной "Кузницей" (/forge), не заменяя её. Каждый артефакт
+   проверяется на уникальность имени в БД перед сохранением; при коллизии —
+   до AI_UNIQUENESS_MAX_ATTEMPTS повторных генераций, затем — детерминированный
+   суффикс, чтобы запрос никогда не падал из-за совпадения имени.
+------------------------------------------------------------------------- */
+router.post("/generate-ai", requireAuth, async (req: AuthRequest, res) => {
+  const hint = typeof req.body?.hint === "string" && req.body.hint.trim() ? req.body.hint.trim() : undefined
+
+  const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
+  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден" })
+  if (wallet.timecoin < AI_GENERATE_COST_TC) {
+    return res.status(400).json({ error: `Недостаточно TimeCoin (нужно ${AI_GENERATE_COST_TC})` })
+  }
+
+  const nameExists = (name: string): boolean =>
+    !!db.prepare(`SELECT id FROM artifacts WHERE name = ?`).get(name)
+
+  let generated = await generateAiArtifactContent(hint)
+  let attempts = 1
+  while (nameExists(generated.name) && attempts < AI_UNIQUENESS_MAX_ATTEMPTS) {
+    generated = await generateAiArtifactContent(hint)
+    attempts += 1
+  }
+
+  let finalName = generated.name
+  if (nameExists(finalName)) {
+    finalName = `${generated.name} #${Date.now().toString(36).slice(-4)}`
+  }
+
+  const rarity = (ARTIFACT_RARITIES as readonly string[]).includes(generated.rarity) ? generated.rarity : "common"
+  const power = generated.power
+  const defense = generated.defense
+  const magic = generated.magic
+  const speed = 25 /* AI не задаёт speed по спецификации из 8 полей — фиксированная середина диапазона 10-40 */
+  const level = 1
+  const supply = 1
+  const now = Date.now()
+  const uniqueHash = computeUniqueHash(finalName, now)
+
+  const price = computePrice({ power, defense, magic, speed, rarity, views_24h: 0, supply })
+
+  db.prepare(
+    `UPDATE wallets SET timecoin = timecoin - ?, updated_at = ? WHERE user_id = ?`,
+  ).run(AI_GENERATE_COST_TC, now, req.user!.userId)
+
+  const info = db
+    .prepare(
+      `INSERT INTO artifacts (owner_id, project_id, name, type, rarity, level, power, defense, magic, speed,
+              status, views_24h, supply, price, list_currency, description, lore, ai_visual, source, unique_hash)
+       VALUES (?, NULL, ?, 'ai', ?, ?, ?, ?, ?, ?, 'kept', 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      req.user!.userId,
+      finalName,
+      rarity,
+      level,
+      power,
+      defense,
+      magic,
+      speed,
+      supply,
+      price,
+      LIST_CURRENCY_BY_RARITY[rarity],
+      generated.description,
+      generated.lore,
+      generated.visual,
+      generated.source,
+      uniqueHash,
+    )
+
+  db.prepare(
+    `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+     VALUES (?, 'ai_generate', ?, 'AI-Генератор Артефактов', ?, 'timecoin', 'done')`,
+  ).run(req.user!.userId, finalName, AI_GENERATE_COST_TC)
+
+  const artifact = db
+    .prepare(
+      `SELECT id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
+              status, views_24h as views24h, supply, price, list_currency as listCurrency,
+              description, lore, ai_visual as aiVisual, source, created_at as createdAt
+       FROM artifacts WHERE id = ?`,
+    )
+    .get(Number(info.lastInsertRowid))
+
+  res.status(201).json({ artifact, aiSource: generated.source })
 })
 
 /* ---------------- POST /artifacts/:id/evolve ---------------- */
