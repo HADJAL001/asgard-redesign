@@ -9,6 +9,7 @@ import stripe, {
   FRONTEND_URL,
   PlanKey,
 } from "../lib/stripe"
+import { asyncHandler } from "../utils/async-handler"
 
 
 const router = Router()
@@ -168,7 +169,7 @@ export function requirePlan(requiredPlan: PlanKey) {
    mock-режиме: сразу активирует подписку локально на 30 дней и
    возвращает { mock: true, subscription } без реального url Stripe.
    ================================================================ */
-router.post("/create-checkout", requireAuth, async (req: AuthRequest, res) => {
+router.post("/create-checkout", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const { plan } = req.body || {}
 
   if (!PAID_PLANS.includes(plan)) {
@@ -252,7 +253,7 @@ router.post("/create-checkout", requireAuth, async (req: AuthRequest, res) => {
     console.error("[subscription/create-checkout] Stripe error:", err)
     res.status(500).json({ error: err.message || "Не удалось создать Stripe Checkout Session" })
   }
-})
+}))
 
 /* ================================================================
    POST /subscription/webhook
@@ -269,18 +270,20 @@ router.post("/webhook", async (req, res) => {
     return res.status(503).json({ error: "Stripe не настроен на сервере" })
   }
 
-  const signature = req.headers["stripe-signature"] as string | undefined
-  let event: any
+  if (!STRIPE_WEBHOOK_SECRET) {
+    console.error("[subscription/webhook] STRIPE_WEBHOOK_SECRET не задан — вебхук отклонён")
+    return res.status(503).json({ error: "Webhook secret не настроен на сервере" })
+  }
 
+  const signature = req.headers["stripe-signature"] as string | undefined
+  if (!signature) {
+    return res.status(400).json({ error: "Отсутствует заголовок stripe-signature" })
+  }
+
+  let event: any
   try {
-    if (STRIPE_WEBHOOK_SECRET && signature) {
-      /* req.body здесь — Buffer (raw), т.к. роут смонтирован с express.raw() */
-      event = stripe.webhooks.constructEvent(req.body, signature, STRIPE_WEBHOOK_SECRET)
-    } else {
-      /* Секрет вебхука не задан — доверяем телу без проверки подписи (только dev) */
-      const raw = Buffer.isBuffer(req.body) ? req.body.toString("utf8") : req.body
-      event = typeof raw === "string" ? JSON.parse(raw) : raw
-    }
+    /* req.body здесь — Buffer (raw), т.к. роут смонтирован с express.raw() */
+    event = stripe.webhooks.constructEvent(req.body, signature, STRIPE_WEBHOOK_SECRET)
   } catch (err: any) {
     console.error("[subscription/webhook] Signature verification failed:", err.message)
     return res.status(400).json({ error: `Webhook Error: ${err.message}` })

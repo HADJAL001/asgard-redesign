@@ -8,6 +8,18 @@ import db from "./lib/db"
 
 dotenv.config()
 
+/* Защитная сетка поверх asyncHandler на роутах: если где-то всё же проскочит
+   необработанный reject/throw (в т.ч. вне HTTP-запроса — например, в фоновом
+   fire-and-forget джобе), по умолчанию Node (>=15) убивает ВЕСЬ процесс.
+   Логируем и продолжаем работу — краш одного запроса не должен ронять всех
+   остальных пользователей. */
+process.on("unhandledRejection", (reason) => {
+  console.error("[unhandledRejection]", reason)
+})
+process.on("uncaughtException", (err) => {
+  console.error("[uncaughtException]", err)
+})
+
 const app = express()
 const PORT = process.env.PORT || 3002
 
@@ -71,9 +83,11 @@ app.use(
 
 app.use(express.json())
 
+import { writeBackpressure, getWriteQueueStats } from "./middleware/write-backpressure"
+app.use(writeBackpressure)
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "osgard-backend", time: Date.now() })
+  res.json({ ok: true, service: "osgard-backend", time: Date.now(), writeQueue: getWriteQueueStats() })
 })
 
 /* Routes are mounted after they're implemented in later stages */
@@ -96,6 +110,7 @@ import twinRoutes from "./routes/twin.routes"
 import feedbackRoutes from "./routes/feedback.routes"
 import communityRoutes from "./routes/community.routes"
 import tcRoutes from "./routes/tc.routes"
+import { runOrderBookMigration } from "./migrations/001_order_book"
 import { runReferralMigration } from "./migrations/002_referral_system"
 import { runPremiumUpgradeMigration } from "./migrations/003_premium_upgrade"
 import { runSubscriptionsMigration } from "./migrations/004_subscriptions"
@@ -130,6 +145,11 @@ import demoRoutes from "./routes/demo.routes"
 import adminRoutes from "./routes/admin.routes"
 
 
+
+/* Гарантируем наличие tc_orders и недостающих колонок tc_trades при старте сервера
+   (раньше выполнялось только вручную/через init-db.ts на новых базах — на существующих
+   базах, созданных до появления order book, таблица могла отсутствовать). */
+runOrderBookMigration()
 
 /* Гарантируем наличие колонок users.referral_code/referred_by/onboarding_step и таблицы referrals при старте сервера. */
 runReferralMigration()

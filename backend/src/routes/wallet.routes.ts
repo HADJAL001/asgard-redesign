@@ -3,6 +3,7 @@ import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { sendTcFromReserve, verifyTcTransferToReserve } from "../lib/solana"
 import { rateLimit } from "../middleware/rateLimiter"
+import { asyncHandler } from "../utils/async-handler"
 
 const router = Router()
 
@@ -190,7 +191,7 @@ router.post("/convert-to-tc", rateLimit(60_000, 5), requireAuth, async (req: Aut
    зачисляем эквивалент в ∞ на внутренний баланс.
    body: { amount: number, txSignature: string }
    ================================================================ */
-router.post("/convert-from-tc", requireAuth, async (req: AuthRequest, res) => {
+router.post("/convert-from-tc", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const { amount, txSignature } = req.body || {}
   const userId = req.user!.userId
 
@@ -202,12 +203,20 @@ router.post("/convert-from-tc", requireAuth, async (req: AuthRequest, res) => {
     return res.status(400).json({ error: "Не указана подпись транзакции (txSignature)" })
   }
 
-  // Защита от повторного использования одной и той же транзакции.
-  const alreadyUsed = db
-    .prepare(`SELECT id FROM tc_convert_log WHERE tx_signature = ? AND status = 'done'`)
-    .get(txSignature)
-  if (alreadyUsed) {
-    return res.status(409).json({ error: "Эта транзакция уже была использована для конвертации" })
+  // Защита от повторного использования одной и той же транзакции: захватываем
+  // tx_signature через INSERT под UNIQUE-индексом ДО on-chain проверки, чтобы
+  // два параллельных запроса с одинаковой подписью не могли оба пройти проверку
+  // "already used" и оба зачислить средства (TOCTOU race condition).
+  try {
+    db.prepare(
+      `INSERT INTO tc_convert_log (user_id, direction, amount, solana_address, tx_signature, status)
+       VALUES (?, 'from_tc', ?, NULL, ?, 'pending')`,
+    ).run(userId, amt, txSignature)
+  } catch (err: any) {
+    if (String(err.message || "").includes("UNIQUE")) {
+      return res.status(409).json({ error: "Эта транзакция уже была использована для конвертации" })
+    }
+    throw err
   }
 
   try {
@@ -217,22 +226,29 @@ router.post("/convert-from-tc", requireAuth, async (req: AuthRequest, res) => {
     const infinityToCredit = verifiedAmount * (1 - TC_CONVERT_FEE)
     const now = Date.now()
 
-    // 2. Зачисляем ∞ пользователю (TC уже физически в резерве после его перевода).
-    db.prepare(`UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`).run(
-      infinityToCredit,
-      now,
-      userId,
-    )
+    // 2. Зачисляем ∞ пользователю и подтверждаем лог атомарно в одной транзакции.
+    db.exec("BEGIN IMMEDIATE")
+    try {
+      db.prepare(`UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`).run(
+        infinityToCredit,
+        now,
+        userId,
+      )
 
-    db.prepare(
-      `INSERT INTO tc_convert_log (user_id, direction, amount, solana_address, tx_signature, status)
-       VALUES (?, 'from_tc', ?, ?, ?, 'done')`,
-    ).run(userId, verifiedAmount, from, txSignature)
+      db.prepare(
+        `UPDATE tc_convert_log SET amount = ?, solana_address = ?, status = 'done' WHERE tx_signature = ?`,
+      ).run(verifiedAmount, from, txSignature)
 
-    db.prepare(
-      `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-       VALUES (?, 'convert_from_tc', 'TC → ∞', ?, ?, 'timecoin', 'done')`,
-    ).run(userId, from, infinityToCredit)
+      db.prepare(
+        `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+         VALUES (?, 'convert_from_tc', 'TC → ∞', ?, ?, 'timecoin', 'done')`,
+      ).run(userId, from, infinityToCredit)
+
+      db.exec("COMMIT")
+    } catch (txErr) {
+      db.exec("ROLLBACK")
+      throw txErr
+    }
 
     const updatedWallet = db
       .prepare(
@@ -252,9 +268,12 @@ router.post("/convert-from-tc", requireAuth, async (req: AuthRequest, res) => {
       },
     })
   } catch (err: any) {
+    // Проверка/зачисление не удались — снимаем "pending"-захват подписи,
+    // чтобы пользователь мог повторить попытку конвертации той же транзакции.
+    db.prepare(`DELETE FROM tc_convert_log WHERE tx_signature = ? AND status = 'pending'`).run(txSignature)
     return res.status(400).json({ error: err.message || "Не удалось проверить транзакцию TC" })
   }
-})
+}))
 
 /* ================================================================
    GET /wallet/tc-balance — баланс резервного пула TC на Solana.

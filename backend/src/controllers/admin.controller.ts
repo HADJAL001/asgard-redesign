@@ -107,6 +107,10 @@ export class AdminController {
         return res.status(400).json({ error: "Некорректные данные" })
       }
 
+      if (id === req.user!.userId) {
+        return res.status(400).json({ error: "Нельзя изменить собственную роль" })
+      }
+
       const user = db.prepare(`SELECT id FROM users WHERE id = ?`).get(id)
       if (!user) {
         return res.status(404).json({ error: "Пользователь не найден" })
@@ -129,6 +133,10 @@ export class AdminController {
 
       if (!id || typeof banned !== "boolean") {
         return res.status(400).json({ error: "Некорректные данные" })
+      }
+
+      if (id === req.user!.userId) {
+        return res.status(400).json({ error: "Нельзя заблокировать самого себя" })
       }
 
       const user = db.prepare(`SELECT id FROM users WHERE id = ?`).get(id)
@@ -168,12 +176,9 @@ export class AdminController {
         return res.status(404).json({ error: "Кошелёк пользователя не найден" })
       }
 
-      db.prepare(`UPDATE wallets SET credits = credits + ?, timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`).run(
-        creditsNum,
-        timecoinNum,
-        Date.now(),
-        id,
-      )
+      db.prepare(
+        `UPDATE wallets SET credits = MAX(0, credits + ?), timecoin = MAX(0, timecoin + ?), updated_at = ? WHERE user_id = ?`,
+      ).run(creditsNum, timecoinNum, Date.now(), id)
 
       logAdminAction(req.user!.userId, "grant_tokens", id, { credits: creditsNum, timecoin: timecoinNum, reason })
 

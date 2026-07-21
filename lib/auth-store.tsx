@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { apiClient, getStoredUser, setStoredUser } from "./api-client"
+import { apiClient, ApiError, getStoredUser, setStoredUser } from "./api-client"
 
 /* ================================================================
    OSGARD · Auth store (React Context)
@@ -60,9 +60,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(data.user)
         setStoredUser(data.user)
       })
-      .catch(() => {
-        setUser(null)
-        setStoredUser(null)
+      .catch((err) => {
+        // Разлогиниваем только при подтверждённой невалидной сессии (401/403).
+        // Сетевые сбои, 5xx и 503 от прокси при холодном старте бэкенда не должны
+        // сбрасывать уже известного пользователя — иначе кратковременный сбой
+        // выглядит как "выкинуло из аккаунта" без действия пользователя.
+        if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+          setUser(null)
+          setStoredUser(null)
+        }
       })
       .finally(() => setLoading(false))
   }, [])

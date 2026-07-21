@@ -1,6 +1,7 @@
 import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
+import { asyncHandler } from "../utils/async-handler"
 import {
   emptyStyleVector,
   updateStyleVector,
@@ -165,7 +166,7 @@ router.post("/train", requireAuth, (req: AuthRequest, res) => {
 ------------------------------------------------------------------------------------------------- */
 const TWIN_GENERATE_COST_CREDITS = 30
 
-router.post("/generate", requireAuth, async (req: AuthRequest, res) => {
+router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const userId = req.user!.userId
   const { prompt } = req.body || {}
 
@@ -221,7 +222,7 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res) => {
   const updatedWallet = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(userId)
 
   res.status(201).json({ artifact: createdArtifact, wallet: updatedWallet })
-})
+}))
 
 /* ---------------- PATCH /twin/name — переименовать близнеца ---------------- */
 router.patch("/name", requireAuth, (req: AuthRequest, res) => {

@@ -31,7 +31,6 @@ interface DailyStats {
 }
 
 interface UserRow {
-  balance: number;
   nonce: number;
 }
 
@@ -142,7 +141,7 @@ router.post('/withdraw', authenticate, async (req: Request, res: Response) => {
     }
 
     // 2. Проверка nonce (защита от replay-атак)
-    const userRow = db.prepare('SELECT balance, nonce FROM users WHERE id = ?').get(userId) as UserRow | undefined;
+    const userRow = db.prepare('SELECT nonce FROM users WHERE id = ?').get(userId) as UserRow | undefined;
 
     if (!userRow) {
       return res.status(404).json({ error: 'User not found' });
@@ -152,12 +151,16 @@ router.post('/withdraw', authenticate, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid nonce' });
     }
 
-    // 3. Проверка баланса пользователя
-    const user = userRow;
+    // 3. Проверка баланса пользователя (единый источник истины — wallets.timecoin,
+    //    та же таблица, что использует весь остальной проект: wallet/tcmarket/twin)
+    const walletRow = db.prepare('SELECT timecoin FROM wallets WHERE user_id = ?').get(userId) as
+      | { timecoin: number }
+      | undefined;
+    const currentBalance = walletRow?.timecoin ?? 0;
 
-    if (user.balance < amount) {
+    if (currentBalance < amount) {
       return res.status(400).json({
-        error: `Insufficient balance. You have ${user.balance} TC`
+        error: `Insufficient balance. You have ${currentBalance} TC`
       });
     }
 
@@ -193,8 +196,8 @@ router.post('/withdraw', authenticate, async (req: Request, res: Response) => {
       // Продолжаем, но логируем
     }
 
-    // 7. Атомарное списание баланса
-    const updateStmt = db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?');
+    // 7. Атомарное списание баланса (wallets.timecoin — единый кошелёк проекта)
+    const updateStmt = db.prepare('UPDATE wallets SET timecoin = timecoin - ? WHERE user_id = ?');
     updateStmt.run(amount, userId);
 
     // 8. Отправка транзакции в Solana
@@ -203,7 +206,7 @@ router.post('/withdraw', authenticate, async (req: Request, res: Response) => {
       signature = await solanaService.sendTokens(externalWalletAddress, amount);
     } catch (solanaError: unknown) {
       // ОТКАТ: возвращаем баланс
-      const rollbackStmt = db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?');
+      const rollbackStmt = db.prepare('UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?');
       rollbackStmt.run(amount, userId);
 
       const msg = solanaError instanceof Error ? solanaError.message : String(solanaError);

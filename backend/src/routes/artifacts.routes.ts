@@ -2,6 +2,7 @@ import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { generateAiArtifactContent, computeUniqueHash, ARTIFACT_RARITIES } from "../services/ai-artifact-generator"
+import { asyncHandler } from "../utils/async-handler"
 
 const router = Router()
 
@@ -146,7 +147,7 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
    до AI_UNIQUENESS_MAX_ATTEMPTS повторных генераций, затем — детерминированный
    суффикс, чтобы запрос никогда не падал из-за совпадения имени.
 ------------------------------------------------------------------------- */
-router.post("/generate-ai", requireAuth, async (req: AuthRequest, res) => {
+router.post("/generate-ai", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const hint = typeof req.body?.hint === "string" && req.body.hint.trim() ? req.body.hint.trim() : undefined
 
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
@@ -226,7 +227,7 @@ router.post("/generate-ai", requireAuth, async (req: AuthRequest, res) => {
     .get(Number(info.lastInsertRowid))
 
   res.status(201).json({ artifact, aiSource: generated.source })
-})
+}))
 
 /* ---------------- POST /artifacts/:id/evolve ---------------- */
 router.post("/:id/evolve", requireAuth, (req: AuthRequest, res) => {

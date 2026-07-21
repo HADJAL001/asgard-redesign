@@ -8,6 +8,7 @@ import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
 import { TokenService } from '../services/token.service';
 import { TwoFAService } from '../services/twofa.service';
 import { encrypt, decrypt } from '../utils/encryption';
+import { asyncHandler } from '../utils/async-handler';
 
 const router = Router();
 
@@ -45,16 +46,13 @@ router.patch('/me', requireAuth, (req: AuthRequest, res) => {
     req.user!.userId,
   );
 
-  const rawUser2: any = db
+  const userPatched: any = db
     .prepare(
       `SELECT id, username, email, display_name as displayName, level, avatar_url as avatarUrl, bio, created_at as createdAt
        FROM users WHERE id = ?`,
     )
     .get(req.user!.userId);
 
-  const userPatched = rawUser2?.email
-    ? { ...rawUser2, email: decrypt(rawUser2.email) }
-    : rawUser2;
   res.json({ user: userPatched });
 });
 
@@ -63,7 +61,7 @@ router.patch('/me', requireAuth, (req: AuthRequest, res) => {
  * -------------------------------------------------------- */
 
 /* POST /auth/2fa/setup */
-router.post('/2fa/setup', requireAuth, async (req: AuthRequest, res) => {
+router.post('/2fa/setup', requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const userId = req.user!.userId;
 
   const user: any = db
@@ -80,7 +78,7 @@ router.post('/2fa/setup', requireAuth, async (req: AuthRequest, res) => {
   db.prepare(`UPDATE users SET twofa_secret = ? WHERE id = ?`).run(secret, userId);
 
   res.json({ secret, qrCode, otpauth_url });
-});
+}));
 
 /* POST /auth/2fa/verify */
 router.post('/2fa/verify', requireAuth, (req: AuthRequest, res) => {

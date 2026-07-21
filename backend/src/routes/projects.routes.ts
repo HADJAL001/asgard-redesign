@@ -16,6 +16,7 @@ import {
 } from "../services/template-store"
 import { adaptTemplate } from "../services/template-adapter"
 import { decrypt } from "../utils/encryption"
+import { asyncHandler } from "../utils/async-handler"
 
 const router = Router()
 
@@ -39,6 +40,38 @@ function randomStat(): number {
 const PROJECT_SELECT_COLUMNS = `id, name, description, badge, artifact_count as artifactCount, sold, income,
        status, generation_error as generationError, ai_source as aiSource, created_at as createdAt,
        deploy_status as deployStatus, deploy_error as deployError, live_url as liveUrl`
+
+/* Дневные лимиты генераций проектов по тарифу (users.plan). null = без лимита. */
+const DAILY_GENERATION_LIMITS: Record<string, number | null> = {
+  free: 5,
+  architect: 15,
+  master: 40,
+  legend: null,
+}
+
+function getTodayStartMs(): number {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+}
+
+/* ---------------- GET /projects/generation-limits — дневной лимит генераций по тарифу ---------------- */
+router.get("/generation-limits", requireAuth, (req: AuthRequest, res) => {
+  const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(req.user!.userId)
+  const plan = userRow?.plan || "free"
+  const dailyLimit = DAILY_GENERATION_LIMITS[plan] ?? DAILY_GENERATION_LIMITS.free
+
+  const todayStart = getTodayStartMs()
+  const { count } = db
+    .prepare(`SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND created_at >= ?`)
+    .get(req.user!.userId, todayStart) as { count: number }
+
+  res.json({
+    plan,
+    dailyLimit,
+    used: count,
+    remaining: dailyLimit === null ? null : Math.max(0, dailyLimit - count),
+  })
+})
 
 /* ---------------- GET /projects/mine — список проектов пользователя ---------------- */
 router.get("/mine", requireAuth, (req: AuthRequest, res) => {
@@ -152,7 +185,7 @@ router.put("/:id/files/*", requireAuth, (req: AuthRequest, res) => {
 })
 
 /* ---------------- GET /projects/:id/export.zip — скачать файлы проекта ZIP-архивом ---------------- */
-router.get("/:id/export.zip", requireAuth, async (req: AuthRequest, res) => {
+router.get("/:id/export.zip", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const id = Number(req.params.id)
   const project: any = db.prepare(`SELECT id, user_id, name FROM projects WHERE id = ?`).get(id)
 
@@ -189,7 +222,7 @@ router.get("/:id/export.zip", requireAuth, async (req: AuthRequest, res) => {
     archive.append(f.content, { name: f.path })
   }
   await archive.finalize()
-})
+}))
 
 /* ---------------- POST /projects — создать проект вручную ---------------- */
 router.post("/", requireAuth, (req: AuthRequest, res) => {
@@ -330,11 +363,31 @@ async function runAppGenerationJob(
    запускается fire-and-forget и обновляет projects.status по завершении — фронтенд опрашивает
    GET /projects/:id, а не ждёт один долгий запрос.
 ------------------------------------------------------------------------------- */
-router.post("/generate", requireAuth, async (req: AuthRequest, res) => {
+router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const { name, hint } = req.body || {}
 
   if (!name || typeof name !== "string" || !name.trim()) {
     return res.status(400).json({ error: "Укажите название проекта" })
+  }
+
+  const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(req.user!.userId)
+  const plan = userRow?.plan || "free"
+  const dailyLimit = DAILY_GENERATION_LIMITS[plan] ?? DAILY_GENERATION_LIMITS.free
+
+  if (dailyLimit !== null) {
+    const todayStart = getTodayStartMs()
+    const { count } = db
+      .prepare(`SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND created_at >= ?`)
+      .get(req.user!.userId, todayStart) as { count: number }
+
+    if (count >= dailyLimit) {
+      return res.status(429).json({
+        error: `Дневной лимит генераций (${dailyLimit}) для тарифа "${plan}" исчерпан. Попробуйте завтра или улучшите тариф.`,
+        plan,
+        dailyLimit,
+        used: count,
+      })
+    }
   }
 
   try {
@@ -380,14 +433,14 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res) => {
     console.error("[projects.generate] error:", err)
     res.status(500).json({ error: "Не удалось создать проект" })
   }
-})
+}))
 
 /* ---------------- POST /projects/:id/publish-github — публикация в GitHub пользователя ----------------
    Требует, чтобы пользователь подключил GitHub для публикации (GET /auth/github/publish/connect,
    scope repo). Коммитит все project_files одним атомарным коммитом через Git Data API
    (blob → tree → commit → ref) — Contents API создал бы отдельный коммит на файл.
 ------------------------------------------------------------------------------- */
-router.post("/:id/publish-github", requireAuth, async (req: AuthRequest, res) => {
+router.post("/:id/publish-github", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const id = Number(req.params.id)
   const project: any = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id)
 
@@ -473,7 +526,7 @@ router.post("/:id/publish-github", requireAuth, async (req: AuthRequest, res) =>
     console.error("[projects.publish-github] error:", err)
     res.status(500).json({ error: err?.message || "Не удалось опубликовать проект в GitHub" })
   }
-})
+}))
 
 /* ---------------- POST /projects/:id/deploy-netlify — задеплоить проект на Netlify ----------------
    Серверный NETLIFY_AUTH_TOKEN (единый платформенный аккаунт), не пер-пользовательский OAuth.
@@ -481,7 +534,7 @@ router.post("/:id/publish-github", requireAuth, async (req: AuthRequest, res) =>
    (deploy_status='deploying'), реальная сборка (npm install + next build) и загрузка
    запускаются в фоне, фронтенд опрашивает GET /projects/:id.
 ------------------------------------------------------------------------------- */
-router.post("/:id/deploy-netlify", requireAuth, async (req: AuthRequest, res) => {
+router.post("/:id/deploy-netlify", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const id = Number(req.params.id)
   const project: any = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id)
 
@@ -505,7 +558,7 @@ router.post("/:id/deploy-netlify", requireAuth, async (req: AuthRequest, res) =>
   res.status(202).json({ project: updated })
 
   void runNetlifyDeployJob(id)
-})
+}))
 
 /* ---------------- PATCH /projects/:id — обновить название/описание/бейдж ---------------- */
 router.patch("/:id", requireAuth, (req: AuthRequest, res) => {

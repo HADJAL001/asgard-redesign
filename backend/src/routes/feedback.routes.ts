@@ -1,6 +1,7 @@
 import { Router } from "express"
 import db from "../lib/db"
 import { optionalAuth, AuthRequest } from "../middleware/authMiddleware"
+import { asyncHandler } from "../utils/async-handler"
 
 const router = Router()
 
@@ -79,7 +80,7 @@ async function notifyEmail(name: string, email: string, message: string) {
 }
 
 /* ---------------- POST /feedback ---------------- */
-router.post("/", optionalAuth, async (req: AuthRequest, res) => {
+router.post("/", optionalAuth, asyncHandler(async (req: AuthRequest, res) => {
   const { name, email, message } = req.body || {}
 
   if (!name || typeof name !== "string" || !name.trim()) {
@@ -128,6 +129,6 @@ router.post("/", optionalAuth, async (req: AuthRequest, res) => {
     rewardGranted,
     reward: rewardGranted ? FEEDBACK_REWARD_TC : 0,
   })
-})
+}))
 
 export default router
