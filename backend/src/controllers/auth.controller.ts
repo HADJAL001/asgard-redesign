@@ -1,23 +1,12 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
-import { UserModel } from '../models/user.model';
+import { UserModel, SocialProvider } from '../models/user.model';
+import { isValidEmail, isValidPhone, isValidUsername, isValidPassword } from '../utils/validators';
 import { v4 as uuidv4 } from 'uuid';
 import Joi from 'joi';
 import db from '../db/database';
 
-// Схемы валидации
-const registerSchema = Joi.object({
-  email: Joi.string().email().optional(),
-  password: Joi.string().min(6).required(),
-  username: Joi.string().min(3).max(30).required(),
-  referralCode: Joi.string().optional()
-});
-
-const loginSchema = Joi.object({
-  email: Joi.string().email().optional(),
-  username: Joi.string().optional(),
-  password: Joi.string().required()
-}).or('email', 'username');
+const SOCIAL_PROVIDERS: SocialProvider[] = ['google', 'discord', 'facebook', 'twitter', 'github'];
 
 const changePasswordSchema = Joi.object({
   oldPassword: Joi.string().required(),
@@ -28,18 +17,28 @@ export class AuthController {
   // ===== РЕГИСТРАЦИЯ =====
   static async register(req: Request, res: Response) {
     try {
-      const { error } = registerSchema.validate(req.body);
-      if (error) {
-        return res.status(400).json({ error: error.details[0].message });
+      const { email, phone, password, username, referralCode, provider, providerId } = req.body;
+
+      if (!isValidUsername(username)) {
+        return res.status(400).json({ error: 'Некорректный username', code: 'INVALID_USERNAME' });
       }
-
-      const { email, password, username, referralCode } = req.body;
-
+      if (email && !isValidEmail(email)) {
+        return res.status(400).json({ error: 'Некорректный email', code: 'INVALID_EMAIL' });
+      }
+      if (phone && !isValidPhone(phone)) {
+        return res.status(400).json({ error: 'Некорректный телефон', code: 'INVALID_PHONE' });
+      }
+      if (!isValidPassword(password)) {
+        return res.status(400).json({ error: 'Пароль слишком короткий (минимум 8 символов)', code: 'WEAK_PASSWORD' });
+      }
       if (email && UserModel.findByEmail(email)) {
-        return res.status(409).json({ error: 'Email already exists' });
+        return res.status(409).json({ error: 'Email уже используется', code: 'EMAIL_ALREADY_LINKED' });
       }
-      if (UserModel.findByUsername(username)) {
-        return res.status(409).json({ error: 'Username already taken' });
+      if (phone && UserModel.findByPhone(phone)) {
+        return res.status(409).json({ error: 'Телефон уже используется', code: 'PHONE_ALREADY_LINKED' });
+      }
+      if (UserModel.isUsernameTaken(username)) {
+        return res.status(409).json({ error: 'Username уже занят', code: 'USERNAME_TAKEN' });
       }
 
       const hashedPassword = await AuthService.hashPassword(password);
@@ -51,9 +50,13 @@ export class AuthController {
         if (referrer) referredBy = referrer.id;
       }
 
+      const validProvider: SocialProvider | undefined =
+        provider && SOCIAL_PROVIDERS.includes(provider) ? provider : undefined;
+
       // Создаём пользователя согласно схеме init-db (без balance_* — баланс в таблице wallets)
       const userId = UserModel.create({
         email,
+        phone,
         password_hash: hashedPassword,
         username,
         referral_code: refCode,
@@ -62,7 +65,9 @@ export class AuthController {
         twofa_secret: null,
         twofa_enabled: false,
         nonce: 0,
-        role: 'user'
+        role: 'user',
+        provider: validProvider,
+        providerId: validProvider ? providerId : undefined
       });
 
       // Создаём кошелёк в таблице wallets (стартовый бонус 100 credits)
@@ -105,24 +110,45 @@ export class AuthController {
   }
 
   // ===== ВХОД =====
+  // Поддерживает 4 режима входа: email+password, phone+password, username+password, provider+providerId.
   static async login(req: Request, res: Response) {
     try {
-      const { error } = loginSchema.validate(req.body);
-      if (error) {
-        return res.status(400).json({ error: error.details[0].message });
-      }
+      const { email, username, phone, password, provider, providerId } = req.body;
 
-      const { email, username, password } = req.body;
-      // поиск по email или username
-      const user = email ? UserModel.findByEmail(email) : UserModel.findByUsername(username);
-      
-      if (!user) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
+      let user;
+      const isProviderLogin = provider && providerId;
 
-      const valid = await AuthService.verifyPassword(password, user.password_hash);
-      if (!valid) {
-        return res.status(401).json({ error: 'Invalid credentials' });
+      if (isProviderLogin) {
+        if (!SOCIAL_PROVIDERS.includes(provider)) {
+          return res.status(400).json({ error: 'Некорректный провайдер', code: 'INVALID_CREDENTIALS' });
+        }
+        user = UserModel.findByProvider(provider, providerId);
+        if (!user) {
+          return res.status(401).json({ error: 'Провайдер не привязан ни к одному аккаунту', code: 'PROVIDER_NOT_LINKED' });
+        }
+        if (!user.is_linked) {
+          return res.status(401).json({ error: 'Требуется привязка аккаунта', code: 'LINK_REQUIRED' });
+        }
+      } else {
+        if (!email && !phone && !username) {
+          return res.status(400).json({ error: 'Укажите email, phone, username или provider', code: 'INVALID_CREDENTIALS' });
+        }
+        user = email
+          ? UserModel.findByEmail(email)
+          : phone
+            ? UserModel.findByPhone(phone)
+            : UserModel.findByUsername(username);
+
+        if (!user) {
+          return res.status(401).json({ error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' });
+        }
+
+        const valid = user.password_hash
+          ? await AuthService.verifyPassword(password || '', user.password_hash)
+          : false;
+        if (!valid) {
+          return res.status(401).json({ error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' });
+        }
       }
 
       if (user.banned) {
@@ -142,6 +168,7 @@ export class AuthController {
           id: user.id,
           email: user.email,
           username: user.username,
+          phone: user.phone,
           role: user.role,
           referralCode: user.referral_code
         }
@@ -149,6 +176,36 @@ export class AuthController {
 
     } catch (error: any) {
       console.error('Login error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  // ===== ПРИВЯЗКА СОЦПРОВАЙДЕРА =====
+  static async linkProvider(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const { provider, providerId, email, phone } = req.body;
+      if (!provider || !providerId || !SOCIAL_PROVIDERS.includes(provider)) {
+        return res.status(400).json({ error: 'Укажите корректный provider и providerId', code: 'MISSING_PROVIDER' });
+      }
+
+      try {
+        UserModel.linkProvider(userId, provider, providerId, email, phone);
+      } catch (e: any) {
+        return res.status(409).json({ error: e.message, code: 'PROVIDER_ALREADY_LINKED' });
+      }
+
+      const user = UserModel.findById(userId);
+      const { password_hash, twofa_secret, ...safeUser } = user || ({} as any);
+
+      res.json({ success: true, message: 'Провайдер успешно привязан', user: safeUser });
+
+    } catch (error: any) {
+      console.error('Link provider error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -184,7 +241,7 @@ export class AuthController {
 
       const user = UserModel.findById(userId);
       if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: 'User not found', code: 'USER_NOT_FOUND' });
       }
 
       const { password_hash, twofa_secret, ...safeUser } = user;

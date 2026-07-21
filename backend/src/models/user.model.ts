@@ -43,6 +43,8 @@ export interface CreateUserInput {
   twofa_enabled?: boolean;
   nonce?: number;
   role?: string;
+  provider?: SocialProvider;
+  providerId?: string;
 }
 
 export const UserModel = {
@@ -88,9 +90,90 @@ export const UserModel = {
     }
   },
 
+  // Алиас findBySocialId с именованием по спецификации шага 2
+  findByProvider(provider: SocialProvider, id: string): User | undefined {
+    return UserModel.findBySocialId(provider, id);
+  },
+
+  // Найти пользователя по email ИЛИ по телефону
+  findByEmailOrPhone(email?: string | null, phone?: string | null): User | undefined {
+    if (email) {
+      const byEmail = UserModel.findByEmail(email);
+      if (byEmail) return byEmail;
+    }
+    if (phone) {
+      const byPhone = UserModel.findByPhone(phone);
+      if (byPhone) return byPhone;
+    }
+    return undefined;
+  },
+
+  // Проверить, занят ли username
+  isUsernameTaken(username: string): boolean {
+    return !!UserModel.findByUsername(username);
+  },
+
+  // Проверить, привязан ли к пользователю хотя бы один соцпровайдер
+  isLinked(userId: number): boolean {
+    try {
+      const result = db.prepare('SELECT is_linked FROM users WHERE id = ?').get(userId) as
+        | { is_linked: number }
+        | undefined;
+      return !!result?.is_linked;
+    } catch (e) {
+      return false;
+    }
+  },
+
   // Привязать соцаккаунт к существующему пользователю
   linkSocialAccount(userId: number, provider: SocialProvider, socialId: string): void {
     db.prepare(`UPDATE users SET ${provider}_id = ?, is_linked = 1 WHERE id = ?`).run(socialId, userId);
+  },
+
+  // Привязать провайдера с защитой от спама (провайдер/email/телефон не должны
+  // принадлежать другому аккаунту) и дозаполнением email/телефона, если их не было.
+  linkProvider(
+    userId: number,
+    provider: SocialProvider,
+    providerId: string,
+    email?: string | null,
+    phone?: string | null,
+  ): void {
+    const existing = UserModel.findBySocialId(provider, providerId);
+    if (existing && existing.id !== userId) {
+      throw new Error(`Этот аккаунт ${provider} уже привязан к другому пользователю`);
+    }
+
+    if (email) {
+      const byEmail = UserModel.findByEmail(email);
+      if (byEmail && byEmail.id !== userId) {
+        throw new Error('Этот email уже используется другим аккаунтом');
+      }
+    }
+    if (phone) {
+      const byPhone = UserModel.findByPhone(phone);
+      if (byPhone && byPhone.id !== userId) {
+        throw new Error('Этот телефон уже используется другим аккаунтом');
+      }
+    }
+
+    const user = UserModel.findById(userId);
+    const setEmail = email && !user?.email ? email : undefined;
+    const setPhone = phone && !user?.phone ? phone : undefined;
+
+    const columns = [`${provider}_id = ?`, 'is_linked = 1'];
+    const values: any[] = [providerId];
+    if (setEmail) {
+      columns.push('email = ?');
+      values.push(setEmail);
+    }
+    if (setPhone) {
+      columns.push('phone = ?');
+      values.push(setPhone);
+    }
+    values.push(userId);
+
+    db.prepare(`UPDATE users SET ${columns.join(', ')} WHERE id = ?`).run(...values);
   },
 
   // Создать пользователя — совместимо со схемой db/migrations/001_initial_schema.ts
@@ -98,6 +181,20 @@ export const UserModel = {
   //        balance_crystals, balance_tc, referral_code, referred_by, is_verified,
   //        twofa_secret, twofa_enabled, nonce, role, created_at, updated_at
   create(data: CreateUserInput): number {
+    // Защита от спама: один email/телефон — один аккаунт.
+    if (data.email && UserModel.findByEmail(data.email)) {
+      throw new Error('Пользователь с таким email уже существует');
+    }
+    if (data.phone && UserModel.findByPhone(data.phone)) {
+      throw new Error('Пользователь с таким телефоном уже существует');
+    }
+    if (UserModel.isUsernameTaken(data.username)) {
+      throw new Error('Username уже занят');
+    }
+    if (data.provider && data.providerId && UserModel.findBySocialId(data.provider, data.providerId)) {
+      throw new Error(`Этот аккаунт ${data.provider} уже привязан к другому пользователю`);
+    }
+
     // display_name существует только в legacy-схеме (backend/src/scripts/init-db.ts,
     // NOT NULL без default) и отсутствует в 001_initial_schema.ts — заполняем
     // её только если колонка реально есть, чтобы работать на обеих схемах.
@@ -124,6 +221,12 @@ export const UserModel = {
       data.nonce ?? 0,
       data.role ?? 'user',
     )
+
+    // Есть провайдер — сразу помечаем аккаунт как привязанный к соцсети.
+    if (data.provider && data.providerId) {
+      columns.push(`${data.provider}_id`, 'is_linked')
+      values.push(data.providerId, 1)
+    }
 
     const stmt = db.prepare(`
       INSERT INTO users (${columns.join(', ')})

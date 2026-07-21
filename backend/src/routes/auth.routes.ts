@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller';
 import { rateLimit } from '../middleware/rateLimiter';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, requireLinked } from '../middleware/auth.middleware';
 import db from '../lib/db';
 import { hashPassword, comparePassword, signToken } from '../lib/auth';
 import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
@@ -23,6 +23,12 @@ router.post('/refresh', AuthController.refresh);
 router.post('/logout', authenticate, AuthController.logout);
 router.get('/me', authenticate, AuthController.me);
 router.post('/change-password', authenticate, AuthController.changePassword);
+router.post('/link', authenticate, AuthController.linkProvider);
+
+// Пример защищённого маршрута, доступного только пользователям с привязанным соцаккаунтом
+router.get('/protected', authenticate, requireLinked, (req, res) => {
+  res.json({ success: true, userId: req.userId });
+});
 
 /* ---------------- PATCH /auth/me ---------------- */
 router.patch('/me', requireAuth, (req: AuthRequest, res) => {
