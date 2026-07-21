@@ -124,8 +124,7 @@ export function ForgeView() {
   }, [])
 
   const TypeIcon = ARTIFACT_TYPES[type].Icon
-  // Разрешаем создание если есть баланс ИЛИ бэкенд недоступен (демо-режим)
-  const canForge = name.trim().length > 0
+  const canForge = name.trim().length > 0 && wallet.timecoin >= FORGE_COST_TC
 
   // Кинематографический эффект при создании
   const [forging, setForging] = useState(false)
@@ -154,31 +153,9 @@ export function ForgeView() {
         setNotice({ ok: true, text: `Артефакт «${res.artifact.name}» создан!` })
         setName("")
       } else {
-        // Демо-режим: создаём артефакт локально
-        const RARITIES = ["common", "uncommon", "rare", "epic", "legendary"] as const
-        const rarityIdx = Math.floor(Math.random() * 3) // common..rare для демо
-        const demoArtifact: OsgardArtifact = {
-          id: Date.now(),
-          projectId: null,
-          name: name.trim(),
-          type,
-          rarity: RARITIES[rarityIdx],
-          level: 1,
-          power: Math.floor(Math.random() * 50) + 10,
-          defense: Math.floor(Math.random() * 50) + 10,
-          magic: Math.floor(Math.random() * 50) + 10,
-          speed: Math.floor(Math.random() * 50) + 10,
-          status: "kept",
-          views24h: 0,
-          supply: 1,
-          price: Math.floor(Math.random() * 500) + 100,
-          listCurrency: "∞",
-          createdAt: Date.now(),
-        }
-        setForgePhase("reveal")
-        setResult(demoArtifact)
-        setNotice({ ok: true, text: `Артефакт «${name.trim()}» создан! (демо-режим)` })
-        setName("")
+        setForgePhase("idle")
+        setForging(false)
+        setNotice({ ok: false, text: res.error || "Не удалось создать артефакт" })
       }
     } finally {
       setSubmitting(false)

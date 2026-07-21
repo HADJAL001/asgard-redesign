@@ -35,9 +35,9 @@ import { Globe } from "lucide-react"
 const AVATAR =
   "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=160&q=80"
 
-type NavItem = { key: string; href: string; Icon: LucideIcon }
+export type NavItem = { key: string; href: string; Icon: LucideIcon }
 
-const NAV: NavItem[] = [
+export const NAV: NavItem[] = [
   { key: "nav.home", href: "/", Icon: Home },
   { key: "nav.projects", href: "/projects", Icon: FolderKanban },
   { key: "nav.community", href: "/community", Icon: Beer },
@@ -258,8 +258,8 @@ export function Navbar() {
           className="flex items-center gap-2 transition-opacity hover:opacity-90"
         >
           <img
-            src={AVATAR || "/placeholder.svg"}
-            alt="Alex Odin"
+            src={user?.avatarUrl || AVATAR || "/placeholder.svg"}
+            alt={user?.displayName || user?.username || "Гость"}
             className="size-8 rounded-full object-cover"
             style={{ border: `1px solid ${isActive("/profile") ? "#00D4FF" : "#2A2A3E"}` }}
           />
@@ -267,7 +267,7 @@ export function Navbar() {
             className="hidden text-[14px] sm:block"
             style={{ color: isActive("/profile") ? "#00D4FF" : "rgba(255,255,255,0.8)" }}
           >
-            Alex Odin
+            {user?.displayName || user?.username || "Гость"}
           </span>
         </Link>
       </div>

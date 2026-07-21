@@ -2,16 +2,15 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { apiClient, getStoredUser, getToken, setStoredUser, setToken } from "./api-client"
+import { apiClient, getStoredUser, setStoredUser } from "./api-client"
 
 /* ================================================================
    OSGARD · Auth store (React Context)
    ----------------------------------------------------------------
-   Работает поверх бэкенда /auth/*:
-   - login(username, password)
-   - register(username, email, password)
-   - logout()
-   - getToken() — для api-client / других сторов
+   Работает поверх бэкенда /auth/* через httpOnly-cookie сессию
+   (см. app/api/[...path]/route.ts). Сам JWT в JS никогда не
+   попадает — тут храним только объект user (для UI) и признак
+   isAuthenticated.
    ================================================================ */
 
 export type User = {
@@ -31,8 +30,7 @@ type AuthResult = { ok: boolean; message?: string }
 
 type AuthValue = {
   user: User | null
-  token: string | null
-  /** true пока идёт первичная проверка localStorage/сессии */
+  /** true пока идёт первичная проверка сессии (/auth/me) */
   loading: boolean
   isAuthenticated: boolean
   login: (username: string, password: string) => Promise<AuthResult>
@@ -40,7 +38,6 @@ type AuthValue = {
   /** Логин по токенам, выданным бэкендом после OAuth-редиректа (см. /auth/callback). */
   loginWithToken: (token: string, refreshToken?: string) => Promise<AuthResult>
   logout: () => void
-  getToken: () => string | null
   refreshMe: () => Promise<void>
 }
 
@@ -48,34 +45,33 @@ const AuthContext = createContext<AuthValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [token, setTokenState] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  /* Восстанавливаем сессию из localStorage при монтировании */
+  /* Восстанавливаем сессию: cookie есть на сервере — /auth/me её примет. */
   useEffect(() => {
-    const storedToken = getToken()
-    const storedUser = getStoredUser<User>()
-    if (storedToken) setTokenState(storedToken)
-    if (storedUser) setUser(storedUser)
-    setLoading(false)
+    const cached = getStoredUser<User>()
+    if (cached) setUser(cached)
+
+    apiClient
+      .get<{ user: User }>("/auth/me", { skipAuthRedirect: true })
+      .then((data) => {
+        setUser(data.user)
+        setStoredUser(data.user)
+      })
+      .catch(() => {
+        setUser(null)
+        setStoredUser(null)
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   const login = useCallback<AuthValue["login"]>(async (username, password) => {
     try {
-      // Если введён email (содержит @) — отправляем как email, иначе как username
       const loginPayload = username.includes("@")
         ? { email: username, password }
         : { username, password }
-      const data = await apiClient.post<{ token?: string; accessToken?: string; user: User }>(
-        "/auth/login",
-        loginPayload,
-        { skipAuthRedirect: true },
-      )
-      // поддерживаем оба варианта: token и accessToken
-      const authToken = data.token || data.accessToken || ""
-      setToken(authToken)
+      const data = await apiClient.post<{ user: User }>("/auth/login", loginPayload, { skipAuthRedirect: true })
       setStoredUser(data.user)
-      setTokenState(authToken)
       setUser(data.user)
       return { ok: true }
     } catch (err: any) {
@@ -85,16 +81,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback<AuthValue["register"]>(async (username, email, password) => {
     try {
-      const data = await apiClient.post<{ token?: string; accessToken?: string; user: User }>(
+      const data = await apiClient.post<{ user: User }>(
         "/auth/register",
         { username, email, password },
         { skipAuthRedirect: true },
       )
-      // поддерживаем оба варианта: token и accessToken
-      const authToken = data.token || data.accessToken || ""
-      setToken(authToken)
       setStoredUser(data.user)
-      setTokenState(authToken)
       setUser(data.user)
       return { ok: true }
     } catch (err: any) {
@@ -102,25 +94,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const loginWithToken = useCallback<AuthValue["loginWithToken"]>(async (authToken) => {
+  const loginWithToken = useCallback<AuthValue["loginWithToken"]>(async (token, refreshToken) => {
     try {
-      setToken(authToken)
-      setTokenState(authToken)
-      const data = await apiClient.get<{ user: User }>("/auth/me", { skipAuthRedirect: true })
+      const data = await apiClient.post<{ user: User }>(
+        "/auth/session",
+        { token, refreshToken },
+        { skipAuthRedirect: true },
+      )
       setStoredUser(data.user)
       setUser(data.user)
       return { ok: true }
     } catch (err: any) {
-      setToken(null)
-      setTokenState(null)
       return { ok: false, message: err?.message || "Не удалось выполнить вход" }
     }
   }, [])
 
   const logout = useCallback(() => {
-    setToken(null)
+    apiClient.post("/auth/logout", undefined, { skipAuthRedirect: true }).catch(() => {})
     setStoredUser(null)
-    setTokenState(null)
     setUser(null)
     if (typeof window !== "undefined") {
       window.location.href = "/login"
@@ -140,17 +131,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthValue>(
     () => ({
       user,
-      token,
       loading,
-      isAuthenticated: !!token,
+      isAuthenticated: !!user,
       login,
       register,
       loginWithToken,
       logout,
-      getToken,
       refreshMe,
     }),
-    [user, token, loading, login, register, loginWithToken, logout, refreshMe],
+    [user, loading, login, register, loginWithToken, logout, refreshMe],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

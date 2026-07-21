@@ -4,18 +4,20 @@ import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 
 const router = Router()
 
-const TOTAL_STEPS = 5
+const TOTAL_STEPS = 7
 
-/* Награды за каждый шаг онбординга */
+/* Награды за каждый шаг онбординга (тур по ключевым фичам платформы) */
 const ONBOARDING_REWARDS: Record<
   number,
   { credits?: number; crystals?: number; badge?: string }
 > = {
-  1: { credits: 10 },
-  2: { credits: 50 },
-  3: { credits: 100, badge: "first_lot" },
-  4: { crystals: 1 },
-  5: { crystals: 5 },
+  1: { credits: 5 }, // Знакомство — переход на главную
+  2: { credits: 10 }, // Мастер кузницы — демо-генерация в Forge
+  3: { credits: 10 }, // Исследователь — открыт артефакт в WALLI room
+  4: { credits: 10 }, // Голос — пост/комментарий в сообществе
+  5: { credits: 10 }, // Личность — профиль
+  6: { credits: 5 }, // Властелин — админ-панель
+  7: { credits: 0, badge: "pervoprohodets" }, // Первопроходец — финал онбординга
 }
 
 /* ---------------- GET /onboarding/status ---------------- */

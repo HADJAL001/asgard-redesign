@@ -53,20 +53,11 @@ export interface WalliEconomy {
 }
 
 // ─── Конфигурация API ─────────────────────────────────────────────────────────
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3002'
-
-function getAuthHeader(): Record<string, string> {
-  if (typeof window === 'undefined') return {}
-  try {
-    const raw = localStorage.getItem('auth-storage')
-    if (!raw) return {}
-    const parsed = JSON.parse(raw)
-    const token = parsed?.state?.token ?? parsed?.token
-    return token ? { Authorization: `Bearer ${token}` } : {}
-  } catch {
-    return {}
-  }
-}
+// Ходим через тот же Next.js proxy (/api/*), что и lib/api-client.ts — сессия
+// передаётся httpOnly cookie (credentials: "include"), никакого ручного
+// Authorization-заголовка тут больше не нужно.
+const API_BASE =
+  typeof window !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL || '/api') : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003')
 
 // ─── Хук ─────────────────────────────────────────────────────────────────────
 export function useWalliEconomy() {
@@ -89,7 +80,8 @@ export function useWalliEconomy() {
     setError(null)
     try {
       const res = await fetch(`${API_BASE}/walli/economy`, {
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data: WalliEconomy = await res.json()
@@ -166,7 +158,8 @@ export function useWalliEconomy() {
     try {
       const res = await fetch(`${API_BASE}/walli/stats/update`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(payload),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -190,7 +183,8 @@ export function useWalliEconomy() {
     try {
       const res = await fetch(`${API_BASE}/walli/upgrade/${ability}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ payment_confirmed: true }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -217,7 +211,8 @@ export function useWalliEconomy() {
   const startTraining = useCallback(async (level: 1 | 2 | 3 | 4 | 5) => {
     const res = await fetch(`${API_BASE}/walli/train/${level}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
     })
     if (!res.ok) {
       const err = await res.json()
@@ -230,7 +225,8 @@ export function useWalliEconomy() {
   const buyItem = useCallback(async (itemKey: string) => {
     const res = await fetch(`${API_BASE}/walli/buy/${itemKey}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
     })
     if (!res.ok) {
       const err = await res.json()

@@ -14,6 +14,7 @@ import { type ReactNode } from "react"
 import { ReadonlyModeProvider } from "@/lib/readonly-mode"
 import { ReadonlyBanner } from "./ReadonlyBanner"
 import { PaywallModal } from "./PaywallModal"
+import { GlobalHotkeys } from "@/lib/use-hotkeys"
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -21,6 +22,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {children}
       <ReadonlyBanner />
       <PaywallModal />
+      <GlobalHotkeys />
     </ReadonlyModeProvider>
   )
 }

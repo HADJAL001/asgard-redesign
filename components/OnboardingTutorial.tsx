@@ -3,14 +3,17 @@
 /* ================================================================
    OSGARD · OnboardingTutorial
    ----------------------------------------------------------------
-   Модальный тьюториал онбординга для новых пользователей.
-   5 шагов, каждый шаг начисляет награду через бэкенд:
+   Модальный тьюториал онбординга для новых пользователей — тур по
+   7 ключевым фичам платформы. Каждый шаг начисляет награду через
+   бэкенд:
 
-     1: 10 credits
-     2: 50 credits
-     3: 100 credits + бейдж 'first_lot'
-     4: 1 crystal
-     5: 5 crystals
+     1: Знакомство       — 5 credits
+     2: Мастер кузницы    — 10 credits
+     3: Исследователь     — 10 credits
+     4: Голос             — 10 credits
+     5: Личность          — 10 credits
+     6: Властелин (админ) — 5 credits
+     7: Первопроходец     — бейдж 'pervoprohodets' (финал, 50 credits суммарно)
 
    Взаимодействует с бэкендом:
      GET  /onboarding/status → { currentStep, completed }
@@ -23,9 +26,10 @@
    ================================================================ */
 
 import { useEffect, useState } from "react"
-import { Sparkles, Coins, Gem, Award, PartyPopper, X, Loader2 } from "lucide-react"
+import { Home, Hammer, Compass, MessageCircle, User, Crown, PartyPopper, Coins, Gem, Award, X, Loader2 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { useOsgardStore } from "@/lib/store/osgard-store"
+import { useAuth } from "@/lib/auth-store"
 
 const ACCENT = "#00D4FF"
 const CARD = "#14141E"
@@ -42,44 +46,61 @@ type OnboardingStep = {
   step: number
   title: string
   description: string
+  /** Альтернативное описание для администраторов (сейчас используется только шагом 6) */
+  adminDescription?: string
   reward: StepReward
-  Icon: typeof Sparkles
+  Icon: typeof Home
 }
 
 const STEPS: OnboardingStep[] = [
   {
     step: 1,
-    title: "Добро пожаловать в OSGARD",
-    description: "Познакомьтесь с платформой — вашей вселенной проектов и артефактов.",
-    reward: { credits: 10 },
-    Icon: Sparkles,
+    title: "Знакомство",
+    description: "Познакомьтесь с платформой — вашей вселенной проектов и артефактов. Нажмите на логотип, чтобы вернуться на главную.",
+    reward: { credits: 5 },
+    Icon: Home,
   },
   {
     step: 2,
-    title: "Создайте первый проект",
-    description: "Проекты — основа вашей активности. Загляните в раздел «Проекты».",
-    reward: { credits: 50 },
-    Icon: Coins,
+    title: "Мастер кузницы",
+    description: "Загляните в Forge и создайте свой первый артефакт.",
+    reward: { credits: 10 },
+    Icon: Hammer,
   },
   {
     step: 3,
-    title: "Выставите первый лот",
-    description: "Продайте артефакт на маркетплейсе и получите особый бейдж.",
-    reward: { credits: 100, badge: "first_lot" },
-    Icon: Award,
+    title: "Исследователь",
+    description: "Откройте WALLI room и изучите один из артефактов.",
+    reward: { credits: 10 },
+    Icon: Compass,
   },
   {
     step: 4,
-    title: "Откройте кошелёк",
-    description: "Изучите свои балансы: credits, shards, crystals, timecoin.",
-    reward: { crystals: 1 },
-    Icon: Gem,
+    title: "Голос",
+    description: "Оставьте пост или комментарий в разделе «Сообщество».",
+    reward: { credits: 10 },
+    Icon: MessageCircle,
   },
   {
     step: 5,
-    title: "Финал! Вы освоились",
-    description: "Поздравляем — вы прошли онбординг OSGARD.",
-    reward: { crystals: 5 },
+    title: "Личность",
+    description: "Загляните в свой профиль и проверьте статистику аккаунта.",
+    reward: { credits: 10 },
+    Icon: User,
+  },
+  {
+    step: 6,
+    title: "Властелин",
+    description: "Этот шаг доступен только администраторам платформы.",
+    adminDescription: "Загляните в админ-панель — здесь вы управляете пользователями и платформой.",
+    reward: { credits: 5 },
+    Icon: Crown,
+  },
+  {
+    step: 7,
+    title: "Первопроходец",
+    description: "Поздравляем — вы прошли онбординг OSGARD и получили титул «Первопроходец»!",
+    reward: { badge: "pervoprohodets" },
     Icon: PartyPopper,
   },
 ]
@@ -106,7 +127,7 @@ function RewardBadge({ reward }: { reward: StepReward }) {
     parts.push(
       <span key="badge" className="inline-flex items-center gap-1">
         <Award size={14} style={{ color: "#B57BFF" }} />
-        Бейдж «{reward.badge}»
+        {reward.badge === "pervoprohodets" ? "Титул «Первопроходец»" : `Бейдж «${reward.badge}»`}
       </span>,
     )
   }
@@ -119,9 +140,9 @@ function RewardBadge({ reward }: { reward: StepReward }) {
 }
 
 interface OnboardingTutorialProps {
-  /** Текущий шаг онбординга (0..5), полученный извне (например, из dashboard-view). */
+  /** Текущий шаг онбординга (0..7), полученный извне (например, из dashboard-view). */
   initialStep?: number
-  /** Вызывается, когда онбординг полностью завершён (шаг 5 пройден) или закрыт пользователем. */
+  /** Вызывается, когда онбординг полностью завершён (шаг 7 пройден) или закрыт пользователем. */
   onFinish?: () => void
 }
 
@@ -133,6 +154,8 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
   const [justEarned, setJustEarned] = useState<StepReward | null>(null)
 
   const fetchWallet = useOsgardStore((s) => s.fetchWallet)
+  const { user } = useAuth()
+  const isAdmin = user?.role === "admin"
 
   /* Подтягиваем актуальный статус онбординга при монтировании */
   useEffect(() => {
@@ -242,7 +265,7 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
           </span>
           <h2 className="text-[20px] font-semibold text-white">{activeStep.title}</h2>
           <p className="mt-2 text-[14px]" style={{ color: "rgba(255,255,255,0.6)" }}>
-            {activeStep.description}
+            {isAdmin && activeStep.adminDescription ? activeStep.adminDescription : activeStep.description}
           </p>
         </div>
 

@@ -93,6 +93,7 @@ import jarvisRoutes from "./routes/jarvis.routes"
 import jarvisShopRoutes from "./routes/jarvis-shop.routes"
 import twinRoutes from "./routes/twin.routes"
 import feedbackRoutes from "./routes/feedback.routes"
+import communityRoutes from "./routes/community.routes"
 import tcRoutes from "./routes/tc.routes"
 import { runReferralMigration } from "./migrations/002_referral_system"
 import { runPremiumUpgradeMigration } from "./migrations/003_premium_upgrade"
@@ -109,6 +110,10 @@ import { runWalliStatsMigration } from "./migrations/013_walli_stats"
 import { runAdminMigration } from "./migrations/014_admin"
 import { runSocialLoginMigration } from "./migrations/015_social_login"
 import { runRelaxRequiredFieldsMigration } from "./migrations/016_relax_required_fields"
+import "./migrations/017_community"
+import "./migrations/018_ensure_wallets"
+import "./migrations/019_ensure_transactions_columns"
+import "./migrations/020_ensure_artifacts_schema"
 import walliRoutes from "./routes/walli.routes"
 import demoRoutes from "./routes/demo.routes"
 import adminRoutes from "./routes/admin.routes"
@@ -172,6 +177,7 @@ app.use("/jarvis", jarvisRoutes)
 app.use("/jarvis", jarvisShopRoutes)
 app.use("/twin", twinRoutes)
 app.use("/feedback", feedbackRoutes)
+app.use("/posts", communityRoutes)
 app.use("/api/tc", tcRoutes)
 app.use("/walli", walliRoutes)
 app.use("/demo", demoRoutes)

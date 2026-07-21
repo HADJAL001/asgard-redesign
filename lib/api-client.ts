@@ -1,22 +1,22 @@
 /* ================================================================
    OSGARD · API client
    ----------------------------------------------------------------
-   Тонкая обёртка над fetch:
-   - базовый URL бэкенда (http://localhost:3003)
-   - автоматически подставляет JWT из localStorage в заголовок
-     Authorization: Bearer <token>
-   - при 401 (не авторизован / токен истёк) чистит токен и
-     редиректит на /login
+   Тонкая обёртка над fetch. Сессия хранится в httpOnly cookie,
+   которую выставляет и обновляет app/api/[...path]/route.ts —
+   JWT никогда не попадает в JS на клиенте (localStorage/XSS-кража
+   токена исключены). Здесь мы только:
+   - шлём запросы с credentials: "include", чтобы cookie уходила
+     вместе с запросом (тот же origin — /api/*)
+   - кешируем сам объект user (не токен) в localStorage для
+     мгновенной отрисовки навбара до ответа /auth/me
+   - при 401 редиректим на /login
    ================================================================ */
 
-// На продакшне всегда используем /api (Next.js прокси → Railway бэкенд)
-// В dev используем переменную или localhost
 export const API_BASE_URL =
   typeof window !== "undefined"
     ? (process.env.NEXT_PUBLIC_API_URL || "/api")
     : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003")
 
-export const TOKEN_KEY = "osgard_token"
 export const USER_KEY = "osgard_user"
 
 export class ApiError extends Error {
@@ -29,38 +29,6 @@ export class ApiError extends Error {
     this.data = data
   }
 }
-
-/** Устанавливает/удаляет cookie osgard_token, чтобы middleware.ts (Edge/сервер) мог его читать. */
-function setCookieToken(token: string | null) {
-  if (typeof document === "undefined") return
-  if (token) {
-    // 7 дней, доступна во всём приложении
-    document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
-  } else {
-    document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax`
-  }
-}
-
-export function getToken(): string | null {
-  if (typeof window === "undefined") return null
-  try {
-    return localStorage.getItem(TOKEN_KEY)
-  } catch {
-    return null
-  }
-}
-
-export function setToken(token: string | null) {
-  if (typeof window === "undefined") return
-  try {
-    if (token) localStorage.setItem(TOKEN_KEY, token)
-    else localStorage.removeItem(TOKEN_KEY)
-  } catch {
-    /* ignore storage errors */
-  }
-  setCookieToken(token)
-}
-
 
 export function getStoredUser<T = any>(): T | null {
   if (typeof window === "undefined") return null
@@ -84,7 +52,6 @@ export function setStoredUser(user: any | null) {
 
 function redirectToLogin() {
   if (typeof window === "undefined") return
-  setToken(null)
   setStoredUser(null)
   if (window.location.pathname !== "/login") {
     window.location.href = "/login"
@@ -93,7 +60,7 @@ function redirectToLogin() {
 
 type RequestOptions = Omit<RequestInit, "body"> & {
   body?: any
-  /** Пропустить редирект на /login при 401 (например, для самого /auth/login). */
+  /** Пропустить редирект на /login при 401 (например, для /auth/login и /auth/me на старте). */
   skipAuthRedirect?: boolean
 }
 
@@ -105,32 +72,20 @@ async function request<T = any>(path: string, options: RequestOptions = {}): Pro
     ...(headers as Record<string, string> | undefined),
   }
 
-  const token = getToken()
-  if (token) {
-    finalHeaders.Authorization = `Bearer ${token}`
-  }
-
   let res: Response
   try {
     res = await fetch(`${API_BASE_URL}${path}`, {
       ...rest,
       headers: finalHeaders,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      credentials: "include",
     })
   } catch (err) {
     throw new ApiError(0, "Не удалось соединиться с сервером")
   }
 
-  // Редиректим на логин только если нет токена вообще,
-  // или если это явный auth-endpoint (не skipAuthRedirect)
   if (res.status === 401 && !skipAuthRedirect) {
-    const tok = getToken()
-    // Если токена нет — редирект на логин
-    if (!tok) {
-      redirectToLogin()
-    }
-    // Если токен есть но 401 — просто бросаем ошибку без редиректа
-    // (пользователь остаётся на странице, компонент сам обработает)
+    redirectToLogin()
     throw new ApiError(401, "Требуется авторизация")
   }
 

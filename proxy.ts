@@ -4,14 +4,14 @@ import type { NextRequest } from "next/server"
 /* ================================================================
    OSGARD · Auth proxy (ранее middleware)
    ----------------------------------------------------------------
-   Защищает приватные разделы приложения. Проверяет наличие JWT
-   в cookie `osgard_token` (дублируется из localStorage при login/
-   register/logout в lib/api-client.ts). Если токена нет —
-   редиректит на /login с параметром `next`, чтобы вернуть
-   пользователя обратно после входа.
+   Защищает приватные разделы приложения. Проверяет наличие httpOnly
+   cookie `osgard_access`, которую выставляет app/api/[...path]/route.ts
+   при login/register/OAuth-сессии. Если токена нет — редиректит на
+   /login с параметром `next`, чтобы вернуть пользователя обратно
+   после входа.
    ================================================================ */
 
-const TOKEN_COOKIE = "osgard_token"
+const TOKEN_COOKIE = "osgard_access"
 
 const PROTECTED_PATHS = [
   "/dashboard",
@@ -24,6 +24,7 @@ const PROTECTED_PATHS = [
   "/exchange",
   "/stake",
   "/profile",
+  "/admin",
 ]
 
 export function proxy(request: NextRequest) {
@@ -60,5 +61,6 @@ export const config = {
     "/exchange/:path*",
     "/stake/:path*",
     "/profile/:path*",
+    "/admin/:path*",
   ],
 }
