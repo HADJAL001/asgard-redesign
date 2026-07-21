@@ -268,8 +268,8 @@ export function ВАЛЛИChat() {
 
   return (
     <div className="jarvis-chat">
-      {/* 3D-аватар ВАЛЛИА — мгновенно отражает текущую экипировку (skin/accessory) */}
-      <ВАЛЛИAvatar equipment={equipment} speaking={speaking} height={180} />
+      {/* 3D-аватар — мгновенно отражает текущую экипировку (skin/accessory) */}
+      <JarvisAvatar equipment={equipment} speaking={speaking} height={180} />
 
       <div className="jarvis-header">
         <div className="jarvis-title">

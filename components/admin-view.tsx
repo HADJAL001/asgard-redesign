@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import React, { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
   Users,
@@ -14,6 +14,8 @@ import {
   ShieldOff,
   Ban,
   CheckCircle2,
+  Gift,
+  ScrollText,
   type LucideIcon,
 } from "lucide-react"
 import { Navbar } from "./navbar"
@@ -44,6 +46,21 @@ type AdminUser = {
   role: string
   banned: number | boolean
   created_at: string | number
+}
+
+type AdminLog = {
+  id: number
+  action: string
+  meta: Record<string, any> | null
+  createdAt: number
+  admin: { id: number; username: string }
+  target: { id: number; username: string } | null
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  set_role: "Изменение роли",
+  set_banned: "Изменение блокировки",
+  grant_tokens: "Выдача токенов",
 }
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -82,6 +99,18 @@ export function AdminView() {
   const [totalPages, setTotalPages] = useState(1)
   const [loadingUsers, setLoadingUsers] = useState(true)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [tab, setTab] = useState<"users" | "logs">("users")
+
+  const [logs, setLogs] = useState<AdminLog[]>([])
+  const [logsPage, setLogsPage] = useState(1)
+  const [logsTotalPages, setLogsTotalPages] = useState(1)
+  const [loadingLogs, setLoadingLogs] = useState(false)
+
+  const [grantingUserId, setGrantingUserId] = useState<number | null>(null)
+  const [grantCredits, setGrantCredits] = useState("")
+  const [grantTimecoin, setGrantTimecoin] = useState("")
+  const [grantReason, setGrantReason] = useState("")
+  const [grantSubmitting, setGrantSubmitting] = useState(false)
 
   useEffect(() => {
     if (!authLoading && user && user.role !== "admin") {
@@ -123,10 +152,70 @@ export function AdminView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.role, page])
 
+  const loadLogs = useCallback(async (pageNum: number) => {
+    setLoadingLogs(true)
+    try {
+      const params = new URLSearchParams({ page: String(pageNum), limit: "50" })
+      const data = await apiClient.get<{ logs: AdminLog[]; totalPages: number }>(
+        `/admin/logs?${params.toString()}`,
+      )
+      setLogs(data.logs)
+      setLogsTotalPages(data.totalPages)
+    } catch {
+      setLogs([])
+    } finally {
+      setLoadingLogs(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!authLoading && user?.role === "admin" && tab === "logs") {
+      loadLogs(logsPage)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user?.role, tab, logsPage])
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setPage(1)
     loadUsers(search, 1)
+  }
+
+  const openGrant = (u: AdminUser) => {
+    setActionError(null)
+    setGrantCredits("")
+    setGrantTimecoin("")
+    setGrantReason("")
+    setGrantingUserId((prev) => (prev === u.id ? null : u.id))
+  }
+
+  const submitGrant = async (userId: number) => {
+    setActionError(null)
+    const credits = grantCredits.trim() ? Number(grantCredits) : 0
+    const timecoin = grantTimecoin.trim() ? Number(grantTimecoin) : 0
+
+    if (Number.isNaN(credits) || Number.isNaN(timecoin) || (credits === 0 && timecoin === 0)) {
+      setActionError("Укажите ненулевое значение credits и/или timecoin")
+      return
+    }
+
+    setGrantSubmitting(true)
+    try {
+      await apiClient.patch(`/admin/users/${userId}/grant`, {
+        credits,
+        timecoin,
+        reason: grantReason.trim() || undefined,
+      })
+      setGrantingUserId(null)
+      setGrantCredits("")
+      setGrantTimecoin("")
+      setGrantReason("")
+      if (tab === "logs") loadLogs(logsPage)
+    } catch (err: any) {
+      setActionError(err?.message || "Не удалось выдать токены")
+    } finally {
+      setGrantSubmitting(false)
+    }
   }
 
   const toggleRole = async (u: AdminUser) => {
@@ -205,7 +294,38 @@ export function AdminView() {
           ))}
         </section>
 
+        {/* Tabs */}
+        <div className="mb-6 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTab("users")}
+            className="inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-colors"
+            style={
+              tab === "users"
+                ? { backgroundColor: "rgba(0,212,255,0.1)", border: `1px solid ${ACCENT}`, color: ACCENT }
+                : { border: `1px solid ${BORDER}`, color: LABEL }
+            }
+          >
+            <Users size={14} />
+            Пользователи
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("logs")}
+            className="inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-colors"
+            style={
+              tab === "logs"
+                ? { backgroundColor: "rgba(0,212,255,0.1)", border: `1px solid ${ACCENT}`, color: ACCENT }
+                : { border: `1px solid ${BORDER}`, color: LABEL }
+            }
+          >
+            <ScrollText size={14} />
+            Логи
+          </button>
+        </div>
+
         {/* Users table */}
+        {tab === "users" && (
         <Card>
           <SectionTitle Icon={Users}>Пользователи</SectionTitle>
 
@@ -266,7 +386,8 @@ export function AdminView() {
                   </tr>
                 ) : (
                   users.map((u) => (
-                    <tr key={u.id}>
+                    <React.Fragment key={u.id}>
+                    <tr>
                       <td className="py-3 pr-4" style={{ color: LABEL }}>{u.id}</td>
                       <td className="py-3 pr-4">{u.username}</td>
                       <td className="py-3 pr-4" style={{ color: "rgba(255,255,255,0.7)" }}>{u.email}</td>
@@ -311,9 +432,85 @@ export function AdminView() {
                             {u.banned ? <CheckCircle2 size={13} /> : <Ban size={13} />}
                             {u.banned ? "Разбанить" : "Забанить"}
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => openGrant(u)}
+                            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px]"
+                            style={
+                              grantingUserId === u.id
+                                ? { border: `1px solid ${ACCENT}`, color: ACCENT }
+                                : { border: `1px solid ${BORDER}`, color: "#FFFFFF" }
+                            }
+                            title="Выдать токены"
+                          >
+                            <Gift size={13} />
+                            Выдать
+                          </button>
                         </div>
                       </td>
                     </tr>
+                    {grantingUserId === u.id && (
+                      <tr>
+                        <td colSpan={6} className="pb-4">
+                          <div
+                            className="flex flex-wrap items-end gap-3 rounded-lg p-4"
+                            style={{ border: `1px solid ${BORDER}`, backgroundColor: "#0A0A0F" }}
+                          >
+                            <label className="block">
+                              <span className="mb-1 block text-[11px]" style={{ color: LABEL }}>Credits</span>
+                              <input
+                                type="number"
+                                value={grantCredits}
+                                onChange={(e) => setGrantCredits(e.target.value)}
+                                placeholder="0"
+                                className="w-28 rounded-lg px-3 py-1.5 text-[13px] outline-none"
+                                style={{ backgroundColor: "#14141E", border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
+                              />
+                            </label>
+                            <label className="block">
+                              <span className="mb-1 block text-[11px]" style={{ color: LABEL }}>TimeCoin</span>
+                              <input
+                                type="number"
+                                value={grantTimecoin}
+                                onChange={(e) => setGrantTimecoin(e.target.value)}
+                                placeholder="0"
+                                className="w-28 rounded-lg px-3 py-1.5 text-[13px] outline-none"
+                                style={{ backgroundColor: "#14141E", border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
+                              />
+                            </label>
+                            <label className="block flex-1 min-w-[180px]">
+                              <span className="mb-1 block text-[11px]" style={{ color: LABEL }}>Причина</span>
+                              <input
+                                type="text"
+                                value={grantReason}
+                                onChange={(e) => setGrantReason(e.target.value)}
+                                placeholder="Необязательно"
+                                className="w-full rounded-lg px-3 py-1.5 text-[13px] outline-none"
+                                style={{ backgroundColor: "#14141E", border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => submitGrant(u.id)}
+                              disabled={grantSubmitting}
+                              className="rounded-lg px-4 py-1.5 text-[13px] font-medium disabled:opacity-50"
+                              style={{ backgroundColor: ACCENT, color: "#0A0A0F" }}
+                            >
+                              Выдать
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setGrantingUserId(null)}
+                              className="rounded-lg px-4 py-1.5 text-[13px]"
+                              style={{ border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
+                            >
+                              Отмена
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   ))
                 )}
               </tbody>
@@ -346,6 +543,92 @@ export function AdminView() {
             </div>
           )}
         </Card>
+        )}
+
+        {/* Logs */}
+        {tab === "logs" && (
+          <Card>
+            <SectionTitle Icon={ScrollText}>Журнал действий</SectionTitle>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-[13px]">
+                <thead>
+                  <tr style={{ color: LABEL }}>
+                    <th className="pb-3 pr-4 font-medium">Время</th>
+                    <th className="pb-3 pr-4 font-medium">Админ</th>
+                    <th className="pb-3 pr-4 font-medium">Действие</th>
+                    <th className="pb-3 pr-4 font-medium">Цель</th>
+                    <th className="pb-3 pr-4 font-medium">Детали</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y" style={{ borderColor: BORDER }}>
+                  {loadingLogs ? (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center" style={{ color: LABEL }}>
+                        Загрузка…
+                      </td>
+                    </tr>
+                  ) : logs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center" style={{ color: LABEL }}>
+                        Записей пока нет
+                      </td>
+                    </tr>
+                  ) : (
+                    logs.map((l) => (
+                      <tr key={l.id}>
+                        <td className="py-3 pr-4" style={{ color: LABEL }}>
+                          {new Date(l.createdAt).toLocaleString("ru-RU")}
+                        </td>
+                        <td className="py-3 pr-4">{l.admin.username}</td>
+                        <td className="py-3 pr-4">
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                            style={{ backgroundColor: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.3)", color: ACCENT }}
+                          >
+                            {ACTION_LABELS[l.action] || l.action}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4" style={{ color: "rgba(255,255,255,0.7)" }}>
+                          {l.target ? l.target.username : "—"}
+                        </td>
+                        <td className="py-3 pr-4" style={{ color: "rgba(255,255,255,0.5)" }}>
+                          {l.meta ? JSON.stringify(l.meta) : "—"}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {logsTotalPages > 1 && (
+              <div className="mt-5 flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  disabled={logsPage <= 1}
+                  onClick={() => setLogsPage((p) => Math.max(1, p - 1))}
+                  className="rounded-lg px-3 py-1.5 text-[12px] disabled:opacity-40"
+                  style={{ border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
+                >
+                  Назад
+                </button>
+                <span className="text-[12px]" style={{ color: LABEL }}>
+                  {logsPage} / {logsTotalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={logsPage >= logsTotalPages}
+                  onClick={() => setLogsPage((p) => Math.min(logsTotalPages, p + 1))}
+                  className="rounded-lg px-3 py-1.5 text-[12px] disabled:opacity-40"
+                  style={{ border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
+                >
+                  Вперёд
+                </button>
+              </div>
+            )}
+          </Card>
+        )}
       </main>
     </div>
   )

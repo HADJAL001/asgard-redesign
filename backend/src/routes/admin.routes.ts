@@ -10,5 +10,7 @@ router.get("/stats", AdminController.stats)
 router.get("/users", AdminController.listUsers)
 router.patch("/users/:id/role", AdminController.setRole)
 router.patch("/users/:id/ban", AdminController.setBanned)
+router.patch("/users/:id/grant", AdminController.grantTokens)
+router.get("/logs", AdminController.listLogs)
 
 export default router

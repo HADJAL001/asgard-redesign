@@ -152,6 +152,7 @@ export function useWalliVoice() {
       if (responseMode === "voice" || responseMode === "both") {
         speak(reply.text);
       }
+      return reply.text;
     },
     [lang, responseMode, speak]
   );

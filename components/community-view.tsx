@@ -28,6 +28,8 @@ type Post = {
   text: string
   createdAt: number
   commentsCount: number
+  likesCount: number
+  likedByMe: boolean
   author: Author
 }
 
@@ -56,6 +58,28 @@ function Reaction({ Icon, value }: { Icon: typeof Heart; value: number }) {
       <Icon size={16} strokeWidth={1.5} />
       {value}
     </span>
+  )
+}
+
+function LikeButton({
+  value,
+  active,
+  onClick,
+}: {
+  value: number
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 text-[14px] transition-colors"
+      style={{ color: active ? "#FF6B6B" : "#6A6A8A" }}
+    >
+      <Heart size={16} strokeWidth={1.5} fill={active ? "#FF6B6B" : "none"} />
+      {value}
+    </button>
   )
 }
 
@@ -121,6 +145,35 @@ export function CommunityView() {
       setComments((prev) => ({ ...prev, [postId]: [] }))
     } finally {
       setCommentsLoading((prev) => ({ ...prev, [postId]: false }))
+    }
+  }
+
+  const toggleLike = async (postId: number) => {
+    if (!isAuthenticated) {
+      triggerPaywall("Оценить пост")
+      return
+    }
+    const post = posts.find((p) => p.id === postId)
+    if (!post) return
+
+    const nextLiked = !post.likedByMe
+    const nextCount = post.likesCount + (nextLiked ? 1 : -1)
+    setPosts((prev) =>
+      prev.map((p) => (p.id === postId ? { ...p, likedByMe: nextLiked, likesCount: nextCount } : p)),
+    )
+
+    try {
+      const data = await apiClient.post<{ likesCount: number; likedByMe: boolean }>(`/posts/${postId}/like`)
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId ? { ...p, likesCount: data.likesCount, likedByMe: data.likedByMe } : p,
+        ),
+      )
+    } catch {
+      // откатываем оптимистичное обновление при ошибке
+      setPosts((prev) =>
+        prev.map((p) => (p.id === postId ? { ...p, likedByMe: post.likedByMe, likesCount: post.likesCount } : p)),
+      )
     }
   }
 
@@ -248,7 +301,7 @@ export function CommunityView() {
               </p>
 
               <div className="mt-5 flex items-center gap-6">
-                <Reaction Icon={Heart} value={0} />
+                <LikeButton value={p.likesCount} active={p.likedByMe} onClick={() => toggleLike(p.id)} />
                 <button
                   type="button"
                   onClick={() => toggleComments(p.id)}

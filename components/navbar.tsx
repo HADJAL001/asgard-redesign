@@ -126,7 +126,7 @@ export function Navbar() {
   const pathname = usePathname()
   const { wallet } = useOsgard()
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/")
@@ -253,7 +253,7 @@ export function Navbar() {
         </button>
 
         <Link
-          href="/profile"
+          href={isAuthenticated ? "/profile" : "/login"}
           aria-current={isActive("/profile") ? "page" : undefined}
           className="flex items-center gap-2 transition-opacity hover:opacity-90"
         >

@@ -77,7 +77,7 @@ function localFallbackGeneration(name: string, hint?: string): AiProjectGenerati
     ? `${name} — проект в направлении «${hint}». Автоматически сгенерированное описание: команда создаёт цифровые артефакты, развивающие идею ${themeWords || name}, с упором на инновации и качество исполнения.`
     : `${name} — амбициозный проект экосистемы OSGARD. Автоматически сгенерированное описание: команда создаёт уникальные цифровые артефакты, формирующие новую грань цифровой вселенной.`
 
-  const artifactCount = 3
+  const artifactCount = 3 + (seed % 3) // 3-5 артефактов
   const artifacts: AiArtifactSuggestion[] = Array.from({ length: artifactCount }).map((_, i) => {
     const type = ARTIFACT_TYPES[(seed + i * 7) % ARTIFACT_TYPES.length]
     const suffixes = ["Ядро", "Осколок", "Импульс", "Матрица", "Сфера", "Кристалл", "Клинок", "Щит"]

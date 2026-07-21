@@ -2,6 +2,16 @@ import { Response } from "express"
 import db from "../lib/db"
 import { AuthRequest } from "../middleware/authMiddleware"
 
+function logAdminAction(adminId: number, action: string, targetUserId: number | null, meta?: Record<string, any>) {
+  try {
+    db.prepare(
+      `INSERT INTO admin_logs (admin_id, action, target_user_id, meta, created_at) VALUES (?, ?, ?, ?, ?)`,
+    ).run(adminId, action, targetUserId, meta ? JSON.stringify(meta) : null, Date.now())
+  } catch (error) {
+    console.error("Admin log write error:", error)
+  }
+}
+
 export class AdminController {
   // ===== GET /admin/stats =====
   static async stats(_req: AuthRequest, res: Response) {
@@ -103,6 +113,7 @@ export class AdminController {
       }
 
       db.prepare(`UPDATE users SET role = ? WHERE id = ?`).run(role, id)
+      logAdminAction(req.user!.userId, "set_role", id, { role })
       res.json({ success: true })
     } catch (error: any) {
       console.error("Admin setRole error:", error)
@@ -126,9 +137,92 @@ export class AdminController {
       }
 
       db.prepare(`UPDATE users SET banned = ? WHERE id = ?`).run(banned ? 1 : 0, id)
+      logAdminAction(req.user!.userId, "set_banned", id, { banned })
       res.json({ success: true })
     } catch (error: any) {
       console.error("Admin setBanned error:", error)
+      res.status(500).json({ error: "Internal server error" })
+    }
+  }
+
+  // ===== PATCH /admin/users/:id/grant =====
+  static async grantTokens(req: AuthRequest, res: Response) {
+    try {
+      const id = parseInt(req.params.id, 10)
+      const { credits, timecoin, reason } = req.body || {}
+
+      const creditsNum = credits === undefined || credits === null ? 0 : Number(credits)
+      const timecoinNum = timecoin === undefined || timecoin === null ? 0 : Number(timecoin)
+
+      if (!id || !Number.isFinite(creditsNum) || !Number.isFinite(timecoinNum) || (creditsNum === 0 && timecoinNum === 0)) {
+        return res.status(400).json({ error: "Некорректные данные" })
+      }
+
+      const user = db.prepare(`SELECT id FROM users WHERE id = ?`).get(id)
+      if (!user) {
+        return res.status(404).json({ error: "Пользователь не найден" })
+      }
+
+      const wallet = db.prepare(`SELECT user_id FROM wallets WHERE user_id = ?`).get(id)
+      if (!wallet) {
+        return res.status(404).json({ error: "Кошелёк пользователя не найден" })
+      }
+
+      db.prepare(`UPDATE wallets SET credits = credits + ?, timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`).run(
+        creditsNum,
+        timecoinNum,
+        Date.now(),
+        id,
+      )
+
+      logAdminAction(req.user!.userId, "grant_tokens", id, { credits: creditsNum, timecoin: timecoinNum, reason })
+
+      res.json({ success: true })
+    } catch (error: any) {
+      console.error("Admin grantTokens error:", error)
+      res.status(500).json({ error: "Internal server error" })
+    }
+  }
+
+  // ===== GET /admin/logs?page=&limit= =====
+  static async listLogs(req: AuthRequest, res: Response) {
+    try {
+      const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1)
+      const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit ?? "50"), 10) || 50))
+      const offset = (page - 1) * limit
+
+      const rows = db.prepare(`
+        SELECT l.id, l.action, l.meta, l.created_at,
+               a.id as admin_id, a.username as admin_username,
+               t.id as target_id, t.username as target_username
+        FROM admin_logs l
+        JOIN users a ON a.id = l.admin_id
+        LEFT JOIN users t ON t.id = l.target_user_id
+        ORDER BY l.created_at DESC
+        LIMIT ? OFFSET ?
+      `).all(limit, offset) as any[]
+
+      const total = (db.prepare(`SELECT COUNT(*) as c FROM admin_logs`).get() as { c: number }).c
+
+      const logs = rows.map((r) => ({
+        id: r.id,
+        action: r.action,
+        meta: r.meta ? JSON.parse(r.meta) : null,
+        createdAt: r.created_at,
+        admin: { id: r.admin_id, username: r.admin_username },
+        target: r.target_id ? { id: r.target_id, username: r.target_username } : null,
+      }))
+
+      res.json({
+        success: true,
+        logs,
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      })
+    } catch (error: any) {
+      console.error("Admin listLogs error:", error)
       res.status(500).json({ error: "Internal server error" })
     }
   }

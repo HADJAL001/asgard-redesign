@@ -8,9 +8,11 @@
    к провайдеру и обратно на /auth/callback.
    ================================================================ */
 
+import type { ReactElement } from "react"
+
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3002"
 
-const PROVIDERS: { id: string; label: string; icon: JSX.Element }[] = [
+const PROVIDERS: { id: string; label: string; icon: ReactElement }[] = [
   {
     id: "google",
     label: "Google",

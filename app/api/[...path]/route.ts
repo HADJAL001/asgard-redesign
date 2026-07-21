@@ -59,6 +59,12 @@ async function forwardToBackend(
   }
   if (opts.authToken) forwardHeaders["authorization"] = `Bearer ${opts.authToken}`
 
+  const clientIp = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip")
+  if (clientIp) {
+    forwardHeaders["x-forwarded-for"] = clientIp
+    forwardHeaders["x-real-ip"] = clientIp.split(",")[0].trim()
+  }
+
   let body = opts.bodyOverride
   if (body === undefined && req.method !== "GET" && req.method !== "HEAD") {
     body = await req.text()
