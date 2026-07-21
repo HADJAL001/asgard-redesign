@@ -506,7 +506,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   /* ---- fetch: GET /wallet ---- */
   fetchWallet: async () => {
     try {
-      const wallet = await apiClient.get<OsgardWallet>("/wallet")
+      const { wallet } = await apiClient.get<{ wallet: OsgardWallet }>("/wallet")
       set({ wallet, error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить кошелёк") })

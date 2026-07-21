@@ -1,7 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useAuth } from "@/lib/auth-store"
+import { apiClient } from "@/lib/api-client"
 import {
   Trophy,
   Star,
@@ -94,6 +96,11 @@ const ACTIVITY_STATS = [
 export function ProfileView() {
   const [tab, setTab] = useState<Tab>("overview")
 
+  function handleShare() {
+    if (typeof window === "undefined") return
+    navigator.clipboard?.writeText(window.location.href).catch(() => {})
+  }
+
   return (
     <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0A1628 100%)", color: "#FFFFFF" }}>
       <Navbar />
@@ -146,8 +153,8 @@ export function ProfileView() {
             </div>
 
             <div className="mt-1 flex flex-wrap gap-3">
-              <OutlineButton Icon={Pencil}>Редактировать</OutlineButton>
-              <OutlineButton Icon={Share2}>Поделиться</OutlineButton>
+              <OutlineButton Icon={Pencil} onClick={() => setTab("settings")}>Редактировать</OutlineButton>
+              <OutlineButton Icon={Share2} onClick={handleShare}>Поделиться</OutlineButton>
             </div>
           </div>
         </section>
@@ -206,10 +213,19 @@ export function ProfileView() {
   )
 }
 
-function OutlineButton({ Icon, children }: { Icon: LucideIcon; children: React.ReactNode }) {
+function OutlineButton({
+  Icon,
+  children,
+  onClick,
+}: {
+  Icon: LucideIcon
+  children: React.ReactNode
+  onClick?: () => void
+}) {
   return (
     <button
       type="button"
+      onClick={onClick}
       className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[14px] transition-colors"
       style={{ border: "1px solid #2A2A3E", color: "#FFFFFF" }}
       onMouseEnter={(e) => {
@@ -527,6 +543,46 @@ function ActivityTab() {
 }
 
 function SettingsTab() {
+  const { user, refreshMe } = useAuth()
+  const [displayName, setDisplayName] = useState(user?.displayName || user?.username || "")
+  const [bio, setBio] = useState(user?.bio || "")
+  const [saving, setSaving] = useState(false)
+  const [status, setStatus] = useState<"idle" | "ok" | "error">("idle")
+
+  // user приходит сначала из локального кэша (без displayName/bio), затем
+  // асинхронно подменяется свежим ответом /auth/me — пересинхронизируем поля,
+  // иначе форма навсегда останется с данными, снятыми на момент первого рендера.
+  useEffect(() => {
+    if (!user) return
+    setDisplayName(user.displayName || user.username || "")
+    setBio(user.bio || "")
+  }, [user?.displayName, user?.bio, user?.username])
+
+  async function handleSave() {
+    setSaving(true)
+    setStatus("idle")
+    try {
+      await apiClient.patch("/auth/me", { displayName, bio })
+      await refreshMe()
+      setStatus("ok")
+    } catch {
+      setStatus("error")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleChangeAvatar() {
+    const url = typeof window !== "undefined" ? window.prompt("Ссылка на изображение аватара:", user?.avatarUrl || "") : null
+    if (!url) return
+    try {
+      await apiClient.patch("/auth/me", { avatarUrl: url })
+      await refreshMe()
+    } catch {
+      setStatus("error")
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <Panel title="Профиль">
@@ -534,19 +590,20 @@ function SettingsTab() {
           {/* Avatar change */}
           <div className="flex items-center gap-4">
             <img
-              src={AVATAR || "/placeholder.svg"}
-              alt="Alex Odin"
+              src={user?.avatarUrl || AVATAR || "/placeholder.svg"}
+              alt={displayName || "Аватар"}
               className="size-16 rounded-full object-cover"
               style={{ border: "1px solid #2A2A3E" }}
             />
-            <OutlineButton Icon={Camera}>Сменить аватар</OutlineButton>
+            <OutlineButton Icon={Camera} onClick={handleChangeAvatar}>Сменить аватар</OutlineButton>
           </div>
 
           {/* Name */}
           <Field label="Имя">
             <input
               type="text"
-              defaultValue="Alex Odin"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
               className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none focus:border-[#00D4FF]"
               style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E", color: "#FFFFFF" }}
             />
@@ -556,7 +613,8 @@ function SettingsTab() {
           <Field label="Био">
             <textarea
               rows={3}
-              defaultValue="Архитектор вселенной. Строю миры из кода и идей."
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
               className="w-full resize-none rounded-lg px-3 py-2.5 text-[14px] outline-none focus:border-[#00D4FF]"
               style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E", color: "#FFFFFF" }}
             />
@@ -582,15 +640,27 @@ function SettingsTab() {
         </div>
       </Panel>
 
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-3">
+        {status === "ok" && (
+          <span className="text-[13px]" style={{ color: "#4ADE80" }} role="status">
+            Сохранено
+          </span>
+        )}
+        {status === "error" && (
+          <span className="text-[13px]" style={{ color: "#EF4444" }} role="status">
+            Не удалось сохранить
+          </span>
+        )}
         <button
           type="button"
-          className="rounded-lg px-6 py-2.5 text-[14px] font-medium transition-opacity"
+          onClick={handleSave}
+          disabled={saving}
+          className="rounded-lg px-6 py-2.5 text-[14px] font-medium transition-opacity disabled:opacity-50"
           style={{ backgroundColor: "#00D4FF", color: "#0A0A0F" }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+          onMouseEnter={(e) => { if (!saving) e.currentTarget.style.opacity = "0.9" }}
+          onMouseLeave={(e) => { if (!saving) e.currentTarget.style.opacity = "1" }}
         >
-          Сохранить
+          {saving ? "Сохранение…" : "Сохранить"}
         </button>
       </div>
     </div>

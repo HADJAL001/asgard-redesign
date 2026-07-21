@@ -21,7 +21,7 @@ const MARKET_FEE = 0.02 // комиссия рынка при досрочном
 router.get("/", requireAuth, (req: AuthRequest, res) => {
   const stakes = db
     .prepare(
-      `SELECT id, amount_tc as amountTc, days, apr, market_fee as marketFee,
+      `SELECT id, amount_tc as amountTC, days, apr, market_fee as marketFee,
               start_ts as startTs, end_ts as endTs, status
        FROM stakes WHERE user_id = ? ORDER BY start_ts DESC`,
     )
@@ -73,7 +73,7 @@ router.post("/", requireAuth, (req: AuthRequest, res) => {
 
   const stake = db
     .prepare(
-      `SELECT id, amount_tc as amountTc, days, apr, market_fee as marketFee,
+      `SELECT id, amount_tc as amountTC, days, apr, market_fee as marketFee,
               start_ts as startTs, end_ts as endTs, status
        FROM stakes WHERE id = ?`,
     )
@@ -122,7 +122,7 @@ router.post("/:id/unstake", requireAuth, (req: AuthRequest, res) => {
 
   const updatedStake = db
     .prepare(
-      `SELECT id, amount_tc as amountTc, days, apr, market_fee as marketFee,
+      `SELECT id, amount_tc as amountTC, days, apr, market_fee as marketFee,
               start_ts as startTs, end_ts as endTs, status
        FROM stakes WHERE id = ?`,
     )

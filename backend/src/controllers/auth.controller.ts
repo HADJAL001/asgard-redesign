@@ -239,13 +239,16 @@ export class AuthController {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      const user = UserModel.findById(userId);
+      const user = UserModel.findById(userId) as any;
       if (!user) {
         return res.status(404).json({ error: 'User not found', code: 'USER_NOT_FOUND' });
       }
 
-      const { password_hash, twofa_secret, ...safeUser } = user;
-      res.json({ success: true, user: safeUser });
+      const { password_hash, twofa_secret, display_name, avatar_url, ...safeUser } = user;
+      res.json({
+        success: true,
+        user: { ...safeUser, displayName: display_name ?? null, avatarUrl: avatar_url ?? null },
+      });
 
     } catch (error: any) {
       res.status(500).json({ error: 'Internal server error' });
