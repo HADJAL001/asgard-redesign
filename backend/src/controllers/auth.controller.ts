@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Joi from 'joi';
 import db from '../db/database';
 
-const SOCIAL_PROVIDERS: SocialProvider[] = ['google', 'discord', 'facebook', 'twitter', 'github'];
+const SOCIAL_PROVIDERS: SocialProvider[] = ['google', 'github'];
 
 const changePasswordSchema = Joi.object({
   oldPassword: Joi.string().required(),

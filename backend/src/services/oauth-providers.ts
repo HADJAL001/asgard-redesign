@@ -65,17 +65,6 @@ export async function exchangeCodeForToken(
   const cfg = OAUTH_CONFIG[provider];
   const redirectUri = getRedirectUri(provider);
 
-  if (provider === 'facebook') {
-    const params = new URLSearchParams({
-      client_id: cfg.clientId,
-      client_secret: cfg.clientSecret,
-      redirect_uri: redirectUri,
-      code,
-    });
-    const body = await requestJson(`${cfg.tokenUrl}?${params.toString()}`, { method: 'GET' });
-    return body.access_token;
-  }
-
   const params = new URLSearchParams({
     client_id: cfg.clientId,
     client_secret: cfg.clientSecret,
@@ -116,41 +105,6 @@ export async function fetchNormalizedProfile(
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       return { id: p.sub, email: p.email ?? null, name: p.name ?? null, avatarUrl: p.picture ?? null };
-    }
-
-    case 'discord': {
-      const p = await requestJson(cfg.userInfoUrl, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      const avatarUrl = p.avatar
-        ? `https://cdn.discordapp.com/avatars/${p.id}/${p.avatar}.png`
-        : null;
-      return { id: p.id, email: p.email ?? null, name: p.username ?? null, avatarUrl };
-    }
-
-    case 'facebook': {
-      const params = new URLSearchParams({ fields: 'id,name,email,picture', access_token: accessToken });
-      const p = await requestJson(`${cfg.userInfoUrl}?${params.toString()}`, {});
-      return {
-        id: p.id,
-        email: p.email ?? null,
-        name: p.name ?? null,
-        avatarUrl: p.picture?.data?.url ?? null,
-      };
-    }
-
-    case 'twitter': {
-      const params = new URLSearchParams({ 'user.fields': 'profile_image_url' });
-      const p = await requestJson(`${cfg.userInfoUrl}?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      // Twitter API v2 не отдаёт email без elevated-доступа — email всегда null.
-      return {
-        id: p.data.id,
-        email: null,
-        name: p.data.name ?? p.data.username ?? null,
-        avatarUrl: p.data.profile_image_url ?? null,
-      };
     }
 
     case 'github': {

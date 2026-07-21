@@ -1,6 +1,6 @@
 import db from '../db/database';
 
-export type SocialProvider = 'google' | 'discord' | 'facebook' | 'twitter' | 'github';
+export type SocialProvider = 'google' | 'github';
 
 export interface User {
   id: number;
@@ -11,9 +11,6 @@ export interface User {
   level?: number;
   phone?: string | null;
   google_id?: string | null;
-  discord_id?: string | null;
-  facebook_id?: string | null;
-  twitter_id?: string | null;
   github_id?: string | null;
   ip_address?: string | null;
   is_linked?: boolean | number;
@@ -81,7 +78,7 @@ export const UserModel = {
     }
   },
 
-  // Найти пользователя по ID соцпровайдера (google/discord/facebook/twitter/github)
+  // Найти пользователя по ID соцпровайдера (google/github)
   findBySocialId(provider: SocialProvider, id: string): User | undefined {
     try {
       return db.prepare(`SELECT * FROM users WHERE ${provider}_id = ?`).get(id) as User | undefined;

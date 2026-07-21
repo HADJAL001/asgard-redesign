@@ -182,7 +182,7 @@ router.post('/:provider/unlink', authenticate, (req: Request, res: Response) => 
 
     const user = UserModel.findById(userId);
     const stillLinked = user
-      ? ['google', 'discord', 'facebook', 'twitter', 'github'].some(
+      ? ['google', 'github'].some(
           (p) => (user as any)[`${p}_id`] != null
         )
       : false;

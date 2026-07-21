@@ -145,7 +145,7 @@ runWalliStatsMigration()
 /* Гарантируем наличие колонки users.banned и роли admin у аккаунта разработчика. */
 runAdminMigration()
 
-/* Гарантируем наличие колонок для соцвходов (google/discord/facebook/twitter/github), phone, ip_address, is_linked, last_login. */
+/* Гарантируем наличие колонок для соцвходов (google/github), phone, ip_address, is_linked, last_login. */
 runSocialLoginMigration()
 
 /* Ослабляем NOT NULL на users.email/password_hash — нужно для чисто соц-аккаунтов без пароля/email. */
