@@ -22,7 +22,7 @@ export type AppGenerationResult = {
   source: "ai" | "fallback"
 }
 
-type ManifestEntry = {
+export type ManifestEntry = {
   path: string
   purpose: string
 }
@@ -33,7 +33,7 @@ const RAW_PROVIDER_CHAIN: Array<(prompt: string, maxTokens: number) => Promise<s
   callGrokRaw,
 ]
 
-async function callAnyProvider(prompt: string, maxTokens: number): Promise<string | null> {
+export async function callAnyProvider(prompt: string, maxTokens: number): Promise<string | null> {
   for (const provider of RAW_PROVIDER_CHAIN) {
     const result = await provider(prompt, maxTokens)
     if (result) return result

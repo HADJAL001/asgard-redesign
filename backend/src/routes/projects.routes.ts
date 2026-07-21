@@ -3,9 +3,18 @@ import { Octokit } from "@octokit/rest"
 import archiver from "archiver"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
-import { localFallbackGeneration, isAiConfigured } from "../services/ai-generator"
+import { localFallbackGeneration, isAiConfigured, type AiArtifactSuggestion } from "../services/ai-generator"
 import { generateApp, validateGeneratedFiles, GeneratedAppFile } from "../services/app-generator"
 import { runNetlifyDeployJob, isNetlifyConfigured } from "../services/netlify-deploy"
+import {
+  detectTheme,
+  findBestTemplate,
+  saveTemplateFromGeneration,
+  incrementTemplateUsage,
+  estimateTokensSaved,
+  type MatchedTemplate,
+} from "../services/template-store"
+import { adaptTemplate } from "../services/template-adapter"
 import { decrypt } from "../utils/encryption"
 
 const router = Router()
@@ -232,11 +241,55 @@ function insertStarterArtifacts(
 }
 
 /** Асинхронный джоб генерации реального приложения — вызывается fire-and-forget сразу
- *  после ответа клиенту. Никогда не бросает наружу: любая ошибка помечает проект failed. */
-async function runAppGenerationJob(projectId: number, name: string, hint: string | undefined) {
+ *  после ответа клиенту. Никогда не бросает наружу: любая ошибка помечает проект failed.
+ *
+ *  Если синхронно (в POST /generate) был найден подходящий шаблон той же темы — вместо
+ *  полной AI-генерации (манифест + файлы, дорого по токенам) делается один короткий
+ *  bounded-вызов адаптации (adaptTemplate), а остальные файлы шаблона переиспользуются
+ *  байт-в-байт. Иначе — обычная полная генерация (generateApp), и при её успехе через AI
+ *  результат сохраняется как новый шаблон для будущих проектов той же темы. */
+async function runAppGenerationJob(
+  projectId: number,
+  name: string,
+  hint: string | undefined,
+  quick: { description: string; badge: string; artifacts: AiArtifactSuggestion[] },
+  template: MatchedTemplate | null,
+) {
   try {
-    const result = await generateApp(name, hint)
-    const errors = validateGeneratedFiles(result.files)
+    let files: GeneratedAppFile[]
+    let source: string
+    let description = quick.description
+    let badge = quick.badge
+    let artifactNames: string[] | null = null
+
+    if (template) {
+      const adapted = await adaptTemplate(template, name, hint)
+      files = adapted.files
+      source = adapted.source
+      description = adapted.description
+      badge = adapted.badge
+      artifactNames = adapted.artifactNames
+
+      incrementTemplateUsage(template.id, estimateTokensSaved(template.files.length))
+    } else {
+      const result = await generateApp(name, hint)
+      files = result.files
+      source = result.source
+
+      if (result.source === "ai") {
+        saveTemplateFromGeneration({
+          name,
+          hint,
+          description: quick.description,
+          badge: quick.badge,
+          manifest: files.map((f) => ({ path: f.path, purpose: f.path })),
+          files,
+          artifactTypes: quick.artifacts,
+        })
+      }
+    }
+
+    const errors = validateGeneratedFiles(files)
 
     const insertFile = db.prepare(
       `INSERT INTO project_files (project_id, path, content, updated_at)
@@ -244,15 +297,23 @@ async function runAppGenerationJob(projectId: number, name: string, hint: string
        ON CONFLICT(project_id, path) DO UPDATE SET content = excluded.content, updated_at = excluded.updated_at`,
     )
     const now = Date.now()
-    for (const file of result.files as GeneratedAppFile[]) {
+    for (const file of files) {
       insertFile.run(projectId, file.path, file.content, now)
     }
 
-    db.prepare(`UPDATE projects SET status = 'ready', ai_source = ?, generation_error = ? WHERE id = ?`).run(
-      result.source,
-      errors.length > 0 ? errors.join("\n") : null,
-      projectId,
-    )
+    db.prepare(
+      `UPDATE projects SET status = 'ready', ai_source = ?, generation_error = ?, description = ?, badge = ? WHERE id = ?`,
+    ).run(source, errors.length > 0 ? errors.join("\n") : null, description, badge, projectId)
+
+    if (artifactNames) {
+      const rows = db
+        .prepare(`SELECT id FROM artifacts WHERE project_id = ? ORDER BY id ASC`)
+        .all(projectId) as Array<{ id: number }>
+      const renameArtifact = db.prepare(`UPDATE artifacts SET name = ? WHERE id = ?`)
+      rows.forEach((row, i) => {
+        if (artifactNames![i]) renameArtifact.run(artifactNames![i], row.id)
+      })
+    }
   } catch (err: any) {
     console.error("[projects.generate] app generation job failed:", err)
     db.prepare(`UPDATE projects SET status = 'failed', generation_error = ? WHERE id = ?`).run(
@@ -279,15 +340,26 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res) => {
   try {
     const trimmedName = name.trim()
     const safeHint = typeof hint === "string" ? hint : undefined
-    const quick = localFallbackGeneration(trimmedName, safeHint)
+
+    const { theme, keywords } = detectTheme(trimmedName, safeHint)
+    const template = findBestTemplate(theme, keywords)
+
+    const quick: { description: string; badge: string; artifacts: AiArtifactSuggestion[] } = template
+      ? {
+          description: template.description || `${trimmedName} — проект в теме «${template.theme}».`,
+          badge: template.badge || "sparkles",
+          artifacts: template.artifactTypes,
+        }
+      : localFallbackGeneration(trimmedName, safeHint)
+
     const now = Date.now()
 
     const projectInfo = db
       .prepare(
-        `INSERT INTO projects (user_id, name, description, badge, artifact_count, sold, income, status, created_at)
-         VALUES (?, ?, ?, ?, 0, 0, 0, 'generating', ?)`,
+        `INSERT INTO projects (user_id, name, description, badge, artifact_count, sold, income, status, template_id, created_at)
+         VALUES (?, ?, ?, ?, 0, 0, 0, 'generating', ?, ?)`,
       )
-      .run(req.user!.userId, trimmedName, quick.description, quick.badge, now)
+      .run(req.user!.userId, trimmedName, quick.description, quick.badge, template?.id ?? null, now)
 
     const projectId = Number(projectInfo.lastInsertRowid)
     insertStarterArtifacts(req.user!.userId, projectId, quick.artifacts, now)
@@ -303,7 +375,7 @@ router.post("/generate", requireAuth, async (req: AuthRequest, res) => {
 
     res.status(202).json({ project, artifacts, aiConfigured: isAiConfigured() })
 
-    void runAppGenerationJob(projectId, trimmedName, safeHint)
+    void runAppGenerationJob(projectId, trimmedName, safeHint, quick, template)
   } catch (err) {
     console.error("[projects.generate] error:", err)
     res.status(500).json({ error: "Не удалось создать проект" })
