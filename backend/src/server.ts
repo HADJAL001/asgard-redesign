@@ -8,6 +8,25 @@ import db from "./lib/db"
 
 dotenv.config()
 
+/* Предупреждение о дефолтных секретах: JWT_SECRET/JWT_REFRESH_SECRET/ENCRYPTION_KEY
+   имеют хардкод-фолбэки в auth.ts/encryption.ts (чтобы сервер не падал при старте),
+   но на проде с фолбэком токены/шифрование становятся тривиально подделываемыми
+   или расшифровываемыми. Сам фолбэк не меняем — на Railway уже могут лежать данные,
+   зашифрованные/подписанные им, и смена ключа без миграции их сломает. Просто громко
+   предупреждаем в логах, чтобы это было видно при деплое. */
+;(function warnOnDefaultSecrets() {
+  const missing: string[] = []
+  if (!process.env.JWT_SECRET) missing.push("JWT_SECRET")
+  if (!process.env.JWT_REFRESH_SECRET) missing.push("JWT_REFRESH_SECRET")
+  if (!process.env.ENCRYPTION_KEY) missing.push("ENCRYPTION_KEY")
+  if (missing.length > 0) {
+    console.warn(
+      `[security] Не заданы переменные окружения: ${missing.join(", ")} — используются небезопасные дефолты из кода. ` +
+        `Задайте их в окружении (Railway → Variables), особенно в production.`,
+    )
+  }
+})()
+
 /* Защитная сетка поверх asyncHandler на роутах: если где-то всё же проскочит
    необработанный reject/throw (в т.ч. вне HTTP-запроса — например, в фоновом
    fire-and-forget джобе), по умолчанию Node (>=15) убивает ВЕСЬ процесс.
