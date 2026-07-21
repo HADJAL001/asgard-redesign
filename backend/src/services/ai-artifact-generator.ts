@@ -2,7 +2,7 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
-import { callOpenAiCompatible, extractJson, hashString } from "./ai-generator"
+import { callOpenAiCompatible, extractJson, hashString } from "./ai-router"
 
 /* ================================================================
    OSGARD · AI Artifact Generator Service

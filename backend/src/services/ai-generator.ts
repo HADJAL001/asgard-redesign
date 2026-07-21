@@ -1,4 +1,15 @@
 import dotenv from "dotenv"
+import { cacheService } from "./cache.service"
+import {
+  hashString,
+  extractJson,
+  callOpenAiCompatible,
+  callClaudeApi,
+  callClaudeRaw,
+  callDeepSeekRaw,
+  callGrokRaw,
+  isAiConfigured,
+} from "./ai-router"
 
 dotenv.config()
 
@@ -11,21 +22,19 @@ dotenv.config()
    если Claude недоступен. Если ни один ключ не задан или все запросы
    упали — используется детерминированный локальный fallback, так что
    фича работает даже без реального AI-провайдера.
+
+   Вызовы провайдеров и общие хелперы (extractJson, hashString) живут
+   в ai-router.ts — здесь только project-generation-специфичная
+   логика: промпт, парсинг, fallback и кеш результата.
    ================================================================ */
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ""
 const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat"
 
-const GROK_API_KEY = process.env.GROK_API_KEY || ""
+const GROK_API_KEY = process.env.GROK_API_KEY || process.env.XAI_API_KEY || ""
 const GROK_API_URL = "https://api.x.ai/v1/chat/completions"
-const GROK_MODEL = process.env.GROK_MODEL || "grok-4-fast" /* grok-2-latest снят с производства xAI, возвращает "Model not found" */
-
-const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY || ""
-/* Временно можно указать CLAUDE_API_URL в .env, чтобы направить запросы через сторонний
-   шлюз (например, на время отсутствия прямого ключа Anthropic). По умолчанию — офиц. API. */
-const CLAUDE_API_URL = process.env.CLAUDE_API_URL || "https://api.anthropic.com/v1/messages"
-const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022"
+const GROK_MODEL = process.env.GROK_MODEL || process.env.XAI_MODEL || "grok-4-fast"
 
 export type AiArtifactSuggestion = {
   name: string
@@ -54,16 +63,6 @@ const BADGE_POOL = [
 
 const ARTIFACT_TYPES: AiArtifactSuggestion["type"][] = ["neural", "crystal", "weapon", "shield", "artifact"]
 
-/** Простой детерминированный хэш строки → число (для стабильного fallback-выбора). */
-export function hashString(str: string): number {
-  let h = 0
-  for (let i = 0; i < str.length; i++) {
-    h = (h << 5) - h + str.charCodeAt(i)
-    h |= 0
-  }
-  return Math.abs(h)
-}
-
 /** Локальный fallback-генератор — работает без внешнего API, без сети, без ключей. */
 export function localFallbackGeneration(name: string, hint?: string): AiProjectGeneration {
   const seed = hashString(name + (hint || ""))
@@ -88,28 +87,6 @@ export function localFallbackGeneration(name: string, hint?: string): AiProjectG
   })
 
   return { description, badge, artifacts, source: "fallback" }
-}
-
-/** Пытается распарсить JSON-объект из текстового ответа модели (может быть обёрнут в ```json ... ```). */
-export function extractJson(text: string): any | null {
-  const cleaned = text.replace(/```json/gi, "```").trim()
-  const fenced = cleaned.match(/```([\s\S]*?)```/)
-  const candidate = fenced ? fenced[1].trim() : cleaned
-  try {
-    return JSON.parse(candidate)
-  } catch {
-    // попробуем найти первую { ... } подстроку
-    const start = candidate.indexOf("{")
-    const end = candidate.lastIndexOf("}")
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(candidate.slice(start, end + 1))
-      } catch {
-        return null
-      }
-    }
-    return null
-  }
 }
 
 function isValidType(t: any): t is AiArtifactSuggestion["type"] {
@@ -152,46 +129,6 @@ function parseGeneration(text: string, source: AiProjectGeneration["source"]): A
   return { description, badge, artifacts, source }
 }
 
-/** Общий вызов для OpenAI-совместимых chat/completions API (DeepSeek, Grok/xAI). */
-export async function callOpenAiCompatible<T>(
-  apiUrl: string,
-  apiKey: string,
-  model: string,
-  prompt: string,
-  parser: (text: string) => T | null,
-  logLabel: string,
-  maxTokens: number = 1024,
-): Promise<T | null> {
-  if (!apiKey) return null
-
-  try {
-    const res = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: maxTokens,
-      }),
-    })
-
-    if (!res.ok) {
-      console.error(`[ai-generator] ${logLabel} API error: ${res.status} ${res.statusText}`)
-      return null
-    }
-
-    const data: any = await res.json()
-    const text: string = data?.choices?.[0]?.message?.content || ""
-    return parser(text)
-  } catch (err) {
-    console.error(`[ai-generator] ${logLabel} API call failed:`, err)
-    return null
-  }
-}
-
 /** Вызывает DeepSeek API для генерации описания проекта, бейджа и стартовых артефактов. */
 async function callDeepSeek(name: string, hint?: string): Promise<AiProjectGeneration | null> {
   return callOpenAiCompatible(
@@ -208,38 +145,6 @@ async function callGrok(name: string, hint?: string): Promise<AiProjectGeneratio
   )
 }
 
-/** Общий вызов Claude API (Anthropic messages endpoint), возвращает сырой текст ответа. */
-export async function callClaudeApi(prompt: string, maxTokens: number = 1024): Promise<string | null> {
-  if (!CLAUDE_API_KEY) return null
-
-  try {
-    const res = await fetch(CLAUDE_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": CLAUDE_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        max_tokens: maxTokens,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    })
-
-    if (!res.ok) {
-      console.error(`[ai-generator] Claude API error: ${res.status} ${res.statusText}`)
-      return null
-    }
-
-    const data: any = await res.json()
-    return data?.content?.[0]?.text || ""
-  } catch (err) {
-    console.error("[ai-generator] Claude API call failed:", err)
-    return null
-  }
-}
-
 /** Вызывает Claude API для генерации описания проекта, бейджа и стартовых артефактов. */
 async function callClaude(name: string, hint?: string): Promise<AiProjectGeneration | null> {
   const text = await callClaudeApi(buildPrompt(name, hint), 1024)
@@ -249,26 +154,12 @@ async function callClaude(name: string, hint?: string): Promise<AiProjectGenerat
 
 const PROVIDER_CHAIN = [callClaude, callDeepSeek, callGrok]
 
-/** Сырые (без JSON-парсинга) вызовы провайдеров — переиспользуются генератором реальных приложений
- *  (`app-generator.ts`), где ответ — это исходный код файла, а не JSON-структура. */
-export async function callClaudeRaw(prompt: string, maxTokens: number): Promise<string | null> {
-  return callClaudeApi(prompt, maxTokens)
-}
-
-export async function callDeepSeekRaw(prompt: string, maxTokens: number): Promise<string | null> {
-  return callOpenAiCompatible(DEEPSEEK_API_URL, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, prompt, (t) => t, "deepseek-raw", maxTokens)
-}
-
-export async function callGrokRaw(prompt: string, maxTokens: number): Promise<string | null> {
-  return callOpenAiCompatible(GROK_API_URL, GROK_API_KEY, GROK_MODEL, prompt, (t) => t, "grok-raw", maxTokens)
-}
-
 /**
- * Основная точка входа: пробует провайдеров по очереди (Claude → DeepSeek → Grok),
- * при отсутствии ключа или ошибке переходит к следующему. Если все отказали —
- * откатывается на локальный fallback.
+ * Пробует провайдеров по очереди (Claude → DeepSeek → Grok), при отсутствии
+ * ключа или ошибке переходит к следующему. Если все отказали — откатывается
+ * на локальный fallback.
  */
-export async function generateProjectContent(name: string, hint?: string): Promise<AiProjectGeneration> {
+async function generateProjectContentUncached(name: string, hint?: string): Promise<AiProjectGeneration> {
   for (const provider of PROVIDER_CHAIN) {
     const result = await provider(name, hint)
     if (result) return result
@@ -276,7 +167,19 @@ export async function generateProjectContent(name: string, hint?: string): Promi
   return localFallbackGeneration(name, hint)
 }
 
-/** true, если хотя бы один реальный AI-провайдер сконфигурирован (иначе всегда используется fallback). */
-export function isAiConfigured(): boolean {
-  return !!(DEEPSEEK_API_KEY || GROK_API_KEY || CLAUDE_API_KEY)
+const PROJECT_GEN_CACHE_TTL_SECONDS = 60 * 60 // 1 час
+
+/**
+ * Основная точка входа: как generateProjectContentUncached, но с кешем по
+ * хэшу (name + hint) — одинаковые название и подсказка проекта не редкость
+ * (частые/generic hints), а генерация детерминирована с точки зрения
+ * пользователя, так что повторный вызов API не нужен.
+ */
+export async function generateProjectContent(name: string, hint?: string): Promise<AiProjectGeneration> {
+  const cacheKey = `project-gen:${hashString(name + "::" + (hint || ""))}`
+  return cacheService.getOrSet(cacheKey, PROJECT_GEN_CACHE_TTL_SECONDS, () =>
+    generateProjectContentUncached(name, hint),
+  )
 }
+
+export { hashString, extractJson, callOpenAiCompatible, callClaudeRaw, callDeepSeekRaw, callGrokRaw, isAiConfigured }

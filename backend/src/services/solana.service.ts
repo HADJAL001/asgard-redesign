@@ -70,7 +70,7 @@ export class SolanaService {
   async getTreasuryBalance(): Promise<number> {
     const { wallet, mint } = this.requireWallet();
 
-    const cached = cacheService.get('treasury_balance');
+    const cached = await cacheService.get('treasury_balance');
     if (cached !== null) return cached;
 
     const tokenAccount = await getOrCreateAssociatedTokenAccount(
@@ -81,7 +81,7 @@ export class SolanaService {
     );
     const balance = await this.connection.getTokenAccountBalance(tokenAccount.address);
     const value = balance.value.uiAmount || 0;
-    cacheService.set('treasury_balance', value, 5); // кэш на 5 секунд
+    await cacheService.set('treasury_balance', value, 5); // кэш на 5 секунд
     return value;
   }
 

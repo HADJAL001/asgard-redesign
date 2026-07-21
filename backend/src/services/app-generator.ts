@@ -1,4 +1,4 @@
-import { callClaudeRaw, callDeepSeekRaw, callGrokRaw, extractJson, isAiConfigured } from "./ai-generator"
+import { callClaudeRaw, callDeepSeekRaw, callGrokRaw, extractJson, isAiConfigured } from "./ai-router"
 
 /* ================================================================
    OSGARD · App Generator Service

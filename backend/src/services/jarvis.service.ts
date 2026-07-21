@@ -1,5 +1,6 @@
 import dotenv from "dotenv"
 import db from "../lib/db"
+import { callDeepSeek as routerCallDeepSeek, callGrok as routerCallGrok, callClaudeApi, isAiConfigured } from "./ai-router"
 
 dotenv.config()
 
@@ -15,20 +16,10 @@ dotenv.config()
 
    Если ключ провайдера не задан или запрос упал — откат на
    следующий уровень по цепочке DeepSeek → Grok → Claude → fallback-текст,
-   так что сервис работает даже без внешних API.
+   так что сервис работает даже без внешних API. Сами вызовы провайдеров
+   живут в ai-router.ts — здесь только маршрутизация, локальные ответы
+   и собственный per-user кеш вопросов.
    ================================================================ */
-
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ""
-const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat"
-
-const XAI_API_KEY = process.env.XAI_API_KEY || ""
-const XAI_API_URL = "https://api.x.ai/v1/chat/completions"
-const XAI_MODEL = process.env.XAI_MODEL || "grok-4-fast" /* grok-2-latest снят с производства xAI, возвращает "Model not found" */
-
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || ""
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022"
 
 const JARVIS_SYSTEM_PROMPT =
   "Ты — ВАЛЛИ, AI-ассистент платформы OSGARD (игровая экосистема с артефактами, валютами и стейкингом). " +
@@ -186,96 +177,21 @@ function tryLocalAnswer(userId: number, question: string): string | null {
    3. Вызовы внешних AI-провайдеров
    ================================================================ */
 
+function nonEmpty(text: string | null): string | null {
+  return typeof text === "string" && text.trim() ? text.trim() : null
+}
+
 async function callDeepSeek(question: string): Promise<string | null> {
-  if (!DEEPSEEK_API_KEY) return null
-  try {
-    const res = await fetch(DEEPSEEK_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
-        messages: [
-          { role: "system", content: JARVIS_SYSTEM_PROMPT },
-          { role: "user", content: question },
-        ],
-        max_tokens: 512,
-      }),
-    })
-    if (!res.ok) {
-      console.error(`[jarvis] DeepSeek API error: ${res.status} ${res.statusText}`)
-      return null
-    }
-    const data: any = await res.json()
-    const text = data?.choices?.[0]?.message?.content
-    return typeof text === "string" && text.trim() ? text.trim() : null
-  } catch (err) {
-    console.error("[jarvis] DeepSeek call failed:", err)
-    return null
-  }
+  return routerCallDeepSeek(question, nonEmpty, "jarvis-deepseek", 512, JARVIS_SYSTEM_PROMPT)
 }
 
 async function callGrok(question: string): Promise<string | null> {
-  if (!XAI_API_KEY) return null
-  try {
-    const res = await fetch(XAI_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${XAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: XAI_MODEL,
-        messages: [
-          { role: "system", content: JARVIS_SYSTEM_PROMPT },
-          { role: "user", content: question },
-        ],
-        max_tokens: 768,
-      }),
-    })
-    if (!res.ok) {
-      console.error(`[jarvis] Grok (xAI) API error: ${res.status} ${res.statusText}`)
-      return null
-    }
-    const data: any = await res.json()
-    const text = data?.choices?.[0]?.message?.content
-    return typeof text === "string" && text.trim() ? text.trim() : null
-  } catch (err) {
-    console.error("[jarvis] Grok call failed:", err)
-    return null
-  }
+  return routerCallGrok(question, nonEmpty, "jarvis-grok", 768, JARVIS_SYSTEM_PROMPT)
 }
 
 async function callClaude(question: string): Promise<string | null> {
-  if (!ANTHROPIC_API_KEY) return null
-  try {
-    const res = await fetch(ANTHROPIC_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 1024,
-        system: JARVIS_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: question }],
-      }),
-    })
-    if (!res.ok) {
-      console.error(`[jarvis] Claude API error: ${res.status} ${res.statusText}`)
-      return null
-    }
-    const data: any = await res.json()
-    const text = data?.content?.[0]?.text
-    return typeof text === "string" && text.trim() ? text.trim() : null
-  } catch (err) {
-    console.error("[jarvis] Claude call failed:", err)
-    return null
-  }
+  const text = await callClaudeApi(question, 1024, JARVIS_SYSTEM_PROMPT)
+  return text == null ? null : nonEmpty(text)
 }
 
 /** Локальный fallback, если ни один провайдер не ответил (нет ключей / все упали). */
@@ -334,5 +250,5 @@ export async function askJarvis(userId: number, rawQuestion: string): Promise<Ja
 }
 
 export function isAnyProviderConfigured(): boolean {
-  return !!DEEPSEEK_API_KEY || !!XAI_API_KEY || !!ANTHROPIC_API_KEY
+  return isAiConfigured()
 }

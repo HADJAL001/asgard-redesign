@@ -1,5 +1,5 @@
 import dotenv from "dotenv"
-import { callOpenAiCompatible, extractJson } from "./ai-generator"
+import { callOpenAiCompatible, extractJson } from "./ai-router"
 
 dotenv.config()
 
