@@ -37,6 +37,8 @@ type AuthValue = {
   isAuthenticated: boolean
   login: (username: string, password: string) => Promise<AuthResult>
   register: (username: string, email: string, password: string) => Promise<AuthResult>
+  /** Логин по токенам, выданным бэкендом после OAuth-редиректа (см. /auth/callback). */
+  loginWithToken: (token: string, refreshToken?: string) => Promise<AuthResult>
   logout: () => void
   getToken: () => string | null
   refreshMe: () => Promise<void>
@@ -100,6 +102,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const loginWithToken = useCallback<AuthValue["loginWithToken"]>(async (authToken) => {
+    try {
+      setToken(authToken)
+      setTokenState(authToken)
+      const data = await apiClient.get<{ user: User }>("/auth/me", { skipAuthRedirect: true })
+      setStoredUser(data.user)
+      setUser(data.user)
+      return { ok: true }
+    } catch (err: any) {
+      setToken(null)
+      setTokenState(null)
+      return { ok: false, message: err?.message || "Не удалось выполнить вход" }
+    }
+  }, [])
+
   const logout = useCallback(() => {
     setToken(null)
     setStoredUser(null)
@@ -128,11 +145,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!token,
       login,
       register,
+      loginWithToken,
       logout,
       getToken,
       refreshMe,
     }),
-    [user, token, loading, login, register, logout, refreshMe],
+    [user, token, loading, login, register, loginWithToken, logout, refreshMe],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

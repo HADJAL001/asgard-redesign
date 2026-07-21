@@ -4,6 +4,7 @@ import { Suspense, useState, type FormEvent } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Infinity as InfinityIcon, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-store"
+import { SocialLoginButtons } from "@/components/social-login-buttons"
 
 /* ================================================================
    OSGARD · Login / Register
@@ -33,9 +34,11 @@ function LoginPageInner() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
   const nextPath = searchParams.get("next") || "/dashboard"
+  const oauthError = searchParams.get("oauthError")
+  const [error, setError] = useState<string | null>(
+    oauthError ? "Не удалось выполнить вход через соцсеть. Попробуйте ещё раз." : null,
+  )
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -213,6 +216,10 @@ function LoginPageInner() {
               {mode === "login" ? "Войти" : "Создать аккаунт"}
             </button>
           </form>
+
+          <div className="mt-5">
+            <SocialLoginButtons />
+          </div>
         </div>
 
         <p className="mt-6 text-center text-xs text-[#6A6A8A]">

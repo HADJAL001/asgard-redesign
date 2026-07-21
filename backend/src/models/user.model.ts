@@ -1,5 +1,7 @@
 import db from '../db/database';
 
+export type SocialProvider = 'google' | 'discord' | 'facebook' | 'twitter' | 'github';
+
 export interface User {
   id: number;
   email: string;
@@ -7,6 +9,15 @@ export interface User {
   username: string;
   display_name?: string;
   level?: number;
+  phone?: string | null;
+  google_id?: string | null;
+  discord_id?: string | null;
+  facebook_id?: string | null;
+  twitter_id?: string | null;
+  github_id?: string | null;
+  ip_address?: string | null;
+  is_linked?: boolean | number;
+  last_login?: number | null;
   referral_code?: string;
   referred_by?: number | null;
   is_verified?: boolean;
@@ -20,9 +31,11 @@ export interface User {
 }
 
 export interface CreateUserInput {
-  email: string;
-  password_hash: string;
+  email?: string | null;
+  password_hash?: string | null;
   username: string;
+  phone?: string | null;
+  ip_address?: string | null;
   referral_code?: string;
   referred_by?: number | null;
   is_verified?: boolean;
@@ -57,6 +70,29 @@ export const UserModel = {
     }
   },
 
+  // Найти пользователя по телефону
+  findByPhone(phone: string): User | undefined {
+    try {
+      return db.prepare('SELECT * FROM users WHERE phone = ?').get(phone) as User | undefined;
+    } catch (e) {
+      return undefined;
+    }
+  },
+
+  // Найти пользователя по ID соцпровайдера (google/discord/facebook/twitter/github)
+  findBySocialId(provider: SocialProvider, id: string): User | undefined {
+    try {
+      return db.prepare(`SELECT * FROM users WHERE ${provider}_id = ?`).get(id) as User | undefined;
+    } catch (e) {
+      return undefined;
+    }
+  },
+
+  // Привязать соцаккаунт к существующему пользователю
+  linkSocialAccount(userId: number, provider: SocialProvider, socialId: string): void {
+    db.prepare(`UPDATE users SET ${provider}_id = ?, is_linked = 1 WHERE id = ?`).run(socialId, userId);
+  },
+
   // Создать пользователя — совместимо со схемой db/migrations/001_initial_schema.ts
   // Схема: id, email, password_hash, username, balance_credits, balance_shards,
   //        balance_crystals, balance_tc, referral_code, referred_by, is_verified,
@@ -69,15 +105,17 @@ export const UserModel = {
       .some((c) => c.name === 'display_name');
 
     const columns = ['email', 'password_hash', 'username']
-    const values: any[] = [data.email, data.password_hash, data.username]
+    const values: any[] = [data.email ?? null, data.password_hash ?? null, data.username]
 
     if (hasDisplayName) {
       columns.push('display_name')
       values.push(data.username)
     }
 
-    columns.push('referral_code', 'referred_by', 'is_verified', 'twofa_secret', 'twofa_enabled', 'nonce', 'role')
+    columns.push('phone', 'ip_address', 'referral_code', 'referred_by', 'is_verified', 'twofa_secret', 'twofa_enabled', 'nonce', 'role')
     values.push(
+      data.phone ?? null,
+      data.ip_address ?? null,
       data.referral_code ?? null,
       data.referred_by ?? null,
       data.is_verified ? 1 : 0,
@@ -157,9 +195,9 @@ export const UserModel = {
   // Обновить время последнего входа
   updateLastLogin(userId: number): void {
     try {
-      db.prepare('UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(userId);
+      db.prepare('UPDATE users SET updated_at = CURRENT_TIMESTAMP, last_login = unixepoch() WHERE id = ?').run(userId);
     } catch (e) {
-      // updated_at может не существовать
+      // updated_at/last_login может не существовать
     }
   }
 };

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Infinity as InfinityIcon, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-store"
+import { SocialLoginButtons } from "@/components/social-login-buttons"
 
 /* ================================================================
    OSGARD · Register
@@ -150,6 +151,10 @@ export default function RegisterPage() {
               Создать аккаунт
             </button>
           </form>
+
+          <div className="mt-5">
+            <SocialLoginButtons />
+          </div>
         </div>
 
         <p className="mt-6 text-center text-xs text-[#6A6A8A]">

@@ -22,6 +22,12 @@ if (!ALLOWED_ORIGINS.includes("http://localhost:3000")) {
 if (!ALLOWED_ORIGINS.includes("http://localhost:3001")) {
   ALLOWED_ORIGINS.push("http://localhost:3001")
 }
+if (!ALLOWED_ORIGINS.includes("https://osgardnewworld.com")) {
+  ALLOWED_ORIGINS.push("https://osgardnewworld.com")
+}
+if (!ALLOWED_ORIGINS.includes("https://www.osgardnewworld.com")) {
+  ALLOWED_ORIGINS.push("https://www.osgardnewworld.com")
+}
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -71,6 +77,7 @@ app.get("/health", (_req, res) => {
 
 /* Routes are mounted after they're implemented in later stages */
 import authRoutes from "./routes/auth.routes"
+import oauthRoutes from "./routes/oauth.routes"
 import walletRoutes from "./routes/wallet.routes"
 import tcMarketRoutes from "./routes/tcmarket.routes"
 import stakesRoutes from "./routes/stakes.routes"
@@ -100,6 +107,8 @@ import { runIndexesMigration } from "./migrations/011_indexes"
 import { runWalliSystemMigration } from "./migrations/012_walli_system"
 import { runWalliStatsMigration } from "./migrations/013_walli_stats"
 import { runAdminMigration } from "./migrations/014_admin"
+import { runSocialLoginMigration } from "./migrations/015_social_login"
+import { runRelaxRequiredFieldsMigration } from "./migrations/016_relax_required_fields"
 import walliRoutes from "./routes/walli.routes"
 import demoRoutes from "./routes/demo.routes"
 import adminRoutes from "./routes/admin.routes"
@@ -136,10 +145,17 @@ runWalliStatsMigration()
 /* Гарантируем наличие колонки users.banned и роли admin у аккаунта разработчика. */
 runAdminMigration()
 
+/* Гарантируем наличие колонок для соцвходов (google/discord/facebook/twitter/github), phone, ip_address, is_linked, last_login. */
+runSocialLoginMigration()
+
+/* Ослабляем NOT NULL на users.email/password_hash — нужно для чисто соц-аккаунтов без пароля/email. */
+runRelaxRequiredFieldsMigration()
+
 
 
 
 app.use("/auth", authRoutes)
+app.use("/auth", oauthRoutes)
 app.use("/wallet", walletRoutes)
 app.use("/tc-market", tcMarketRoutes)
 app.use("/stakes", stakesRoutes)
