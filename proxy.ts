@@ -65,7 +65,7 @@ export function proxy(request: NextRequest) {
     base-uri 'self';
     form-action 'self';
     frame-ancestors 'none';
-    connect-src 'self' https://api.mainnet-beta.solana.com ${process.env.NEXT_PUBLIC_API_URL || ""};
+    connect-src 'self' https://api.mainnet-beta.solana.com;
     upgrade-insecure-requests;
   `
   const contentSecurityPolicyHeaderValue = cspHeader.replace(/\s{2,}/g, " ").trim()

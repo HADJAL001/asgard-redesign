@@ -1,5 +1,6 @@
 "use client"
 
+import { use } from "react"
 import dynamic from "next/dynamic"
 
 const OrchestratorEditorView = dynamic(
@@ -14,7 +15,8 @@ const OrchestratorEditorView = dynamic(
   }
 )
 
-export default function Page({ params }: { params: { id: string } }) {
-  const chainId = params.id === "new" ? "new" : Number(params.id)
+export default function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
+  const chainId = id === "new" ? "new" : Number(id)
   return <OrchestratorEditorView chainId={chainId} />
 }

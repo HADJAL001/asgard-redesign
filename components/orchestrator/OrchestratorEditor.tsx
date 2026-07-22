@@ -330,8 +330,6 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
       <div className="flex min-h-0 flex-1 gap-3">
         <div
           ref={wrapperRef}
-          onDrop={onDrop}
-          onDragOver={onDragOver}
           className="min-h-[480px] flex-1 overflow-hidden rounded-xl"
           style={{ border: `1px solid ${COLORS.border}` }}
         >
