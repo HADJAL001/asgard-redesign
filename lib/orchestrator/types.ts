@@ -42,6 +42,8 @@ export interface OrchestratorChain {
   description: string | null
   is_public: number
   price_tc: number
+  /** 1 если цепочка сохранена как шаблон ВАЛЛИ-советника (is_jarvis_template = 1 в БД) */
+  is_jarvis_template: number
   nodes: OrchestratorFlowNode[]
   edges: OrchestratorFlowEdge[]
   created_at: number

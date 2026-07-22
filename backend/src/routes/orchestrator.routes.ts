@@ -250,6 +250,47 @@ router.get("/stream/:executionId", requireAuth, (req: AuthRequest, res) => {
   req.on("close", cleanup)
 })
 
+/* ---------------- POST /orchestrator/chains/:id/jarvis-template ---------------- */
+router.post(
+  "/chains/:id/jarvis-template",
+  requireAuth,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.userId
+    const chainId = Number(req.params.id)
+    const chain = getChain(userId, chainId)
+    if (!chain) return res.status(404).json({ error: "Цепочка не найдена" })
+
+    db.prepare(
+      `UPDATE orchestrator_chains
+       SET is_jarvis_template = 1, is_public = 1, updated_at = ?
+       WHERE id = ? AND user_id = ?`,
+    ).run(Date.now(), chainId, userId)
+
+    const updated = getChain(userId, chainId)
+    res.json({ chain: updated })
+  }),
+)
+
+/* ---------------- DELETE /orchestrator/chains/:id/jarvis-template ---------------- */
+router.delete(
+  "/chains/:id/jarvis-template",
+  requireAuth,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.userId
+    const chainId = Number(req.params.id)
+    const chain = getChain(userId, chainId)
+    if (!chain) return res.status(404).json({ error: "Цепочка не найдена" })
+
+    db.prepare(
+      `UPDATE orchestrator_chains
+       SET is_jarvis_template = 0, updated_at = ?
+       WHERE id = ? AND user_id = ?`,
+    ).run(Date.now(), chainId, userId)
+
+    res.json({ success: true })
+  }),
+)
+
 /* ---------------- GET /orchestrator/executions/:id ---------------- */
 router.get("/executions/:id", requireAuth, (req: AuthRequest, res) => {
   const execution = getExecution(req.user!.userId, Number(req.params.id))

@@ -432,7 +432,15 @@
     "insufficientTcTitle": "TimeCoin жеткіліксіз",
     "insufficientTcMessage": "Тізбекті іске қосу үшін TimeCoin жеткіліксіз. Балансты толтырыңыз",
     "topUpBtn": "Толтыру",
-    "closeBtn": "Жабу"
+    "closeBtn": "Жабу",
+    "quotaLabel": "{{remaining}} / {{total}} сұраныс",
+    "quotaTooltip": "Бүгін {{remaining}} / {{total}} сұраныс қалды",
+    "jarvisTemplateBtn": "ВАЛЛИ үлгісі",
+    "jarvisTemplateActive": "ВАЛЛИ үлгісі ✓",
+    "saveAsJarvisTemplate": "ВАЛЛИ-кеңесшісі үшін үлгі ретінде сақтау",
+    "removeJarvisTemplate": "ВАЛЛИ үлгілерінен алып тастау",
+    "saveBeforeTemplate": "Алдымен тізбекті сақтаңыз",
+    "templateError": "Үлгіні сақтау сәтсіз аяқталды"
   },
   "projectWizard": {
     "title": "Жоба құру",

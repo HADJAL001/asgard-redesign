@@ -16,7 +16,7 @@ import {
   useReactFlow,
   type Connection,
 } from "@xyflow/react"
-import { Loader2, Play, Save, Coins } from "lucide-react"
+import { Loader2, Play, Save, Coins, Bot, CheckCircle2 } from "lucide-react"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { orchestratorApi } from "@/lib/orchestrator/api"
@@ -62,10 +62,35 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
   const [executionId, setExecutionId] = useState<number | null>(null)
   const [currentChainId, setCurrentChainId] = useState(chainId)
   const [insufficientTcOpen, setInsufficientTcOpen] = useState(false)
+
+  // Квота запросов
+  const [quota, setQuota] = useState<{ remaining: number; total: number } | null>(null)
+  const [quotaLoading, setQuotaLoading] = useState(false)
+
+  // Шаблон ДЖАРВИСА
+  const [isJarvisTemplate, setIsJarvisTemplate] = useState<boolean>(
+    initialChain?.is_jarvis_template === 1,
+  )
+  const [savingTemplate, setSavingTemplate] = useState(false)
+  const [templateSaved, setTemplateSaved] = useState(false)
+
   const wrapperRef = useRef<HTMLDivElement>(null)
 
   const run = useOrchestratorRun(executionId, nodes.map((n) => n.id))
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null
+
+  // Загружаем квоту при монтировании и после каждого запуска
+  useEffect(() => {
+    if (currentChainId === "new") return
+    setQuotaLoading(true)
+    orchestratorApi
+      .getRemainingQuota()
+      .then(setQuota)
+      .catch(() => {
+        /* не критично — квота недоступна для non-premium, не показываем */
+      })
+      .finally(() => setQuotaLoading(false))
+  }, [currentChainId, executionId])
 
   const onConnect = useCallback(
     (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
@@ -85,7 +110,6 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
       const palette = ORCHESTRATOR_PALETTE.find((p) => p.type === nodeType)
       if (!palette) return
 
-      // screenToFlowPosition принимает координаты экрана напрямую (clientX/Y)
       const position = screenToFlowPosition({ x: event.clientX, y: event.clientY })
       const newNode: OrchestratorFlowNode = {
         id: nextNodeId(),
@@ -147,6 +171,30 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
     }
   }
 
+  async function handleToggleJarvisTemplate() {
+    if (currentChainId === "new") {
+      setSaveError(t("orchestrator.saveBeforeTemplate"))
+      return
+    }
+    setSavingTemplate(true)
+    setSaveError(null)
+    try {
+      if (isJarvisTemplate) {
+        await orchestratorApi.removeJarvisTemplate(currentChainId)
+        setIsJarvisTemplate(false)
+      } else {
+        await orchestratorApi.saveAsJarvisTemplate(currentChainId)
+        setIsJarvisTemplate(true)
+        setTemplateSaved(true)
+        setTimeout(() => setTemplateSaved(false), 3000)
+      }
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : t("orchestrator.templateError"))
+    } finally {
+      setSavingTemplate(false)
+    }
+  }
+
   const handleRunRef = useRef(handleRun)
   handleRunRef.current = handleRun
 
@@ -162,8 +210,17 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
     return liveStatus ? { ...n, data: { ...n.data, status: liveStatus.status, output: liveStatus.output } } : n
   })
 
+  // Цвет индикатора квоты
+  function quotaColor(remaining: number, total: number): string {
+    const ratio = remaining / total
+    if (ratio > 0.5) return COLORS.green
+    if (ratio > 0.2) return COLORS.accent
+    return COLORS.red
+  }
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3">
+      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         <input
           value={name}
@@ -171,6 +228,51 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
           className="min-w-0 flex-1 rounded-lg px-3 py-2 text-[14px] font-medium outline-none"
           style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text }}
         />
+
+        {/* Индикатор остатка запросов */}
+        {quota !== null && !quotaLoading && (
+          <div
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium"
+            style={{
+              backgroundColor: COLORS.card,
+              border: `1px solid ${COLORS.border}`,
+              color: quotaColor(quota.remaining, quota.total),
+            }}
+            title={t("orchestrator.quotaTooltip", { remaining: quota.remaining, total: quota.total })}
+          >
+            <span
+              className="inline-block size-2 rounded-full"
+              style={{ backgroundColor: quotaColor(quota.remaining, quota.total) }}
+            />
+            {t("orchestrator.quotaLabel", { remaining: quota.remaining, total: quota.total })}
+          </div>
+        )}
+
+        {/* Кнопка «Шаблон ДЖАРВИСА» */}
+        {currentChainId !== "new" && (
+          <button
+            type="button"
+            onClick={handleToggleJarvisTemplate}
+            disabled={savingTemplate}
+            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors disabled:opacity-50"
+            style={{
+              border: `1px solid ${isJarvisTemplate ? COLORS.accent : COLORS.border}`,
+              color: isJarvisTemplate ? COLORS.accent : COLORS.label,
+              backgroundColor: isJarvisTemplate ? `rgba(0,212,255,0.06)` : "transparent",
+            }}
+            title={t(isJarvisTemplate ? "orchestrator.removeJarvisTemplate" : "orchestrator.saveAsJarvisTemplate")}
+          >
+            {savingTemplate ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : templateSaved ? (
+              <CheckCircle2 size={14} style={{ color: COLORS.green }} />
+            ) : (
+              <Bot size={14} />
+            )}
+            {t(isJarvisTemplate ? "orchestrator.jarvisTemplateActive" : "orchestrator.jarvisTemplateBtn")}
+          </button>
+        )}
+
         <button
           type="button"
           onClick={handleSave}

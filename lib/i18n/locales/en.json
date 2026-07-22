@@ -432,7 +432,15 @@
     "insufficientTcTitle": "Insufficient TimeCoin",
     "insufficientTcMessage": "Not enough TimeCoin to run the chain. Top up your balance",
     "topUpBtn": "Top Up",
-    "closeBtn": "Close"
+    "closeBtn": "Close",
+    "quotaLabel": "{{remaining}} / {{total}} requests",
+    "quotaTooltip": "{{remaining}} of {{total}} requests remaining today",
+    "jarvisTemplateBtn": "WALLI Template",
+    "jarvisTemplateActive": "WALLI Template ✓",
+    "saveAsJarvisTemplate": "Save as WALLI advisor template",
+    "removeJarvisTemplate": "Remove from WALLI templates",
+    "saveBeforeTemplate": "Save the chain first",
+    "templateError": "Failed to save template"
   },
   "projectWizard": {
     "title": "Create Project",

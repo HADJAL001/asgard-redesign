@@ -48,4 +48,18 @@ export const orchestratorApi = {
     const { execution } = await apiClient.get<{ execution: OrchestratorExecution }>(`/orchestrator/executions/${id}`)
     return execution
   },
+
+  getRemainingQuota: async () => {
+    const data = await apiClient.get<{ remaining: number; total: number }>("/orchestrator/remaining")
+    return data
+  },
+
+  saveAsJarvisTemplate: async (id: number) => {
+    const { chain } = await apiClient.post<{ chain: OrchestratorChain }>(`/orchestrator/chains/${id}/jarvis-template`, {})
+    return chain
+  },
+
+  removeJarvisTemplate: async (id: number) => {
+    await apiClient.delete<{ success: boolean }>(`/orchestrator/chains/${id}/jarvis-template`)
+  },
 }

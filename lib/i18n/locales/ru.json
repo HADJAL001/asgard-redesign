@@ -440,7 +440,15 @@
     "insufficientTcTitle": "Недостаточно TimeCoin",
     "insufficientTcMessage": "Недостаточно TimeCoin для запуска цепочки. Пополните баланс",
     "topUpBtn": "Пополнить",
-    "closeBtn": "Закрыть"
+    "closeBtn": "Закрыть",
+    "quotaLabel": "{{remaining}} / {{total}} запросов",
+    "quotaTooltip": "Осталось {{remaining}} из {{total}} запросов на сегодня",
+    "jarvisTemplateBtn": "Шаблон ВАЛЛИ",
+    "jarvisTemplateActive": "Шаблон ВАЛЛИ ✓",
+    "saveAsJarvisTemplate": "Сохранить как шаблон для ВАЛЛИ-советника",
+    "removeJarvisTemplate": "Убрать из шаблонов ВАЛЛИ",
+    "saveBeforeTemplate": "Сначала сохраните цепочку",
+    "templateError": "Не удалось сохранить шаблон"
   },
   "projectWizard": {
     "title": "Создание проекта",
