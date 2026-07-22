@@ -12,6 +12,7 @@ import stripe, {
 import { asyncHandler } from "../utils/async-handler"
 import { captureError } from "../lib/sentry"
 import { logAudit } from "../lib/audit"
+import { getAiUsage, AI_LIMITS_BY_PLAN } from "../lib/aiDailyUsage"
 
 
 const router = Router()
@@ -433,6 +434,48 @@ router.get("/status", requireAuth, (req: AuthRequest, res) => {
   const sub = getSubscription(req.user!.userId)
   res.json({ subscription: serializeSubscription(sub) })
 })
+
+/* ================================================================
+   GET /subscription/ai-usage
+   Возвращает дневное использование AI по провайдерам и лимиты
+   для текущего пользователя в зависимости от его тарифного плана.
+
+   Структура ответа:
+   {
+     plan: "free" | "architect" | "master" | "legend",
+     limits: { claude: number, grok: number, deepseek: number, total: number },
+     used:   { claude: number, grok: number, deepseek: number, total: number },
+     remaining: { claude: number, grok: number, deepseek: number, total: number },
+     resetsAt: number  // timestamp начала следующего UTC-дня
+   }
+
+   Использование считается через таблицу ai_daily_usage (создаётся
+   миграцией 041_ai_daily_usage).
+   ================================================================ */
+router.get("/ai-usage", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+  const userId = req.user!.userId
+  const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
+  const plan = (userRow?.plan ?? "free") as string
+
+  const limits = AI_LIMITS_BY_PLAN[plan] ?? AI_LIMITS_BY_PLAN.free
+  const used = await getAiUsage(userId)
+
+  const now = new Date()
+  const nextMidnightUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+
+  res.json({
+    plan,
+    limits,
+    used,
+    remaining: {
+      claude:   limits.claude   === null ? null : Math.max(0, limits.claude   - used.claude),
+      grok:     limits.grok     === null ? null : Math.max(0, limits.grok     - used.grok),
+      deepseek: limits.deepseek === null ? null : Math.max(0, limits.deepseek - used.deepseek),
+      total:    limits.total    === null ? null : Math.max(0, limits.total    - used.total),
+    },
+    resetsAt: nextMidnightUtc,
+  })
+}))
 
 /* ================================================================
    POST /subscription/cancel

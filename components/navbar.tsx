@@ -22,6 +22,7 @@ import {
   BookOpen,
   Map,
   GitBranch,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react"
 
@@ -57,6 +58,7 @@ export const NAV: NavItem[] = [
   { key: "nav.messages", href: "/messages", Icon: MessageCircle },
   { key: "nav.docs", href: "/docs", Icon: BookOpen },
   { key: "nav.economyMap", href: "/docs/economy-map", Icon: Map },
+  { key: "nav.pricing", href: "/pricing", Icon: CreditCard },
 ]
 
 /** Переключатель языка · выпадающий список RU / EN / KZ */

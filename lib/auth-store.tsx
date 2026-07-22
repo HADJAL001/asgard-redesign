@@ -47,12 +47,24 @@ const AuthContext = createContext<AuthValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+
+  /* Если в localStorage есть кешированный пользователь — стартуем без
+     состояния загрузки (мгновенная гидрация). Иначе loading=true пока
+     не придёт ответ /auth/me или не истечёт таймаут.
+     Это навсегда убирает "застрявший" splash-экран. */
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined") return false
+    return !getStoredUser<User>()
+  })
 
   /* Восстанавливаем сессию: cookie есть на сервере — /auth/me её примет. */
   useEffect(() => {
     const cached = getStoredUser<User>()
     if (cached) setUser(cached)
+
+    /* Страховочный таймаут 3 секунды — если бэкенд не ответил,
+       не зависаем на splash-экране. 3с достаточно для холодного старта. */
+    const timeoutId = setTimeout(() => setLoading(false), 3_000)
 
     apiClient
       .get<{ user: User }>("/auth/me", { skipAuthRedirect: true })
@@ -70,7 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setStoredUser(null)
         }
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        clearTimeout(timeoutId)
+        setLoading(false)
+      })
   }, [])
 
   const login = useCallback<AuthValue["login"]>(async (username, password) => {

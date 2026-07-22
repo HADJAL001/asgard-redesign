@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:all": "concurrently --kill-others-on-fail --names \"frontend,backend\" --prefix-colors \"cyan,yellow\" \"next dev\" \"cd backend && npm run dev\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint ."
@@ -34,6 +36,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/three": "^0.185.1",
+    "concurrently": "^10.0.3",
     "postcss": "^8.5",
     "sharp": "^0.35.3",
     "tailwindcss": "^4.3.3",

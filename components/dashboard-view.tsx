@@ -19,6 +19,7 @@ import {
 import { Navbar } from "./navbar"
 import { OnboardingTutorial } from "./OnboardingTutorial"
 import { OnboardingPrologue } from "./OnboardingPrologue"
+import { AiUsageWidget } from "./AiUsageWidget"
 import { apiClient } from "@/lib/api-client"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { useAuth } from "@/lib/auth-store"
@@ -368,6 +369,11 @@ export function DashboardView() {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* AI Usage Widget */}
+        <section className="mb-6">
+          <AiUsageWidget />
         </section>
 
         {/* Quick actions */}
