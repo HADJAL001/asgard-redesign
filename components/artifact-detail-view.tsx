@@ -1,22 +1,18 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Navbar } from "./navbar"
-import { useOsgard } from "@/lib/store/osgard-store"
+import { useOsgardStore } from "@/lib/store/osgard-store"
+import { useAuth } from "@/lib/auth-store"
 import {
-  ARTIFACTS,
   ARTIFACT_TYPES,
   RARITY,
-  PROJECTS,
-  UPGRADE_COST,
-  nextRarity,
-  lineageFor,
+  HOF_TIERS,
   formatTokens,
   hofTier,
-  HOF_TIERS,
+  type ArtifactType,
   type Rarity,
-  type LineageStep,
 } from "@/lib/economy"
 import {
   ArrowLeft,
@@ -38,27 +34,77 @@ const BORDER = "#2A2A3E"
 const LABEL = "#6A6A8A"
 const CYAN = "#00D4FF"
 
+/* Премиум-усиление (см. backend/artifacts.routes.ts POST /artifacts/:id/premium-upgrade). */
+const PREMIUM_MAX_LEVEL = 10
+const PREMIUM_UPGRADE_COST_TC_PER_LEVEL = 20
+
+function premiumUpgradeCost(level: number): number {
+  return level * PREMIUM_UPGRADE_COST_TC_PER_LEVEL
+}
+
 export function ArtifactDetailView({ id }: { id: number }) {
-  const { wallet, spendTC } = useOsgard()
-  const base = useMemo(() => ARTIFACTS.find((a) => a.id === id) ?? ARTIFACTS[0], [id])
-  const [rarity, setRarity] = useState<Rarity>(base.rarity)
+  const { user } = useAuth()
+  const { wallet, artifacts, projects, fetchArtifacts, fetchProjects, premiumUpgradeArtifact, loading } =
+    useOsgardStore()
   const [toast, setToast] = useState<string | null>(null)
+  const [upgrading, setUpgrading] = useState(false)
 
-  const project = PROJECTS.find((p) => p.id === base.projectId)
-  const lineage = useMemo(() => lineageFor({ ...base, rarity }), [base, rarity])
-  const next = nextRarity(rarity)
-  const upCost = next ? (UPGRADE_COST[rarity] ?? 0) : 0
-  const canEvolve = next !== null && wallet.timecoin >= upCost
+  useEffect(() => {
+    fetchArtifacts({ skipAuthRedirect: true })
+    fetchProjects({ skipAuthRedirect: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const base = useMemo(() => artifacts.find((a) => a.id === id), [artifacts, id])
+  const project = useMemo(
+    () => (base?.projectId ? projects.find((p) => p.id === base.projectId) : undefined),
+    [projects, base],
+  )
+
+  if (!base) {
+    return (
+      <div
+        className="min-h-screen font-sans"
+        style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #1A1A1A 100%)", color: "#FFFFFF" }}
+      >
+        <Navbar />
+        <main className="mx-auto max-w-5xl px-6 py-10">
+          <Link
+            href="/artifacts"
+            className="inline-flex items-center gap-2 text-[14px] transition-colors"
+            style={{ color: LABEL }}
+          >
+            <ArrowLeft size={16} strokeWidth={1.75} aria-hidden="true" />
+            Все артефакты
+          </Link>
+          <p className="mt-6 text-[14px]" style={{ color: LABEL }}>
+            {loading ? "Загрузка…" : "Артефакт не найден"}
+          </p>
+        </main>
+      </div>
+    )
+  }
+
+  const type = (base.type in ARTIFACT_TYPES ? base.type : "artifact") as ArtifactType
+  const rarity = (base.rarity in RARITY ? base.rarity : "common") as Rarity
   const tier = hofTier(base.price)
+  const upCost = premiumUpgradeCost(base.level)
+  const canUpgrade = base.level < PREMIUM_MAX_LEVEL && wallet.timecoin >= upCost
+  const birthDate = new Date(base.createdAt).toLocaleDateString("ru-RU")
 
-  function evolve() {
-    if (!next || !canEvolve) return
-    if (!spendTC(upCost)) {
-      setToast("Недостаточно TimeCoin")
-      return
+  async function upgrade() {
+    if (!canUpgrade || upgrading) return
+    setUpgrading(true)
+    try {
+      const res = await premiumUpgradeArtifact(base!.id)
+      if (res.success) {
+        setToast(res.critical ? `КРИТ! Уровень +${res.levelGain}` : `Уровень +${res.levelGain}`)
+      } else {
+        setToast(res.error || "Не удалось выполнить усиление")
+      }
+    } finally {
+      setUpgrading(false)
     }
-    setRarity(next)
-    setToast(`Эволюция до «${RARITY[next].label}» завершена`)
   }
 
   return (
@@ -102,7 +148,7 @@ export function ArtifactDetailView({ id }: { id: number }) {
                 {RARITY[rarity].symbol} {RARITY[rarity].label}
               </span>
               <p className="mt-3 text-[13px]" style={{ color: LABEL }}>
-                {ARTIFACT_TYPES[base.type].label} · Ур. {base.level}
+                {ARTIFACT_TYPES[type].label} · Ур. {base.level}
               </p>
 
               {tier && (
@@ -116,7 +162,7 @@ export function ArtifactDetailView({ id }: { id: number }) {
               )}
             </div>
 
-            {/* Price + evolve */}
+            {/* Price + premium upgrade */}
             <div className="rounded-2xl p-5" style={{ backgroundColor: CARD, border: `1px solid ${BORDER}` }}>
               <p className="text-[12px]" style={{ color: LABEL }}>
                 Оценочная стоимость
@@ -125,39 +171,38 @@ export function ArtifactDetailView({ id }: { id: number }) {
                 <InfinityIcon size={20} strokeWidth={1.75} aria-hidden="true" />
                 {formatTokens(base.price)}
               </p>
-              {next ? (
+              {base.level < PREMIUM_MAX_LEVEL ? (
                 <button
                   type="button"
-                  onClick={evolve}
-                  disabled={!canEvolve}
+                  onClick={upgrade}
+                  disabled={!canUpgrade || upgrading}
                   className="mt-4 flex w-full items-center justify-center gap-2 rounded-full py-3 text-[14px] font-medium transition-opacity"
                   style={{
-                    backgroundColor: canEvolve ? CYAN : "#1A1A24",
-                    color: canEvolve ? "#0A0A0F" : "rgba(255,255,255,0.3)",
-                    cursor: canEvolve ? "pointer" : "not-allowed",
+                    backgroundColor: canUpgrade ? CYAN : "#1A1A24",
+                    color: canUpgrade ? "#0A0A0F" : "rgba(255,255,255,0.3)",
+                    cursor: canUpgrade && !upgrading ? "pointer" : "not-allowed",
                   }}
                 >
-                  <Sparkles size={15} strokeWidth={1.75} aria-hidden="true" />
-                  Эволюция до «{RARITY[next].label}» · {formatTokens(upCost)} ∞
+                  <Sparkles size={15} strokeWidth={1.75} aria-hidden="true" />⭐ Усилить за {formatTokens(upCost)} ∞
                 </button>
               ) : (
                 <p className="mt-4 text-center text-[13px]" style={{ color: RARITY.mythic.color }}>
-                  Достигнут максимальный уровень редкости
+                  Достигнут максимальный премиум-уровень
                 </p>
               )}
             </div>
           </div>
 
-          {/* Right — stats + genealogy */}
+          {/* Right — stats + info */}
           <div className="flex flex-col gap-6">
             {/* Stats */}
             <section className="rounded-2xl p-6" style={{ backgroundColor: CARD, border: `1px solid ${BORDER}` }}>
               <h2 className="text-[15px] font-medium">Характеристики</h2>
               <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-                <Stat Icon={Zap} label="Сила" value={base.stats.power} />
-                <Stat Icon={Shield} label="Защита" value={base.stats.defense} />
-                <Stat Icon={Sparkles} label="Магия" value={base.stats.magic} />
-                <Stat Icon={Bolt} label="Скорость" value={base.stats.speed} />
+                <Stat Icon={Zap} label="Сила" value={base.power} />
+                <Stat Icon={Shield} label="Защита" value={base.defense} />
+                <Stat Icon={Sparkles} label="Магия" value={base.magic} />
+                <Stat Icon={Bolt} label="Скорость" value={base.speed} />
                 <Stat Icon={Eye} label="Просм. 24ч" value={formatTokens(base.views24h)} />
                 <Stat Icon={Layers} label="Тираж" value={base.supply} />
               </div>
@@ -180,7 +225,7 @@ export function ArtifactDetailView({ id }: { id: number }) {
                   Архитектор
                 </span>
                 <span className="text-[13px] font-medium">
-                  {base.architect} · Ур. {base.architectLevel}
+                  {user?.displayName || user?.username || "—"} · Ур. {user?.level ?? "—"}
                 </span>
               </div>
             </section>
@@ -192,9 +237,17 @@ export function ArtifactDetailView({ id }: { id: number }) {
                 <h2 className="text-[15px] font-medium">Генеалогия</h2>
               </div>
               <ol className="mt-5 flex flex-col gap-0">
-                {lineage.map((step, i) => (
-                  <LineageRow key={i} step={step} last={i === lineage.length - 1} />
-                ))}
+                <li className="flex gap-4">
+                  <div className="flex flex-col items-center">
+                    <span className="mt-1 size-3 rounded-full" style={{ backgroundColor: "#4ADE80" }} aria-hidden="true" />
+                  </div>
+                  <div className="pb-5">
+                    <p className="text-[14px] font-medium">Рождение</p>
+                    <p className="mt-0.5 text-[12px]" style={{ color: LABEL }}>
+                      {project ? `Проект «${project.name}»` : "Без проекта"} · {birthDate}
+                    </p>
+                  </div>
+                </li>
               </ol>
             </section>
           </div>
@@ -223,40 +276,5 @@ function Stat({ Icon, label, value }: { Icon: LucideIcon; label: string; value: 
         {label}
       </p>
     </div>
-  )
-}
-
-function LineageRow({ step, last }: { step: LineageStep; last: boolean }) {
-  let dotColor = CYAN
-  let title = ""
-  let detail = ""
-
-  if (step.kind === "birth") {
-    dotColor = "#4ADE80"
-    title = "Рождение"
-    detail = `Проект «${step.project}» · ${step.date}`
-  } else if (step.kind === "evolve") {
-    dotColor = RARITY[step.to].color
-    title = `Эволюция: ${RARITY[step.from].label} → ${RARITY[step.to].label}`
-    detail = `${formatTokens(step.cost)} ∞ · ${step.date}`
-  } else {
-    dotColor = "#9B59B6"
-    title = "Синтез"
-    detail = `${step.parents.join(" + ")} · ${step.date}`
-  }
-
-  return (
-    <li className="flex gap-4">
-      <div className="flex flex-col items-center">
-        <span className="mt-1 size-3 rounded-full" style={{ backgroundColor: dotColor }} aria-hidden="true" />
-        {!last && <span className="w-px flex-1" style={{ backgroundColor: BORDER, minHeight: 28 }} aria-hidden="true" />}
-      </div>
-      <div className="pb-5">
-        <p className="text-[14px] font-medium">{title}</p>
-        <p className="mt-0.5 text-[12px]" style={{ color: LABEL }}>
-          {detail}
-        </p>
-      </div>
-    </li>
   )
 }
