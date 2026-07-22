@@ -18,7 +18,8 @@
    ================================================================ */
 
 import { useEffect, useRef, useState } from "react"
-import { Send, Volume2, VolumeX, MessageSquare, Loader2, Bot, User, Square } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Send, Volume2, VolumeX, MessageSquare, Loader2, Bot, User, Square, Mic, MicOff, GitBranch } from "lucide-react"
 import apiClient from "@/lib/api-client"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import JarvisAvatar from "@/components/JarvisAvatar"
@@ -93,17 +94,18 @@ function saveReplyMode(mode: ReplyMode) {
 
 export function ВАЛЛИChat() {
   const { t } = useTranslation()
+  const router = useRouter()
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: "Привет! Я ВАЛЛИ. Спроси меня о балансе, артефактах, проектах — или задай любой другой вопрос.",
+      content: "Привет! Я ВАЛЛИ. Спроси меня о балансе, артефактах, проектах или цепочках оркестратора — или задай любой другой вопрос.",
     },
   ])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [replyMode, setReplyMode] = useState<ReplyMode>("both")
-  const { isSpeaking: speaking, speak, stopSpeaking } = useVoice()
+  const { isSpeaking: speaking, speak, stopSpeaking, isListening, startListening, stopListening, sttSupported } = useVoice()
   const [modeMenuOpen, setModeMenuOpen] = useState(false)
   /* Режим личности ВАЛЛИ (обычный/цитаты/вредный/поэт/новости) — влияет на стиль ответов. */
   const [personalityMode, setPersonalityMode] = useState<JarvisMode>("default")
@@ -208,20 +210,38 @@ export function ВАЛЛИChat() {
   const voiceEnabled = replyMode === "voice" || replyMode === "both"
   const textEnabled = replyMode === "text" || replyMode === "both"
 
-  async function handleSend() {
-    const question = input.trim()
+  /** Голосовой ввод — запускает STT и вставляет распознанный текст в поле ввода */
+  function handleMicToggle() {
+    if (isListening) {
+      stopListening()
+      return
+    }
+    startListening({
+      onResult: (text: string) => {
+        setInput(text)
+        stopListening()
+      },
+      lang: "ru-RU",
+    })
+  }
+
+  async function handleSend(overrideText?: string) {
+    const question = (overrideText ?? input).trim()
     if (!question || loading) return
 
     const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", content: question }
     setMessages((prev) => [...prev, userMsg])
-    setInput("")
+    if (!overrideText) setInput("")
     setLoading(true)
 
     try {
-      const res = await apiClient.post<{ answer: string; route: string; mode?: JarvisMode; icon?: string }>(
-        "/jarvis/ask",
-        { question, mode: personalityMode },
-      )
+      const res = await apiClient.post<{
+        answer: string
+        route: string
+        mode?: JarvisMode
+        icon?: string
+        orchestratorChainId?: number | null
+      }>("/jarvis/ask", { question, mode: personalityMode })
 
       if (res.mode) {
         setPersonalityMode(res.mode)
@@ -238,10 +258,16 @@ export function ВАЛЛИChat() {
       setMessages((prev) => [...prev, assistantMsg])
 
       // Озвучиваем ответ, если включён голосовой канал.
-      // Голос подбирается по надетому voice-аксессуару (equipment.voice).
       if (replyMode === "voice" || replyMode === "both") {
         const profile = resolveVoiceProfile(equipment.voice)
         speak(res.answer, { rate: profile.rate, pitch: profile.pitch, langHint: profile.langHint })
+      }
+
+      // Если ВАЛЛИ рекомендует запустить цепочку — автоматически переходим через 1.5 сек
+      if (res.orchestratorChainId) {
+        setTimeout(() => {
+          router.push(`/orchestrator/${res.orchestratorChainId}?run=1`)
+        }, 1500)
       }
 
     } catch (err: any) {
@@ -425,10 +451,26 @@ export function ВАЛЛИChat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Спросите ВАЛЛИА..."
+          placeholder={isListening ? "Слушаю…" : "Спросите ВАЛЛИА..."}
           disabled={loading}
         />
-        <button type="button" onClick={handleSend} disabled={!input.trim() || loading} title="Отправить">
+        {sttSupported && (
+          <button
+            type="button"
+            onClick={handleMicToggle}
+            className={isListening ? "jarvis-mic-btn listening" : "jarvis-mic-btn"}
+            title={isListening ? "Остановить запись" : "Голосовой ввод"}
+            aria-pressed={isListening}
+          >
+            {isListening ? <MicOff size={16} aria-hidden="true" /> : <Mic size={16} aria-hidden="true" />}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => handleSend()}
+          disabled={!input.trim() || loading}
+          title="Отправить"
+        >
           <Send size={16} aria-hidden="true" />
         </button>
       </div>
@@ -585,6 +627,18 @@ const JARVIS_CHAT_CSS = `
 }
 .jarvis-input-row button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,212,255,0.3); }
 .jarvis-input-row button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.jarvis-mic-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 10px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+  color: #8A94A8; cursor: pointer; transition: all 0.2s ease; flex-shrink: 0;
+}
+.jarvis-mic-btn:hover { border-color: rgba(0,212,255,0.4); color: #00D4FF; }
+.jarvis-mic-btn.listening {
+  background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.4);
+  color: #F87171; animation: jarvis-pulse 1s infinite ease-in-out;
+}
 
 @media (max-width: 480px) {
   .jarvis-chat { max-width: 100%; height: 620px; border-radius: 0; }

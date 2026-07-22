@@ -35,6 +35,8 @@ export type JarvisAnswer = {
   mode: JarvisMode
   icon: string
   label: string
+  /** Если ВАЛЛИ рекомендует запустить конкретную цепочку — фронт может сразу перейти на /orchestrator/:chainId?run=1 */
+  orchestratorChainId?: number
 }
 
 /* ================================================================
@@ -139,6 +141,16 @@ const ARTIFACT_KEYWORDS = [
 
 const PROJECT_KEYWORDS = ["проект", "мои проекты", "сколько проектов"]
 
+const ORCHESTRATOR_LIST_KEYWORDS = [
+  "цепочк", "оркестратор", "мои цепочки", "покажи цепочки",
+  "ai цепочк", "python snake", "запусти цепочку",
+]
+
+const ORCHESTRATOR_RUN_KEYWORDS = [
+  "запусти цепочку", "запустить цепочку", "выполни цепочку", "run chain",
+  "запусти оркестратор",
+]
+
 function matchesAny(question: string, keywords: string[]): boolean {
   const q = question.toLowerCase()
   return keywords.some((k) => q.includes(k))
@@ -153,6 +165,49 @@ function formatWalletAnswer(wallet: WalletRow): string {
     `∞ TimeCoin: ${wallet.timecoin.toLocaleString("ru-RU", { maximumFractionDigits: 3 })}\n` +
     `💵 Наличные: $${wallet.cash_usd.toLocaleString("ru-RU", { maximumFractionDigits: 2 })}`
   )
+}
+
+type OrchestratorChainRow = { id: number; name: string; node_count: number }
+
+function tryOrchestratorAnswer(userId: number, question: string): { text: string; chainId?: number } | null {
+  if (!matchesAny(question, ORCHESTRATOR_LIST_KEYWORDS)) return null
+
+  // Проверяем есть ли таблица orchestrator_chains
+  try {
+    const chains = db
+      .prepare(
+        `SELECT id, name,
+          (SELECT COUNT(*) FROM json_each(nodes)) as node_count
+         FROM orchestrator_chains WHERE user_id = ? ORDER BY updated_at DESC LIMIT 5`,
+      )
+      .all(userId) as OrchestratorChainRow[]
+
+    if (chains.length === 0) {
+      return {
+        text: "У вас пока нет AI-цепочек. Перейдите в Оркестратор (/orchestrator) чтобы создать первую!",
+      }
+    }
+
+    // Если запрос на запуск — возвращаем первую цепочку для запуска
+    const isRunRequest = matchesAny(question, ORCHESTRATOR_RUN_KEYWORDS)
+    if (isRunRequest && chains[0]) {
+      return {
+        text: `Запускаю цепочку «${chains[0].name}»! Переходим в редактор…`,
+        chainId: chains[0].id,
+      }
+    }
+
+    // Иначе — список цепочек
+    const list = chains.map((c, i) => `${i + 1}. ${c.name} (${c.node_count} узл.)`).join("\n")
+    return {
+      text: `Ваши AI-цепочки (последние ${chains.length}):\n${list}\n\nПерейдите в /orchestrator чтобы запустить или редактировать.`,
+    }
+  } catch {
+    // Таблица ещё не создана
+    return {
+      text: "Модуль AI-оркестратора пока не активирован. Перейдите в /orchestrator чтобы начать.",
+    }
+  }
 }
 
 function tryLocalAnswer(userId: number, question: string): string | null {
@@ -272,12 +327,28 @@ export async function askJarvis(userId: number, rawQuestion: string, requestedMo
     return { answer: cached.answer, route: cached.route, cached: true, mode, icon, label }
   }
 
-  /* 2. Локальные ответы (баланс/артефакты/проекты) — без AI, без кеша не нужны, но кешируем тоже */
+  /* 2a. Локальные ответы (баланс/артефакты/проекты) — без AI */
   const localAnswer = tryLocalAnswer(userId, question)
   if (localAnswer) {
     const styled = applyPersonality(mode, localAnswer)
     setCache(userId, question, mode, styled.text, "local")
     return { answer: styled.text, route: "local", cached: false, mode, icon, label }
+  }
+
+  /* 2b. Оркестратор — цепочки пользователя */
+  const orchAnswer = tryOrchestratorAnswer(userId, question)
+  if (orchAnswer) {
+    const styled = applyPersonality(mode, orchAnswer.text)
+    setCache(userId, question, mode, styled.text, "local")
+    return {
+      answer: styled.text,
+      route: "local",
+      cached: false,
+      mode,
+      icon,
+      label,
+      orchestratorChainId: orchAnswer.chainId,
+    }
   }
 
   /* 3-5. Маршрутизация к внешним AI: DeepSeek → Grok → Claude */

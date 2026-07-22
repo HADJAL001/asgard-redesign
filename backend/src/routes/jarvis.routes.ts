@@ -49,6 +49,7 @@ router.post("/ask", requireAuth, async (req: AuthRequest, res) => {
       icon: result.icon,
       label: result.label,
       aiConfigured: isAnyProviderConfigured(),
+      orchestratorChainId: result.orchestratorChainId ?? null,
     })
   } catch (err: any) {
     captureError("[jarvis/ask] error:", err)
