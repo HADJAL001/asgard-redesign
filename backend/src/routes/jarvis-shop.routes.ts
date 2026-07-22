@@ -61,20 +61,29 @@ router.post("/buy", requireAuth, (req: AuthRequest, res) => {
     .prepare(`SELECT timecoin FROM wallets WHERE user_id = ?`)
     .get(userId) as { timecoin: number } | undefined
 
-  if (!wallet || wallet.timecoin < accessory.price) {
+  if (!wallet) {
+    return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
+  }
+  if (wallet.timecoin < accessory.price) {
     logAudit(userId, "rejected", accessory.price, "insufficient_balance", { accessoryId })
     return res.status(400).json({ error: "Недостаточно ∞ для покупки" })
   }
 
   const now = Date.now()
 
-  db.prepare(`UPDATE wallets SET timecoin = timecoin - ? WHERE user_id = ?`).run(accessory.price, userId)
+  db.exec("BEGIN IMMEDIATE")
+  try {
+    db.prepare(`UPDATE wallets SET timecoin = timecoin - ? WHERE user_id = ?`).run(accessory.price, userId)
+    db.prepare(
+      `INSERT INTO jarvis_user_accessories (user_id, accessory_id, equipped, purchased_at)
+       VALUES (?, ?, 0, ?)`
+    ).run(userId, accessoryId, now)
+    db.exec("COMMIT")
+  } catch (err) {
+    db.exec("ROLLBACK")
+    throw err
+  }
   logAudit(userId, "debit", accessory.price, "jarvis_accessory_purchase", { accessoryId, name: accessory.name })
-  db.prepare(
-    `INSERT INTO jarvis_user_accessories (user_id, accessory_id, equipped, purchased_at)
-     VALUES (?, ?, 0, ?)`
-  ).run(userId, accessoryId, now)
-
 
   const updatedWallet = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(userId)
 

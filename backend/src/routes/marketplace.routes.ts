@@ -103,54 +103,62 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
   const fee = listing.price * MARKET_FEE
   const sellerReceives = listing.price - fee
 
-  /* Списываем у покупателя */
-  db.prepare(
-    `UPDATE wallets SET ${currency} = ${currency} - ?, updated_at = ? WHERE user_id = ?`,
-  ).run(listing.price, now, req.user!.userId)
+  db.exec("BEGIN IMMEDIATE")
+  try {
+    /* Списываем у покупателя */
+    db.prepare(
+      `UPDATE wallets SET ${currency} = ${currency} - ?, updated_at = ? WHERE user_id = ?`,
+    ).run(listing.price, now, req.user!.userId)
+
+    /* Начисляем продавцу за вычетом комиссии */
+    db.prepare(
+      `UPDATE wallets SET ${currency} = ${currency} + ?, updated_at = ? WHERE user_id = ?`,
+    ).run(sellerReceives, now, listing.seller_id)
+
+    /* Передаём артефакт покупателю */
+    db.prepare(`UPDATE artifacts SET owner_id = ?, status = 'kept' WHERE id = ?`).run(
+      req.user!.userId,
+      listing.artifact_id,
+    )
+
+    db.prepare(
+      `UPDATE marketplace_listings SET status = 'sold', sold_at = ?, buyer_id = ? WHERE id = ?`,
+    ).run(now, req.user!.userId, listingId)
+
+    /* Транзакции для обеих сторон */
+    db.prepare(
+      `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+       VALUES (?, 'purchase', ?, ?, ?, ?, 'done')`,
+    ).run(req.user!.userId, artifact.name, `Продавец #${listing.seller_id}`, listing.price, currency)
+
+    db.prepare(
+      `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+       VALUES (?, 'sale', ?, ?, ?, ?, 'done')`,
+    ).run(listing.seller_id, artifact.name, `Покупатель #${req.user!.userId}`, sellerReceives, currency)
+
+    /* Записываем в Зал Славы, если продажа крупная (эвристика: топ по цене) */
+    db.prepare(
+      `INSERT INTO hall_of_fame (artifact_id, artifact_name, type, rarity, architect, price, achieved_at)
+       SELECT ?, ?, ?, ?, u.username, ?, ?
+       FROM users u WHERE u.id = ?`,
+    ).run(
+      artifact.id,
+      artifact.name,
+      artifact.type,
+      artifact.rarity,
+      listing.price,
+      now,
+      listing.seller_id,
+    )
+
+    db.exec("COMMIT")
+  } catch (err) {
+    db.exec("ROLLBACK")
+    throw err
+  }
 
   logAudit(req.user!.userId, "debit", listing.price, "marketplace_purchase", { listingId, artifactId: listing.artifact_id, currency })
-
-  /* Начисляем продавцу за вычетом комиссии */
-  db.prepare(
-    `UPDATE wallets SET ${currency} = ${currency} + ?, updated_at = ? WHERE user_id = ?`,
-  ).run(sellerReceives, now, listing.seller_id)
   logAudit(listing.seller_id, "credit", sellerReceives, "marketplace_sale", { listingId, artifactId: listing.artifact_id, currency, fee })
-
-  /* Передаём артефакт покупателю */
-  db.prepare(`UPDATE artifacts SET owner_id = ?, status = 'kept' WHERE id = ?`).run(
-    req.user!.userId,
-    listing.artifact_id,
-  )
-
-  db.prepare(
-    `UPDATE marketplace_listings SET status = 'sold', sold_at = ?, buyer_id = ? WHERE id = ?`,
-  ).run(now, req.user!.userId, listingId)
-
-  /* Транзакции для обеих сторон */
-  db.prepare(
-    `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-     VALUES (?, 'purchase', ?, ?, ?, ?, 'done')`,
-  ).run(req.user!.userId, artifact.name, `Продавец #${listing.seller_id}`, listing.price, currency)
-
-  db.prepare(
-    `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-     VALUES (?, 'sale', ?, ?, ?, ?, 'done')`,
-  ).run(listing.seller_id, artifact.name, `Покупатель #${req.user!.userId}`, sellerReceives, currency)
-
-  /* Записываем в Зал Славы, если продажа крупная (эвристика: топ по цене) */
-  db.prepare(
-    `INSERT INTO hall_of_fame (artifact_id, artifact_name, type, rarity, architect, price, achieved_at)
-     SELECT ?, ?, ?, ?, u.username, ?, ?
-     FROM users u WHERE u.id = ?`,
-  ).run(
-    artifact.id,
-    artifact.name,
-    artifact.type,
-    artifact.rarity,
-    listing.price,
-    now,
-    listing.seller_id,
-  )
 
   const updatedWallet = db
     .prepare(
