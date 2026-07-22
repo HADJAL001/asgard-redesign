@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Infinity as InfinityIcon, Check, X, CreditCard, Bitcoin, ShieldCheck } from "lucide-react"
 import { Navbar } from "./navbar"
-import { useOsgard } from "./osgard-store"
+import { useOsgard } from "@/lib/store/osgard-store"
 import { COLORS, TC_USD, formatTokens } from "@/lib/economy"
 
 type Pack = { tc: number; bonus: number; popular?: boolean }

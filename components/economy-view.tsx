@@ -23,7 +23,7 @@ import {
   BarChart3,
 } from "lucide-react"
 import { Navbar } from "./navbar"
-import { useOsgard } from "./osgard-store"
+import { useOsgard } from "@/lib/store/osgard-store"
 import { COLORS, EMISSION_SERIES, PLATFORM_FEE, formatTokens } from "@/lib/economy"
 import { TC_TOTAL_CAP, UP, DOWN } from "@/lib/tc-market"
 

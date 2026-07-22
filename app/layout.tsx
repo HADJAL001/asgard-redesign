@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Inter, Space_Grotesk, Cormorant_Garamond, Playfair_Display } from "next/font/google"
 import "./globals.css"
-import { OsgardStoreProvider } from "@/components/osgard-store"
+import { OsgardStoreProvider } from "@/lib/store/osgard-store"
 import { AuthProvider } from "@/lib/auth-store"
 import { I18nProvider } from "@/lib/i18n/use-translation"
 import { Footer } from "@/components/footer"

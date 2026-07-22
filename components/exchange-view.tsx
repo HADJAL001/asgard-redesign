@@ -14,7 +14,7 @@ import {
 import { TrendingUp, TrendingDown, ArrowUpDown, ArrowRightLeft, Infinity as InfinityIcon, Boxes } from "lucide-react"
 import { Navbar } from "./navbar"
 import { TCMarketPanel } from "./tc-market-panel"
-import { useOsgard } from "./osgard-store"
+import { useOsgard } from "@/lib/store/osgard-store"
 import {
   ASSETS,
   CURRENCIES,

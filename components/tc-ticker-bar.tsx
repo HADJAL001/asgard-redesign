@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { TrendingUp, TrendingDown, Infinity as InfinityIcon } from "lucide-react"
-import { useOsgard } from "./osgard-store"
+import { useOsgard } from "@/lib/store/osgard-store"
 import { UP, DOWN, TC_ACCENT, fmtCompactUSD } from "@/lib/tc-market"
 
 /** Slim global marquee: live TC/USD rate + 24h & 30d change + macro stats. */

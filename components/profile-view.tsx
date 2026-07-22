@@ -29,8 +29,7 @@ import {
 } from "lucide-react"
 import { Infinity as InfinityIcon, Lock, DollarSign } from "lucide-react"
 import { Navbar } from "./navbar"
-import { useOsgard } from "./osgard-store"
-import { useOsgardStore } from "@/lib/store/osgard-store"
+import { useOsgard, useOsgardStore } from "@/lib/store/osgard-store"
 import { formatTokens } from "@/lib/economy"
 import { UP, DAY_MS } from "@/lib/tc-market"
 

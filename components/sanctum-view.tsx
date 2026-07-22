@@ -4,7 +4,7 @@ import { useMemo } from "react"
 import Link from "next/link"
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Navbar } from "./navbar"
-import { useOsgard } from "./osgard-store"
+import { useOsgard } from "@/lib/store/osgard-store"
 import {
   ARTIFACTS,
   RARITY,
