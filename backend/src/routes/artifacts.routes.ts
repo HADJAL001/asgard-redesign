@@ -81,6 +81,17 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
     return res.status(400).json({ error: "Укажите тип артефакта" })
   }
 
+  let resolvedProjectId: number | null = null
+  if (projectId !== undefined && projectId !== null && projectId !== "") {
+    const project: any = db
+      .prepare(`SELECT id FROM projects WHERE id = ? AND user_id = ?`)
+      .get(Number(projectId), req.user!.userId)
+    if (!project) {
+      return res.status(404).json({ error: "Проект не найден" })
+    }
+    resolvedProjectId = project.id
+  }
+
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
   if (!wallet) return res.status(404).json({ error: "Кошелёк не найден" })
   if (wallet.timecoin < FORGE_COST_TC) {
@@ -110,7 +121,7 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
     )
     .run(
       req.user!.userId,
-      projectId || null,
+      resolvedProjectId,
       name,
       type,
       rarity,
@@ -123,6 +134,10 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
       price,
       LIST_CURRENCY_BY_RARITY[rarity],
     )
+
+  if (resolvedProjectId) {
+    db.prepare(`UPDATE projects SET artifact_count = artifact_count + 1 WHERE id = ?`).run(resolvedProjectId)
+  }
 
   db.prepare(
     `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)

@@ -176,6 +176,8 @@
     "artifactName": "Артефакт атауы",
     "artifactNamePlaceholder": "Мысалы: Шексіздік Қылышы",
     "artifactType": "Артефакт түрі",
+    "projectLabel": "Жоба (міндетті емес)",
+    "projectNone": "Жобасыз",
     "rarityInfo": "Сирректік жасау кезінде кездейсоқ анықталады",
     "yourBalanceLabel": "Сіздің балансыңыз",
     "remainingAfter": "Жасағаннан кейін қалады",

@@ -434,8 +434,8 @@ export interface OsgardStoreState {
   /** GET /artifacts/mine — артефакты текущего пользователя. */
   fetchArtifacts: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
 
-  /** POST /artifacts/forge — создать новый артефакт (name, type). */
-  forgeArtifact: (name: string, type: string) => Promise<ForgeActionResult>
+  /** POST /artifacts/forge — создать новый артефакт (name, type, опционально привязать к projectId). */
+  forgeArtifact: (name: string, type: string, projectId?: number) => Promise<ForgeActionResult>
 
   /** POST /artifacts/generate-ai — AI-генерация уникального артефакта (Grok → DeepSeek → fallback). */
   generateAiArtifact: (hint?: string) => Promise<AiArtifactActionResult>
@@ -870,10 +870,10 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   },
 
   /* ---- action: POST /artifacts/forge — создать новый артефакт ---- */
-  forgeArtifact: async (name, type) => {
+  forgeArtifact: async (name, type, projectId) => {
     set({ loading: true, error: null })
     try {
-      const res = await apiClient.post<{ artifact: OsgardArtifact }>("/artifacts/forge", { name, type })
+      const res = await apiClient.post<{ artifact: OsgardArtifact }>("/artifacts/forge", { name, type, projectId })
 
       set((s) => ({
         artifacts: [res.artifact, ...s.artifacts],
@@ -883,6 +883,8 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
 
       // синхронизация с сервером после мутации
       await get().fetchWallet()
+      // если артефакт привязан к проекту — обновляем artifactCount в списке проектов
+      if (projectId) await get().fetchProjects()
 
       return { success: true, artifact: res.artifact }
     } catch (err) {

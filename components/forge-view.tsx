@@ -65,12 +65,15 @@ export function ForgeView() {
     forgeArtifact,
     generateAiArtifact,
     premiumUpgradeArtifact,
+    projects,
+    fetchProjects,
     loading,
     error,
   } = useOsgardStore()
 
   const [name, setName] = useState("")
   const [type, setType] = useState<ArtifactType>("neural")
+  const [projectId, setProjectId] = useState<number | "">("")
   const [submitting, setSubmitting] = useState(false)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [result, setResult] = useState<OsgardArtifact | null>(null)
@@ -130,6 +133,7 @@ export function ForgeView() {
     fetchWallet({ skipAuthRedirect: true })
     fetchTcState({ skipAuthRedirect: true })
     fetchArtifacts({ skipAuthRedirect: true })
+    fetchProjects({ skipAuthRedirect: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -156,7 +160,7 @@ export function ForgeView() {
     await new Promise((r) => setTimeout(r, 400))
 
     try {
-      const res = await forgeArtifact(name.trim(), type)
+      const res = await forgeArtifact(name.trim(), type, projectId === "" ? undefined : projectId)
       if (res.success && res.artifact) {
         setForgePhase("reveal")
         setResult(res.artifact)
@@ -403,6 +407,28 @@ export function ForgeView() {
                 })}
               </div>
             </div>
+
+            {/* Project link (опционально) */}
+            {projects.length > 0 && (
+              <div className="mt-5">
+                <label htmlFor="forge-project" className="mb-2 block text-[13px]" style={{ color: COLORS.label }}>
+                  {t("forge.projectLabel")}
+                </label>
+                <select
+                  id="forge-project"
+                  value={projectId}
+                  onChange={(e) => setProjectId(e.target.value ? Number(e.target.value) : "")}
+                  className="cal-input"
+                >
+                  <option value="">{t("forge.projectNone")}</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Rarity info (сервер решает сам) */}
             <div className="mt-5 rounded-lg p-4 text-[13px]" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}` }}>

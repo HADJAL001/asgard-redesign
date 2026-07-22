@@ -176,6 +176,8 @@
     "artifactName": "Artifact name",
     "artifactNamePlaceholder": "e.g. Blade of Infinity",
     "artifactType": "Artifact type",
+    "projectLabel": "Project (optional)",
+    "projectNone": "No project",
     "rarityInfo": "Rarity is determined randomly on creation",
     "yourBalanceLabel": "Your balance",
     "remainingAfter": "Remaining after creation",

@@ -176,6 +176,8 @@
     "artifactName": "Название артефакта",
     "artifactNamePlaceholder": "Например: Клинок Бесконечности",
     "artifactType": "Тип артефакта",
+    "projectLabel": "Проект (необязательно)",
+    "projectNone": "Без проекта",
     "rarityInfo": "Редкость определяется случайно при создании",
     "yourBalanceLabel": "Ваш баланс",
     "remainingAfter": "Останется после создания",
