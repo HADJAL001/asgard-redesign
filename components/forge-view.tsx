@@ -210,26 +210,65 @@ export function ForgeView() {
       {/* ===== КИНЕМАТОГРАФИЧЕСКИЙ ЭФФЕКТ КУЗНИЦЫ ===== */}
       {forging && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden"
           style={{
             background: forgePhase === "burst"
-              ? "radial-gradient(ellipse at center, rgba(0,212,255,0.25) 0%, rgba(0,0,0,0.95) 70%)"
-              : "rgba(0,0,0,0.92)",
-            backdropFilter: "blur(4px)",
-            transition: "background 0.3s ease",
+              ? "radial-gradient(ellipse at center, rgba(0,212,255,0.3) 0%, rgba(0,0,0,0.97) 68%)"
+              : "radial-gradient(ellipse at center, rgba(10,20,35,0.95) 0%, rgba(0,0,0,0.94) 75%)",
+            backdropFilter: "blur(6px)",
+            transition: "background 0.4s ease",
+            animation: forgePhase === "burst" ? "forge-shake 0.45s ease-in-out" : undefined,
           }}
         >
-          <div className="flex flex-col items-center gap-8 text-center">
+          {/* Кинематографическая вспышка в момент взрыва */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background: "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(0,212,255,0.35) 35%, transparent 70%)",
+              opacity: 0,
+              animation: forgePhase === "burst" ? "forge-flash-overlay 0.5s ease-out forwards" : undefined,
+            }}
+          />
+
+          {/* Виньетка для киношной глубины */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+            style={{ boxShadow: "inset 0 0 220px 60px rgba(0,0,0,0.85)" }}
+          />
+
+          <div className="relative flex flex-col items-center gap-8 text-center">
             {/* Центральная сфера */}
             <div
               className="relative flex items-center justify-center"
               style={{
-                width: 200,
-                height: 200,
+                width: 220,
+                height: 220,
               }}
             >
+              {/* Вращающиеся энергетические лучи */}
+              <div
+                aria-hidden="true"
+                className="absolute rounded-full"
+                style={{
+                  width: 280,
+                  height: 280,
+                  top: "50%",
+                  left: "50%",
+                  marginTop: -140,
+                  marginLeft: -140,
+                  background:
+                    "conic-gradient(from 0deg, transparent 0deg, rgba(0,212,255,0.22) 6deg, transparent 18deg, transparent 160deg, rgba(0,212,255,0.16) 170deg, transparent 182deg, transparent 340deg, rgba(0,212,255,0.2) 352deg, transparent 360deg)",
+                  animation: "forge-rays-spin 7s linear infinite",
+                  opacity: forgePhase === "charging" ? 1 : 0,
+                  filter: "blur(1px)",
+                  transition: "opacity 0.4s ease",
+                }}
+              />
+
               {/* Внешние кольца */}
-              {[160, 130, 100].map((size, i) => (
+              {[180, 150, 120].map((size, i) => (
                 <div
                   key={size}
                   className="absolute rounded-full"
@@ -240,13 +279,48 @@ export function ForgeView() {
                     left: "50%",
                     marginTop: -size / 2,
                     marginLeft: -size / 2,
-                    border: `1px solid rgba(0,212,255,${0.15 + i * 0.1})`,
+                    border: `1.5px solid rgba(0,212,255,${0.2 + i * 0.12})`,
+                    boxShadow: `0 0 ${10 + i * 6}px rgba(0,212,255,${0.15 + i * 0.08})`,
                     animation: `forge-ring-spin ${3 + i * 1.5}s linear infinite ${i % 2 === 0 ? "" : "reverse"}`,
-                    opacity: forgePhase === "charging" ? 1 : forgePhase === "burst" ? 0 : 0,
+                    opacity: forgePhase === "charging" ? 1 : 0,
                     transition: "opacity 0.3s ease",
                   }}
                 />
               ))}
+
+              {/* Ударная волна при взрыве */}
+              {forgePhase === "burst" && (
+                <>
+                  <div
+                    aria-hidden="true"
+                    className="absolute rounded-full"
+                    style={{
+                      width: 100,
+                      height: 100,
+                      top: "50%",
+                      left: "50%",
+                      marginTop: -50,
+                      marginLeft: -50,
+                      border: "2px solid rgba(255,255,255,0.9)",
+                      animation: "forge-shockwave 0.6s cubic-bezier(0.16,1,0.3,1) forwards",
+                    }}
+                  />
+                  <div
+                    aria-hidden="true"
+                    className="absolute rounded-full"
+                    style={{
+                      width: 100,
+                      height: 100,
+                      top: "50%",
+                      left: "50%",
+                      marginTop: -50,
+                      marginLeft: -50,
+                      border: "2px solid rgba(0,212,255,0.8)",
+                      animation: "forge-shockwave 0.6s cubic-bezier(0.16,1,0.3,1) 0.08s forwards",
+                    }}
+                  />
+                </>
+              )}
 
               {/* Центральный шар */}
               <div
@@ -258,10 +332,15 @@ export function ForgeView() {
                     ? "radial-gradient(circle at 35% 35%, #fff, #00D4FF 40%, #0050FF)"
                     : "radial-gradient(circle at 35% 35%, rgba(0,212,255,0.6), rgba(0,80,255,0.3))",
                   boxShadow: forgePhase === "burst"
-                    ? "0 0 80px 40px rgba(0,212,255,0.8), 0 0 160px 80px rgba(0,212,255,0.4)"
+                    ? "0 0 90px 45px rgba(0,212,255,0.85), 0 0 170px 90px rgba(0,212,255,0.4), 0 0 40px 10px rgba(255,255,255,0.9)"
                     : "0 0 30px 10px rgba(0,212,255,0.4)",
-                  transition: "all 0.2s ease",
-                  animation: forgePhase === "charging" ? "forge-pulse 0.6s ease-in-out infinite" : undefined,
+                  transition: "background 0.2s ease, box-shadow 0.2s ease",
+                  animation:
+                    forgePhase === "charging"
+                      ? "forge-pulse 0.6s ease-in-out infinite"
+                      : forgePhase === "burst"
+                        ? "forge-core-flare 0.55s cubic-bezier(0.16,1,0.3,1) both"
+                        : undefined,
                 }}
               >
                 {forgePhase === "charging" && (
@@ -273,36 +352,48 @@ export function ForgeView() {
               </div>
 
               {/* Частицы при взрыве */}
-              {forgePhase === "burst" && Array.from({ length: 12 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="absolute rounded-full"
-                  style={{
-                    width: 6,
-                    height: 6,
-                    top: "50%",
-                    left: "50%",
-                    marginTop: -3,
-                    marginLeft: -3,
-                    background: i % 3 === 0 ? "#00D4FF" : i % 3 === 1 ? "#fff" : "#B57BFF",
-                    animation: `forge-particle-burst 0.7s ease-out forwards`,
-                    animationDelay: `${i * 0.02}s`,
-                    transformOrigin: "center center",
-                    "--particle-angle": `${i * 30}deg`,
-                  } as React.CSSProperties}
-                />
-              ))}
+              {forgePhase === "burst" &&
+                Array.from({ length: 18 }).map((_, i) => {
+                  const palette = ["#00D4FF", "#ffffff", "#B57BFF", "#F1C40F"]
+                  const color = palette[i % palette.length]
+                  const big = i % 3 === 0
+                  return (
+                    <div
+                      key={i}
+                      className="absolute"
+                      style={{
+                        width: big ? 4 : 2.5,
+                        height: big ? 18 : 11,
+                        borderRadius: 999,
+                        top: "50%",
+                        left: "50%",
+                        marginTop: big ? -9 : -5.5,
+                        marginLeft: big ? -2 : -1.25,
+                        background: `linear-gradient(${color}, transparent)`,
+                        boxShadow: `0 0 6px ${color}`,
+                        animation: "forge-particle-burst 0.75s cubic-bezier(0.16,1,0.3,1) forwards",
+                        animationDelay: `${(i % 9) * 0.02}s`,
+                        transformOrigin: "center center",
+                        "--particle-angle": `${i * (360 / 18)}deg`,
+                      } as React.CSSProperties}
+                    />
+                  )
+                })}
             </div>
 
             {/* Текст фазы */}
             <div>
               <p
-                className="text-[22px] font-semibold tracking-widest uppercase"
+                key={forgePhase}
+                className="text-[24px] font-semibold tracking-widest uppercase"
                 style={{
                   color: forgePhase === "burst" ? "#fff" : "#00D4FF",
-                  textShadow: forgePhase === "burst" ? "0 0 30px rgba(0,212,255,0.9)" : "none",
-                  transition: "all 0.3s ease",
-                  letterSpacing: "0.2em",
+                  textShadow:
+                    forgePhase === "burst"
+                      ? "0 0 30px rgba(0,212,255,0.9), 0 0 60px rgba(0,212,255,0.5)"
+                      : "0 0 18px rgba(0,212,255,0.35)",
+                  letterSpacing: "0.22em",
+                  animation: "forge-text-pop 0.5s cubic-bezier(0.16,1,0.3,1) both",
                 }}
               >
                 {forgePhase === "charging" ? "ЗАРЯЖАЕМ КУЗНИЦУ" : forgePhase === "burst" ? "✦  АРТЕФАКТ СОЗДАН  ✦" : "ГОТОВО"}
@@ -313,14 +404,16 @@ export function ForgeView() {
             </div>
 
             {/* Прогресс-бар */}
-            <div className="w-48 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
+            <div className="relative w-48 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
               <div
                 className="h-full rounded-full"
                 style={{
-                  background: "linear-gradient(90deg, #00D4FF, #B57BFF)",
-                  width: forgePhase === "charging" ? "60%" : forgePhase === "burst" ? "100%" : "100%",
+                  background: "linear-gradient(90deg, #00D4FF, #B57BFF, #00D4FF)",
+                  backgroundSize: "220% 100%",
+                  width: forgePhase === "charging" ? "60%" : "100%",
                   transition: "width 0.6s ease",
-                  boxShadow: "0 0 10px rgba(0,212,255,0.6)",
+                  boxShadow: "0 0 12px rgba(0,212,255,0.7)",
+                  animation: "forge-progress-shimmer 1.4s linear infinite",
                 }}
               />
             </div>
@@ -562,8 +655,22 @@ export function ForgeView() {
                 </p>
               </div>
             ) : (
-              <div className="forge-reveal mt-6 flex flex-col items-center rounded-xl px-6 py-10" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${RARITY[resultRarity]?.color || COLORS.border}` }}>
-                <span className="flex size-24 items-center justify-center rounded-2xl" style={{ border: `1px solid ${RARITY[resultRarity]?.color || COLORS.border}` }}>
+              <div
+                className="forge-reveal mt-6 flex flex-col items-center rounded-xl px-6 py-10"
+                style={{
+                  backgroundColor: "#0A0A0F",
+                  border: `1px solid ${RARITY[resultRarity]?.color || COLORS.border}`,
+                  boxShadow: `0 0 40px 4px ${(RARITY[resultRarity]?.color || COLORS.border)}33`,
+                }}
+              >
+                <div className="forge-reveal-shine" aria-hidden="true" />
+                <span
+                  className="flex size-24 items-center justify-center rounded-2xl"
+                  style={{
+                    border: `1px solid ${RARITY[resultRarity]?.color || COLORS.border}`,
+                    boxShadow: `0 0 24px 2px ${(RARITY[resultRarity]?.color || COLORS.border)}55`,
+                  }}
+                >
                   <ResultTypeIcon size={44} strokeWidth={1.25} style={{ color: RARITY[resultRarity]?.color || COLORS.accent }} aria-hidden="true" />
                 </span>
                 <p className="mt-5 text-[18px] font-medium">{result.name}</p>
