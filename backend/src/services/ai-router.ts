@@ -1,4 +1,5 @@
 import dotenv from "dotenv"
+import { captureError } from "../lib/sentry"
 
 dotenv.config()
 
@@ -106,7 +107,7 @@ export async function callOpenAiCompatible<T>(
     const text: string = data?.choices?.[0]?.message?.content || ""
     return parser(text)
   } catch (err) {
-    console.error(`[ai-router] ${logLabel} API call failed:`, err)
+    captureError(`[ai-router] ${logLabel} API call failed:`, err)
     return null
   }
 }
@@ -145,7 +146,7 @@ export async function callClaudeApi(
     const data: any = await res.json()
     return data?.content?.[0]?.text || ""
   } catch (err) {
-    console.error("[ai-router] Claude API call failed:", err)
+    captureError("[ai-router] Claude API call failed:", err)
     return null
   }
 }

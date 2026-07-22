@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express"
 import { AuthService } from "../services/auth.service"
 import { UserModel } from "../models/user.model"
+import { captureError } from "../lib/sentry"
 
 // AuthRequest использует глобальный тип req.user из express.d.ts
 export type AuthRequest = Request
@@ -26,7 +27,7 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
     if (error.name === "JsonWebTokenError") {
       return res.status(401).json({ error: "Недействительный токен", code: "INVALID_TOKEN" })
     }
-    console.error("[authMiddleware] requireAuth error:", error)
+    captureError("[authMiddleware] requireAuth error:", error)
     return res.status(500).json({ error: "Internal server error" })
   }
 }

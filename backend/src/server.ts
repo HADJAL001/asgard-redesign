@@ -5,8 +5,10 @@ import dotenv from "dotenv"
 import helmet from "helmet"
 import compression from "compression"
 import db from "./lib/db"
+import { initSentry, captureError, Sentry } from "./lib/sentry"
 
 dotenv.config()
+initSentry()
 
 /* Предупреждение о дефолтных секретах: JWT_SECRET/JWT_REFRESH_SECRET/ENCRYPTION_KEY
    имеют хардкод-фолбэки в auth.ts/encryption.ts (чтобы сервер не падал при старте),
@@ -19,12 +21,21 @@ dotenv.config()
   if (!process.env.JWT_SECRET) missing.push("JWT_SECRET")
   if (!process.env.JWT_REFRESH_SECRET) missing.push("JWT_REFRESH_SECRET")
   if (!process.env.ENCRYPTION_KEY) missing.push("ENCRYPTION_KEY")
-  if (missing.length > 0) {
-    console.warn(
-      `[security] Не заданы переменные окружения: ${missing.join(", ")} — используются небезопасные дефолты из кода. ` +
-        `Задайте их в окружении (Railway → Variables), особенно в production.`,
+  if (missing.length === 0) return
+
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      `[fatal] Не заданы обязательные переменные окружения: ${missing.join(", ")} — ` +
+        `в production сервер не может безопасно стартовать с дефолтными секретами из кода ` +
+        `(токены/шифрование были бы тривиально подделываемы). Задайте их в Railway → Variables.`,
     )
+    process.exit(1)
   }
+
+  console.warn(
+    `[security] Не заданы переменные окружения: ${missing.join(", ")} — используются небезопасные дефолты из кода. ` +
+      `Задайте их в окружении (Railway → Variables), особенно в production.`,
+  )
 })()
 
 /* Защитная сетка поверх asyncHandler на роутах: если где-то всё же проскочит
@@ -33,10 +44,10 @@ dotenv.config()
    Логируем и продолжаем работу — краш одного запроса не должен ронять всех
    остальных пользователей. */
 process.on("unhandledRejection", (reason) => {
-  console.error("[unhandledRejection]", reason)
+  captureError("[unhandledRejection]", reason)
 })
 process.on("uncaughtException", (err) => {
-  console.error("[uncaughtException]", err)
+  captureError("[uncaughtException]", err)
 })
 
 const app = express()
@@ -61,13 +72,17 @@ if (!ALLOWED_ORIGINS.includes("https://www.osgardnewworld.com")) {
   ALLOWED_ORIGINS.push("https://www.osgardnewworld.com")
 }
 
+/* Этот сервер отдаёт только JSON (нет res.render/sendFile/express.static) —
+   инлайн-скрипты/стили здесь никогда не рендерятся, поэтому 'unsafe-inline'
+   не нужен даже для форм-совместимости. CSP браузерного фронтенда (Next.js)
+   настраивается отдельно, в его собственном middleware. */
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"], // для Next.js
+      scriptSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "https:"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'"],
       connectSrc: ["'self'", "https://api.mainnet-beta.solana.com"]
     }
   }
@@ -106,7 +121,21 @@ import { writeBackpressure, getWriteQueueStats } from "./middleware/write-backpr
 app.use(writeBackpressure)
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "osgard-backend", time: Date.now(), writeQueue: getWriteQueueStats() })
+  const dbStart = Date.now()
+  let dbOk = true
+  try {
+    db.prepare("SELECT 1").get()
+  } catch {
+    dbOk = false
+  }
+  res.json({
+    ok: true,
+    service: "osgard-backend",
+    time: Date.now(),
+    db: { ok: dbOk, latencyMs: Date.now() - dbStart },
+    sse: { activeConnections: getActiveSseConnections() },
+    writeQueue: getWriteQueueStats(),
+  })
 })
 
 /* Routes are mounted after they're implemented in later stages */
@@ -163,10 +192,15 @@ import "./migrations/031_jarvis_personality"
 import "./migrations/032_ensure_withdrawals"
 import "./migrations/033_kyc_fields"
 import "./migrations/034_orchestrator_chains"
+import "./migrations/035_demo_bonus_claimed"
+import "./migrations/036_stripe_events"
+import "./migrations/037_transactions_composite_index"
+import "./migrations/038_audit_log"
+import "./migrations/039_walli_items_index"
 import walliRoutes from "./routes/walli.routes"
 import demoRoutes from "./routes/demo.routes"
 import adminRoutes from "./routes/admin.routes"
-import orchestratorRoutes from "./routes/orchestrator.routes"
+import orchestratorRoutes, { getActiveSseConnections } from "./routes/orchestrator.routes"
 
 
 
@@ -257,8 +291,12 @@ app.use((req, res) => {
   res.status(404).json({ error: "Not found" })
 })
 
+/* Ловит все ошибки, дошедшие сюда через next(err) (в т.ч. из asyncHandler на роутах),
+   и отправляет их в Sentry перед финальным JSON-ответом клиенту. */
+Sentry.setupExpressErrorHandler(app)
+
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(err)
+  captureError("[express error handler]", err)
   res.status(err.status || 500).json({ error: err.message || "Internal server error" })
 })
 

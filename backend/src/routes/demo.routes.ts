@@ -1,5 +1,7 @@
 import { Router, Request, Response } from "express"
 import { generateProjectContent } from "../services/ai-generator"
+import { redisClient, ensureRedisConnected } from "../lib/redis"
+import { captureError } from "../lib/sentry"
 
 /* ================================================================
    OSGARD · Demo Routes — без авторизации
@@ -32,7 +34,7 @@ function getClientIp(req: Request): string {
   return req.socket.remoteAddress || "unknown"
 }
 
-function checkIpLimit(ip: string): { allowed: boolean; remaining: number; resetAt: number } {
+function memoryCheckIpLimit(ip: string): { allowed: boolean; remaining: number; resetAt: number } {
   const now = Date.now()
   let entry = ipMap.get(ip)
 
@@ -47,6 +49,33 @@ function checkIpLimit(ip: string): { allowed: boolean; remaining: number; resetA
 
   entry.count++
   return { allowed: true, remaining: IP_LIMIT - entry.count, resetAt: entry.resetAt }
+}
+
+/* Redis-backed лимитер с fallback на in-memory (см. cache.service.ts — тот же паттерн):
+   несколько инстансов backend (Railway) не шарят ipMap между собой, поэтому при
+   доступном REDIS_URL лимит считается через общий счётчик в Redis. */
+async function checkIpLimit(ip: string): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
+  const key = `demo_limit:${ip}`
+
+  if (await ensureRedisConnected()) {
+    try {
+      const count = await redisClient!.incr(key)
+      if (count === 1) {
+        await redisClient!.pexpire(key, IP_WINDOW_MS)
+      }
+      const ttl = await redisClient!.pttl(key)
+      const resetAt = Date.now() + (ttl > 0 ? ttl : IP_WINDOW_MS)
+
+      if (count > IP_LIMIT) {
+        return { allowed: false, remaining: 0, resetAt }
+      }
+      return { allowed: true, remaining: IP_LIMIT - count, resetAt }
+    } catch (err: any) {
+      console.warn("[demo] redis failed, falling back to in-memory:", err.message)
+    }
+  }
+
+  return memoryCheckIpLimit(ip)
 }
 
 function randomStat(): number {
@@ -71,7 +100,7 @@ router.post("/generate", async (req: Request, res: Response) => {
   }
 
   const ip = getClientIp(req)
-  const { allowed, remaining, resetAt } = checkIpLimit(ip)
+  const { allowed, remaining, resetAt } = await checkIpLimit(ip)
 
   if (!allowed) {
     return res.status(429).json({
@@ -119,7 +148,7 @@ router.post("/generate", async (req: Request, res: Response) => {
       expiresAt: Date.now() + 24 * 60 * 60 * 1000,
     })
   } catch (err) {
-    console.error("[demo.generate] error:", err)
+    captureError("[demo.generate] error:", err)
     res.status(500).json({ error: "Ошибка генерации. Попробуйте ещё раз." })
   }
 })
@@ -131,6 +160,7 @@ router.post("/generate", async (req: Request, res: Response) => {
    ------------------------------------------------------------------ */
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
+import { logAudit } from "../lib/audit"
 
 router.post("/convert", requireAuth, async (req: AuthRequest, res: Response) => {
   const userId = req.user!.userId
@@ -156,8 +186,12 @@ router.post("/convert", requireAuth, async (req: AuthRequest, res: Response) => 
     `UPDATE projects SET artifact_count = ? WHERE id = ?`,
   )
 
+  // DatabaseSync (node:sqlite) не даёт .transaction()-хелпер (в отличие от better-sqlite3),
+  // но поддерживает обычный SQL BEGIN/COMMIT/ROLLBACK — оборачиваем все вставки проектов,
+  // артефактов и начисление бонуса в одну транзакцию, чтобы при ошибке на середине цикла
+  // (например, на 2-м из 3 проектов) не оставалось частично сконвертированных демо-данных.
+  db.exec("BEGIN")
   try {
-    // DatabaseSync (node:sqlite) не поддерживает .transaction() — делаем последовательные вставки
     for (const proj of demoProjects.slice(0, 3)) {
       const pInfo = insertProject.run(
         userId,
@@ -190,17 +224,28 @@ router.post("/convert", requireAuth, async (req: AuthRequest, res: Response) => 
       updateArtifactCount.run(count, projectId)
     }
 
-    // Начисляем 50 бонусных токенов
-    db.prepare(`UPDATE wallets SET timecoin = timecoin + 50 WHERE user_id = ?`).run(userId)
+    // Начисляем 50 бонусных токенов, но только один раз на пользователя —
+    // атомарный условный UPDATE (WHERE demo_bonus_claimed = 0) исключает повторный
+    // фарм TC при многократных вызовах /demo/convert.
+    const bonusClaim = db
+      .prepare(`UPDATE wallets SET timecoin = timecoin + 50, demo_bonus_claimed = 1 WHERE user_id = ? AND demo_bonus_claimed = 0`)
+      .run(userId)
+    const bonusTokens = bonusClaim.changes === 1 ? 50 : 0
+    if (bonusTokens > 0) {
+      logAudit(userId, "credit", bonusTokens, "demo_conversion_bonus")
+    }
+
+    db.exec("COMMIT")
 
     return res.json({
       ok: true,
       projectsConverted: Math.min(demoProjects.length, 3),
       artifactsConverted: totalArtifacts,
-      bonusTokens: 50,
+      bonusTokens,
     })
   } catch (err) {
-    console.error("[demo.convert] error:", err)
+    db.exec("ROLLBACK")
+    captureError("[demo.convert] error:", err)
     return res.status(500).json({ error: "Ошибка конвертации демо-данных" })
   }
 })

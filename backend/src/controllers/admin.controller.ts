@@ -1,6 +1,7 @@
 import { Response } from "express"
 import db from "../lib/db"
 import { AuthRequest } from "../middleware/authMiddleware"
+import { captureError } from "../lib/sentry"
 
 function logAdminAction(adminId: number, action: string, targetUserId: number | null, meta?: Record<string, any>) {
   try {
@@ -8,7 +9,7 @@ function logAdminAction(adminId: number, action: string, targetUserId: number | 
       `INSERT INTO admin_logs (admin_id, action, target_user_id, meta, created_at) VALUES (?, ?, ?, ?, ?)`,
     ).run(adminId, action, targetUserId, meta ? JSON.stringify(meta) : null, Date.now())
   } catch (error) {
-    console.error("Admin log write error:", error)
+    captureError("Admin log write error:", error)
   }
 }
 
@@ -45,7 +46,7 @@ export class AdminController {
         },
       })
     } catch (error: any) {
-      console.error("Admin stats error:", error)
+      captureError("Admin stats error:", error)
       res.status(500).json({ error: "Internal server error" })
     }
   }
@@ -92,7 +93,7 @@ export class AdminController {
         totalPages: Math.max(1, Math.ceil(total / limit)),
       })
     } catch (error: any) {
-      console.error("Admin listUsers error:", error)
+      captureError("Admin listUsers error:", error)
       res.status(500).json({ error: "Internal server error" })
     }
   }
@@ -120,7 +121,7 @@ export class AdminController {
       logAdminAction(req.user!.userId, "set_role", id, { role })
       res.json({ success: true })
     } catch (error: any) {
-      console.error("Admin setRole error:", error)
+      captureError("Admin setRole error:", error)
       res.status(500).json({ error: "Internal server error" })
     }
   }
@@ -148,7 +149,7 @@ export class AdminController {
       logAdminAction(req.user!.userId, "set_banned", id, { banned })
       res.json({ success: true })
     } catch (error: any) {
-      console.error("Admin setBanned error:", error)
+      captureError("Admin setBanned error:", error)
       res.status(500).json({ error: "Internal server error" })
     }
   }
@@ -184,7 +185,7 @@ export class AdminController {
 
       res.json({ success: true })
     } catch (error: any) {
-      console.error("Admin grantTokens error:", error)
+      captureError("Admin grantTokens error:", error)
       res.status(500).json({ error: "Internal server error" })
     }
   }
@@ -227,7 +228,7 @@ export class AdminController {
         totalPages: Math.max(1, Math.ceil(total / limit)),
       })
     } catch (error: any) {
-      console.error("Admin listLogs error:", error)
+      captureError("Admin listLogs error:", error)
       res.status(500).json({ error: "Internal server error" })
     }
   }

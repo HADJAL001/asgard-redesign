@@ -1,4 +1,5 @@
 import { callClaudeRaw, callDeepSeekRaw, callGrokRaw, extractJson, isAiConfigured } from "./ai-router"
+import { captureError } from "../lib/sentry"
 
 /* ================================================================
    OSGARD · App Generator Service
@@ -267,7 +268,7 @@ export async function generateApp(name: string, hint?: string): Promise<AppGener
 
     return { files: [...template, ...files], source: files.length > 0 ? "ai" : "fallback" }
   } catch (err) {
-    console.error("[app-generator] generation failed, falling back:", err)
+    captureError("[app-generator] generation failed, falling back:", err)
     return {
       files: [...template, { path: "app/page.tsx", content: fallbackPageContent(name, hint) }],
       source: "fallback",

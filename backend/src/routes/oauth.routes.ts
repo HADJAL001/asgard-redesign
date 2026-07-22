@@ -16,6 +16,7 @@ import {
   generatePkcePair,
   generateState,
 } from '../services/oauth-providers';
+import { captureError } from '../lib/sentry';
 
 const router = Router();
 
@@ -219,7 +220,7 @@ router.get('/:provider/callback', async (req: Request, res: Response) => {
       `${FRONTEND_URL}/auth/callback?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}`
     );
   } catch (e: any) {
-    console.error(`OAuth callback error (${provider}):`, e);
+    captureError(`OAuth callback error (${provider}):`, e);
     res.redirect(`${FRONTEND_URL}/login?oauthError=${encodeURIComponent('oauth_failed')}`);
   }
 });
@@ -252,7 +253,7 @@ router.post('/:provider/unlink', requireAuth, (req: Request, res: Response) => {
 
     res.json({ success: true });
   } catch (e: any) {
-    console.error('Unlink error:', e);
+    captureError('Unlink error:', e);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

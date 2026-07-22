@@ -8,6 +8,7 @@ import {
   OrderSide,
   TradeRow,
 } from "../services/matching-engine"
+import { logAudit } from "../lib/audit"
 
 const router = Router()
 
@@ -189,6 +190,7 @@ router.post("/buy", requireAuth, (req: AuthRequest, res) => {
   const walletBefore: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
   if (!walletBefore) return res.status(404).json({ error: "Кошелёк не найден" })
   if (walletBefore.cash_usd + EPS < usd) {
+    logAudit(req.user!.userId, "rejected", usd, "insufficient_balance", { side: "buy", cashUsd: walletBefore.cash_usd })
     return res.status(400).json({ error: "Недостаточно cash_usd" })
   }
 
@@ -274,6 +276,7 @@ router.post("/buy", requireAuth, (req: AuthRequest, res) => {
     `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
      VALUES (?, 'tc_buy', 'TimeCoin', 'TC Market', ?, 'timecoin', 'done')`,
   ).run(req.user!.userId, totalTc)
+  logAudit(req.user!.userId, "debit", totalUsd, "tc_market_buy", { tcAmount: totalTc, avgPrice, orderbookAmount: orderbookExecutedTc, emissionAmount: mintTc })
 
   const finalState: any = getMarketState()
 
@@ -308,6 +311,7 @@ router.post("/sell", requireAuth, (req: AuthRequest, res) => {
   const walletBefore: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
   if (!walletBefore) return res.status(404).json({ error: "Кошелёк не найден" })
   if (walletBefore.timecoin + EPS < tc) {
+    logAudit(req.user!.userId, "rejected", tc, "insufficient_balance", { side: "sell", timecoin: walletBefore.timecoin })
     return res.status(400).json({ error: "Недостаточно TimeCoin" })
   }
 
@@ -389,6 +393,7 @@ router.post("/sell", requireAuth, (req: AuthRequest, res) => {
     `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
      VALUES (?, 'tc_sell', 'TimeCoin', 'TC Market', ?, 'cash_usd', 'done')`,
   ).run(req.user!.userId, totalUsd)
+  logAudit(req.user!.userId, "credit", totalUsd, "tc_market_sell", { tcAmount: totalTc, avgPrice, orderbookAmount: orderbookExecutedTc, burnAmount: burnTc })
 
   const finalState: any = getMarketState()
 

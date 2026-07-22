@@ -1,0 +1,107 @@
+- generic [active] [ref=f14e1]:
+  - main [ref=f14e2]:
+    - generic [ref=f14e3]:
+      - generic [ref=f14e4]:
+        - heading "OSGARD" [level=1] [ref=f14e8]
+        - paragraph [ref=f14e9]: Создайте аккаунт и начните зарабатывать
+      - generic [ref=f14e10]:
+        - heading "Регистрация" [level=2] [ref=f14e11]
+        - generic [ref=f14e12]:
+          - generic [ref=f14e13]:
+            - generic [ref=f14e14]: Имя пользователя
+            - textbox "Имя пользователя" [ref=f14e15]:
+              - /placeholder: alex_odin
+            - paragraph [ref=f14e16]: Только латинские буквы, цифры и подчёркивание, без пробелов (3–20 символов)
+          - generic [ref=f14e17]:
+            - generic [ref=f14e18]: Email
+            - textbox "Email" [ref=f14e19]:
+              - /placeholder: alex@osgard.io
+          - generic [ref=f14e20]:
+            - generic [ref=f14e21]: Пароль
+            - textbox "Пароль" [ref=f14e22]:
+              - /placeholder: ••••••••
+          - generic [ref=f14e23]:
+            - generic [ref=f14e24]: Повтор пароля
+            - textbox "Повтор пароля" [ref=f14e25]:
+              - /placeholder: ••••••••
+          - button "Создать аккаунт" [ref=f14e26] [cursor=pointer]
+        - generic [ref=f14e28]:
+          - generic [ref=f14e29]: или через
+          - generic [ref=f14e33]:
+            - link "Google" [ref=f14e34] [cursor=pointer]:
+              - /url: https://asgard-backend-production.up.railway.app/auth/google
+            - link "GitHub" [ref=f14e40] [cursor=pointer]:
+              - /url: https://asgard-backend-production.up.railway.app/auth/github
+      - paragraph [ref=f14e43]:
+        - text: Уже есть аккаунт?
+        - link "Войти" [ref=f14e44] [cursor=pointer]:
+          - /url: /login
+  - contentinfo [ref=f14e45]:
+    - generic [ref=f14e47]:
+      - generic [ref=f14e48]:
+        - generic [ref=f14e49]:
+          - link "OSGARD NEW WORLD" [ref=f14e50] [cursor=pointer]:
+            - /url: /
+            - generic [ref=f14e51]: OSGARD
+            - generic [ref=f14e52]: NEW WORLD
+          - paragraph [ref=f14e53]: Премиальная AI-платформа нового мира. Создавай артефакты, торгуй, развивайся в цифровой вселенной.
+        - generic [ref=f14e55]:
+          - paragraph [ref=f14e56]: Платформа
+          - list [ref=f14e57]:
+            - listitem [ref=f14e58]:
+              - link "Кузница" [ref=f14e59] [cursor=pointer]:
+                - /url: /forge
+            - listitem [ref=f14e60]:
+              - link "Маркетплейс" [ref=f14e61] [cursor=pointer]:
+                - /url: /marketplace
+            - listitem [ref=f14e62]:
+              - link "Биржа" [ref=f14e63] [cursor=pointer]:
+                - /url: /exchange
+            - listitem [ref=f14e64]:
+              - link "Стейкинг" [ref=f14e65] [cursor=pointer]:
+                - /url: /stake
+        - generic [ref=f14e66]:
+          - paragraph [ref=f14e67]: Сообщество
+          - list [ref=f14e68]:
+            - listitem [ref=f14e69]:
+              - link "Проекты" [ref=f14e70] [cursor=pointer]:
+                - /url: /projects
+            - listitem [ref=f14e71]:
+              - link "Зал Славы" [ref=f14e72] [cursor=pointer]:
+                - /url: /hall-of-fame
+            - listitem [ref=f14e73]:
+              - link "Лидеры" [ref=f14e74] [cursor=pointer]:
+                - /url: /leaderboard
+            - listitem [ref=f14e75]:
+              - link "Реферальная" [ref=f14e76] [cursor=pointer]:
+                - /url: /referral
+        - generic [ref=f14e77]:
+          - paragraph [ref=f14e78]: Аккаунт
+          - list [ref=f14e79]:
+            - listitem [ref=f14e80]:
+              - link "Кошелёк" [ref=f14e81] [cursor=pointer]:
+                - /url: /wallet
+            - listitem [ref=f14e82]:
+              - link "Транзакции" [ref=f14e83] [cursor=pointer]:
+                - /url: /transactions
+            - listitem [ref=f14e84]:
+              - link "Близнец" [ref=f14e85] [cursor=pointer]:
+                - /url: /twin
+            - listitem [ref=f14e86]:
+              - link "Обратная связь" [ref=f14e87] [cursor=pointer]:
+                - /url: /feedback
+      - generic [ref=f14e88]:
+        - generic [ref=f14e89]: © 2026 OSGARD NEW WORLD — All rights reserved
+        - generic [ref=f14e90]: Powered by TimeCoin
+  - status [ref=f14e93]:
+    - generic [ref=f14e99]:
+      - paragraph [ref=f14e100]: Режим просмотра
+      - paragraph [ref=f14e101]: Зарегистрируйтесь чтобы создавать, торговать и зарабатывать
+    - generic [ref=f14e102]:
+      - link "Регистрация" [ref=f14e103] [cursor=pointer]:
+        - /url: /register
+      - link "Войти" [ref=f14e106] [cursor=pointer]:
+        - /url: /login
+      - button "Скрыть баннер" [ref=f14e107] [cursor=pointer]
+  - button "Открыть ДЖАРВИС" [ref=f14e111] [cursor=pointer]
+  - alert [ref=f14e115]

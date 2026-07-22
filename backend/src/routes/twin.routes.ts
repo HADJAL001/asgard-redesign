@@ -175,16 +175,24 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     return res.status(400).json({ error: "Близнец ещё не обучен. Сначала обучите его на своих артефактах." })
   }
 
-  const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(userId)
-  if (!wallet || wallet.credits < TWIN_GENERATE_COST_CREDITS) {
+  // Списываем credits атомарно и синхронно ДО await генерации (сетевой вызов к AI),
+  // чтобы исключить гонку двойной траты при параллельных запросах (аналогично tc.routes.ts /withdraw).
+  const debit = db
+    .prepare(`UPDATE wallets SET credits = credits - ? WHERE user_id = ? AND credits >= ?`)
+    .run(TWIN_GENERATE_COST_CREDITS, userId, TWIN_GENERATE_COST_CREDITS)
+  if (debit.changes !== 1) {
     return res.status(400).json({ error: `Недостаточно credits (нужно ${TWIN_GENERATE_COST_CREDITS})` })
   }
 
   const vector: StyleVector = JSON.parse(twinRow.style_vector || "{}")
-  const draft = await generateTwinArtifactWithAi(vector, twinRow.level, typeof prompt === "string" ? prompt : undefined)
+  let draft
+  try {
+    draft = await generateTwinArtifactWithAi(vector, twinRow.level, typeof prompt === "string" ? prompt : undefined)
+  } catch (genErr) {
+    db.prepare(`UPDATE wallets SET credits = credits + ? WHERE user_id = ?`).run(TWIN_GENERATE_COST_CREDITS, userId)
+    throw genErr
+  }
   const now = Date.now()
-
-  db.prepare(`UPDATE wallets SET credits = credits - ? WHERE user_id = ?`).run(TWIN_GENERATE_COST_CREDITS, userId)
 
   const info = db
     .prepare(
@@ -309,15 +317,18 @@ router.post("/rental/rent", requireAuth, (req: AuthRequest, res) => {
 
   const totalPrice = Math.round(twinRow.rental_price_tc * daysNum * 100) / 100
 
-  const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(renterId)
-  if (!wallet || wallet.timecoin < totalPrice) {
+  // Атомарное условное списание вместо SELECT-then-UPDATE — исключает гонку
+  // при параллельных запросах на аренду от одного пользователя.
+  const debit = db
+    .prepare(`UPDATE wallets SET timecoin = timecoin - ? WHERE user_id = ? AND timecoin >= ?`)
+    .run(totalPrice, renterId, totalPrice)
+  if (debit.changes !== 1) {
     return res.status(400).json({ error: "Недостаточно TimeCoin для аренды" })
   }
 
   const now = Date.now()
   const endsAt = now + daysNum * 86_400_000
 
-  db.prepare(`UPDATE wallets SET timecoin = timecoin - ? WHERE user_id = ?`).run(totalPrice, renterId)
   db.prepare(`UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?`).run(totalPrice, twinRow.user_id)
   db.prepare(`UPDATE user_twins SET total_rental_income = total_rental_income + ? WHERE id = ?`).run(totalPrice, twinRow.id)
 

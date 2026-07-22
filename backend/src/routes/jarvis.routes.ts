@@ -1,5 +1,6 @@
 import { Router } from "express"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
+import { UserModel } from "../models/user.model"
 import {
   askJarvis,
   clearJarvisCache,
@@ -9,6 +10,7 @@ import {
   isAnyProviderConfigured,
 } from "../services/jarvis.service"
 import { ALL_MODES, MODE_ICONS, MODE_LABELS, isValidMode } from "../services/jarvis-personality.service"
+import { captureError } from "../lib/sentry"
 
 const router = Router()
 
@@ -49,7 +51,7 @@ router.post("/ask", requireAuth, async (req: AuthRequest, res) => {
       aiConfigured: isAnyProviderConfigured(),
     })
   } catch (err: any) {
-    console.error("[jarvis/ask] error:", err)
+    captureError("[jarvis/ask] error:", err)
     res.status(500).json({ error: err.message || "Не удалось получить ответ от ДЖАРВИСА" })
   }
 })
@@ -80,6 +82,9 @@ router.delete("/cache", requireAuth, (req: AuthRequest, res) => {
   const scope = (req.query.scope as string) || "mine"
 
   if (scope === "all") {
+    if (!UserModel.isAdmin(req.user!.userId)) {
+      return res.status(403).json({ error: "Forbidden" })
+    }
     const removed = clearJarvisCache()
     return res.json({ success: true, scope: "all", removed })
   }

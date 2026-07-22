@@ -406,12 +406,14 @@
     "editBtn": "Өңдеу",
     "paletteTitle": "Түйіндер",
     "nodeType": {
-      "input": "Кіріс",
-      "inputDesc": "Тізбектің бастапқы нүктесі",
-      "modelCall": "Модельді шақыру",
-      "modelCallDesc": "Параметрлері бар AI-модельге сұраныс",
-      "output": "Шығыс",
-      "outputDesc": "Тізбектің соңғы нәтижесі"
+      "claude": "Claude",
+      "claudeDesc": "Жүйелік промпты бар Claude-ге сұраныс",
+      "deepseek": "DeepSeek",
+      "deepseekDesc": "Жүйелік промпты бар DeepSeek-ке сұраныс",
+      "grok": "Grok",
+      "grokDesc": "Жүйелік промпты бар Grok-қа сұраныс",
+      "promptTemplate": "Шаблон",
+      "promptTemplateDesc": "Модельді шақырмай кірісті мәтіндік шаблонға қою"
     },
     "untitled": "Жаңа тізбек",
     "saveBtn": "Сақтау",
@@ -420,10 +422,17 @@
     "runError": "Тізбекті іске қосу мүмкін болмады",
     "nodeParams": "Түйін параметрлері",
     "paramLabel": "Атауы",
-    "paramModel": "Модель",
     "paramSystemPrompt": "Жүйелік промпт",
     "paramTemperature": "Температура",
-    "paramMaxTokens": "Макс. токен"
+    "paramMaxTokens": "Макс. токен",
+    "paramTemplate": "Шаблон ({{input}} — кіріс)",
+    "chainInputLabel": "Тізбек кірісі",
+    "chainInputRequired": "Іске қосу алдында тізбек кірісін көрсетіңіз",
+    "runCost": "{{cost}} TC есептен шығарылды",
+    "insufficientTcTitle": "TimeCoin жеткіліксіз",
+    "insufficientTcMessage": "Тізбекті іске қосу үшін TimeCoin жеткіліксіз. Балансты толтырыңыз",
+    "topUpBtn": "Толтыру",
+    "closeBtn": "Жабу"
   },
   "projectWizard": {
     "title": "Жоба құру",

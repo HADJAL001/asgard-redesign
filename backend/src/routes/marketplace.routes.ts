@@ -1,6 +1,7 @@
 import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
+import { logAudit } from "../lib/audit"
 
 const router = Router()
 
@@ -91,6 +92,7 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
 
   const currency = listing.currency
   if (buyerWallet[currency] < listing.price) {
+    logAudit(req.user!.userId, "rejected", listing.price, "insufficient_balance", { listingId, currency })
     return res.status(400).json({ error: `Недостаточно средств (${currency})` })
   }
 
@@ -106,10 +108,13 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
     `UPDATE wallets SET ${currency} = ${currency} - ?, updated_at = ? WHERE user_id = ?`,
   ).run(listing.price, now, req.user!.userId)
 
+  logAudit(req.user!.userId, "debit", listing.price, "marketplace_purchase", { listingId, artifactId: listing.artifact_id, currency })
+
   /* Начисляем продавцу за вычетом комиссии */
   db.prepare(
     `UPDATE wallets SET ${currency} = ${currency} + ?, updated_at = ? WHERE user_id = ?`,
   ).run(sellerReceives, now, listing.seller_id)
+  logAudit(listing.seller_id, "credit", sellerReceives, "marketplace_sale", { listingId, artifactId: listing.artifact_id, currency, fee })
 
   /* Передаём артефакт покупателю */
   db.prepare(`UPDATE artifacts SET owner_id = ?, status = 'kept' WHERE id = ?`).run(

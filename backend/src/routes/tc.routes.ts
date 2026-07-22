@@ -1,23 +1,16 @@
 import { Router, Request, Response } from 'express';
-import Database from 'better-sqlite3';
-import path from 'path';
-import fs from 'fs';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { requireAuth } from '../middleware/authMiddleware';
+import { rateLimit } from '../middleware/rateLimiter';
 import { SolanaService } from '../services/solana.service';
 import { withdrawSchema } from '../validators/withdraw.validator';
 import { TwoFAService } from '../services/twofa.service';
+import db from '../lib/db';
+import { captureError } from '../lib/sentry';
+import { logAudit } from '../lib/audit';
 
 const router = Router();
 const solanaService = new SolanaService();
-
-// Подключаемся к БД (тот же путь, что и в lib/db.ts — уважает DB_PATH из окружения)
-const dbPath = process.env.DB_PATH || path.join(__dirname, '../../data/osgard.db');
-const dbDir = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
-const db = new Database(dbPath);
 
 // ========== ТИПЫ ==========
 
@@ -59,7 +52,7 @@ function checkWithdrawalLimits(userId: number, amount: number): { valid: boolean
     FROM withdrawals 
     WHERE userId = ? AND createdAt > ?
   `);
-  const stats = countStmt.get(userId, fiveMinutesAgo.toISOString()) as WithdrawalStats;
+  const stats = countStmt.get(userId, fiveMinutesAgo.toISOString()) as unknown as WithdrawalStats;
 
   const MAX_WITHDRAWALS = 3;
   const MAX_AMOUNT_5MIN = 100;
@@ -78,7 +71,7 @@ function checkWithdrawalLimits(userId: number, amount: number): { valid: boolean
     FROM withdrawals 
     WHERE userId = ? AND createdAt > ?
   `);
-  const dailyStats = dailyStmt.get(userId, oneDayAgo.toISOString()) as DailyStats;
+  const dailyStats = dailyStmt.get(userId, oneDayAgo.toISOString()) as unknown as DailyStats;
   const DAILY_LIMIT = 500;
 
   if (dailyStats.totalAmount + amount > DAILY_LIMIT) {
@@ -116,21 +109,34 @@ router.get('/nonce', requireAuth, (req: Request, res: Response) => {
 
 // ========== ОСНОВНОЙ РОУТ ВЫВОДА ==========
 
-router.post('/withdraw', requireAuth, async (req: Request, res: Response) => {
+router.post('/withdraw', rateLimit(60_000, 10), requireAuth, async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  let debited = false;
+
+  const refundDebit = (reason: string) => {
+    if (!debited) return;
+    debited = false;
+    db.prepare('UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?').run(req.body.amount, userId);
+    logAudit(userId, 'credit', req.body.amount, 'withdraw_refund', { reason });
+  };
+
   try {
     // 0. Joi-валидация входных данных
     const { error: validationError } = withdrawSchema.validate(req.body);
     if (validationError) return res.status(400).json({ error: validationError.details[0].message });
 
     const { amount, externalWalletAddress, twofa_token, nonce } = req.body;
-    const userId = req.user!.userId;
 
     // 1. Проверка 2FA (если включена у пользователя)
     const twoFaUser = db.prepare(
       'SELECT twofa_enabled, twofa_secret FROM users WHERE id = ?'
     ).get(userId) as { twofa_enabled: number; twofa_secret: string | null } | undefined;
 
-    if (twoFaUser?.twofa_enabled) {
+    if (!twoFaUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (twoFaUser.twofa_enabled) {
       if (!twofa_token) {
         return res.status(403).json({ error: 'Требуется код 2FA (поле twofa_token)' });
       }
@@ -140,39 +146,60 @@ router.post('/withdraw', requireAuth, async (req: Request, res: Response) => {
       }
     }
 
-    // 2. Проверка nonce (защита от replay-атак)
-    const userRow = db.prepare('SELECT nonce FROM users WHERE id = ?').get(userId) as UserRow | undefined;
+    // 2-4. Атомарно захватываем nonce и списываем баланс в одной транзакции.
+    // Всё до этого момента — синхронный код без единого await, поэтому два
+    // конкурентных запроса с одинаковым nonce физически не могут оба пройти
+    // проверку: JS-код между await-точками не прерывается, значит первый
+    // начавшийся запрос успевает захватить nonce и списать баланс до того,
+    // как второй вообще начнёт свою часть транзакции (SQLite BEGIN IMMEDIATE
+    // дополнительно берёт эксклюзивную блокировку записи).
+    db.exec('BEGIN IMMEDIATE');
+    let inTx = true;
+    const rollback = () => { if (inTx) { inTx = false; db.exec('ROLLBACK'); } };
+    try {
+      const nonceClaim = db.prepare('UPDATE users SET nonce = nonce + 1 WHERE id = ? AND nonce = ?')
+        .run(userId, Number(nonce));
+      if (nonceClaim.changes !== 1) {
+        rollback();
+        logAudit(userId, 'rejected', amount, 'invalid_nonce');
+        return res.status(400).json({ error: 'Invalid nonce' });
+      }
 
-    if (!userRow) {
-      return res.status(404).json({ error: 'User not found' });
+      const debit = db.prepare('UPDATE wallets SET timecoin = timecoin - ? WHERE user_id = ? AND timecoin >= ?')
+        .run(amount, userId, amount);
+      if (debit.changes !== 1) {
+        rollback();
+        const walletRow = db.prepare('SELECT timecoin FROM wallets WHERE user_id = ?').get(userId) as
+          | { timecoin: number }
+          | undefined;
+        logAudit(userId, 'rejected', amount, 'insufficient_balance', { balance: walletRow?.timecoin ?? 0 });
+        return res.status(400).json({
+          error: `Insufficient balance. You have ${walletRow?.timecoin ?? 0} TC`
+        });
+      }
+
+      // Проверка лимитов (флуд) — откатываем списание, если превышен.
+      const limits = checkWithdrawalLimits(userId, amount);
+      if (!limits.valid) {
+        rollback();
+        logAudit(userId, 'rejected', amount, 'withdrawal_limit_exceeded', { detail: limits.error });
+        return res.status(429).json({ error: limits.error });
+      }
+
+      db.exec('COMMIT');
+      inTx = false;
+      debited = true;
+      logAudit(userId, 'debit', amount, 'withdraw_initiated', { externalWalletAddress });
+    } catch (txErr) {
+      rollback();
+      throw txErr;
     }
 
-    if (userRow.nonce !== Number(nonce)) {
-      return res.status(400).json({ error: 'Invalid nonce' });
-    }
-
-    // 3. Проверка баланса пользователя (единый источник истины — wallets.timecoin,
-    //    та же таблица, что использует весь остальной проект: wallet/tcmarket/twin)
-    const walletRow = db.prepare('SELECT timecoin FROM wallets WHERE user_id = ?').get(userId) as
-      | { timecoin: number }
-      | undefined;
-    const currentBalance = walletRow?.timecoin ?? 0;
-
-    if (currentBalance < amount) {
-      return res.status(400).json({
-        error: `Insufficient balance. You have ${currentBalance} TC`
-      });
-    }
-
-    // 4. Проверка лимитов (флуд)
-    const limits = checkWithdrawalLimits(userId, amount);
-    if (!limits.valid) {
-      return res.status(429).json({ error: limits.error });
-    }
-
-    // 5. Проверка баланса казны (TC)
+    // 5. Проверка баланса казны (TC) — сетевой вызов, поэтому вне транзакции;
+    //    при неудаче возвращаем списанное.
     const treasuryBalance = await solanaService.getTreasuryBalance();
     if (treasuryBalance < amount) {
+      refundDebit('treasury_low');
       return res.status(400).json({
         error: 'Treasury temporarily low. Please try again later.'
       });
@@ -186,6 +213,7 @@ router.post('/withdraw', requireAuth, async (req: Request, res: Response) => {
       const MIN_SOL = 0.01 * 1e9; // 0.01 SOL в lamports
 
       if (solBalance < MIN_SOL) {
+        refundDebit('treasury_sol_low');
         return res.status(400).json({
           error: 'Treasury is low on SOL for transaction fees. Please wait.'
         });
@@ -196,38 +224,29 @@ router.post('/withdraw', requireAuth, async (req: Request, res: Response) => {
       // Продолжаем, но логируем
     }
 
-    // 7. Атомарное списание баланса (wallets.timecoin — единый кошелёк проекта)
-    const updateStmt = db.prepare('UPDATE wallets SET timecoin = timecoin - ? WHERE user_id = ?');
-    updateStmt.run(amount, userId);
-
-    // 8. Отправка транзакции в Solana
+    // 7. Отправка транзакции в Solana
     let signature: string;
     try {
       signature = await solanaService.sendTokens(externalWalletAddress, amount);
     } catch (solanaError: unknown) {
-      // ОТКАТ: возвращаем баланс
-      const rollbackStmt = db.prepare('UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?');
-      rollbackStmt.run(amount, userId);
+      // ОТКАТ: возвращаем баланс (nonce уже использован для этой попытки —
+      // клиент получит новый через GET /nonce)
+      refundDebit('solana_send_failed');
 
       const msg = solanaError instanceof Error ? solanaError.message : String(solanaError);
-      console.error('❌ Solana transaction failed:', msg);
+      captureError('❌ Solana transaction failed:', solanaError);
       return res.status(500).json({
         error: `Transaction failed: ${msg}`
       });
     }
 
-    // 9. Логирование вывода + инкремент nonce (атомарно в транзакции)
-    db.transaction(() => {
-      db.prepare(`
-        INSERT INTO withdrawals (userId, amount, signature, externalAddress, status)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(userId, amount, signature, externalWalletAddress, 'completed');
+    // 8. Логирование вывода (nonce уже увеличен в транзакции на шаге 2-4)
+    db.prepare(`
+      INSERT INTO withdrawals (userId, amount, signature, externalAddress, status)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(userId, amount, signature, externalWalletAddress, 'completed');
 
-      // Инкрементируем nonce, чтобы предыдущий токен больше не принимался
-      db.prepare('UPDATE users SET nonce = nonce + 1 WHERE id = ?').run(userId);
-    })();
-
-    // 10. Успешный ответ
+    // 9. Успешный ответ
     res.json({
       success: true,
       signature,
@@ -237,7 +256,7 @@ router.post('/withdraw', requireAuth, async (req: Request, res: Response) => {
     });
 
   } catch (error: unknown) {
-    console.error('❌ Withdraw error:', error);
+    captureError('❌ Withdraw error:', error);
     const msg = error instanceof Error ? error.message : 'Internal server error';
     res.status(500).json({ error: msg });
   }
@@ -313,14 +332,14 @@ router.get('/limits', requireAuth, async (req: Request, res: Response) => {
       FROM withdrawals 
       WHERE userId = ? AND createdAt > ?
     `);
-    const stats = countStmt.get(userId, fiveMinutesAgo.toISOString()) as WithdrawalStats;
+    const stats = countStmt.get(userId, fiveMinutesAgo.toISOString()) as unknown as WithdrawalStats;
 
     const dailyStmt = db.prepare(`
       SELECT COALESCE(SUM(amount), 0) as totalAmount
-      FROM withdrawals 
+      FROM withdrawals
       WHERE userId = ? AND createdAt > ?
     `);
-    const dailyStats = dailyStmt.get(userId, oneDayAgo.toISOString()) as DailyStats;
+    const dailyStats = dailyStmt.get(userId, oneDayAgo.toISOString()) as unknown as DailyStats;
 
     res.json({
       limits: {

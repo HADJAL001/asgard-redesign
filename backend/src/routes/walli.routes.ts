@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express'
 import db from '../lib/db'
 import { requireAuth } from '../middleware/authMiddleware'
+import { logAudit } from '../lib/audit'
 
 /* ================================================================
    OSGARD · WALLI Upgrade System Routes
@@ -210,7 +211,10 @@ router.get('/economy', requireAuth, (req: Request, res: Response) => {
 /**
  * POST /walli/upgrade/:ability
  * Улучшить способность на 1 уровень.
- * Body: { payment_confirmed: true } — в продакшне здесь будет Stripe intent.
+ * Цены указаны только в USD (ABILITY_UPGRADE_PRICES) — реальной оплаты картой
+ * пока не подключено (нет Stripe checkout для этого товара, в отличие от
+ * subscription.routes.ts), поэтому до её подключения эндпоинт отклоняет
+ * запрос вместо бесплатной выдачи платного улучшения.
  */
 router.post('/upgrade/:ability', requireAuth, (req: Request, res: Response) => {
   const userId = (req as any).user.userId
@@ -221,37 +225,14 @@ router.post('/upgrade/:ability', requireAuth, (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Invalid ability type' })
   }
 
-  // Получить текущий уровень
-  let row = db.prepare(`
-    SELECT id, level, bonus FROM walli_abilities
-    WHERE user_id = ? AND ability_type = ?
-  `).get(userId, ability) as { id: number; level: number; bonus: number } | undefined
+  const existingLevel = (db.prepare(`
+    SELECT level FROM walli_abilities WHERE user_id = ? AND ability_type = ?
+  `).get(userId, ability) as { level: number } | undefined)?.level ?? 0
 
-  const currentLevel = row ? row.level : 0
-  const newLevel = currentLevel + 1
-  const price = abilityPrice(newLevel)
-  const newBonus = parseFloat((newLevel * 0.05).toFixed(2)) // +5% за уровень
-
-  if (row) {
-    db.prepare(`
-      UPDATE walli_abilities
-      SET level = ?, bonus = ?, updated_at = strftime('%s','now')
-      WHERE id = ?
-    `).run(newLevel, newBonus, row.id)
-  } else {
-    db.prepare(`
-      INSERT INTO walli_abilities (user_id, ability_type, level, bonus)
-      VALUES (?, ?, ?, ?)
-    `).run(userId, ability, newLevel, newBonus)
-  }
-
-  res.json({
-    ok: true,
-    ability,
-    level: newLevel,
-    bonus: newBonus,
-    price_usd: price,
-    message: `ВАЛЛИ улучшил способность «${ability}» до уровня ${newLevel}. Бонус: +${(newBonus * 100).toFixed(0)}%.`,
+  logAudit(userId, 'rejected', abilityPrice(existingLevel + 1), 'usd_payment_not_supported', { ability })
+  return res.status(402).json({
+    error: 'Оплата картой для улучшений способностей пока не подключена',
+    price_usd: abilityPrice(existingLevel + 1),
   })
 })
 
@@ -262,7 +243,9 @@ router.post('/upgrade/:ability', requireAuth, (req: Request, res: Response) => {
 /**
  * POST /walli/train/:level
  * Запустить новое обучение (уровень 1–5).
- * Если уже есть активное обучение — возвращает ошибку.
+ * Цены указаны только в USD (TRAINING_PRICES) — реальной оплаты картой пока
+ * не подключено, поэтому до её подключения эндпоинт отклоняет запрос вместо
+ * бесплатной выдачи платного обучения.
  */
 router.post('/train/:level', requireAuth, (req: Request, res: Response) => {
   const userId = (req as any).user.userId
@@ -272,32 +255,10 @@ router.post('/train/:level', requireAuth, (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Training level must be between 1 and 5' })
   }
 
-  const active = db.prepare(`
-    SELECT id FROM walli_training WHERE user_id = ? AND active = 1
-  `).get(userId)
-
-  if (active) {
-    return res.status(409).json({ error: 'Already has active training. Complete it first.' })
-  }
-
-  // Длительность обучения: level * 24 часа (в секундах)
-  const durationSec = level * 24 * 3600
-  const startDate = Math.floor(Date.now() / 1000)
-  const endDate = startDate + durationSec
-
-  const result = db.prepare(`
-    INSERT INTO walli_training (user_id, training_level, start_date, end_date, active)
-    VALUES (?, ?, ?, ?, 1)
-  `).run(userId, level, startDate, endDate)
-
-  res.json({
-    ok: true,
-    training_id: result.lastInsertRowid,
-    training_level: level,
-    start_date: startDate,
-    end_date: endDate,
+  logAudit(userId, 'rejected', TRAINING_PRICES[level], 'usd_payment_not_supported', { level })
+  return res.status(402).json({
+    error: 'Оплата картой для обучения пока не подключена',
     price_usd: TRAINING_PRICES[level],
-    message: `ВАЛЛИ начал обучение уровня ${level}. Завершится через ${level * 24}ч.`,
   })
 })
 
@@ -436,6 +397,10 @@ router.get('/shop', requireAuth, (req: Request, res: Response) => {
 /**
  * POST /walli/buy/:item_id
  * Купить предмет из каталога (item_id = item_key).
+ * TC-товары (price_tc задан, напр. genesis/legend) списываются атомарно с
+ * кошелька пользователя. USD-товары (price_usd) пока не имеют реальной
+ * оплаты картой (нет Stripe checkout для магазина) — до её подключения
+ * покупка отклоняется, чтобы не выдавать платный предмет бесплатно.
  */
 router.post('/buy/:item_id', requireAuth, (req: Request, res: Response) => {
   const userId = (req as any).user.userId
@@ -446,18 +411,54 @@ router.post('/buy/:item_id', requireAuth, (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Item not found in catalog' })
   }
 
-  const existing = db.prepare(`
-    SELECT id FROM walli_items WHERE user_id = ? AND item_key = ?
-  `).get(userId, itemKey)
+  /* BEGIN IMMEDIATE берёт write-lock сразу при старте транзакции — на
+     единственном SQLite-writer'е (node:sqlite, WAL) это сериализует
+     конкурентные запросы на покупку одного и того же предмета одним
+     пользователем, устраняя гонку между проверкой владения (SELECT) и
+     вставкой строки (INSERT), которая раньше позволяла купить один и
+     тот же предмет дважды при параллельных запросах. */
+  db.exec('BEGIN IMMEDIATE')
+  try {
+    const existing = db.prepare(`
+      SELECT id FROM walli_items WHERE user_id = ? AND item_key = ?
+    `).get(userId, itemKey)
 
-  if (existing) {
-    return res.status(409).json({ error: 'Item already owned' })
+    if (existing) {
+      db.exec('ROLLBACK')
+      return res.status(409).json({ error: 'Item already owned' })
+    }
+
+    if (catalogItem.price_tc == null) {
+      db.exec('ROLLBACK')
+      logAudit(userId, 'rejected', catalogItem.price_usd ?? 0, 'usd_payment_not_supported', { item_key: itemKey })
+      return res.status(402).json({
+        error: 'Оплата картой для этого предмета пока не подключена',
+        price_usd: catalogItem.price_usd,
+      })
+    }
+
+    // Атомарное условное списание TC — исключает продажу в минус.
+    const debit = db
+      .prepare(`UPDATE wallets SET timecoin = timecoin - ? WHERE user_id = ? AND timecoin >= ?`)
+      .run(catalogItem.price_tc, userId, catalogItem.price_tc)
+    if (debit.changes !== 1) {
+      db.exec('ROLLBACK')
+      logAudit(userId, 'rejected', catalogItem.price_tc, 'insufficient_balance', { item_key: itemKey })
+      return res.status(400).json({ error: 'Недостаточно TimeCoin для покупки' })
+    }
+
+    db.prepare(`
+      INSERT INTO walli_items (user_id, item_type, item_key, name, price_usd, price_tc, equipped)
+      VALUES (?, ?, ?, ?, ?, ?, 0)
+    `).run(userId, catalogItem.item_type, catalogItem.item_key, catalogItem.name, catalogItem.price_usd, catalogItem.price_tc)
+
+    db.exec('COMMIT')
+  } catch (err) {
+    db.exec('ROLLBACK')
+    throw err
   }
 
-  db.prepare(`
-    INSERT INTO walli_items (user_id, item_type, item_key, name, price_usd, price_tc, equipped)
-    VALUES (?, ?, ?, ?, ?, ?, 0)
-  `).run(userId, catalogItem.item_type, catalogItem.item_key, catalogItem.name, catalogItem.price_usd, catalogItem.price_tc)
+  logAudit(userId, 'debit', catalogItem.price_tc as number, 'shop_purchase', { item_key: itemKey })
 
   res.json({
     ok: true,

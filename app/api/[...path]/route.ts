@@ -188,6 +188,36 @@ async function handleGithubPublishConnect(req: NextRequest) {
   }
 }
 
+const ORCHESTRATOR_STREAM_RE = /^orchestrator\/stream\/[^/]+$/
+
+/**
+ * SSE-эндпоинт выполнения цепочки нельзя пропускать через forwardToBackend —
+ * та функция буферизует тело через .text(), из-за чего клиент получил бы
+ * событие только после закрытия соединения бэкендом. Здесь пробрасываем
+ * upstream.body как есть, без ожидания.
+ */
+async function handleOrchestratorStream(pathStr: string, req: NextRequest, accessToken?: string) {
+  if (!accessToken) {
+    return NextResponse.json({ error: "Требуется авторизация" }, { status: 401 })
+  }
+
+  const targetUrl = new URL(`${BACKEND_URL}/${pathStr}`)
+  req.nextUrl.searchParams.forEach((v, k) => targetUrl.searchParams.set(k, v))
+
+  const upstream = await fetch(targetUrl.toString(), {
+    headers: { authorization: `Bearer ${accessToken}`, accept: "text/event-stream" },
+  })
+
+  return new NextResponse(upstream.body, {
+    status: upstream.status,
+    headers: {
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache",
+      connection: "keep-alive",
+    },
+  })
+}
+
 function handleAuthLogout(req: NextRequest) {
   const res = NextResponse.json({ success: true })
   clearSessionCookies(res)
@@ -254,6 +284,10 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
   }
 
   const accessToken = req.cookies.get(ACCESS_COOKIE)?.value
+
+  if (req.method === "GET" && ORCHESTRATOR_STREAM_RE.test(pathStr)) {
+    return handleOrchestratorStream(pathStr, req, accessToken)
+  }
 
   try {
     let upstream = await forwardToBackend(pathStr, req, { authToken: accessToken })

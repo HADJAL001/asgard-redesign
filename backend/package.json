@@ -11,10 +11,12 @@
     "migrate:orderbook": "tsx src/migrations/001_order_book.ts",
     "migrate:referrals": "tsx src/migrations/002_referral_system.ts",
     "migrate:premium-upgrade": "tsx src/migrations/003_premium_upgrade.ts",
-    "migrate:subscriptions": "tsx src/migrations/004_subscriptions.ts"
+    "migrate:subscriptions": "tsx src/migrations/004_subscriptions.ts",
+    "test": "tsx --test \"src/tests/**/*.test.ts\""
   },
   "dependencies": {
     "@octokit/rest": "^22.0.1",
+    "@sentry/node": "^10.67.0",
     "@solana/spl-token": "^0.3.11",
     "@solana/web3.js": "^1.98.4",
     "@types/crypto-js": "^4.2.2",

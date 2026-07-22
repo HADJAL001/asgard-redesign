@@ -1,6 +1,7 @@
 import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
+import { logAudit } from "../lib/audit"
 
 const router = Router()
 
@@ -100,6 +101,7 @@ router.post("/step", requireAuth, (req: AuthRequest, res) => {
     reward.credits || reward.crystals || 0,
     reward.credits ? "credits" : reward.crystals ? "crystals" : "badge",
   )
+  logAudit(req.user!.userId, "credit", reward.credits || reward.crystals || 0, "onboarding_reward", { step: stepNum, badge: reward.badge })
 
   const completed = stepNum >= TOTAL_STEPS
 

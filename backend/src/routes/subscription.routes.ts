@@ -10,6 +10,8 @@ import stripe, {
   PlanKey,
 } from "../lib/stripe"
 import { asyncHandler } from "../utils/async-handler"
+import { captureError } from "../lib/sentry"
+import { logAudit } from "../lib/audit"
 
 
 const router = Router()
@@ -180,8 +182,17 @@ router.post("/create-checkout", requireAuth, asyncHandler(async (req: AuthReques
 
   const userId = req.user!.userId
 
-  /* ---------------- Mock-режим (Stripe не настроен) ---------------- */
+  /* ---------------- Mock-режим (Stripe не настроен) ----------------
+     Доступен только вне production — иначе случайно незаданный
+     STRIPE_SECRET_KEY на проде молча активировал бы платный план без
+     реальной оплаты. */
   if (!isStripeConfigured || !stripe) {
+    if (process.env.NODE_ENV === "production") {
+      return res.status(503).json({
+        error: "Оплата временно недоступна. Попробуйте позже.",
+      })
+    }
+
     const now = Date.now()
     upsertSubscription(userId, {
       plan,
@@ -196,6 +207,7 @@ router.post("/create-checkout", requireAuth, asyncHandler(async (req: AuthReques
       `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
        VALUES (?, 'subscription', ?, 'Stripe (mock)', ?, 'cash_usd', 'done')`,
     ).run(userId, `Подписка ${plan}`, 0)
+    logAudit(userId, "credit", 0, "subscription_mock_activated", { plan })
 
     return res.status(200).json({
       mock: true,
@@ -250,7 +262,7 @@ router.post("/create-checkout", requireAuth, asyncHandler(async (req: AuthReques
       sessionId: session.id,
     })
   } catch (err: any) {
-    console.error("[subscription/create-checkout] Stripe error:", err)
+    captureError("[subscription/create-checkout] Stripe error:", err)
     res.status(500).json({ error: err.message || "Не удалось создать Stripe Checkout Session" })
   }
 }))
@@ -285,8 +297,19 @@ router.post("/webhook", async (req, res) => {
     /* req.body здесь — Buffer (raw), т.к. роут смонтирован с express.raw() */
     event = stripe.webhooks.constructEvent(req.body, signature, STRIPE_WEBHOOK_SECRET)
   } catch (err: any) {
-    console.error("[subscription/webhook] Signature verification failed:", err.message)
+    captureError("[subscription/webhook] Signature verification failed:", err)
     return res.status(400).json({ error: `Webhook Error: ${err.message}` })
+  }
+
+  /* Идемпотентность: Stripe гарантированно повторяет доставку webhook при
+     таймауте/5xx/сетевой ошибке на нашей стороне. Атомарная вставка с
+     ON CONFLICT DO NOTHING — если event.id уже обработан, changes === 0,
+     и мы отвечаем 200 без повторной обработки (иначе Stripe продолжит ретраить). */
+  const claim = db
+    .prepare(`INSERT INTO stripe_events (id, type, created_at) VALUES (?, ?, ?) ON CONFLICT(id) DO NOTHING`)
+    .run(event.id, event.type, Date.now())
+  if (claim.changes === 0) {
+    return res.json({ received: true, duplicate: true })
   }
 
   try {
@@ -328,6 +351,7 @@ router.post("/webhook", async (req, res) => {
             `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
              VALUES (?, 'subscription', ?, 'Stripe', ?, 'cash_usd', 'done')`,
           ).run(userId, `Подписка ${plan}`, (session.amount_total ?? 0) / 100)
+          logAudit(userId, "credit", (session.amount_total ?? 0) / 100, "subscription_stripe_checkout", { plan, stripe_event_id: event.id })
         }
         break
       }
@@ -378,7 +402,7 @@ router.post("/webhook", async (req, res) => {
 
     res.json({ received: true })
   } catch (err: any) {
-    console.error("[subscription/webhook] Handler error:", err)
+    captureError("[subscription/webhook] Handler error:", err)
     res.status(500).json({ error: err.message || "Ошибка обработки webhook" })
   }
 })
@@ -450,7 +474,7 @@ router.post("/cancel", requireAuth, async (req: AuthRequest, res) => {
       message: "Подписка будет отменена в конце оплаченного периода.",
     })
   } catch (err: any) {
-    console.error("[subscription/cancel] error:", err)
+    captureError("[subscription/cancel] error:", err)
     res.status(500).json({ error: err.message || "Не удалось отменить подписку" })
   }
 })

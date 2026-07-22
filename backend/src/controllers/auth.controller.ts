@@ -5,6 +5,7 @@ import { isValidEmail, isValidPhone, isValidUsername, isValidPassword } from '..
 import { v4 as uuidv4 } from 'uuid';
 import Joi from 'joi';
 import db from '../db/database';
+import { captureError } from '../lib/sentry';
 
 const SOCIAL_PROVIDERS: SocialProvider[] = ['google', 'github'];
 
@@ -104,7 +105,14 @@ export class AuthController {
       });
 
     } catch (error: any) {
-      console.error('Registration error:', error);
+      const msg = String(error?.message || '');
+      // UserModel.create() уже делает pre-checks на дубликаты — сюда мы попадаем
+      // только при реальной гонке (два конкурентных запроса проскочили pre-check
+      // одновременно) либо при исходной SQLite UNIQUE-ошибке.
+      if (msg.includes('уже существует') || msg.includes('уже занят') || msg.includes('уже привязан') || msg.includes('UNIQUE constraint')) {
+        return res.status(409).json({ error: 'Пользователь с такими данными уже существует', code: 'ALREADY_EXISTS' });
+      }
+      captureError('Registration error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -175,7 +183,7 @@ export class AuthController {
       });
 
     } catch (error: any) {
-      console.error('Login error:', error);
+      captureError('Login error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -205,7 +213,7 @@ export class AuthController {
       res.json({ success: true, message: 'Провайдер успешно привязан', user: safeUser });
 
     } catch (error: any) {
-      console.error('Link provider error:', error);
+      captureError('Link provider error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -290,6 +298,10 @@ export class AuthController {
         return res.status(404).json({ error: 'User not found' });
       }
 
+      if (!user.password_hash) {
+        return res.status(400).json({ error: 'У аккаунта не задан пароль (вход через соцсеть)' });
+      }
+
       const valid = await AuthService.verifyPassword(oldPassword, user.password_hash);
       if (!valid) {
         return res.status(401).json({ error: 'Current password is incorrect' });
@@ -301,7 +313,7 @@ export class AuthController {
       res.json({ success: true, message: 'Password changed successfully' });
 
     } catch (error: any) {
-      console.error('Change password error:', error);
+      captureError('Change password error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }

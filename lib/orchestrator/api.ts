@@ -12,6 +12,7 @@
    POST   /orchestrator/chains/:id/run          → { executionId, cost }
    GET    /orchestrator/executions/:id          → { execution: OrchestratorExecution }
    GET    /orchestrator/stream/:executionId     → text/event-stream (см. hooks/useOrchestratorRun.ts)
+   GET    /orchestrator/remaining               → { remaining: number, total: number }
    ================================================================ */
 
 import { apiClient } from "@/lib/api-client"

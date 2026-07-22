@@ -3,6 +3,7 @@ import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { generateAiArtifactContent, computeUniqueHash, ARTIFACT_RARITIES } from "../services/ai-artifact-generator"
 import { asyncHandler } from "../utils/async-handler"
+import { logAudit } from "../lib/audit"
 
 const router = Router()
 
@@ -95,6 +96,7 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
   if (!wallet) return res.status(404).json({ error: "Кошелёк не найден" })
   if (wallet.timecoin < FORGE_COST_TC) {
+    logAudit(req.user!.userId, "rejected", FORGE_COST_TC, "insufficient_balance", { action: "forge" })
     return res.status(400).json({ error: `Недостаточно TimeCoin (нужно ${FORGE_COST_TC})` })
   }
 
@@ -143,6 +145,7 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
     `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
      VALUES (?, 'forge', ?, 'Кузница Артефактов', ?, 'timecoin', 'done')`,
   ).run(req.user!.userId, name, FORGE_COST_TC)
+  logAudit(req.user!.userId, "debit", FORGE_COST_TC, "artifact_forge", { name })
 
   const artifact = db
     .prepare(
@@ -168,6 +171,7 @@ router.post("/generate-ai", requireAuth, asyncHandler(async (req: AuthRequest, r
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
   if (!wallet) return res.status(404).json({ error: "Кошелёк не найден" })
   if (wallet.timecoin < AI_GENERATE_COST_TC) {
+    logAudit(req.user!.userId, "rejected", AI_GENERATE_COST_TC, "insufficient_balance", { action: "generate_ai" })
     return res.status(400).json({ error: `Недостаточно TimeCoin (нужно ${AI_GENERATE_COST_TC})` })
   }
 
@@ -231,6 +235,7 @@ router.post("/generate-ai", requireAuth, asyncHandler(async (req: AuthRequest, r
     `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
      VALUES (?, 'ai_generate', ?, 'AI-Генератор Артефактов', ?, 'timecoin', 'done')`,
   ).run(req.user!.userId, finalName, AI_GENERATE_COST_TC)
+  logAudit(req.user!.userId, "debit", AI_GENERATE_COST_TC, "artifact_ai_generate", { name: finalName })
 
   const artifact = db
     .prepare(
@@ -266,6 +271,7 @@ router.post("/:id/evolve", requireAuth, (req: AuthRequest, res) => {
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
   if (!wallet) return res.status(404).json({ error: "Кошелёк не найден" })
   if (wallet.timecoin < cost) {
+    logAudit(req.user!.userId, "rejected", cost, "insufficient_balance", { action: "evolve", artifactId: id })
     return res.status(400).json({ error: `Недостаточно TimeCoin (нужно ${cost})` })
   }
 
@@ -302,6 +308,7 @@ router.post("/:id/evolve", requireAuth, (req: AuthRequest, res) => {
     `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
      VALUES (?, 'evolve', ?, 'Кузница Артефактов', ?, 'timecoin', 'done')`,
   ).run(req.user!.userId, artifact.name, cost)
+  logAudit(req.user!.userId, "debit", cost, "artifact_evolve", { artifactId: id, newLevel, rankUp: willRankUp })
 
   const updated = db
     .prepare(
@@ -348,6 +355,7 @@ router.post("/:id/premium-upgrade", requireAuth, (req: AuthRequest, res) => {
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
   if (!wallet) return res.status(404).json({ error: "Кошелёк не найден" })
   if (wallet.timecoin < cost) {
+    logAudit(req.user!.userId, "rejected", cost, "insufficient_balance", { action: "premium_upgrade", artifactId: id })
     return res.status(400).json({ error: `Недостаточно ∞ TimeCoin (нужно ${cost})` })
   }
 
@@ -396,6 +404,7 @@ router.post("/:id/premium-upgrade", requireAuth, (req: AuthRequest, res) => {
     `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
      VALUES (?, 'premium_upgrade', ?, 'Кузница Артефактов', ?, 'timecoin', 'done')`,
   ).run(req.user!.userId, artifact.name, cost)
+  logAudit(req.user!.userId, "debit", cost, "artifact_premium_upgrade", { artifactId: id, newLevel, critical: isCritical })
 
   const updated = db
     .prepare(

@@ -414,12 +414,14 @@
     "editBtn": "Редактировать",
     "paletteTitle": "Узлы",
     "nodeType": {
-      "input": "Вход",
-      "inputDesc": "Начальная точка цепочки",
-      "modelCall": "Вызов модели",
-      "modelCallDesc": "Запрос к AI-модели с параметрами",
-      "output": "Выход",
-      "outputDesc": "Финальный результат цепочки"
+      "claude": "Claude",
+      "claudeDesc": "Запрос к Claude с системным промптом",
+      "deepseek": "DeepSeek",
+      "deepseekDesc": "Запрос к DeepSeek с системным промптом",
+      "grok": "Grok",
+      "grokDesc": "Запрос к Grok с системным промптом",
+      "promptTemplate": "Шаблон",
+      "promptTemplateDesc": "Подстановка входа в текстовый шаблон без вызова модели"
     },
     "untitled": "Новая цепочка",
     "saveBtn": "Сохранить",
@@ -428,10 +430,17 @@
     "runError": "Не удалось запустить цепочку",
     "nodeParams": "Параметры узла",
     "paramLabel": "Название",
-    "paramModel": "Модель",
     "paramSystemPrompt": "Системный промпт",
     "paramTemperature": "Температура",
-    "paramMaxTokens": "Макс. токенов"
+    "paramMaxTokens": "Макс. токенов",
+    "paramTemplate": "Шаблон ({{input}} — вход)",
+    "chainInputLabel": "Вход цепочки",
+    "chainInputRequired": "Укажите вход цепочки перед запуском",
+    "runCost": "Списано {{cost}} TC",
+    "insufficientTcTitle": "Недостаточно TimeCoin",
+    "insufficientTcMessage": "Недостаточно TimeCoin для запуска цепочки. Пополните баланс",
+    "topUpBtn": "Пополнить",
+    "closeBtn": "Закрыть"
   },
   "projectWizard": {
     "title": "Создание проекта",

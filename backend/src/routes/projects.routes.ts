@@ -17,6 +17,7 @@ import {
 import { adaptTemplate } from "../services/template-adapter"
 import { decrypt } from "../utils/encryption"
 import { asyncHandler } from "../utils/async-handler"
+import { captureError } from "../lib/sentry"
 
 const router = Router()
 
@@ -214,7 +215,7 @@ router.get("/:id/export.zip", requireAuth, asyncHandler(async (req: AuthRequest,
 
   const archive = archiver("zip", { zlib: { level: 9 } })
   archive.on("error", (err) => {
-    console.error("[projects.export] archive error:", err)
+    captureError("[projects.export] archive error:", err)
     if (!res.headersSent) res.status(500).json({ error: "Не удалось собрать архив" })
   })
   archive.pipe(res)
@@ -348,7 +349,7 @@ async function runAppGenerationJob(
       })
     }
   } catch (err: any) {
-    console.error("[projects.generate] app generation job failed:", err)
+    captureError("[projects.generate] app generation job failed:", err)
     db.prepare(`UPDATE projects SET status = 'failed', generation_error = ? WHERE id = ?`).run(
       err?.message || "Неизвестная ошибка генерации",
       projectId,
@@ -430,7 +431,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
 
     void runAppGenerationJob(projectId, trimmedName, safeHint, quick, template)
   } catch (err) {
-    console.error("[projects.generate] error:", err)
+    captureError("[projects.generate] error:", err)
     res.status(500).json({ error: "Не удалось создать проект" })
   }
 }))
@@ -523,7 +524,7 @@ router.post("/:id/publish-github", requireAuth, asyncHandler(async (req: AuthReq
 
     res.json({ repoUrl: repo.html_url, commitSha: commit.data.sha })
   } catch (err: any) {
-    console.error("[projects.publish-github] error:", err)
+    captureError("[projects.publish-github] error:", err)
     res.status(500).json({ error: err?.message || "Не удалось опубликовать проект в GitHub" })
   }
 }))

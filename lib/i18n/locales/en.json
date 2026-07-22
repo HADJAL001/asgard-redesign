@@ -406,12 +406,14 @@
     "editBtn": "Edit",
     "paletteTitle": "Nodes",
     "nodeType": {
-      "input": "Input",
-      "inputDesc": "Chain entry point",
-      "modelCall": "Model Call",
-      "modelCallDesc": "Request to an AI model with parameters",
-      "output": "Output",
-      "outputDesc": "Final chain result"
+      "claude": "Claude",
+      "claudeDesc": "Request to Claude with a system prompt",
+      "deepseek": "DeepSeek",
+      "deepseekDesc": "Request to DeepSeek with a system prompt",
+      "grok": "Grok",
+      "grokDesc": "Request to Grok with a system prompt",
+      "promptTemplate": "Template",
+      "promptTemplateDesc": "Substitute the input into a text template without calling a model"
     },
     "untitled": "New Chain",
     "saveBtn": "Save",
@@ -420,10 +422,17 @@
     "runError": "Failed to run chain",
     "nodeParams": "Node Parameters",
     "paramLabel": "Label",
-    "paramModel": "Model",
     "paramSystemPrompt": "System Prompt",
     "paramTemperature": "Temperature",
-    "paramMaxTokens": "Max Tokens"
+    "paramMaxTokens": "Max Tokens",
+    "paramTemplate": "Template ({{input}} — input)",
+    "chainInputLabel": "Chain input",
+    "chainInputRequired": "Provide chain input before running",
+    "runCost": "Charged {{cost}} TC",
+    "insufficientTcTitle": "Insufficient TimeCoin",
+    "insufficientTcMessage": "Not enough TimeCoin to run the chain. Top up your balance",
+    "topUpBtn": "Top Up",
+    "closeBtn": "Close"
   },
   "projectWizard": {
     "title": "Create Project",

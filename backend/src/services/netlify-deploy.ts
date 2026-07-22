@@ -5,6 +5,7 @@ import path from "node:path"
 import os from "node:os"
 import archiver from "archiver"
 import db from "../lib/db"
+import { captureError } from "../lib/sentry"
 
 /* ================================================================
    OSGARD · Netlify Deploy Service
@@ -171,7 +172,7 @@ export async function runNetlifyDeployJob(projectId: number) {
       await fs.rm(zipPath, { force: true })
     }
   } catch (err: any) {
-    console.error("[netlify-deploy] job failed:", err)
+    captureError("[netlify-deploy] job failed:", err)
     db.prepare(`UPDATE projects SET deploy_status = 'failed', deploy_error = ? WHERE id = ?`).run(
       err?.message || "Неизвестная ошибка деплоя",
       projectId,

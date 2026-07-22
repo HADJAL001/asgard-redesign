@@ -2,10 +2,14 @@ import { Router } from "express"
 import db from "../lib/db"
 import { optionalAuth, AuthRequest } from "../middleware/authMiddleware"
 import { asyncHandler } from "../utils/async-handler"
+import { rateLimit } from "../middleware/rateLimiter"
+import { captureError } from "../lib/sentry"
+import { logAudit } from "../lib/audit"
 
 const router = Router()
 
 const FEEDBACK_REWARD_TC = 5 /* +5 ∞ (TimeCoin) за отправленный фидбек */
+const FEEDBACK_DAILY_REWARD_LIMIT = 1 /* макс. кол-во вознаграждаемых фидбеков в сутки на пользователя */
 
 /* ----------------------------------------------------------------
    Отправка уведомления создателю: почта (SMTP) и/или Telegram.
@@ -41,7 +45,7 @@ async function notifyTelegram(name: string, email: string, message: string) {
       }),
     })
   } catch (err) {
-    console.error("[feedback] Telegram notify failed:", err)
+    captureError("[feedback] Telegram notify failed:", err)
   }
 }
 
@@ -75,12 +79,12 @@ async function notifyEmail(name: string, email: string, message: string) {
       html: `<p><b>Имя:</b> ${name}</p><p><b>Email:</b> ${email}</p><p><b>Сообщение:</b></p><p>${message.replace(/\n/g, "<br/>")}</p>`,
     })
   } catch (err) {
-    console.error("[feedback] Email notify failed:", err)
+    captureError("[feedback] Email notify failed:", err)
   }
 }
 
 /* ---------------- POST /feedback ---------------- */
-router.post("/", optionalAuth, asyncHandler(async (req: AuthRequest, res) => {
+router.post("/", rateLimit(60_000, 5), optionalAuth, asyncHandler(async (req: AuthRequest, res) => {
   const { name, email, message } = req.body || {}
 
   if (!name || typeof name !== "string" || !name.trim()) {
@@ -105,18 +109,31 @@ router.post("/", optionalAuth, asyncHandler(async (req: AuthRequest, res) => {
 
   let rewardGranted = false
 
-  /* Начисляем +5 ∞ (TimeCoin) только авторизованным пользователям */
+  /* Начисляем +5 ∞ (TimeCoin) только авторизованным пользователям, не более
+     FEEDBACK_DAILY_REWARD_LIMIT раз в сутки — иначе спам-фидбеки позволяли
+     фармить TC без ограничений. */
   if (userId) {
-    db.prepare(
-      `UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`,
-    ).run(FEEDBACK_REWARD_TC, now, userId)
+    const oneDayAgo = now - 24 * 60 * 60 * 1000
+    const { count: rewardedToday } = db
+      .prepare(
+        `SELECT COUNT(*) as count FROM transactions
+         WHERE user_id = ? AND type = 'feedback_reward' AND created_at > ?`,
+      )
+      .get(userId, oneDayAgo) as { count: number }
 
-    db.prepare(
-      `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-       VALUES (?, 'feedback_reward', 'Фидбек создателю', 'OSGARD', ?, 'timecoin', 'done')`,
-    ).run(userId, FEEDBACK_REWARD_TC)
+    if (rewardedToday < FEEDBACK_DAILY_REWARD_LIMIT) {
+      db.prepare(
+        `UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`,
+      ).run(FEEDBACK_REWARD_TC, now, userId)
 
-    rewardGranted = true
+      db.prepare(
+        `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+         VALUES (?, 'feedback_reward', 'Фидбек создателю', 'OSGARD', ?, 'timecoin', 'done')`,
+      ).run(userId, FEEDBACK_REWARD_TC)
+      logAudit(userId, "credit", FEEDBACK_REWARD_TC, "feedback_reward")
+
+      rewardGranted = true
+    }
   }
 
   /* Уведомления не блокируют ответ пользователю */

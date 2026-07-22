@@ -1,6 +1,7 @@
 import { callAnyProvider, type GeneratedAppFile } from "./app-generator"
 import type { AiArtifactSuggestion } from "./ai-generator"
 import type { MatchedTemplate } from "./template-store"
+import { captureError } from "../lib/sentry"
 
 /* ================================================================
    OSGARD · Умные шаблоны — адаптация закэшированной генерации
@@ -132,7 +133,7 @@ export async function adaptTemplate(
 
     return { description, badge, artifactNames, files, source: "template-ai" }
   } catch (err) {
-    console.error("[template-adapter] adaptation failed, falling back to local:", err)
+    captureError("[template-adapter] adaptation failed, falling back to local:", err)
     return localAdapt(template, name)
   }
 }

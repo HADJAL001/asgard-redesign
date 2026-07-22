@@ -1,6 +1,7 @@
 import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
+import { logAudit } from "../lib/audit"
 
 const router = Router()
 
@@ -61,12 +62,14 @@ router.post("/buy", requireAuth, (req: AuthRequest, res) => {
     .get(userId) as { timecoin: number } | undefined
 
   if (!wallet || wallet.timecoin < accessory.price) {
+    logAudit(userId, "rejected", accessory.price, "insufficient_balance", { accessoryId })
     return res.status(400).json({ error: "Недостаточно ∞ для покупки" })
   }
 
   const now = Date.now()
 
   db.prepare(`UPDATE wallets SET timecoin = timecoin - ? WHERE user_id = ?`).run(accessory.price, userId)
+  logAudit(userId, "debit", accessory.price, "jarvis_accessory_purchase", { accessoryId, name: accessory.name })
   db.prepare(
     `INSERT INTO jarvis_user_accessories (user_id, accessory_id, equipped, purchased_at)
      VALUES (?, ?, 0, ?)`
