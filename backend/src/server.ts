@@ -259,6 +259,21 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   res.status(err.status || 500).json({ error: err.message || "Internal server error" })
 })
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`OSGARD backend listening on http://localhost:${PORT}`)
+})
+
+/* Ошибка бинда порта (например EADDRINUSE при параллельном запуске второго
+   процесса) — фатальна для этого экземпляра: если её просто залогировать и
+   продолжить (как unhandledRejection/uncaughtException выше), процесс
+   остаётся висеть в памяти с уже поднятым DB-пулом и фоновыми setInterval
+   (rate-limiter, OAuth state store), но никогда не принимает запросы —
+   осиротевший "зомби"-процесс. Явно завершаем его, чтобы такие процессы
+   не накапливались. */
+server.on("error", (err: NodeJS.ErrnoException) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`[fatal] Порт ${PORT} уже занят другим процессом — завершаю работу вместо накопления зависшего процесса.`)
+    process.exit(1)
+  }
+  throw err
 })
