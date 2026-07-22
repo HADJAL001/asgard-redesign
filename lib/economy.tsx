@@ -190,16 +190,6 @@ export function defaultListCurrency(rarity: Rarity): CurrencyId {
   }
 }
 
-export type Project = {
-  id: number
-  name: string
-  description: string
-  badge: string // badge id
-  artifactCount: number
-  sold: number
-  income: number
-}
-
 export type Architect = {
   rank: number
   name: string
@@ -319,15 +309,6 @@ export function badgeIcon(id: string): LucideIcon {
 /* ---------------- Mock data ---------------- */
 
 export const SELF = { name: "Alex Odin", level: 12 }
-
-export const PROJECTS: Project[] = [
-  { id: 1, name: "Nebula Core", description: "Нейросетевой движок рендеринга", badge: "brain", artifactCount: 12, sold: 3, income: 4800 },
-  { id: 2, name: "Valkyrie UI", description: "Дизайн-система следующего поколения", badge: "layers", artifactCount: 7, sold: 2, income: 3100 },
-  { id: 3, name: "Orbital API", description: "Распределённый шлюз данных", badge: "orbit", artifactCount: 9, sold: 4, income: 6400 },
-  { id: 4, name: "Photon Grid", description: "Визуализация квантовых потоков", badge: "zap", artifactCount: 5, sold: 1, income: 1500 },
-  { id: 5, name: "Helios Auth", description: "Биометрическая система доступа", badge: "shieldcheck", artifactCount: 6, sold: 0, income: 0 },
-  { id: 6, name: "Aether Mesh", description: "Сеть периферийных вычислений", badge: "network", artifactCount: 8, sold: 2, income: 2900 },
-]
 
 function mk(
   id: number,
@@ -535,14 +516,6 @@ export function convertQuote(wantTo: number, from: CurrencyId, to: CurrencyId): 
 
 /* ---------------- Genesis cycle: evolution + craft costs ---------------- */
 
-/** TC cost to evolve FROM a given rarity to the next one */
-export const UPGRADE_COST: Partial<Record<Rarity, number>> = {
-  common: 100, // → rare
-  rare: 1_000, // → epic
-  epic: 10_000, // → legendary
-  legendary: 50_000, // → mythic
-}
-
 export const CRAFT_COST = 500
 export const HASTE_COST_PER_HOUR = 10
 export const REGISTRATION_BONUS = 10
@@ -553,31 +526,6 @@ export const SPARK_CHANCE = 0.01 // 1% instant mythic
 export function nextRarity(r: Rarity): Rarity | null {
   const i = RARITY_CHAIN.indexOf(r)
   return i >= 0 && i < RARITY_CHAIN.length - 1 ? RARITY_CHAIN[i + 1] : null
-}
-
-/* ---------------- Artifact genealogy ---------------- */
-
-export type LineageStep =
-  | { kind: "birth"; projectId: number; project: string; date: string }
-  | { kind: "evolve"; from: Rarity; to: Rarity; cost: number; date: string }
-  | { kind: "craft"; parents: string[]; date: string }
-
-/** Deterministic mock lineage for an artifact */
-export function lineageFor(a: Artifact): LineageStep[] {
-  const project = PROJECTS.find((p) => p.id === a.projectId)
-  const steps: LineageStep[] = [
-    { kind: "birth", projectId: a.projectId, project: project?.name ?? "—", date: "01.06.2026" },
-  ]
-  const chainIndex = RARITY_CHAIN.indexOf(a.rarity)
-  for (let i = 0; i < chainIndex; i++) {
-    const from = RARITY_CHAIN[i]
-    const to = RARITY_CHAIN[i + 1]
-    steps.push({ kind: "evolve", from, to, cost: UPGRADE_COST[from] ?? 0, date: `${10 + i}.06.2026` })
-  }
-  if (a.id % 3 === 0) {
-    steps.push({ kind: "craft", parents: ["Осколок #A" + a.id, "Осколок #B" + a.id], date: "28.06.2026" })
-  }
-  return steps
 }
 
 /* ---------------- Hall of Fame · «Вечные творения» (sold ≥ 20 000 ∞) ----------------
