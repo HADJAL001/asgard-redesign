@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { Navbar } from "./navbar"
@@ -11,7 +11,7 @@ import { ApiError } from "@/lib/api-client"
 import { OrchestratorPanel } from "./orchestrator/OrchestratorPanel"
 import { OrchestratorEditor } from "./orchestrator/OrchestratorEditor"
 import { OrchestratorHero } from "./orchestrator/OrchestratorHero"
-import type { OrchestratorChain } from "@/lib/orchestrator/types"
+import type { OrchestratorChain, OrchestratorNodeType } from "@/lib/orchestrator/types"
 
 interface OrchestratorEditorViewProps {
   chainId: number | "new"
@@ -25,6 +25,7 @@ export function OrchestratorEditorView({ chainId }: OrchestratorEditorViewProps)
   const [chain, setChain] = useState<OrchestratorChain | null>(null)
   const [loading, setLoading] = useState(chainId !== "new")
   const [error, setError] = useState<string | null>(null)
+  const addNodeRef = useRef<(nodeType: OrchestratorNodeType) => void>(() => {})
 
   useEffect(() => {
     if (chainId === "new") return
@@ -68,8 +69,15 @@ export function OrchestratorEditorView({ chainId }: OrchestratorEditorViewProps)
           </div>
         ) : (
           <>
-            <OrchestratorPanel />
-            <OrchestratorEditor chainId={chainId} initialChain={chain} autoRun={autoRun} />
+            <OrchestratorPanel onSelectNode={(type) => addNodeRef.current(type)} />
+            <OrchestratorEditor
+              chainId={chainId}
+              initialChain={chain}
+              autoRun={autoRun}
+              onRegisterAddNode={(fn) => {
+                addNodeRef.current = fn
+              }}
+            />
           </>
         )}
         </div>

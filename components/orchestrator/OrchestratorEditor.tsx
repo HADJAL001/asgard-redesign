@@ -70,9 +70,11 @@ interface OrchestratorEditorProps {
   chainId: number | "new"
   initialChain?: OrchestratorChain | null
   autoRun?: boolean
+  /** Отдаёт наружу функцию добавления узла кликом по палитре (OrchestratorPanel живёт вне ReactFlowProvider). */
+  onRegisterAddNode?: (addNode: (nodeType: OrchestratorNodeType) => void) => void
 }
 
-function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps) {
+function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: OrchestratorEditorProps) {
   const { t } = useTranslation()
   const router = useRouter()
   const { screenToFlowPosition } = useReactFlow()
@@ -151,6 +153,39 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
     },
     [screenToFlowPosition, setNodes, nodes.length, t],
   )
+
+  /** Альтернатива onDrop для клика по карточке палитры (вместо перетаскивания) — ставит узел
+   *  в видимую область канваса со смещением по числу уже добавленных узлов, чтобы новые узлы
+   *  не ложились друг на друга стопкой. */
+  const addNodeFromPalette = useCallback(
+    (nodeType: OrchestratorNodeType) => {
+      const palette = ORCHESTRATOR_PALETTE.find((p) => p.type === nodeType)
+      if (!palette) return
+      if (nodes.length >= MAX_NODES) {
+        setSaveError(t("orchestrator.maxNodesReached", { max: MAX_NODES }))
+        return
+      }
+
+      const rect = wrapperRef.current?.getBoundingClientRect()
+      const centerX = rect ? rect.left + rect.width / 2 : 300
+      const centerY = rect ? rect.top + rect.height / 2 : 200
+      const stagger = (nodes.length % 6) * 28
+      const position = screenToFlowPosition({ x: centerX + stagger, y: centerY + stagger })
+
+      const newNode: OrchestratorFlowNode = {
+        id: nextNodeId(),
+        type: "orchestratorNode",
+        position,
+        data: { ...palette.defaultData },
+      }
+      setNodes((nds) => nds.concat(newNode))
+    },
+    [screenToFlowPosition, setNodes, nodes.length, t],
+  )
+
+  useEffect(() => {
+    onRegisterAddNode?.(addNodeFromPalette)
+  }, [onRegisterAddNode, addNodeFromPalette])
 
   function updateSelectedNodeData(patch: Partial<OrchestratorFlowNode["data"]>) {
     if (!selectedNodeId) return

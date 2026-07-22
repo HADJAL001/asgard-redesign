@@ -18,7 +18,7 @@ router.get("/stats", requireAuth, (req: AuthRequest, res) => {
     .prepare(`SELECT referral_code FROM users WHERE id = ?`)
     .get(userId)
 
-  if (!user) return res.status(404).json({ error: "Пользователь не найден" })
+  if (!user) return res.status(404).json({ error: "Пользователь не найден", code: "USER_NOT_FOUND" })
 
   const { invites } = db
     .prepare(`SELECT COUNT(*) as invites FROM referrals WHERE referrer_id = ?`)

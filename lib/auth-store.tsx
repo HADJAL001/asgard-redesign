@@ -74,11 +74,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStoredUser(data.user)
       })
       .catch((err) => {
-        // Разлогиниваем только при подтверждённой невалидной сессии (401/403).
+        // Разлогиниваем только при подтверждённой невалидной сессии (401/403, либо
+        // 404 с кодом USER_NOT_FOUND — JWT указывает на userId, которого больше нет
+        // в БД, например после пересоздания эфемерной SQLite на Railway).
         // Сетевые сбои, 5xx и 503 от прокси при холодном старте бэкенда не должны
         // сбрасывать уже известного пользователя — иначе кратковременный сбой
         // выглядит как "выкинуло из аккаунта" без действия пользователя.
-        if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        const isInvalidSession =
+          err instanceof ApiError &&
+          (err.status === 401 || err.status === 403 || (err.status === 404 && err.data?.code === "USER_NOT_FOUND"))
+        if (isInvalidSession) {
           setUser(null)
           setStoredUser(null)
         }

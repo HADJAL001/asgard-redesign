@@ -5,7 +5,12 @@ import { useTranslation } from "@/lib/i18n/use-translation"
 import { ORCHESTRATOR_PALETTE, DRAG_DATA_FORMAT } from "./node-types"
 import type { OrchestratorNodeType } from "@/lib/orchestrator/types"
 
-export function OrchestratorPanel() {
+interface OrchestratorPanelProps {
+  /** Клик по карточке — альтернатива перетаскиванию: добавляет узел на канвас напрямую. */
+  onSelectNode?: (nodeType: OrchestratorNodeType) => void
+}
+
+export function OrchestratorPanel({ onSelectNode }: OrchestratorPanelProps) {
   const { t } = useTranslation()
 
   function handleDragStart(event: React.DragEvent, nodeType: OrchestratorNodeType) {
@@ -27,6 +32,15 @@ export function OrchestratorPanel() {
           key={item.type}
           draggable
           onDragStart={(e) => handleDragStart(e, item.type)}
+          onClick={() => onSelectNode?.(item.type)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault()
+              onSelectNode?.(item.type)
+            }
+          }}
           className="cursor-grab select-none rounded-lg p-3 transition-colors active:cursor-grabbing"
           style={{ border: `1px solid ${COLORS.border}` }}
           onMouseEnter={(e) => (e.currentTarget.style.borderColor = item.color)}

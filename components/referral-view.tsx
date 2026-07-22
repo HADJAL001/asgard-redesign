@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import { Copy, Gift, Users, Check, Loader2, LogIn, RefreshCw } from "lucide-react"
 import { Navbar } from "./navbar"
-import { apiClient } from "@/lib/api-client"
+import { apiClient, ApiError } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-store"
 import { useTranslation } from "@/lib/i18n/use-translation"
 
@@ -35,6 +35,7 @@ export default function ReferralView() {
   const [stats, setStats] = useState<ReferralStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [invalidSession, setInvalidSession] = useState(false)
   const [copied, setCopied] = useState(false)
   const [claiming, setClaiming] = useState(false)
   const [claimMessage, setClaimMessage] = useState<string | null>(null)
@@ -43,11 +44,19 @@ export default function ReferralView() {
     try {
       setLoading(true)
       setError(null)
+      setInvalidSession(false)
       const data = await apiClient.get<ReferralStats>("/referral/stats", { skipAuthRedirect: true })
       setStats(data)
     } catch (err) {
       console.error(err)
-      setError(t("referral.errorLoad") || "Не удалось загрузить данные реферальной программы")
+      // 404 с USER_NOT_FOUND значит, что кешированная на клиенте сессия ссылается на
+      // userId, которого больше нет в БД (например, после пересоздания эфемерной SQLite
+      // на Railway) — бесконечный "Повторить" тут бессмысленен, нужно предложить войти заново.
+      if (err instanceof ApiError && err.status === 404 && err.data?.code === "USER_NOT_FOUND") {
+        setInvalidSession(true)
+      } else {
+        setError(t("referral.errorLoad") || "Не удалось загрузить данные реферальной программы")
+      }
     } finally {
       setLoading(false)
     }
@@ -129,6 +138,35 @@ export default function ReferralView() {
           <p className="text-sm text-muted-foreground max-w-sm">
             {t("referral.loginRequiredText") ||
               "Чтобы посмотреть свой реферальный код и награды, нужно войти в аккаунт"}
+          </p>
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition"
+          >
+            {t("referral.loginCta") || "Войти"}
+          </Link>
+        </div>
+      </ReferralPageShell>
+    )
+  }
+
+  if (invalidSession) {
+    return (
+      <ReferralPageShell>
+        <div className="space-y-1 mb-6">
+          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
+            <Gift className="w-7 h-7 text-primary" />
+            {t("referral.title") || "Реферальная программа"}
+          </h1>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-6 flex flex-col items-center text-center gap-3">
+          <LogIn className="w-8 h-8 text-primary" />
+          <div className="font-semibold">
+            {t("referral.sessionExpiredTitle") || "Сессия устарела"}
+          </div>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            {t("referral.sessionExpiredText") ||
+              "Ваша сессия больше не действительна. Пожалуйста, войдите в аккаунт заново"}
           </p>
           <Link
             href="/login"

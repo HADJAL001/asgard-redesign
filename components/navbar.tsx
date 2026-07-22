@@ -350,15 +350,16 @@ export function Navbar() {
           <Bell size={18} strokeWidth={1.5} aria-hidden="true" />
           <Badge count={1} />
         </Link>
-        <button
-          type="button"
+        <Link
+          href="/messages"
           aria-label={t("nav.messages")}
+          aria-current={isActive("/messages") ? "page" : undefined}
           className="relative transition-colors hover:text-white"
-          style={{ color: "#6A6A8A" }}
+          style={{ color: isActive("/messages") ? "#00D4FF" : "#6A6A8A" }}
         >
           <Mail size={18} strokeWidth={1.5} aria-hidden="true" />
           <Badge count={0} />
-        </button>
+        </Link>
 
         <ProfileMenu
           isAuthenticated={isAuthenticated}

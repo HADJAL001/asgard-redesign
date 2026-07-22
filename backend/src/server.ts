@@ -325,6 +325,17 @@ Sentry.setupExpressErrorHandler(app)
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   captureError("[express error handler]", err)
+
+  /* SQLite FK-constraint нарушения (например INSERT в user_twins с user_id, которого больше
+     нет в users — протухший JWT после пересоздания БД) не должны отдавать клиенту сырой текст
+     драйвера. Трактуем как невалидную сессию — фронтенд (auth-store) уже умеет разлогинивать
+     по 401. */
+  const isDbConstraintError = typeof err?.code === "string" && err.code.startsWith("SQLITE_CONSTRAINT")
+  if (isDbConstraintError) {
+    res.status(401).json({ error: "Сессия недействительна. Пожалуйста, войдите заново." })
+    return
+  }
+
   res.status(err.status || 500).json({ error: err.message || "Internal server error" })
 })
 
