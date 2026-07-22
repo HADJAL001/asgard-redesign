@@ -40,9 +40,14 @@ function NeutralSplash() {
 export default function Page() {
   const { isAuthenticated, loading } = useAuth()
 
-  if (loading) return <NeutralSplash />
+  /* Авторизованный пользователь: показываем платформу.
+     Если loading=true (нет кеша — значит гость или первый визит),
+     показываем лендинг сразу — он не требует авторизации.
+     PlatformMap появится когда /auth/me вернёт пользователя. */
   if (isAuthenticated) return <PlatformMap />
 
+  /* loading=true и нет user → показываем лендинг немедленно.
+     После ответа /auth/me (если юзер залогинен) будет ре-рендер на PlatformMap. */
   return (
     <>
       <EternityLanding />

@@ -62,9 +62,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cached = getStoredUser<User>()
     if (cached) setUser(cached)
 
-    /* Страховочный таймаут 3 секунды — если бэкенд не ответил,
-       не зависаем на splash-экране. 3с достаточно для холодного старта. */
-    const timeoutId = setTimeout(() => setLoading(false), 3_000)
+    /* Страховочный таймаут 1.5 секунды — если бэкенд не ответил,
+       показываем контент немедленно. Для гостей (нет кеша) особенно важно —
+       они не должны ждать ответа бэкенда для просмотра лендинга. */
+    const timeoutId = setTimeout(() => setLoading(false), 1_500)
 
     apiClient
       .get<{ user: User }>("/auth/me", { skipAuthRedirect: true })
