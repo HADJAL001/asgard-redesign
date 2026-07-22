@@ -166,6 +166,7 @@ import "./migrations/034_orchestrator_chains"
 import walliRoutes from "./routes/walli.routes"
 import demoRoutes from "./routes/demo.routes"
 import adminRoutes from "./routes/admin.routes"
+import orchestratorRoutes from "./routes/orchestrator.routes"
 
 
 
@@ -244,6 +245,7 @@ app.use("/api/tc", tcRoutes)
 app.use("/walli", walliRoutes)
 app.use("/demo", demoRoutes)
 app.use("/admin", adminRoutes)
+app.use("/orchestrator", orchestratorRoutes)
 
 
 
