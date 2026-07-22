@@ -47,6 +47,14 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://osgardnewworld.com",
   },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon-dark-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/apple-icon.png",
+  },
   openGraph: {
     title: "OSGARD NEW WORLD",
     description: "Премиальная AI-платформа нового мира",
