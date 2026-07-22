@@ -245,7 +245,7 @@ router.post("/create-checkout", requireAuth, asyncHandler(async (req: AuthReques
     const user: any = db
       .prepare(`SELECT id, username, email FROM users WHERE id = ?`)
       .get(userId)
-    if (!user) return res.status(404).json({ error: "Пользователь не найден" })
+    if (!user) return res.status(404).json({ error: "Пользователь не найден", code: "USER_NOT_FOUND" })
 
     let existingSub = getSubscription(userId)
     let customerId = existingSub?.stripe_customer_id || undefined
@@ -647,7 +647,7 @@ router.post("/start-trial", requireAuth, asyncHandler(async (req: AuthRequest, r
 
   try {
     const user: any = db.prepare(`SELECT id, username, email FROM users WHERE id = ?`).get(userId)
-    if (!user) return res.status(404).json({ error: "Пользователь не найден" })
+    if (!user) return res.status(404).json({ error: "Пользователь не найден", code: "USER_NOT_FOUND" })
 
     let existingSub = getSubscription(userId)
     let customerId = existingSub?.stripe_customer_id || undefined

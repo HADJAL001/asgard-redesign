@@ -88,7 +88,7 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
   }
 
   const buyerWallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
-  if (!buyerWallet) return res.status(404).json({ error: "Кошелёк не найден" })
+  if (!buyerWallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
 
   const currency = listing.currency
   if (buyerWallet[currency] < listing.price) {

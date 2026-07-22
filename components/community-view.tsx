@@ -64,17 +64,20 @@ function Reaction({ Icon, value }: { Icon: typeof Heart; value: number }) {
 function LikeButton({
   value,
   active,
+  disabled,
   onClick,
 }: {
   value: number
   active: boolean
+  disabled?: boolean
   onClick: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 text-[14px] transition-colors"
+      disabled={disabled}
+      className="inline-flex items-center gap-1.5 text-[14px] transition-colors disabled:opacity-60"
       style={{ color: active ? "#FF6B6B" : "#6A6A8A" }}
     >
       <Heart size={16} strokeWidth={1.5} fill={active ? "#FF6B6B" : "none"} />
@@ -92,6 +95,7 @@ export function CommunityView() {
   const [comments, setComments] = useState<Record<number, Comment[]>>({})
   const [commentsLoading, setCommentsLoading] = useState<Record<number, boolean>>({})
   const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({})
+  const [likingPostIds, setLikingPostIds] = useState<Set<number>>(new Set())
   const [commentSubmitting, setCommentSubmitting] = useState<Record<number, boolean>>({})
 
   const { isAuthenticated } = useAuth()
@@ -153,11 +157,16 @@ export function CommunityView() {
       triggerPaywall("Оценить пост")
       return
     }
+    if (likingPostIds.has(postId)) return
     const post = posts.find((p) => p.id === postId)
     if (!post) return
 
-    const nextLiked = !post.likedByMe
-    const nextCount = post.likesCount + (nextLiked ? 1 : -1)
+    setLikingPostIds((prev) => new Set(prev).add(postId))
+
+    const prevLiked = post.likedByMe
+    const prevCount = post.likesCount
+    const nextLiked = !prevLiked
+    const nextCount = prevCount + (nextLiked ? 1 : -1)
     setPosts((prev) =>
       prev.map((p) => (p.id === postId ? { ...p, likedByMe: nextLiked, likesCount: nextCount } : p)),
     )
@@ -172,8 +181,14 @@ export function CommunityView() {
     } catch {
       // откатываем оптимистичное обновление при ошибке
       setPosts((prev) =>
-        prev.map((p) => (p.id === postId ? { ...p, likedByMe: post.likedByMe, likesCount: post.likesCount } : p)),
+        prev.map((p) => (p.id === postId ? { ...p, likedByMe: prevLiked, likesCount: prevCount } : p)),
       )
+    } finally {
+      setLikingPostIds((prev) => {
+        const next = new Set(prev)
+        next.delete(postId)
+        return next
+      })
     }
   }
 
@@ -301,7 +316,12 @@ export function CommunityView() {
               </p>
 
               <div className="mt-5 flex items-center gap-6">
-                <LikeButton value={p.likesCount} active={p.likedByMe} onClick={() => toggleLike(p.id)} />
+                <LikeButton
+                  value={p.likesCount}
+                  active={p.likedByMe}
+                  disabled={likingPostIds.has(p.id)}
+                  onClick={() => toggleLike(p.id)}
+                />
                 <button
                   type="button"
                   onClick={() => toggleComments(p.id)}

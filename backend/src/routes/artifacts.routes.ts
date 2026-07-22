@@ -94,7 +94,7 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
   }
 
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
-  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден" })
+  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
   if (wallet.timecoin < FORGE_COST_TC) {
     logAudit(req.user!.userId, "rejected", FORGE_COST_TC, "insufficient_balance", { action: "forge" })
     return res.status(400).json({ error: `Недостаточно TimeCoin (нужно ${FORGE_COST_TC})` })
@@ -169,7 +169,7 @@ router.post("/generate-ai", requireAuth, asyncHandler(async (req: AuthRequest, r
   const hint = typeof req.body?.hint === "string" && req.body.hint.trim() ? req.body.hint.trim() : undefined
 
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
-  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден" })
+  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
   if (wallet.timecoin < AI_GENERATE_COST_TC) {
     logAudit(req.user!.userId, "rejected", AI_GENERATE_COST_TC, "insufficient_balance", { action: "generate_ai" })
     return res.status(400).json({ error: `Недостаточно TimeCoin (нужно ${AI_GENERATE_COST_TC})` })
@@ -269,7 +269,7 @@ router.post("/:id/evolve", requireAuth, (req: AuthRequest, res) => {
   const cost = willRankUp ? EVOLVE_RARITY_COST_TC : EVOLVE_COST_TC
 
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
-  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден" })
+  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
   if (wallet.timecoin < cost) {
     logAudit(req.user!.userId, "rejected", cost, "insufficient_balance", { action: "evolve", artifactId: id })
     return res.status(400).json({ error: `Недостаточно TimeCoin (нужно ${cost})` })
@@ -353,7 +353,7 @@ router.post("/:id/premium-upgrade", requireAuth, (req: AuthRequest, res) => {
   const cost = premiumUpgradeCost(artifact.level)
 
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
-  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден" })
+  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
   if (wallet.timecoin < cost) {
     logAudit(req.user!.userId, "rejected", cost, "insufficient_balance", { action: "premium_upgrade", artifactId: id })
     return res.status(400).json({ error: `Недостаточно ∞ TimeCoin (нужно ${cost})` })

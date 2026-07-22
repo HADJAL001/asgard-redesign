@@ -97,7 +97,7 @@ router.get('/nonce', requireAuth, (req: Request, res: Response) => {
       | undefined;
 
     if (!row) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'User not found', code: 'USER_NOT_FOUND' });
     }
 
     res.json({ nonce: row.nonce });
@@ -133,7 +133,7 @@ router.post('/withdraw', rateLimit(60_000, 10), requireAuth, async (req: Request
     ).get(userId) as { twofa_enabled: number; twofa_secret: string | null } | undefined;
 
     if (!twoFaUser) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'User not found', code: 'USER_NOT_FOUND' });
     }
 
     if (twoFaUser.twofa_enabled) {

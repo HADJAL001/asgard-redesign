@@ -147,6 +147,9 @@ router.post("/order", requireAuth, (req: AuthRequest, res) => {
       orderbook: book,
     })
   } catch (err: any) {
+    if (err.message === "Кошелёк не найден") {
+      return res.status(401).json({ error: "Сессия недействительна. Пожалуйста, войдите заново.", code: "USER_NOT_FOUND" })
+    }
     res.status(400).json({ error: err.message || "Не удалось разместить заявку" })
   }
 })
@@ -188,7 +191,7 @@ router.post("/buy", requireAuth, (req: AuthRequest, res) => {
   }
 
   const walletBefore: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
-  if (!walletBefore) return res.status(404).json({ error: "Кошелёк не найден" })
+  if (!walletBefore) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
   if (walletBefore.cash_usd + EPS < usd) {
     logAudit(req.user!.userId, "rejected", usd, "insufficient_balance", { side: "buy", cashUsd: walletBefore.cash_usd })
     return res.status(400).json({ error: "Недостаточно cash_usd" })
@@ -309,7 +312,7 @@ router.post("/sell", requireAuth, (req: AuthRequest, res) => {
   }
 
   const walletBefore: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
-  if (!walletBefore) return res.status(404).json({ error: "Кошелёк не найден" })
+  if (!walletBefore) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
   if (walletBefore.timecoin + EPS < tc) {
     logAudit(req.user!.userId, "rejected", tc, "insufficient_balance", { side: "sell", timecoin: walletBefore.timecoin })
     return res.status(400).json({ error: "Недостаточно TimeCoin" })

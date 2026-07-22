@@ -32,7 +32,7 @@ router.get('/protected', requireAuth, requireLinked, (req, res) => {
 router.patch('/me', requireAuth, (req: AuthRequest, res) => {
   const { displayName, bio, avatarUrl } = req.body || {};
   const current: any = db.prepare(`SELECT * FROM users WHERE id = ?`).get(req.user!.userId);
-  if (!current) return res.status(404).json({ error: 'Пользователь не найден' });
+  if (!current) return res.status(404).json({ error: 'Пользователь не найден', code: 'USER_NOT_FOUND' });
 
   db.prepare(
     `UPDATE users SET display_name = ?, bio = ?, avatar_url = ? WHERE id = ?`,
@@ -65,7 +65,7 @@ router.post('/2fa/setup', requireAuth, asyncHandler(async (req: AuthRequest, res
     .prepare(`SELECT id, email, username, twofa_enabled FROM users WHERE id = ?`)
     .get(userId);
 
-  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден', code: 'USER_NOT_FOUND' });
   if (user.twofa_enabled) return res.status(400).json({ error: '2FA уже включена' });
 
   const identifier = (user.email ? decryptOrPlain(user.email) : null) || user.username;
@@ -88,7 +88,7 @@ router.post('/2fa/verify', requireAuth, (req: AuthRequest, res) => {
     .prepare(`SELECT twofa_secret, twofa_enabled FROM users WHERE id = ?`)
     .get(userId);
 
-  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден', code: 'USER_NOT_FOUND' });
   if (!user.twofa_secret) return res.status(400).json({ error: 'Сначала выполните /2fa/setup' });
   if (user.twofa_enabled) return res.status(400).json({ error: '2FA уже активирована' });
 
@@ -111,7 +111,7 @@ router.post('/2fa/disable', requireAuth, (req: AuthRequest, res) => {
     .prepare(`SELECT twofa_secret, twofa_enabled FROM users WHERE id = ?`)
     .get(userId);
 
-  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден', code: 'USER_NOT_FOUND' });
   if (!user.twofa_enabled) return res.status(400).json({ error: '2FA не активирована' });
 
   const valid = TwoFAService.verifyToken(user.twofa_secret, String(token));
@@ -128,7 +128,7 @@ router.get('/2fa/status', requireAuth, (req: AuthRequest, res) => {
     .prepare(`SELECT twofa_enabled FROM users WHERE id = ?`)
     .get(req.user!.userId);
 
-  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден', code: 'USER_NOT_FOUND' });
 
   res.json({ twofa_enabled: Boolean(user.twofa_enabled) });
 });

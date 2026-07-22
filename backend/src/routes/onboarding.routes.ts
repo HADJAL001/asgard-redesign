@@ -28,7 +28,7 @@ router.get("/status", requireAuth, (req: AuthRequest, res) => {
     .prepare(`SELECT onboarding_step FROM users WHERE id = ?`)
     .get(req.user!.userId)
 
-  if (!user) return res.status(404).json({ error: "Пользователь не найден" })
+  if (!user) return res.status(404).json({ error: "Пользователь не найден", code: "USER_NOT_FOUND" })
 
   const currentStep = user.onboarding_step ?? 0
   const completed = currentStep >= TOTAL_STEPS
@@ -49,7 +49,7 @@ router.post("/step", requireAuth, (req: AuthRequest, res) => {
     .prepare(`SELECT onboarding_step FROM users WHERE id = ?`)
     .get(req.user!.userId)
 
-  if (!user) return res.status(404).json({ error: "Пользователь не найден" })
+  if (!user) return res.status(404).json({ error: "Пользователь не найден", code: "USER_NOT_FOUND" })
 
   const currentStep = user.onboarding_step ?? 0
 

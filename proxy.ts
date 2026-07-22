@@ -29,13 +29,10 @@ const PROTECTED_PATHS = [
   "/stake",
   "/profile",
   "/admin",
-  "/community",
   "/twin",
   "/economy",
   "/referral",
   "/wallet",
-  "/hall-of-fame",
-  "/leaderboard",
 ]
 
 export function proxy(request: NextRequest) {

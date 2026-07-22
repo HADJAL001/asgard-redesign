@@ -44,7 +44,7 @@ router.post("/", requireAuth, (req: AuthRequest, res) => {
   }
 
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
-  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден" })
+  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
   if (wallet.timecoin < amountTc) {
     return res.status(400).json({ error: "Недостаточно TimeCoin" })
   }

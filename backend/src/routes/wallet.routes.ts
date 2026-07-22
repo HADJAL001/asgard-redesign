@@ -35,7 +35,7 @@ router.get("/", requireAuth, (req: AuthRequest, res) => {
     )
     .get(req.user!.userId)
 
-  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден" })
+  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
   res.json({ wallet })
 })
 
@@ -61,7 +61,7 @@ router.post("/convert", requireAuth, (req: AuthRequest, res) => {
   }
 
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
-  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден" })
+  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
 
   if (wallet[from] < amt) {
     return res.status(400).json({ error: "Недостаточно средств" })
@@ -121,7 +121,7 @@ router.post("/convert-to-tc", rateLimit(60_000, 5), requireAuth, async (req: Aut
   }
 
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(userId)
-  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден" })
+  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
   if (wallet.timecoin < amt) {
     return res.status(400).json({ error: "Недостаточно ∞ на балансе" })
   }

@@ -94,6 +94,13 @@ async function request<T = any>(path: string, options: RequestOptions = {}): Pro
 
   if (!res.ok) {
     const message = (data && (data.error || data.message)) || `Ошибка запроса (${res.status})`
+    // Протухшая (ghost) сессия: JWT валиден, но userId уже не существует в БД
+    // (например, после пересоздания эфемерной SQLite на Railway). Бэкенд помечает
+    // такие ответы `code: "USER_NOT_FOUND"` независимо от статуса (401/404) —
+    // без явного skipAuthRedirect ведём себя так же, как при 401.
+    if (data?.code === "USER_NOT_FOUND" && !skipAuthRedirect) {
+      redirectToLogin()
+    }
     throw new ApiError(res.status, message, data)
   }
 
