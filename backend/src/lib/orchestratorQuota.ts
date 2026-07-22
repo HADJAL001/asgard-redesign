@@ -39,6 +39,13 @@ function msUntilNextUtcMidnight(): number {
 }
 
 export async function getOrchestratorUsage(userId: number): Promise<number> {
+  /* Ключ квоты общий на весь день (в Redis) и не зависит от того, что тестовая
+     SQLite-БД пересоздаётся с нуля перед каждым прогоном — id=1 в свежей БД
+     копит запуски в orch:req:1:{сегодня} между прогонами npm test и рано или
+     поздно упирается в FREE_ORCHESTRATOR_LIMIT, роняя тесты кодом 429, не
+     связанным с тестируемой логикой. См. тот же приём в rateLimiter.ts. */
+  if (process.env.NODE_ENV === 'test') return 0
+
   const key = todayKey(userId)
 
   if (await ensureRedisConnected()) {
@@ -56,6 +63,8 @@ export async function getOrchestratorUsage(userId: number): Promise<number> {
 }
 
 export async function incrementOrchestratorUsage(userId: number): Promise<number> {
+  if (process.env.NODE_ENV === 'test') return 0
+
   const key = todayKey(userId)
 
   if (await ensureRedisConnected()) {

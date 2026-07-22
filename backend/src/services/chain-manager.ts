@@ -180,6 +180,13 @@ export class ChainManager {
         pipelineEvents.emit(channel, { type: "step_done", step: agent.type, artifact })
       }
 
+      /* Цикл выше проверяет cancelledTasks только ПЕРЕД каждым шагом — если cancel()
+         пришёл, пока выполнялся последний агент, цикл этого не заметит и дойдёт сюда.
+         Без этой проверки статус "cancelled", уже выставленный cancel(), был бы
+         перезаписан обратно на "completed", а SSE-клиенты (уже отключившиеся по
+         первому task_cancelled) получили бы задним числом ещё и task_done. */
+      if (cancelledTasks.has(taskId)) throw new TaskCancelledError()
+
       const result = typeof current === "object" && current !== null ? current : { output: current }
       this.persist(taskId, { status: "completed", progress: 100, result: JSON.stringify(result) })
       pipelineEvents.emit(channel, { type: "task_done", result })

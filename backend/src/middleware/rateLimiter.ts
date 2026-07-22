@@ -30,6 +30,14 @@ function memoryRateLimit(key: string, windowMs: number, max: number): boolean {
 
 export function rateLimit(windowMs: number = 60000, max: number = 100) {
   return async (req: Request, res: Response, next: NextFunction) => {
+    /* Тестовые файлы (src/tests/*.test.ts) поднимают настоящий сервер с NODE_ENV=test
+       и бьют по одним и тем же ручкам (/register и т.д.) много раз подряд — без этого
+       обхода счётчик в общем Redis (см. .env REDIS_URL) быстро упирается в лимит и
+       тесты начинают падать с 429 вместо ожидаемых кодов, причём тем чаще, чем больше
+       параллельных прогонов npm test идёт одновременно (несколько Claude-сессий в
+       одном репозитории делят один Redis). Прод/дев-режимы это не затрагивает. */
+    if (process.env.NODE_ENV === 'test') return next();
+
     // Ключ включает путь роута, чтобы лимиты разных ручек на одном IP не смешивались.
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
     const key = `ratelimit:${req.baseUrl}${req.path}:${ip}`;

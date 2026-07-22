@@ -58,16 +58,27 @@ export function adaptEnvelopeAgent(
  * составной объект из нескольких прошлых артефактов (FrontendAgent у
  * Клода #2; все агенты Клода #3 — services/agents/*). `buildInput` сам
  * решает, какие типы артефактов ему нужны (обычно через findArtifactContent).
+ *
+ * Если у агента есть `.run()` (Клод #3 — services/agents/base-agent.ts),
+ * используем его вместо голого `.execute()`: `.run()` — это тот же
+ * `.execute()`, обёрнутый метриками (agent_executions), кешем по хешу
+ * входа (AgentCache) и прогрессом в pipelineEvents (тот же канал
+ * task:${taskId}, что слушает SSE-роут) — без этого шаги Backend/Tester/
+ * Optimizer/Security/Deploy при прогоне через ChainManager молча теряли
+ * бы всю эту телеметрию, которая есть у них при прогоне через
+ * pipeline-bridge.ts. FrontendAgent (Клод #2) `.run()` не имеет —
+ * для него ветка ниже уходит в обычный `.execute()`, как раньше.
  */
 export function adaptCompositeAgent(
   type: ArtifactType,
-  agent: { execute(input: any): Promise<any> },
+  agent: { execute(input: any): Promise<any>; run?(input: any, taskId?: string): Promise<any> },
   buildInput: (context: AgentContext) => any,
 ): Agent {
   return {
     type,
     async execute(_input: any, context: AgentContext): Promise<any> {
-      return agent.execute(buildInput(context))
+      const input = buildInput(context)
+      return agent.run ? agent.run(input, context.taskId) : agent.execute(input)
     },
   }
 }
