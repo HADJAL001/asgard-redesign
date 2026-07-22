@@ -161,7 +161,6 @@ export function DemoProjectModal({ open, onClose, onLimitReached }: DemoProjectM
       saveSession(updated)
       setSession(updated)
       setLastResult(newProject)
-      setName("")
 
       if (updated.generationsUsed >= MAX_GENERATIONS) {
         setTimeout(() => onLimitReached(updated), 1800)

@@ -584,7 +584,7 @@ export function EternityLanding() {
   )
 }
 
-const WM_CSS = `.wm-scene{position:fixed;bottom:44px;right:4vw;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center}.wm-svg{width:180px;height:252px;image-rendering:crisp-edges;shape-rendering:geometricPrecision;filter:drop-shadow(0 12px 32px rgba(120,70,20,0.55)) drop-shadow(0 3px 8px rgba(0,0,0,0.9));animation:wm-bob 6s cubic-bezier(0.45,0.05,0.55,0.95) infinite;will-change:transform}.wm-bubble{margin-top:12px;background:rgba(4,5,10,0.97);border:1px solid rgba(180,140,80,0.3);border-radius:6px;padding:7px 16px;font-size:11px;font-weight:400;color:#A08A60;white-space:nowrap;letter-spacing:0.06em;font-family:monospace}@keyframes wm-bob{0%,100%{transform:translateY(0) rotate(-0.4deg)}45%{transform:translateY(-9px) rotate(0.25deg)}75%{transform:translateY(-4px) rotate(-0.15deg)}}@media(max-width:600px){.wm-scene{right:2vw;bottom:24px}.wm-svg{width:140px;height:196px}.wm-bubble{font-size:10px;padding:6px 12px}}`
+const WM_CSS = `.wm-scene{position:absolute;top:calc(100vh - 344px);right:4vw;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center}.wm-svg{width:180px;height:252px;image-rendering:crisp-edges;shape-rendering:geometricPrecision;filter:drop-shadow(0 12px 32px rgba(120,70,20,0.55)) drop-shadow(0 3px 8px rgba(0,0,0,0.9));animation:wm-bob 6s cubic-bezier(0.45,0.05,0.55,0.95) infinite;will-change:transform}.wm-bubble{margin-top:12px;background:rgba(4,5,10,0.97);border:1px solid rgba(180,140,80,0.3);border-radius:6px;padding:7px 16px;font-size:11px;font-weight:400;color:#A08A60;white-space:nowrap;letter-spacing:0.06em;font-family:monospace}@keyframes wm-bob{0%,100%{transform:translateY(0) rotate(-0.4deg)}45%{transform:translateY(-9px) rotate(0.25deg)}75%{transform:translateY(-4px) rotate(-0.15deg)}}@media(max-width:600px){.wm-scene{right:2vw;top:calc(100vh - 256px)}.wm-svg{width:140px;height:196px}.wm-bubble{font-size:10px;padding:6px 12px}}`
 
 // ─── ВАЛЛИ минималистичный ──────────────────────────────────────────
 function WalleOnGlobe() {
@@ -690,7 +690,7 @@ const CSS = `
 .eternity-page *{ box-sizing: border-box; }
 
 .eternity-page #globe-bg {
-  position: fixed; top: 0; left: 0;
+  position: absolute; top: 0; left: 0;
   width: 100vw; height: 100vh;
   z-index: 0; pointer-events: auto; overflow: hidden;
 }
