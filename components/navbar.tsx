@@ -19,6 +19,9 @@ import {
   ShieldCheck,
   LogOut,
   UserRound,
+  BookOpen,
+  Map,
+  GitBranch,
   type LucideIcon,
 } from "lucide-react"
 
@@ -42,6 +45,7 @@ export type NavItem = { key: string; href: string; Icon: LucideIcon }
 export const NAV: NavItem[] = [
   { key: "nav.home", href: "/", Icon: Home },
   { key: "nav.projects", href: "/projects", Icon: FolderKanban },
+  { key: "nav.orchestrator", href: "/orchestrator", Icon: GitBranch },
   { key: "nav.community", href: "/community", Icon: Beer },
   { key: "nav.forge", href: "/forge", Icon: Hammer },
   { key: "nav.marketplace", href: "/marketplace", Icon: ShoppingBag },
@@ -51,7 +55,8 @@ export const NAV: NavItem[] = [
   { key: "nav.economy", href: "/economy", Icon: BarChart3 },
   { key: "nav.referral", href: "/referral", Icon: Users },
   { key: "nav.messages", href: "/messages", Icon: MessageCircle },
-
+  { key: "nav.docs", href: "/docs", Icon: BookOpen },
+  { key: "nav.economyMap", href: "/docs/economy-map", Icon: Map },
 ]
 
 /** Переключатель языка · выпадающий список RU / EN / KZ */

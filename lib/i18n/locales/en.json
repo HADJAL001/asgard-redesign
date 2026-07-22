@@ -16,6 +16,7 @@
   "nav": {
     "home": "Home",
     "projects": "Projects",
+    "orchestrator": "Orchestrator",
     "community": "Tavern",
     "forge": "Forge",
     "marketplace": "Market",
@@ -25,6 +26,8 @@
     "economy": "Economy",
     "referral": "👥 Invite Friends",
     "messages": "Chat",
+    "docs": "Docs",
+    "economyMap": "Economy Map",
     "admin": "Admin",
     "wallet": "Wallet",
     "notifications": "Notifications",
@@ -390,6 +393,38 @@
     "delete": "Delete",
     "confirmDelete": "Delete this project? Artifacts will be unlinked but will remain yours."
   },
+  "orchestrator": {
+    "title": "Orchestrator",
+    "subtitle": "Build chains of AI model calls and run them",
+    "createBtn": "Create Chain",
+    "loadError": "Failed to load chains",
+    "confirmDelete": "Delete this chain?",
+    "deleteError": "Failed to delete chain",
+    "emptyState": "You don't have any chains yet. Create your first one to link AI model calls into a single pipeline.",
+    "nodeCount": "{{count}} nodes",
+    "runBtn": "Run",
+    "editBtn": "Edit",
+    "paletteTitle": "Nodes",
+    "nodeType": {
+      "input": "Input",
+      "inputDesc": "Chain entry point",
+      "modelCall": "Model Call",
+      "modelCallDesc": "Request to an AI model with parameters",
+      "output": "Output",
+      "outputDesc": "Final chain result"
+    },
+    "untitled": "New Chain",
+    "saveBtn": "Save",
+    "saveError": "Failed to save chain",
+    "saveBeforeRun": "Save the chain first",
+    "runError": "Failed to run chain",
+    "nodeParams": "Node Parameters",
+    "paramLabel": "Label",
+    "paramModel": "Model",
+    "paramSystemPrompt": "System Prompt",
+    "paramTemperature": "Temperature",
+    "paramMaxTokens": "Max Tokens"
+  },
   "projectWizard": {
     "title": "Create Project",
     "stepOf": "Step {{step}} of {{total}}",
@@ -455,6 +490,96 @@
     "deployed": "Project deployed:",
     "deployRequestFailed": "Failed to start deployment",
     "exportZip": "Export ZIP"
+  },
+  "onboarding": {
+    "closeAria": "Close onboarding",
+    "stepOf": "Step {{current}} of {{total}}",
+    "rewardEarned": "Reward earned!",
+    "loadingBtn": "Loading…",
+    "continueBtn": "Continue",
+    "finishBtn": "Finish onboarding",
+    "creditsUnit": "{{count}} credits",
+    "crystalUnit": "{{count}} crystal",
+    "crystalsUnit": "{{count}} crystals",
+    "badgePervoprohodets": "\"Pioneer\" title",
+    "badgeGeneric": "\"{{badge}}\" badge",
+    "stepFailed": "Failed to complete onboarding step",
+    "prologue": {
+      "greeting": "Welcome to OSGARD, {{name}}. 12,847 artifacts have already taken shape here. Yours hasn't — yet. In a minute you'll get access to the Forge, WALLI, and your first credit of trust from the world. Ready to begin?",
+      "cta": "Enter the world →"
+    },
+    "steps": {
+      "step1": {
+        "title": "Introduction",
+        "description": "OSGARD isn't a set of pages — it's a world that remembers every architect: what you've created, what you've learned, what you've achieved. The logo in the corner is your anchor, a way back at any point on the journey. Just explore: the world is already open."
+      },
+      "step2": {
+        "title": "Forge Master",
+        "description": "The Forge is the heart of OSGARD. Here an idea, a bit of code, and a drop of TimeCoin become an artifact — something that didn't exist before. Step inside and craft your first artifact: this isn't a demo, it's the start of your collection."
+      },
+      "step3": {
+        "title": "Economy",
+        "description": "In OSGARD, value climbs a ladder: credits → shards → crystals → TimeCoin → dollars. Each rung is a step of trust in the world. You're already earning credits right now — for completing this tour. Open the Wallet and see what your balance looks like on each rung.",
+        "mapLink": "View the economy map →"
+      },
+      "step4": {
+        "title": "Explorer",
+        "description": "WALLI has three forms. The Advisor in chat answers in words — always nearby on any page. WALLI in the Room is its embodiment in 3D space, one you can train and upgrade. The glow on the globe is just an echo of its presence in the world. Open the WALLI Room and examine one of the artifacts."
+      },
+      "step5": {
+        "title": "Voice",
+        "description": "Every architect leaves a trace — not just in artifacts, but in words. The OSGARD community grows from the stories, questions, and discoveries of people just like you. Leave a post or comment in the Tavern — let the world hear your voice."
+      },
+      "step6": {
+        "title": "Identity",
+        "description": "Your profile reflects the path you've walked: level, stats, badges. Take a look and check how the world sees you now — and who you'll become a few steps from now."
+      },
+      "step7": {
+        "title": "Overlord",
+        "description": "This step is available to platform administrators only.",
+        "adminDescription": "Take a look at the admin panel — this is where the fate of the OSGARD world is decided for thousands of architects after you."
+      },
+      "step8": {
+        "title": "Pioneer",
+        "description": "One more step — and the world will hand you your first title. Ready to accept it?"
+      }
+    },
+    "final": {
+      "title": "Initiation",
+      "text": "Welcome, architect. You've walked the path from newcomer to Pioneer — and the world of OSGARD has remembered every step.",
+      "nextGoal": "Your next milestone: your first twin rental OR breaking into the Hall of Fame top 100.",
+      "continueBtn": "Begin the journey"
+    }
+  },
+  "walli": {
+    "advisorLabel": "WALLI Advisor",
+    "advisorTooltip": "Answers in words on any page — your AI advisor",
+    "roomLabel": "WALLI in the Room",
+    "roomTooltip": "WALLI's embodiment in 3D space — can be trained and upgraded",
+    "echoAriaLabel": "Echo of WALLI's presence on the globe",
+    "echoBadge": "echo of presence",
+    "echoBubble": "This is just an echo of WALLI. The real one is in the Room."
+  },
+  "docsEconomyMap": {
+    "title": "OSGARD Economy Map",
+    "subtitle": "Five currencies and a path of trust — from the first click to real money",
+    "backToDocs": "← Back to Docs",
+    "step1Name": "Credits",
+    "step1Desc": "Starting currency. Earned through activity: onboarding, posts, daily actions.",
+    "step2Name": "Shards",
+    "step2Desc": "Exchanged for credits inside the Forge. Used for entry-level artifacts.",
+    "step3Name": "Crystals",
+    "step3Desc": "A rarer currency — for quality artifacts and achievements. Unlocks premium boosts.",
+    "step4Name": "TimeCoin",
+    "step4Desc": "A currency with real market value. Can be staked, traded on the exchange, or withdrawn to a wallet.",
+    "step5Name": "Dollars",
+    "step5Desc": "The final rung: TimeCoin converts to real money via the exchange or a Solana wallet withdrawal.",
+    "ladderCaption": "Each rung of the ladder is a step of trust in the OSGARD world",
+    "footerNote": "Current exchange rates — on the Wallet and Exchange pages."
+  },
+  "support": {
+    "inDevelopmentTitle": "Section under development",
+    "inDevelopmentText": "Live support is still being built. For answers, check the Docs or the Tavern (community)."
   }
 }
 

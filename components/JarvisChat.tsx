@@ -20,6 +20,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Send, Volume2, VolumeX, MessageSquare, Loader2, Bot, User, Square } from "lucide-react"
 import apiClient from "@/lib/api-client"
+import { useTranslation } from "@/lib/i18n/use-translation"
 import JarvisAvatar from "@/components/JarvisAvatar"
 import { useVoice } from "@/hooks/useVoice"
 import {
@@ -91,6 +92,7 @@ function saveReplyMode(mode: ReplyMode) {
    ---------------------------------------------------------------- */
 
 export function ВАЛЛИChat() {
+  const { t } = useTranslation()
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -269,9 +271,9 @@ export function ВАЛЛИChat() {
       <div className="jarvis-header">
         <div className="jarvis-title">
           <Bot size={18} aria-hidden="true" />
-          <span>ВАЛЛИ</span>
+          <span>{t("walli.advisorLabel")}</span>
           {(equipment.skin || equipment.accessory || equipment.voice) && (
-            <span className="jarvis-equip-badge" title="Аксессуары ВАЛЛИА активны">
+            <span className="jarvis-equip-badge" title="Аксессуары ВАЛЛИ активны">
               ✨
             </span>
           )}

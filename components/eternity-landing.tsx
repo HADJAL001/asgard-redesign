@@ -18,6 +18,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react"
+import { useTranslation } from "@/lib/i18n/use-translation"
 
 // ─── Кастомный модальный компонент ─────────────────────────────────────
 function ArtifactSuccessModal({
@@ -439,9 +440,6 @@ export function EternityLanding() {
         ))}
       </div>
 
-      {/* ВАЛЛИ на глобусе */}
-      <WalleOnGlobe />
-
       {/* Модальное окно успеха */}
       {modalArtifact && (
         <ArtifactSuccessModal artifactName={modalArtifact} onClose={closeModal} />
@@ -487,7 +485,9 @@ export function EternityLanding() {
             </Link>
           </div>
         </header>
-        <div className="hero-visual" />
+        <div className="hero-visual">
+          <WalleOnGlobe />
+        </div>
 
         <section className="architects-section">
           <h2>Архитекторы вселенной</h2>
@@ -584,12 +584,13 @@ export function EternityLanding() {
   )
 }
 
-const WM_CSS = `.wm-scene{position:absolute;top:calc(100vh - 344px);right:4vw;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center}.wm-svg{width:180px;height:252px;image-rendering:crisp-edges;shape-rendering:geometricPrecision;filter:drop-shadow(0 12px 32px rgba(120,70,20,0.55)) drop-shadow(0 3px 8px rgba(0,0,0,0.9));animation:wm-bob 6s cubic-bezier(0.45,0.05,0.55,0.95) infinite;will-change:transform}.wm-bubble{margin-top:12px;background:rgba(4,5,10,0.97);border:1px solid rgba(180,140,80,0.3);border-radius:6px;padding:7px 16px;font-size:11px;font-weight:400;color:#A08A60;white-space:nowrap;letter-spacing:0.06em;font-family:monospace}@keyframes wm-bob{0%,100%{transform:translateY(0) rotate(-0.4deg)}45%{transform:translateY(-9px) rotate(0.25deg)}75%{transform:translateY(-4px) rotate(-0.15deg)}}@media(max-width:600px){.wm-scene{right:2vw;top:calc(100vh - 256px)}.wm-svg{width:140px;height:196px}.wm-bubble{font-size:10px;padding:6px 12px}}`
+const WM_CSS = `.wm-scene{position:absolute;bottom:32px;right:6%;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center}.wm-svg{width:180px;height:252px;image-rendering:crisp-edges;shape-rendering:geometricPrecision;filter:drop-shadow(0 12px 32px rgba(120,70,20,0.55)) drop-shadow(0 3px 8px rgba(0,0,0,0.9));animation:wm-bob 6s cubic-bezier(0.45,0.05,0.55,0.95) infinite;will-change:transform}.wm-echo-badge{margin-top:8px;font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.14em;color:#8A7050;opacity:0.75;font-family:monospace}.wm-bubble{margin-top:6px;background:rgba(4,5,10,0.97);border:1px solid rgba(180,140,80,0.3);border-radius:6px;padding:7px 16px;font-size:11px;font-weight:400;color:#A08A60;white-space:nowrap;letter-spacing:0.06em;font-family:monospace}@keyframes wm-bob{0%,100%{transform:translateY(0) rotate(-0.4deg)}45%{transform:translateY(-9px) rotate(0.25deg)}75%{transform:translateY(-4px) rotate(-0.15deg)}}@media(max-width:600px){.wm-scene{right:4%;bottom:16px}.wm-svg{width:140px;height:196px}.wm-bubble{font-size:10px;padding:6px 12px}.wm-echo-badge{font-size:8px}}`
 
 // ─── ВАЛЛИ минималистичный ──────────────────────────────────────────
 function WalleOnGlobe() {
+  const { t } = useTranslation()
   return (
-    <div className="wm-scene" aria-label="ВАЛЛИ на глобусе">
+    <div className="wm-scene" aria-label={t("walli.echoAriaLabel")}>
       <svg className="wm-svg" viewBox="-10 0 120 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         {/* Антенна */}
         <line x1="50" y1="10" x2="50" y2="2" stroke="#8A7050" strokeWidth="1.5" strokeLinecap="round"/>
@@ -667,8 +668,9 @@ function WalleOnGlobe() {
         {/* Тень */}
         <ellipse cx="50" cy="118" rx="36" ry="3" fill="rgba(0,0,0,0.35)"/>
       </svg>
+      <div className="wm-echo-badge">{t("walli.echoBadge")}</div>
       <div className="wm-bubble" role="status">
-        Привет, архитектор! Я — ВАЛЛИ.
+        {t("walli.echoBubble")}
       </div>
       <style>{WM_CSS}</style>
     </div>
@@ -723,6 +725,7 @@ const CSS = `
   display: flex; flex-direction: column; justify-content: center;
   align-items: flex-start; gap: 24px;
 }
+.eternity-page .hero-visual { position: relative; }
 .eternity-page h1 {
   font-family: var(--font-playfair), 'Playfair Display', serif;
   font-size: 76px; font-weight: 700; color: #fff;
@@ -894,10 +897,12 @@ const CSS = `
 @media (max-width: 1100px) {
   .eternity-page .container { grid-template-columns: 1fr; gap: 60px; }
   .eternity-page .hero-content { align-items: center; text-align: center; }
+  .eternity-page .hero-visual { min-height: 340px; }
   .eternity-page h1 { font-size: 48px; }
   .eternity-page .artifact-form { max-width: 100%; }
 }
 @media (max-width: 600px) {
+  .eternity-page .hero-visual { min-height: 260px; }
   .eternity-page h1 { font-size: 36px; }
   .eternity-page .artifact-form { flex-direction: column; gap: 10px; }
   .eternity-page .artifact-form input,

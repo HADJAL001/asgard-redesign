@@ -34,7 +34,7 @@ function LoginPageInner() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const nextPath = searchParams.get("next") || "/dashboard"
+  const nextPath = searchParams.get("next") || "/"
   const oauthError = searchParams.get("oauthError")
   const [error, setError] = useState<string | null>(
     oauthError ? "Не удалось выполнить вход через соцсеть. Попробуйте ещё раз." : null,
@@ -87,7 +87,12 @@ function LoginPageInner() {
       return
     }
 
-    router.push(nextPath)
+    if (mode === "register") {
+      const sep = nextPath.includes("?") ? "&" : "?"
+      router.push(`${nextPath}${sep}welcome=1`)
+    } else {
+      router.push(nextPath)
+    }
   }
 
   return (

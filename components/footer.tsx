@@ -24,7 +24,7 @@ const FOOTER_LINKS = [
     links: [
       { label: "Кошелёк", href: "/wallet" },
       { label: "Транзакции", href: "/transactions" },
-      { label: "Двойник", href: "/twin" },
+      { label: "Близнец", href: "/twin" },
       { label: "Обратная связь", href: "/feedback" },
     ],
   },

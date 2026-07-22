@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   FolderKanban,
   Gem,
@@ -18,8 +18,10 @@ import {
 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { OnboardingTutorial } from "./OnboardingTutorial"
+import { OnboardingPrologue } from "./OnboardingPrologue"
 import { apiClient } from "@/lib/api-client"
 import { useOsgardStore } from "@/lib/store/osgard-store"
+import { useAuth } from "@/lib/auth-store"
 import { formatTokens, badgeIcon } from "@/lib/economy"
 import { fmtTC } from "@/lib/tc-market"
 
@@ -63,7 +65,10 @@ function SectionTitle({ Icon, children }: { Icon: LucideIcon; children: React.Re
 
 export function DashboardView() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { user } = useAuth()
   const [onboardingStep, setOnboardingStep] = useState<number | null>(null)
+  const [showPrologue, setShowPrologue] = useState(() => searchParams.get("welcome") === "1")
 
   /* Реальные данные аккаунта — тот же источник, что используют /projects и /wallet
      (useOsgardStore → GET /projects/mine и GET /wallet). Никаких моков. */
@@ -131,11 +136,25 @@ export function DashboardView() {
     }
   }, [])
 
+  /* Убираем ?welcome=1 из URL сразу после показа пролога, чтобы обновление
+     страницы не открывало его повторно */
+  useEffect(() => {
+    if (showPrologue) router.replace("/dashboard")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0F0F1A 100%)", color: "#FFFFFF" }}>
       <Navbar />
 
-      {onboardingStep !== null && (
+      {showPrologue && (
+        <OnboardingPrologue
+          name={user?.displayName || user?.username || ""}
+          onContinue={() => setShowPrologue(false)}
+        />
+      )}
+
+      {!showPrologue && onboardingStep !== null && (
         <OnboardingTutorial
           initialStep={onboardingStep}
           onFinish={() => setOnboardingStep(null)}

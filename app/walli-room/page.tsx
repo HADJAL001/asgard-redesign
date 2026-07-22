@@ -6,8 +6,10 @@ import { useWalliVoice, LANGUAGES } from './useWalliVoice'
 import { useWalliAudio } from './useWalliAudio'
 import { useWalliEconomy } from './useWalliEconomy'
 import type { ResponseMode } from './useWalliVoice'
+import { useTranslation } from '@/lib/i18n/use-translation'
 
 export default function WalliRoom() {
+  const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const [message, setMessage] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
@@ -243,7 +245,7 @@ export default function WalliRoom() {
       {menuOpen && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 backdrop-blur-sm">
           <div className="bg-[#0c0c10]/98 border border-[#c8830e]/25 rounded-2xl p-6 w-80 shadow-2xl">
-            <h3 className="text-[#e8a820] text-lg font-semibold mb-4 text-center tracking-widest uppercase">ВАЛЛИ</h3>
+            <h3 className="text-[#e8a820] text-lg font-semibold mb-4 text-center tracking-widest uppercase">{t('walli.roomLabel')}</h3>
             <div className="space-y-2">
               <button className="w-full bg-white/5 hover:bg-white/10 text-white py-2.5 rounded-lg transition-colors text-sm" onClick={() => { setMenuOpen(false); voice.setVoiceOpen(true) }}>Поговорить</button>
               <button className="w-full bg-white/5 hover:bg-white/10 text-white py-2.5 rounded-lg transition-colors text-sm" onClick={() => { setMenuOpen(false); setUpgradeOpen(true) }}>Улучшить способности</button>
