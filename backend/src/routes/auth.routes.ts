@@ -4,7 +4,7 @@ import { rateLimit } from '../middleware/rateLimiter';
 import db from '../lib/db';
 import { requireAuth, requireLinked, AuthRequest } from '../middleware/authMiddleware';
 import { TwoFAService } from '../services/twofa.service';
-import { encrypt, decrypt } from '../utils/encryption';
+import { decryptOrPlain } from '../utils/encryption';
 import { asyncHandler } from '../utils/async-handler';
 
 const router = Router();
@@ -68,7 +68,7 @@ router.post('/2fa/setup', requireAuth, asyncHandler(async (req: AuthRequest, res
   if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
   if (user.twofa_enabled) return res.status(400).json({ error: '2FA уже включена' });
 
-  const identifier = (user.email ? decrypt(user.email) : null) || user.username;
+  const identifier = (user.email ? decryptOrPlain(user.email) : null) || user.username;
   const { secret, otpauth_url } = TwoFAService.generateSecret(identifier);
   const qrCode = await TwoFAService.generateQR(otpauth_url);
 
