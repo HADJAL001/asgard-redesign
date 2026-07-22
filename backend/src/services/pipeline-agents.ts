@@ -5,8 +5,34 @@ import { BackendAgent } from "./agents/backend-agent"
 import { TesterAgent } from "./agents/tester-agent"
 import { OptimizerAgent } from "./agents/optimizer-agent"
 import { SecurityAgent } from "./agents/security-agent"
+import { DeployAgent } from "./agents/deploy.agent"
 import { adaptProjectSchema } from "./agents/adapters/schema-adapter"
 import { adaptFrontendArtifact } from "./agents/adapters/frontend-adapter"
+import type { GeneratedFile } from "./agents/types"
+
+/** slug для имени Vercel-проекта/GitHub-репозитория — та же схема, что и в
+ *  app-generator.ts/frontend.agent.ts/pipeline-bridge.ts (свой slugify в
+ *  каждом модуле, а не общий util — устоявшийся в проекте паттерн). */
+function slugify(name: string): string {
+  const base = name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+  return base || "osgard-app"
+}
+
+/** optimized.files/security.files — только переписанные по applied-предложениям файлы
+ *  (см. types.ts), не весь проект. Деплою нужен полный набор: frontend+backend как база,
+ *  поверх — патчи optimizer/security по path (та же логика, что в pipeline-bridge.ts). */
+function mergeFiles(...fileLists: GeneratedFile[][]): GeneratedFile[] {
+  const byPath = new Map<string, GeneratedFile>()
+  for (const list of fileLists) {
+    for (const file of list) byPath.set(file.path, file)
+  }
+  return [...byPath.values()]
+}
 
 /* ================================================================
    OSGARD · Заглушки агентов пайплайна генерации проекта
@@ -14,12 +40,9 @@ import { adaptFrontendArtifact } from "./agents/adapters/frontend-adapter"
    Временные реализации Agent (types/pipeline.types.ts), нужны только
    чтобы ChainManager (chain-manager.ts) был компилируемым и рабочим
    до готовности настоящих агентов (Аналитик/Архитектор/Дизайнер/
-   Фронтенд/Бэкенд/Тестировщик/Оптимизатор/Безопасник). Каждый класс
-   заменяется реальным импортом по мере готовности — сам ChainManager
-   менять не нужно, только состав DEFAULT_PIPELINE.
-
-   Деплой-агент ('deployed', интеграции) сюда не входит — вне зоны
-   ответственности этого модуля, добавляется в цепочку отдельно.
+   Фронтенд/Бэкенд/Тестировщик/Оптимизатор/Безопасник/Деплой). Каждый
+   класс заменяется реальным импортом по мере готовности — сам
+   ChainManager менять не нужно, только состав DEFAULT_PIPELINE.
    ================================================================ */
 
 class StubAgent implements Agent {
@@ -39,6 +62,7 @@ export const DEFAULT_PIPELINE: Agent[] = [
   new StubAgent("tests", "Тестировщик"),
   new StubAgent("optimized", "Оптимизатор"),
   new StubAgent("security", "Безопасник"),
+  new StubAgent("deployed", "Деплой"),
 ]
 
 /* ================================================================
@@ -66,6 +90,7 @@ export function createRealPipeline(): Agent[] {
   const tester = new TesterAgent()
   const optimizer = new OptimizerAgent()
   const security = new SecurityAgent()
+  const deploy = new DeployAgent()
 
   return [
     adaptEnvelopeAgent("spec", analyst),
@@ -95,5 +120,16 @@ export function createRealPipeline(): Agent[] {
       backend: findArtifactContent(ctx, "backend"),
       tests: findArtifactContent(ctx, "tests"),
     })),
+    adaptCompositeAgent("deployed", deploy, (ctx) => {
+      const schema = adaptProjectSchema(findArtifactContent(ctx, "schema"))
+      const frontendFiles: GeneratedFile[] = adaptFrontendArtifact(findArtifactContent(ctx, "frontend")).files
+      const backendFiles: GeneratedFile[] = findArtifactContent(ctx, "backend").files
+      const optimizedFiles: GeneratedFile[] = findArtifactContent(ctx, "optimized").files
+      const securityFiles: GeneratedFile[] = findArtifactContent(ctx, "security").files
+      return {
+        files: mergeFiles(frontendFiles, backendFiles, optimizedFiles, securityFiles),
+        projectName: slugify(schema.name),
+      }
+    }),
   ]
 }
