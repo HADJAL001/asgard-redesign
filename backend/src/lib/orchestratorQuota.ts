@@ -8,9 +8,17 @@ import { redisClient, ensureRedisConnected } from "./redis"
    как остаток до следующей полуночи UTC, а не фиксированный windowMs.
    Redis — best-effort (см. redis.ts), при недоступности откатываемся
    на in-memory Map, как и в rateLimiter.ts.
+
+   Лимиты по тарифу:
+     free / unsubscribed — FREE_ORCHESTRATOR_LIMIT запусков/день
+     master / legend     — ORCHESTRATOR_DAILY_LIMIT запусков/день
    ================================================================ */
 
+/** Дневной лимит для подписчиков master/legend */
 export const ORCHESTRATOR_DAILY_LIMIT = 10
+
+/** Дневной лимит для free-пользователей (бесплатный пробник оркестратора) */
+export const FREE_ORCHESTRATOR_LIMIT = 5
 
 interface UsageRecord {
   count: number

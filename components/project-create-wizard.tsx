@@ -21,6 +21,7 @@ import { X, Sparkles, Wand2, PenLine, Loader2, ArrowRight, ArrowLeft, Check } fr
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
+import { UpgradeNudgeModal, useUpgradeNudge } from "./UpgradeNudgeModal"
 
 type Theme = {
   id: string
@@ -55,6 +56,7 @@ type Props = {
 export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated }: Props) {
   const { t } = useTranslation()
   const { createProject, generateProject, pollProjectStatus } = useOsgardStore()
+  const { nudgeOpen, closeNudge, trackGeneration, usageData } = useUpgradeNudge()
 
   const [step, setStep] = useState(1)
   const [name, setName] = useState("")
@@ -99,6 +101,9 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
           const finalProject = await pollProjectStatus(res.project.id)
           setGeneratingApp(false)
 
+          /* Трекаем генерацию для нуджа — вызываем после завершения */
+          trackGeneration()
+
           if (finalProject?.status === "ready") {
             onCreated(finalProject.id)
           } else if (finalProject?.status === "failed") {
@@ -125,6 +130,15 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
   }
 
   return (
+    <>
+    {/* Нудж апгрейда — показывается поверх wizard после 3+ генераций */}
+    <UpgradeNudgeModal
+      open={nudgeOpen}
+      onClose={closeNudge}
+      generationsToday={usageData?.used?.total ?? 0}
+      limit={usageData?.limits?.total ?? 5}
+    />
+
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
@@ -398,5 +412,6 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
         </div>
       </div>
     </div>
+    </>
   )
 }

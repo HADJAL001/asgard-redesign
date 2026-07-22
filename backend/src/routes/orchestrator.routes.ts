@@ -21,14 +21,15 @@ import {
 import { captureError } from "../lib/sentry"
 import { logAudit } from "../lib/audit"
 import { asyncHandler } from "../utils/async-handler"
-import { requirePlan } from "./subscription.routes"
-import { ORCHESTRATOR_DAILY_LIMIT, getOrchestratorUsage, incrementOrchestratorUsage } from "../lib/orchestratorQuota"
+import { ORCHESTRATOR_DAILY_LIMIT, FREE_ORCHESTRATOR_LIMIT, getOrchestratorUsage, incrementOrchestratorUsage } from "../lib/orchestratorQuota"
+import { planLevel } from "../lib/stripe"
 import type { PlanKey } from "../lib/stripe"
 
-/* Оркестратор — платная фича: доступ только подписчикам master/legend
-   (см. requirePlan — иерархическая проверка уровня плана) плюс общий
-   дневной лимит запусков цепочек (см. orchestratorQuota.ts). */
-const ORCHESTRATOR_GATE_PLAN: PlanKey = "master"
+/* Оркестратор:
+   - free-пользователи получают FREE_ORCHESTRATOR_LIMIT (5) запусков/день
+   - master/legend подписчики получают ORCHESTRATOR_DAILY_LIMIT (10) запусков/день
+   Никаких hard-gate по плану — просто разные квоты. */
+const ORCHESTRATOR_PAID_PLAN: PlanKey = "master"
 
 const router = Router()
 
@@ -134,11 +135,18 @@ router.delete("/chains/:id", requireAuth, (req: AuthRequest, res) => {
   res.json({ success: true })
 })
 
+/* ── Хелпер: возвращает дневной лимит оркестратора для пользователя ── */
+function getUserOrchestratorLimit(userId: number): { limit: number; isPaid: boolean } {
+  const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
+  const plan: PlanKey = userRow?.plan ?? "free"
+  const isPaid = planLevel(plan) >= planLevel(ORCHESTRATOR_PAID_PLAN)
+  return { limit: isPaid ? ORCHESTRATOR_DAILY_LIMIT : FREE_ORCHESTRATOR_LIMIT, isPaid }
+}
+
 /* ---------------- POST /orchestrator/chains/:id/run ---------------- */
 router.post(
   "/chains/:id/run",
   requireAuth,
-  requirePlan(ORCHESTRATOR_GATE_PLAN),
   asyncHandler(async (req: AuthRequest, res) => {
     const userId = req.user!.userId
     const chain = getChain(userId, Number(req.params.id))
@@ -149,9 +157,15 @@ router.post(
       return res.status(400).json({ error: "Укажите вход цепочки (поле input)" })
     }
 
+    const { limit, isPaid } = getUserOrchestratorLimit(userId)
     const usage = await getOrchestratorUsage(userId)
-    if (usage >= ORCHESTRATOR_DAILY_LIMIT) {
-      return res.status(429).json({ error: `Вы использовали все ${ORCHESTRATOR_DAILY_LIMIT} запросов на сегодня` })
+    if (usage >= limit) {
+      return res.status(429).json({
+        error: `Вы использовали все ${limit} запросов на сегодня`,
+        limit,
+        isPaid,
+        upgradeRequired: !isPaid,
+      })
     }
 
     const cost = calculateChainCost(chain.nodes)
@@ -195,10 +209,15 @@ router.post(
 router.get(
   "/remaining",
   requireAuth,
-  requirePlan(ORCHESTRATOR_GATE_PLAN),
   asyncHandler(async (req: AuthRequest, res) => {
-    const usage = await getOrchestratorUsage(req.user!.userId)
-    res.json({ remaining: Math.max(0, ORCHESTRATOR_DAILY_LIMIT - usage), total: ORCHESTRATOR_DAILY_LIMIT })
+    const userId = req.user!.userId
+    const { limit, isPaid } = getUserOrchestratorLimit(userId)
+    const usage = await getOrchestratorUsage(userId)
+    res.json({
+      remaining: Math.max(0, limit - usage),
+      total: limit,
+      isPaid,
+    })
   }),
 )
 

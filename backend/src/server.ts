@@ -162,6 +162,8 @@ import { runOrderBookMigration } from "./migrations/001_order_book"
 import { runReferralMigration } from "./migrations/002_referral_system"
 import { runPremiumUpgradeMigration } from "./migrations/003_premium_upgrade"
 import { runSubscriptionsMigration } from "./migrations/004_subscriptions"
+import { runTrialMigration } from "./migrations/042_trial"
+import { runPromoCodesMigration } from "./migrations/043_promo_codes"
 import "./migrations/005_digital_twin"
 import "./migrations/006_jarvis_shop"
 import "./migrations/007_feedback"
@@ -200,6 +202,7 @@ import "./migrations/039_walli_items_index"
 import walliRoutes from "./routes/walli.routes"
 import demoRoutes from "./routes/demo.routes"
 import adminRoutes from "./routes/admin.routes"
+import promoRoutes from "./routes/promo.routes"
 import orchestratorRoutes, { getActiveSseConnections } from "./routes/orchestrator.routes"
 
 
@@ -217,6 +220,8 @@ runPremiumUpgradeMigration()
 
 /* Гарантируем наличие таблицы subscriptions и колонки users.plan при старте сервера. */
 runSubscriptionsMigration()
+runTrialMigration()
+runPromoCodesMigration()
 
 /* Гарантируем наличие таблицы tc_convert_log (лог конвертаций ∞ ↔ TC) при старте сервера. */
 runTcConvertMigration()
@@ -280,6 +285,7 @@ app.use("/walli", walliRoutes)
 app.use("/demo", demoRoutes)
 app.use("/admin", adminRoutes)
 app.use("/orchestrator", orchestratorRoutes)
+app.use("/promo", promoRoutes)
 
 
 

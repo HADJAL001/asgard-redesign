@@ -17,9 +17,14 @@ import {
   Monitor,
   Moon,
   Sun,
+  Gift,
+  CheckCircle2,
+  XCircle,
+  Loader2,
   type LucideIcon,
 } from "lucide-react"
 import { Navbar } from "./navbar"
+import { apiClient } from "@/lib/api-client"
 
 /* ---- Palette ----
    bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E */
@@ -34,6 +39,7 @@ type Section =
   | "api"
   | "appearance"
   | "export"
+  | "promo"
   | "danger"
 
 const MENU: { id: Section; label: string; Icon: LucideIcon; danger?: boolean }[] = [
@@ -43,6 +49,7 @@ const MENU: { id: Section; label: string; Icon: LucideIcon; danger?: boolean }[]
   { id: "api", label: "API Интеграции", Icon: Link2 },
   { id: "appearance", label: "Внешний вид", Icon: Palette },
   { id: "export", label: "Экспорт данных", Icon: Download },
+  { id: "promo", label: "Промокод", Icon: Gift },
   { id: "danger", label: "Удалить аккаунт", Icon: Trash2, danger: true },
 ]
 
@@ -53,6 +60,7 @@ const SECTION_META: Record<Section, { title: string; subtitle: string }> = {
   api: { title: "API Интеграции", subtitle: "API-ключи, доступ к нейросетям" },
   appearance: { title: "Внешний вид", subtitle: "Тема, шрифты, плотность интерфейса" },
   export: { title: "Экспорт данных", subtitle: "Выгрузка проектов, артефактов и статистики" },
+  promo: { title: "Промокод", subtitle: "Активируй промокод для получения бонусов" },
   danger: { title: "Удалить аккаунт", subtitle: "Безвозвратное удаление аккаунта и данных" },
 }
 
@@ -141,6 +149,7 @@ export function SettingsView() {
             {active === "api" && <ApiSection />}
             {active === "appearance" && <AppearanceSection />}
             {active === "export" && <ExportSection />}
+            {active === "promo" && <PromoSection />}
             {active === "danger" && <DangerSection />}
           </section>
         </div>
@@ -541,6 +550,147 @@ function DangerSection() {
         <Trash2 size={16} strokeWidth={1.75} />
         Удалить аккаунт
       </button>
+    </div>
+  )
+}
+
+/* ================================================================
+   PromoSection — активация промокодов
+   ================================================================ */
+function PromoSection() {
+  const [code, setCode] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<{
+    ok: boolean
+    message: string
+    type?: string
+    amount?: number
+    newBalance?: number
+  } | null>(null)
+
+  async function handleRedeem(e: React.FormEvent) {
+    e.preventDefault()
+    if (!code.trim()) return
+
+    setLoading(true)
+    setResult(null)
+
+    try {
+      const res = await apiClient.post<{
+        success: boolean
+        type: string
+        amount: number
+        description: string
+        newBalance?: number
+      }>("/promo/redeem", { code: code.trim() })
+
+      setResult({
+        ok: true,
+        message: res.description,
+        type: res.type,
+        amount: res.amount,
+        newBalance: res.newBalance,
+      })
+      setCode("")
+    } catch (err: any) {
+      setResult({ ok: false, message: err?.message || "Не удалось активировать промокод" })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="max-w-md space-y-6">
+      {/* Описание */}
+      <div
+        className="rounded-xl p-4"
+        style={{ background: "rgba(251,191,36,0.05)", border: "1px solid rgba(251,191,36,0.15)" }}
+      >
+        <div className="flex items-center gap-2.5 mb-2">
+          <Gift size={16} style={{ color: "#FBBF24" }} />
+          <span className="text-[13px] font-semibold" style={{ color: "#FBBF24" }}>
+            Что можно получить по промокоду?
+          </span>
+        </div>
+        <ul className="space-y-1.5 text-[13px]" style={{ color: "rgba(255,255,255,0.6)" }}>
+          <li>🪙 TimeCoin — зачисляется на кошелёк мгновенно</li>
+          <li>⏱️ Дни доступа к плану Pro или Supreme</li>
+          <li>🏷️ Скидка на следующую оплату</li>
+        </ul>
+      </div>
+
+      {/* Форма */}
+      <form onSubmit={handleRedeem} className="space-y-4">
+        <Field label="Промокод:">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="OSGARD2026"
+              maxLength={32}
+              className="flex-1 rounded-lg px-3 py-2.5 text-[14px] font-mono uppercase outline-none transition-colors placeholder:text-white/20 placeholder:normal-case focus:border-[#FBBF24]"
+              style={{
+                backgroundColor: "transparent",
+                border: `1px solid ${result?.ok === false ? "rgba(248,113,113,0.5)" : result?.ok ? "rgba(52,211,153,0.5)" : BORDER}`,
+                color: "#FFFFFF",
+                letterSpacing: "0.08em",
+              }}
+              disabled={loading}
+            />
+            <button
+              type="submit"
+              disabled={loading || !code.trim()}
+              className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[14px] font-semibold transition-all duration-200 disabled:opacity-40"
+              style={{
+                background: "linear-gradient(135deg, #FBBF24, #F59E0B)",
+                color: "#1a0f00",
+              }}
+              onMouseEnter={(e) => { if (!loading && code.trim()) e.currentTarget.style.transform = "translateY(-1px)" }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)" }}
+            >
+              {loading ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                "Активировать"
+              )}
+            </button>
+          </div>
+        </Field>
+      </form>
+
+      {/* Результат */}
+      {result && (
+        <div
+          className="rounded-xl p-4 flex items-start gap-3"
+          style={{
+            background: result.ok ? "rgba(52,211,153,0.06)" : "rgba(248,113,113,0.06)",
+            border: `1px solid ${result.ok ? "rgba(52,211,153,0.25)" : "rgba(248,113,113,0.25)"}`,
+          }}
+        >
+          {result.ok ? (
+            <CheckCircle2 size={18} style={{ color: "#34D399", flexShrink: 0, marginTop: 1 }} />
+          ) : (
+            <XCircle size={18} style={{ color: "#F87171", flexShrink: 0, marginTop: 1 }} />
+          )}
+          <div>
+            <p
+              className="text-[14px] font-medium"
+              style={{ color: result.ok ? "#34D399" : "#F87171" }}
+            >
+              {result.ok ? "Промокод применён!" : "Ошибка"}
+            </p>
+            <p className="mt-0.5 text-[13px]" style={{ color: "rgba(255,255,255,0.65)" }}>
+              {result.message}
+            </p>
+            {result.ok && result.newBalance !== undefined && (
+              <p className="mt-1 text-[13px]" style={{ color: "#FBBF24" }}>
+                Новый баланс: {result.newBalance.toLocaleString()} TC
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
