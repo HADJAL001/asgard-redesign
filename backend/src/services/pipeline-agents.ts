@@ -37,12 +37,9 @@ function mergeFiles(...fileLists: GeneratedFile[][]): GeneratedFile[] {
 /* ================================================================
    OSGARD · Заглушки агентов пайплайна генерации проекта
    ----------------------------------------------------------------
-   Временные реализации Agent (types/pipeline.types.ts), нужны только
-   чтобы ChainManager (chain-manager.ts) был компилируемым и рабочим
-   до готовности настоящих агентов (Аналитик/Архитектор/Дизайнер/
-   Фронтенд/Бэкенд/Тестировщик/Оптимизатор/Безопасник/Деплой). Каждый
-   класс заменяется реальным импортом по мере готовности — сам
-   ChainManager менять не нужно, только состав DEFAULT_PIPELINE.
+   Больше не используется в проде (см. DEFAULT_PIPELINE внизу файла) —
+   оставлена как STUB_PIPELINE для локальной разработки/тестов
+   ChainManager без реальных AI-вызовов и внешних интеграций.
    ================================================================ */
 
 class StubAgent implements Agent {
@@ -53,7 +50,7 @@ class StubAgent implements Agent {
   }
 }
 
-export const DEFAULT_PIPELINE: Agent[] = [
+export const STUB_PIPELINE: Agent[] = [
   new StubAgent("spec", "Аналитик"),
   new StubAgent("schema", "Архитектор"),
   new StubAgent("design", "Дизайнер"),
@@ -133,3 +130,8 @@ export function createRealPipeline(): Agent[] {
     }),
   ]
 }
+
+/** Инстанцируется один раз при старте процесса (см. generate-project.routes.ts:
+ *  `new ChainManager(DEFAULT_PIPELINE)`) — агенты сами по себе не хранят состояние
+ *  между вызовами execute(), общий инстанс безопасен для конкурентных задач. */
+export const DEFAULT_PIPELINE: Agent[] = createRealPipeline()
