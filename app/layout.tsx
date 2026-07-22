@@ -8,17 +8,31 @@ import { Footer } from "@/components/footer"
 import { AppShell } from "@/components/AppShell"
 
 
-const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter" })
-const space = Space_Grotesk({ subsets: ["latin"], variable: "--font-space" })
+const inter = Inter({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-inter",
+  display: "swap",
+  preload: false,
+})
+const space = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-space",
+  display: "swap",
+  preload: false,
+})
 const cormorant = Cormorant_Garamond({
   subsets: ["latin", "cyrillic"],
   weight: ["500", "600", "700"],
   variable: "--font-cormorant",
+  display: "swap",
+  preload: false,
 })
 const playfair = Playfair_Display({
   subsets: ["latin", "cyrillic"],
   weight: ["500", "600", "700"],
   variable: "--font-playfair",
+  display: "swap",
+  preload: false,
 })
 
 export const metadata: Metadata = {
