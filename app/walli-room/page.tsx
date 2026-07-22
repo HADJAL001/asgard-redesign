@@ -53,11 +53,12 @@ export default function WalliRoom() {
     setBusy(false)
   }
 
-  const sendText = () => {
+  const sendText = async () => {
     if (!textInput.trim()) return
-    const reply = voice.handleUserInput(textInput.trim())
-    showMsg('ВАЛЛИ: ' + reply, 3000)
+    const question = textInput.trim()
     setTextInput('')
+    const reply = await voice.handleUserInput(question)
+    showMsg('ВАЛЛИ: ' + reply, 3000)
   }
 
   // Three.js сцена

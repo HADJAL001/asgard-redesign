@@ -21,6 +21,7 @@ import { useEffect, useRef, useState } from "react"
 import { Send, Volume2, VolumeX, MessageSquare, Loader2, Bot, User, Square } from "lucide-react"
 import apiClient from "@/lib/api-client"
 import JarvisAvatar from "@/components/JarvisAvatar"
+import { useVoice } from "@/hooks/useVoice"
 import {
   type JarvisEquipment,
   EMPTY_EQUIPMENT,
@@ -86,41 +87,6 @@ function saveReplyMode(mode: ReplyMode) {
 }
 
 /* ----------------------------------------------------------------
-   Озвучка через Web Speech API
-   ---------------------------------------------------------------- */
-
-function speak(text: string, onEnd?: () => void, voiceProfile?: { pitch: number; rate: number; langHint?: string }) {
-  if (typeof window === "undefined") return
-  const synth = window.speechSynthesis
-  if (!synth) return
-
-  synth.cancel() // прерываем предыдущую озвучку, если она ещё идёт
-
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = "ru-RU"
-  utterance.rate = voiceProfile?.rate ?? 1
-  utterance.pitch = voiceProfile?.pitch ?? 1
-
-  // Пытаемся выбрать голос в зависимости от купленного voice-аксессуара
-  // (langHint "en" — для "Британского акцента"), иначе — обычный русский голос.
-  const voices = synth.getVoices()
-  const preferredLang = voiceProfile?.langHint === "en" ? "en" : "ru"
-  const preferredVoice = voices.find((v) => v.lang?.toLowerCase().startsWith(preferredLang))
-  const ruVoice = voices.find((v) => v.lang?.toLowerCase().startsWith("ru"))
-  if (preferredVoice) utterance.voice = preferredVoice
-  else if (ruVoice) utterance.voice = ruVoice
-
-  if (onEnd) utterance.onend = onEnd
-  synth.speak(utterance)
-}
-
-
-function stopSpeaking() {
-  if (typeof window === "undefined") return
-  window.speechSynthesis?.cancel()
-}
-
-/* ----------------------------------------------------------------
    Компонент
    ---------------------------------------------------------------- */
 
@@ -135,7 +101,7 @@ export function ВАЛЛИChat() {
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [replyMode, setReplyMode] = useState<ReplyMode>("both")
-  const [speaking, setSpeaking] = useState(false)
+  const { isSpeaking: speaking, speak, stopSpeaking } = useVoice()
   const [modeMenuOpen, setModeMenuOpen] = useState(false)
   /* Режим личности ВАЛЛИ (обычный/цитаты/вредный/поэт/новости) — влияет на стиль ответов. */
   const [personalityMode, setPersonalityMode] = useState<JarvisMode>("default")
@@ -180,12 +146,6 @@ export function ВАЛЛИChat() {
   }, [])
 
 
-  /* Прогружаем список голосов заранее (некоторые браузеры грузят их асинхронно) */
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    window.speechSynthesis?.getVoices()
-  }, [])
-
   /* Автоскролл вниз при новых сообщениях */
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
@@ -203,11 +163,6 @@ export function ВАЛЛИChat() {
     }
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
-
-  /* Останавливаем озвучку при размонтировании компонента */
-  useEffect(() => {
-    return () => stopSpeaking()
   }, [])
 
   function handleSetPersonalityMode(mode: JarvisMode) {
@@ -283,8 +238,8 @@ export function ВАЛЛИChat() {
       // Озвучиваем ответ, если включён голосовой канал.
       // Голос подбирается по надетому voice-аксессуару (equipment.voice).
       if (replyMode === "voice" || replyMode === "both") {
-        setSpeaking(true)
-        speak(res.answer, () => setSpeaking(false), resolveVoiceProfile(equipment.voice))
+        const profile = resolveVoiceProfile(equipment.voice)
+        speak(res.answer, { rate: profile.rate, pitch: profile.pitch, langHint: profile.langHint })
       }
 
     } catch (err: any) {
@@ -409,10 +364,7 @@ export function ВАЛЛИChat() {
             <button
               type="button"
               className="jarvis-stop-speak"
-              onClick={() => {
-                stopSpeaking()
-                setSpeaking(false)
-              }}
+              onClick={() => stopSpeaking()}
               title="Остановить озвучку"
             >
               <Square size={12} aria-hidden="true" />
