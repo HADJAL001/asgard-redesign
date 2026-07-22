@@ -231,17 +231,25 @@ export class SecurityAgent extends BaseAgent<SecurityAgentInput, SecurityReport>
       (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
     )
 
+    /* Патчи применяются ПАРАЛЛЕЛЬНО (Promise.all), а не по одному: каждый
+       нацелен на свой независимый файл, общих данных между вызовами нет — тот
+       же приём, что и в optimizer-agent.ts/generateFilesFromManifest. Кандидаты
+       (до MAX_AUTO_FIX штук, по убыванию severity — allFindings уже отсортирован)
+       отбираются заранее, а не по ходу цикла с уменьшением бюджета по факту
+       успеха каждого патча. */
+    const fixCandidates = source === "ai" ? allFindings.filter((f) => findFile(input, f.file)).slice(0, MAX_AUTO_FIX) : []
+
+    const patches = await Promise.all(
+      fixCandidates.map(async (finding) => {
+        const sourceFile = findFile(input, finding.file)!
+        const patched = await regenerateFile(buildFixPrompt(sourceFile, finding), 6000, "security-agent-fix")
+        return { finding, patched }
+      }),
+    )
+
     const files: GeneratedFile[] = []
-    let fixBudget = source === "ai" ? MAX_AUTO_FIX : 0
-
-    for (const finding of allFindings) {
-      if (fixBudget <= 0) break
-      const sourceFile = findFile(input, finding.file)
-      if (!sourceFile) continue
-
-      const patched = await regenerateFile(buildFixPrompt(sourceFile, finding), 6000, "security-agent-fix")
+    for (const { finding, patched } of patches) {
       if (patched) {
-        fixBudget -= 1
         finding.fixed = true
         files.push({ path: finding.file, content: patched })
       }

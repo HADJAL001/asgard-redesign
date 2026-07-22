@@ -95,26 +95,39 @@ async function applyAiSuggestions(input: OptimizerAgentInput): Promise<Optimized
   )
   if (valid.length === 0) return null
 
-  let autoApplyBudget = MAX_AUTO_APPLY
+  /* Патчи применяются ПАРАЛЛЕЛЬНО (Promise.all), а не по одному: каждый нацелен
+     на свой независимый файл, общих данных между вызовами нет — тот же приём,
+     что уже используется в generateFilesFromManifest (base-agent.ts). Кандидаты
+     на автоприменение отбираются заранее (autoApply===true, не больше
+     MAX_AUTO_APPLY), а не по ходу цикла с уменьшением бюджета по факту успеха —
+     buildReviewPrompt и так просит AI помечать autoApply:true не более чем у 3
+     предложений, так что на практике кандидатов ровно столько же, сколько
+     бюджета, и наблюдаемое поведение не меняется. */
+  const candidates = valid.filter((s) => s.autoApply === true).slice(0, MAX_AUTO_APPLY)
+  const candidateSet = new Set(candidates)
+
+  const patches = await Promise.all(
+    candidates.map(async (raw) => {
+      const sourceFile = findFile(input, raw.file)!
+      const patched = await regenerateFile(buildPatchPrompt(sourceFile, raw), 6000, "optimizer-agent-patch")
+      return { raw, patched }
+    }),
+  )
+  const patchByCandidate = new Map(patches.map((p) => [p.raw, p.patched]))
+
   const files: GeneratedFile[] = []
   const suggestions: OptimizationSuggestion[] = []
 
   for (const raw of valid) {
     const category = normalizeCategory(raw.category)
-    const wantsAutoApply = raw.autoApply === true && autoApplyBudget > 0
+    const patched = candidateSet.has(raw) ? patchByCandidate.get(raw) : undefined
 
-    if (wantsAutoApply) {
-      const sourceFile = findFile(input, raw.file)!
-      const patched = await regenerateFile(buildPatchPrompt(sourceFile, raw), 6000, "optimizer-agent-patch")
-      if (patched) {
-        autoApplyBudget -= 1
-        files.push({ path: raw.file, content: patched })
-        suggestions.push({ file: raw.file, issue: raw.issue, suggestion: raw.suggestion, category, applied: true })
-        continue
-      }
+    if (patched) {
+      files.push({ path: raw.file, content: patched })
+      suggestions.push({ file: raw.file, issue: raw.issue, suggestion: raw.suggestion, category, applied: true })
+    } else {
+      suggestions.push({ file: raw.file, issue: raw.issue, suggestion: raw.suggestion, category, applied: false })
     }
-
-    suggestions.push({ file: raw.file, issue: raw.issue, suggestion: raw.suggestion, category, applied: false })
   }
 
   return { type: "optimized", files, suggestions, source: "ai" }
