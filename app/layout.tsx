@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next"
+import { headers } from "next/headers"
 import { Inter, Space_Grotesk, Cormorant_Garamond, Playfair_Display } from "next/font/google"
 import "./globals.css"
 import { OsgardStoreProvider } from "@/lib/store/osgard-store"
@@ -70,7 +71,14 @@ export const viewport: Viewport = {
   userScalable: true,
 }
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  // Чтение nonce из headers() обязательно: это переводит рендер в динамический режим
+  // (per-request), синхронизируя его с nonce, который proxy.ts генерирует на каждый
+  // запрос заново. Next.js сам подставляет это значение в свои внутренние <script>
+  // (chunks + инлайн-гидратация) — без этого чтения CSP nonce+strict-dynamic блокирует
+  // вообще все скрипты (см. proxy.ts).
+  await headers()
+
   return (
     <html lang="ru" className="bg-background">
       <body
