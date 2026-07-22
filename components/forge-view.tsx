@@ -10,6 +10,19 @@ import { useTranslation } from "@/lib/i18n/use-translation"
 
 const TYPE_KEYS = Object.keys(ARTIFACT_TYPES) as ArtifactType[]
 
+/** Отключает декоративные анимации Кузницы (тряска, вспышка и т.д.) для пользователей с prefers-reduced-motion. */
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false)
+  useEffect(() => {
+    const mql = window.matchMedia("(prefers-reduced-motion: reduce)")
+    setReduced(mql.matches)
+    const onChange = (e: MediaQueryListEvent) => setReduced(e.matches)
+    mql.addEventListener("change", onChange)
+    return () => mql.removeEventListener("change", onChange)
+  }, [])
+  return reduced
+}
+
 /** Фиксированная стоимость создания артефакта (см. backend/artifacts.routes.ts FORGE_COST_TC). */
 const FORGE_COST_TC = 50
 
@@ -143,6 +156,8 @@ export function ForgeView() {
   // Кинематографический эффект при создании
   const [forging, setForging] = useState(false)
   const [forgePhase, setForgePhase] = useState<"idle" | "charging" | "burst" | "reveal">("idle")
+  const reduceMotion = usePrefersReducedMotion()
+  const anim = (value: string) => (reduceMotion ? undefined : value)
 
   async function doForge() {
     if (!name.trim()) return
@@ -217,7 +232,7 @@ export function ForgeView() {
               : "radial-gradient(ellipse at center, rgba(10,20,35,0.95) 0%, rgba(0,0,0,0.94) 75%)",
             backdropFilter: "blur(6px)",
             transition: "background 0.4s ease",
-            animation: forgePhase === "burst" ? "forge-shake 0.45s ease-in-out" : undefined,
+            animation: forgePhase === "burst" ? anim("forge-shake 0.45s ease-in-out") : undefined,
           }}
         >
           {/* Кинематографическая вспышка в момент взрыва */}
@@ -227,7 +242,7 @@ export function ForgeView() {
             style={{
               background: "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(0,212,255,0.35) 35%, transparent 70%)",
               opacity: 0,
-              animation: forgePhase === "burst" ? "forge-flash-overlay 0.5s ease-out forwards" : undefined,
+              animation: forgePhase === "burst" ? anim("forge-flash-overlay 0.5s ease-out forwards") : undefined,
             }}
           />
 
@@ -260,7 +275,7 @@ export function ForgeView() {
                   marginLeft: -140,
                   background:
                     "conic-gradient(from 0deg, transparent 0deg, rgba(0,212,255,0.22) 6deg, transparent 18deg, transparent 160deg, rgba(0,212,255,0.16) 170deg, transparent 182deg, transparent 340deg, rgba(0,212,255,0.2) 352deg, transparent 360deg)",
-                  animation: "forge-rays-spin 7s linear infinite",
+                  animation: anim("forge-rays-spin 7s linear infinite"),
                   opacity: forgePhase === "charging" ? 1 : 0,
                   filter: "blur(1px)",
                   transition: "opacity 0.4s ease",
@@ -281,7 +296,7 @@ export function ForgeView() {
                     marginLeft: -size / 2,
                     border: `1.5px solid rgba(0,212,255,${0.2 + i * 0.12})`,
                     boxShadow: `0 0 ${10 + i * 6}px rgba(0,212,255,${0.15 + i * 0.08})`,
-                    animation: `forge-ring-spin ${3 + i * 1.5}s linear infinite ${i % 2 === 0 ? "" : "reverse"}`,
+                    animation: anim(`forge-ring-spin ${3 + i * 1.5}s linear infinite ${i % 2 === 0 ? "" : "reverse"}`),
                     opacity: forgePhase === "charging" ? 1 : 0,
                     transition: "opacity 0.3s ease",
                   }}
@@ -302,7 +317,8 @@ export function ForgeView() {
                       marginTop: -50,
                       marginLeft: -50,
                       border: "2px solid rgba(255,255,255,0.9)",
-                      animation: "forge-shockwave 0.6s cubic-bezier(0.16,1,0.3,1) forwards",
+                      animation: anim("forge-shockwave 0.6s cubic-bezier(0.16,1,0.3,1) forwards"),
+                      opacity: reduceMotion ? 0 : undefined,
                     }}
                   />
                   <div
@@ -316,7 +332,8 @@ export function ForgeView() {
                       marginTop: -50,
                       marginLeft: -50,
                       border: "2px solid rgba(0,212,255,0.8)",
-                      animation: "forge-shockwave 0.6s cubic-bezier(0.16,1,0.3,1) 0.08s forwards",
+                      animation: anim("forge-shockwave 0.6s cubic-bezier(0.16,1,0.3,1) 0.08s forwards"),
+                      opacity: reduceMotion ? 0 : undefined,
                     }}
                   />
                 </>
@@ -337,9 +354,9 @@ export function ForgeView() {
                   transition: "background 0.2s ease, box-shadow 0.2s ease",
                   animation:
                     forgePhase === "charging"
-                      ? "forge-pulse 0.6s ease-in-out infinite"
+                      ? anim("forge-pulse 0.6s ease-in-out infinite")
                       : forgePhase === "burst"
-                        ? "forge-core-flare 0.55s cubic-bezier(0.16,1,0.3,1) both"
+                        ? anim("forge-core-flare 0.55s cubic-bezier(0.16,1,0.3,1) both")
                         : undefined,
                 }}
               >
@@ -352,7 +369,7 @@ export function ForgeView() {
               </div>
 
               {/* Частицы при взрыве */}
-              {forgePhase === "burst" &&
+              {forgePhase === "burst" && !reduceMotion &&
                 Array.from({ length: 18 }).map((_, i) => {
                   const palette = ["#00D4FF", "#ffffff", "#B57BFF", "#F1C40F"]
                   const color = palette[i % palette.length]
@@ -393,7 +410,7 @@ export function ForgeView() {
                       ? "0 0 30px rgba(0,212,255,0.9), 0 0 60px rgba(0,212,255,0.5)"
                       : "0 0 18px rgba(0,212,255,0.35)",
                   letterSpacing: "0.22em",
-                  animation: "forge-text-pop 0.5s cubic-bezier(0.16,1,0.3,1) both",
+                  animation: anim("forge-text-pop 0.5s cubic-bezier(0.16,1,0.3,1) both"),
                 }}
               >
                 {forgePhase === "charging" ? "ЗАРЯЖАЕМ КУЗНИЦУ" : forgePhase === "burst" ? "✦  АРТЕФАКТ СОЗДАН  ✦" : "ГОТОВО"}
@@ -413,7 +430,7 @@ export function ForgeView() {
                   width: forgePhase === "charging" ? "60%" : "100%",
                   transition: "width 0.6s ease",
                   boxShadow: "0 0 12px rgba(0,212,255,0.7)",
-                  animation: "forge-progress-shimmer 1.4s linear infinite",
+                  animation: anim("forge-progress-shimmer 1.4s linear infinite"),
                 }}
               />
             </div>
