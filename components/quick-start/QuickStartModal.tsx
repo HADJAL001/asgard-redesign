@@ -141,7 +141,7 @@ export function QuickStartModal({ open, onClose, onCreated, remaining, limit }: 
       )}
 
       {showProgress && (
-        <GenerationProgress progress={run.progress} currentStep={run.currentStep} artifacts={run.artifacts} />
+        <GenerationProgress progress={run.progress} activeSteps={run.activeSteps} artifacts={run.artifacts} />
       )}
 
       {showResult && <GenerationResultCard name={submittedName} result={run.result} />}

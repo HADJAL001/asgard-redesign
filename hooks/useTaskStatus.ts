@@ -27,7 +27,10 @@ export type GenerationRunStatus = "idle" | "running" | "success" | "error" | "ca
 export interface GenerationRunState {
   status: GenerationRunStatus
   progress: number
-  currentStep: string | null
+  /** Может содержать больше одного шага одновременно — optimized+security
+   *  выполняются параллельной стадией на бэкенде (chain-manager.ts), поэтому
+   *  вместо одиночного currentStep фронт держит множество активных шагов. */
+  activeSteps: string[]
   artifacts: Artifact[]
   result?: TaskStatus["result"]
   error?: string
@@ -44,7 +47,7 @@ function computeProgress(artifacts: Artifact[]): number {
 const INITIAL_STATE: GenerationRunState = {
   status: "idle",
   progress: 0,
-  currentStep: null,
+  activeSteps: [],
   artifacts: [],
 }
 
@@ -97,12 +100,15 @@ export function useTaskStatus(taskId: string | null): GenerationRunState {
         setState((prev) => {
           switch (payload.type) {
             case "task_start":
-              return { ...prev, currentStep: PIPELINE_STAGES[0]?.type ?? null }
+              return { ...prev, activeSteps: PIPELINE_STAGES[0] ? [PIPELINE_STAGES[0].type] : [] }
             case "step_start":
-              return { ...prev, currentStep: payload.step }
+              return prev.activeSteps.includes(payload.step)
+                ? prev
+                : { ...prev, activeSteps: [...prev.activeSteps, payload.step] }
             case "step_done": {
               const artifacts = [...prev.artifacts, payload.artifact]
-              return { ...prev, artifacts, progress: computeProgress(artifacts) }
+              const activeSteps = prev.activeSteps.filter((s) => s !== payload.step)
+              return { ...prev, artifacts, activeSteps, progress: computeProgress(artifacts) }
             }
             case "task_done":
               return { ...prev, status: "success", result: payload.result, progress: 100 }

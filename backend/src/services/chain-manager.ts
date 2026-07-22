@@ -18,6 +18,16 @@ import type { Agent, Artifact, TaskStatus } from "../types/pipeline.types"
 
    Параллелизм ограничивается простым семафором (acquireSlot/
    releaseSlot) — это и есть "воркер"/"очередь" в адаптированном виде.
+
+   Стадия цепочки (элемент stages) — либо один Agent, либо Agent[]
+   ("параллельная группа"). Агенты внутри группы выполняются одновременно
+   (Promise.all) — используется для optimized+security (pipeline-agents.ts,
+   createRealPipeline), которые независимо читают schema/frontend/backend/
+   tests и не зависят друг от друга. Артефакты группы кладутся в общую
+   историю в порядке элементов массива (Promise.all сохраняет порядок
+   входа, а не порядок завершения), step_start/step_done шлются по одному
+   на агента — чтобы фронт (useTaskStatus.ts) мог подсвечивать все шаги
+   группы активными одновременно, а не только последний стартовавший.
    ================================================================ */
 
 export const pipelineEvents = new EventEmitter()
@@ -77,8 +87,14 @@ export function getTaskStatus(userId: number, taskId: string): TaskStatus | null
   return row ? rowToStatus(row) : null
 }
 
+function firstAgentType(stages: (Agent | Agent[])[]): string {
+  const first = stages[0]
+  if (!first) return ""
+  return Array.isArray(first) ? (first[0]?.type ?? "") : first.type
+}
+
 export class ChainManager {
-  constructor(private readonly agents: Agent[]) {}
+  constructor(private readonly stages: (Agent | Agent[])[]) {}
 
   /** Создаёт task-запись (status='queued') и запускает цепочку в фоне. Возвращает taskId немедленно. */
   start(userId: number, input: any): string {
@@ -88,7 +104,7 @@ export class ChainManager {
     db.prepare(
       `INSERT INTO generation_tasks (id, user_id, status, progress, current_step, input, artifacts, created_at, updated_at)
        VALUES (?, ?, 'queued', 0, ?, ?, '[]', ?, ?)`,
-    ).run(taskId, userId, this.agents[0]?.type ?? "", JSON.stringify(input), now, now)
+    ).run(taskId, userId, firstAgentType(this.stages), JSON.stringify(input), now, now)
 
     void this.run(taskId, userId, input)
     return taskId
@@ -118,7 +134,7 @@ export class ChainManager {
     this.persist(taskId, {
       status: "queued",
       progress: 0,
-      current_step: this.agents[0]?.type ?? "",
+      current_step: firstAgentType(this.stages),
       artifacts: "[]",
       result: null,
       error: null,
@@ -148,36 +164,41 @@ export class ChainManager {
     try {
       if (cancelledTasks.has(taskId)) throw new TaskCancelledError()
 
-      this.persist(taskId, { status: "processing", current_step: this.agents[0]?.type ?? "" })
+      this.persist(taskId, { status: "processing", current_step: firstAgentType(this.stages) })
       pipelineEvents.emit(channel, { type: "task_start", taskId })
 
       let current: any = input
 
-      for (let i = 0; i < this.agents.length; i++) {
+      for (let i = 0; i < this.stages.length; i++) {
         if (cancelledTasks.has(taskId)) throw new TaskCancelledError()
 
-        const agent = this.agents[i]
+        const stage = this.stages[i]
+        const group = Array.isArray(stage) ? stage : [stage]
 
         if (Date.now() > deadline) {
           throw new Error("task_timeout")
         }
 
+        const stepLabel = group.map((a) => a.type).join("+")
         this.persist(taskId, {
-          current_step: agent.type,
-          progress: Math.round((i / this.agents.length) * 100),
+          current_step: stepLabel,
+          progress: Math.round((i / this.stages.length) * 100),
         })
-        pipelineEvents.emit(channel, { type: "step_start", step: agent.type })
+        for (const agent of group) pipelineEvents.emit(channel, { type: "step_start", step: agent.type })
 
-        const output = await agent.execute(current, { taskId, userId, artifacts })
-        const artifact: Artifact = { id: randomUUID(), type: agent.type, content: output, timestamp: new Date() }
-        artifacts.push(artifact)
-        current = output
+        const outputs = await Promise.all(group.map((agent) => agent.execute(current, { taskId, userId, artifacts })))
+
+        for (let j = 0; j < group.length; j++) {
+          const artifact: Artifact = { id: randomUUID(), type: group[j].type, content: outputs[j], timestamp: new Date() }
+          artifacts.push(artifact)
+          pipelineEvents.emit(channel, { type: "step_done", step: group[j].type, artifact })
+        }
+        current = group.length === 1 ? outputs[0] : Object.fromEntries(group.map((a, idx) => [a.type, outputs[idx]]))
 
         this.persist(taskId, {
           artifacts: JSON.stringify(artifacts),
-          progress: Math.round(((i + 1) / this.agents.length) * 100),
+          progress: Math.round(((i + 1) / this.stages.length) * 100),
         })
-        pipelineEvents.emit(channel, { type: "step_done", step: agent.type, artifact })
       }
 
       /* Цикл выше проверяет cancelledTasks только ПЕРЕД каждым шагом — если cancel()
@@ -196,7 +217,7 @@ export class ChainManager {
         status: "completed",
         durationMs: Date.now() - startedAt,
         stepsCompleted: artifacts.length,
-        stepsTotal: this.agents.length,
+        stepsTotal: this.stages.length,
       })
       void notifyGenerationComplete(userId, { taskId, status: "completed", result })
     } catch (err: any) {
@@ -209,7 +230,7 @@ export class ChainManager {
           status: "cancelled",
           durationMs: Date.now() - startedAt,
           stepsCompleted: artifacts.length,
-          stepsTotal: this.agents.length,
+          stepsTotal: this.stages.length,
         })
       } else {
         const message = err?.message ?? "pipeline_failed"
@@ -222,7 +243,7 @@ export class ChainManager {
           status: "failed",
           durationMs: Date.now() - startedAt,
           stepsCompleted: artifacts.length,
-          stepsTotal: this.agents.length,
+          stepsTotal: this.stages.length,
           error: message,
         })
         void notifyGenerationComplete(userId, { taskId, status: "failed", error: message })

@@ -78,7 +78,7 @@ export const STUB_PIPELINE: Agent[] = [
    тот же маппер, что уже используется в pipeline-bridge.ts) именно на
    границе перехода Клод #2 → Клод #3, а не глобально при сохранении
    артефакта в context.artifacts. */
-export function createRealPipeline(): Agent[] {
+export function createRealPipeline(): (Agent | Agent[])[] {
   const analyst = new BusinessAnalystAgent()
   const architect = new ArchitectAgent()
   const designer = new DesignerAgent()
@@ -105,18 +105,24 @@ export function createRealPipeline(): Agent[] {
       frontend: adaptFrontendArtifact(findArtifactContent(ctx, "frontend")),
       backend: findArtifactContent(ctx, "backend"),
     })),
-    adaptCompositeAgent("optimized", optimizer, (ctx) => ({
-      schema: adaptProjectSchema(findArtifactContent(ctx, "schema")),
-      frontend: adaptFrontendArtifact(findArtifactContent(ctx, "frontend")),
-      backend: findArtifactContent(ctx, "backend"),
-      tests: findArtifactContent(ctx, "tests"),
-    })),
-    adaptCompositeAgent("security", security, (ctx) => ({
-      schema: adaptProjectSchema(findArtifactContent(ctx, "schema")),
-      frontend: adaptFrontendArtifact(findArtifactContent(ctx, "frontend")),
-      backend: findArtifactContent(ctx, "backend"),
-      tests: findArtifactContent(ctx, "tests"),
-    })),
+    /* optimized + security — параллельная стадия: оба независимо читают только
+       schema/frontend/backend/tests из истории (adaptCompositeAgent игнорирует
+       позиционный current) и не зависят друг от друга — см. комментарий в
+       chain-manager.ts про Agent | Agent[]. */
+    [
+      adaptCompositeAgent("optimized", optimizer, (ctx) => ({
+        schema: adaptProjectSchema(findArtifactContent(ctx, "schema")),
+        frontend: adaptFrontendArtifact(findArtifactContent(ctx, "frontend")),
+        backend: findArtifactContent(ctx, "backend"),
+        tests: findArtifactContent(ctx, "tests"),
+      })),
+      adaptCompositeAgent("security", security, (ctx) => ({
+        schema: adaptProjectSchema(findArtifactContent(ctx, "schema")),
+        frontend: adaptFrontendArtifact(findArtifactContent(ctx, "frontend")),
+        backend: findArtifactContent(ctx, "backend"),
+        tests: findArtifactContent(ctx, "tests"),
+      })),
+    ],
     adaptCompositeAgent("deployed", deploy, (ctx) => {
       const schema = adaptProjectSchema(findArtifactContent(ctx, "schema"))
       const frontendFiles: GeneratedFile[] = adaptFrontendArtifact(findArtifactContent(ctx, "frontend")).files
@@ -134,4 +140,4 @@ export function createRealPipeline(): Agent[] {
 /** Инстанцируется один раз при старте процесса (см. generate-project.routes.ts:
  *  `new ChainManager(DEFAULT_PIPELINE)`) — агенты сами по себе не хранят состояние
  *  между вызовами execute(), общий инстанс безопасен для конкурентных задач. */
-export const DEFAULT_PIPELINE: Agent[] = createRealPipeline()
+export const DEFAULT_PIPELINE: (Agent | Agent[])[] = createRealPipeline()

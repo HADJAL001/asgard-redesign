@@ -16,11 +16,11 @@ import type { Artifact } from "@/lib/generation/types"
 
 interface Props {
   progress: number
-  currentStep: string | null
+  activeSteps: string[]
   artifacts: Artifact[]
 }
 
-export function GenerationProgress({ progress, currentStep, artifacts }: Props) {
+export function GenerationProgress({ progress, activeSteps, artifacts }: Props) {
   const { t } = useTranslation()
   const doneTypes = new Set(artifacts.map((a) => a.type))
 
@@ -36,7 +36,7 @@ export function GenerationProgress({ progress, currentStep, artifacts }: Props) 
       <ul className="mt-5 flex flex-col gap-2.5">
         {PIPELINE_STAGES.map((stage) => {
           const done = doneTypes.has(stage.type)
-          const active = !done && stage.type === currentStep
+          const active = !done && activeSteps.includes(stage.type)
           return (
             <li key={stage.type} className="flex items-center gap-3 text-[13px]">
               <span
