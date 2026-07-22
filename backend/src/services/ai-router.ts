@@ -74,6 +74,7 @@ export async function callOpenAiCompatible<T>(
   logLabel: string,
   maxTokens: number = 1024,
   systemPrompt?: string,
+  temperature?: number,
 ): Promise<T | null> {
   if (!apiKey) return null
 
@@ -92,6 +93,7 @@ export async function callOpenAiCompatible<T>(
         model,
         messages,
         max_tokens: maxTokens,
+        ...(temperature !== undefined ? { temperature } : {}),
       }),
     })
 
@@ -110,7 +112,12 @@ export async function callOpenAiCompatible<T>(
 }
 
 /** Общий вызов Claude API (Anthropic messages endpoint), возвращает сырой текст ответа. */
-export async function callClaudeApi(prompt: string, maxTokens: number = 1024, systemPrompt?: string): Promise<string | null> {
+export async function callClaudeApi(
+  prompt: string,
+  maxTokens: number = 1024,
+  systemPrompt?: string,
+  temperature?: number,
+): Promise<string | null> {
   if (!CLAUDE_API_KEY) return null
 
   try {
@@ -125,6 +132,7 @@ export async function callClaudeApi(prompt: string, maxTokens: number = 1024, sy
         model: CLAUDE_MODEL,
         max_tokens: maxTokens,
         ...(systemPrompt ? { system: systemPrompt } : {}),
+        ...(temperature !== undefined ? { temperature } : {}),
         messages: [{ role: "user", content: prompt }],
       }),
     })
@@ -163,8 +171,9 @@ export async function callDeepSeek<T>(
   logLabel: string,
   maxTokens?: number,
   systemPrompt?: string,
+  temperature?: number,
 ): Promise<T | null> {
-  return callOpenAiCompatible(DEEPSEEK_API_URL, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, prompt, parser, logLabel, maxTokens, systemPrompt)
+  return callOpenAiCompatible(DEEPSEEK_API_URL, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, prompt, parser, logLabel, maxTokens, systemPrompt, temperature)
 }
 
 /** Вызывает Grok (xAI) chat/completions с готовым парсером ответа. */
@@ -174,8 +183,9 @@ export async function callGrok<T>(
   logLabel: string,
   maxTokens?: number,
   systemPrompt?: string,
+  temperature?: number,
 ): Promise<T | null> {
-  return callOpenAiCompatible(GROK_API_URL, GROK_API_KEY, GROK_MODEL, prompt, parser, logLabel, maxTokens, systemPrompt)
+  return callOpenAiCompatible(GROK_API_URL, GROK_API_KEY, GROK_MODEL, prompt, parser, logLabel, maxTokens, systemPrompt, temperature)
 }
 
 /** true, если хотя бы один реальный AI-провайдер сконфигурирован (иначе везде используется fallback). */
