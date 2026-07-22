@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express'
 import db from '../lib/db'
-import { authenticate } from '../middleware/auth.middleware'
-const requireAuth = authenticate
+import { requireAuth } from '../middleware/authMiddleware'
 
 /* ================================================================
    OSGARD · WALLI Upgrade System Routes

@@ -1,5 +1,5 @@
 import db from "../lib/db"
-import { hashPassword } from "../lib/auth"
+import { AuthService } from "../services/auth.service"
 
 /* ================================================================
    OSGARD DB SCHEMA — SQLite (better-sqlite3, raw SQL)
@@ -189,7 +189,7 @@ if (!marketExists) {
 /* ---------------- Seed demo user "Alex Odin" ---------------- */
 const demoExists = db.prepare(`SELECT id FROM users WHERE username = ?`).get("alex_odin")
 if (!demoExists) {
-  const passwordHash = hashPassword("password123")
+  const passwordHash = AuthService.hashPasswordSync("password123")
   const info = db
     .prepare(
       `INSERT INTO users (username, email, password_hash, display_name, level, avatar_url, bio)

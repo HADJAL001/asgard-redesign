@@ -130,24 +130,10 @@ router.post("/generate", async (req: Request, res: Response) => {
    Создаёт проекты и артефакты в БД + начисляет 50 бонусных токенов.
    ------------------------------------------------------------------ */
 import db from "../lib/db"
-import { verifyToken } from "../lib/auth"
+import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 
-router.post("/convert", async (req: Request, res: Response) => {
-  const authHeader = req.headers["authorization"] || ""
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : ""
-
-  if (!token) {
-    return res.status(401).json({ error: "Требуется авторизация" })
-  }
-
-  let userId: number
-  try {
-    const payload = verifyToken(token)
-    userId = (payload as any).userId
-  } catch {
-    return res.status(401).json({ error: "Недействительный токен" })
-  }
-
+router.post("/convert", requireAuth, async (req: AuthRequest, res: Response) => {
+  const userId = req.user!.userId
   const { projects: demoProjects } = req.body || {}
 
   if (!Array.isArray(demoProjects) || demoProjects.length === 0) {

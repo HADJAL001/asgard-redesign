@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { Connection, PublicKey } from '@solana/web3.js';
-import { authenticate } from '../middleware/auth.middleware';
+import { requireAuth } from '../middleware/authMiddleware';
 import { SolanaService } from '../services/solana.service';
 import { withdrawSchema } from '../validators/withdraw.validator';
 import { TwoFAService } from '../services/twofa.service';
@@ -96,7 +96,7 @@ function checkWithdrawalLimits(userId: number, amount: number): { valid: boolean
  * Клиент обязан получить его непосредственно перед отправкой
  * запроса на вывод и передать в теле POST /api/tc/withdraw.
  */
-router.get('/nonce', authenticate, (req: Request, res: Response) => {
+router.get('/nonce', requireAuth, (req: Request, res: Response) => {
   try {
     const userId = req.user!.userId;
     const row = db.prepare('SELECT nonce FROM users WHERE id = ?').get(userId) as
@@ -116,7 +116,7 @@ router.get('/nonce', authenticate, (req: Request, res: Response) => {
 
 // ========== ОСНОВНОЙ РОУТ ВЫВОДА ==========
 
-router.post('/withdraw', authenticate, async (req: Request, res: Response) => {
+router.post('/withdraw', requireAuth, async (req: Request, res: Response) => {
   try {
     // 0. Joi-валидация входных данных
     const { error: validationError } = withdrawSchema.validate(req.body);
@@ -265,7 +265,7 @@ router.get('/treasury-balance', async (req: Request, res: Response) => {
 });
 
 // Роут для истории выводов пользователя
-router.get('/history', authenticate, async (req: Request, res: Response) => {
+router.get('/history', requireAuth, async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
@@ -301,7 +301,7 @@ router.get('/history', authenticate, async (req: Request, res: Response) => {
 });
 
 // Роут для проверки лимитов пользователя
-router.get('/limits', authenticate, async (req: Request, res: Response) => {
+router.get('/limits', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.userId;
     const now = new Date();

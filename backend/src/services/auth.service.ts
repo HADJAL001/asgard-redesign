@@ -12,6 +12,15 @@ export class AuthService {
     return bcrypt.compare(password, hash);
   }
 
+  // Синхронные варианты — только для скриптов сидинга БД (init-db.ts), не для request-хендлеров
+  static hashPasswordSync(password: string): string {
+    return bcrypt.hashSync(password, 12);
+  }
+
+  static comparePasswordSync(password: string, hash: string): boolean {
+    return bcrypt.compareSync(password, hash);
+  }
+
   // Генерация Access Token (15 минут)
   static generateAccessToken(userId: number): string {
     return jwt.sign(

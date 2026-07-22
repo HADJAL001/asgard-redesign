@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import db from '../db/database';
 import { UserModel } from '../models/user.model';
 import { AuthService } from '../services/auth.service';
-import { authenticate } from '../middleware/auth.middleware';
+import { requireAuth } from '../middleware/authMiddleware';
 import { encrypt } from '../utils/encryption';
 import {
   isSocialProvider,
@@ -110,7 +110,7 @@ router.get('/:provider', (req: Request, res: Response) => {
 // ===== Подключение GitHub для публикации проектов: GET /auth/github/publish/connect =====
 // Требует scope repo (в отличие от read:user user:email для обычного входа), поэтому
 // не переиспользует GET /:provider — это отдельный, явно авторизованный flow.
-router.get('/github/publish/connect', authenticate, (req: Request, res: Response) => {
+router.get('/github/publish/connect', requireAuth, (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -225,7 +225,7 @@ router.get('/:provider/callback', async (req: Request, res: Response) => {
 });
 
 // ===== Отвязка соцаккаунта: POST /auth/:provider/unlink =====
-router.post('/:provider/unlink', authenticate, (req: Request, res: Response) => {
+router.post('/:provider/unlink', requireAuth, (req: Request, res: Response) => {
   const { provider } = req.params;
   if (!isSocialProvider(provider)) {
     return res.status(404).json({ error: 'Unknown provider' });

@@ -1,11 +1,8 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller';
 import { rateLimit } from '../middleware/rateLimiter';
-import { authenticate, requireLinked } from '../middleware/auth.middleware';
 import db from '../lib/db';
-import { hashPassword, comparePassword, signToken } from '../lib/auth';
-import { requireAuth, AuthRequest } from '../middleware/authMiddleware';
-import { TokenService } from '../services/token.service';
+import { requireAuth, requireLinked, AuthRequest } from '../middleware/authMiddleware';
 import { TwoFAService } from '../services/twofa.service';
 import { encrypt, decrypt } from '../utils/encryption';
 import { asyncHandler } from '../utils/async-handler';
@@ -21,13 +18,13 @@ router.post('/login', rateLimit(60000, 10), AuthController.login);
 router.post('/refresh', AuthController.refresh);
 
 // ===== ЗАЩИЩЁННЫЕ РОУТЫ (AuthController) =====
-router.post('/logout', authenticate, AuthController.logout);
-router.get('/me', authenticate, AuthController.me);
-router.post('/change-password', authenticate, AuthController.changePassword);
-router.post('/link', authenticate, AuthController.linkProvider);
+router.post('/logout', requireAuth, AuthController.logout);
+router.get('/me', requireAuth, AuthController.me);
+router.post('/change-password', requireAuth, AuthController.changePassword);
+router.post('/link', requireAuth, AuthController.linkProvider);
 
 // Пример защищённого маршрута, доступного только пользователям с привязанным соцаккаунтом
-router.get('/protected', authenticate, requireLinked, (req, res) => {
+router.get('/protected', requireAuth, requireLinked, (req, res) => {
   res.json({ success: true, userId: req.userId });
 });
 
