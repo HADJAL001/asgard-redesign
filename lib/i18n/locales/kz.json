@@ -93,7 +93,11 @@
     "earned": "Алынды ∞",
     "claimable": "Алуға қолжетімді",
     "progressToNext": "Келесі марапатқа дейінгі прогресс",
-    "claimReward": "Марапатты алу"
+    "claimReward": "Марапатты алу",
+    "loginRequiredTitle": "Аккаунтқа кіріңіз",
+    "loginRequiredText": "Рефералдық кодыңыз бен марапаттарды көру үшін аккаунтқа кіру қажет",
+    "loginCta": "Кіру",
+    "retry": "Қайталау"
   },
   "wallet": {
     "title": "Әмиян",

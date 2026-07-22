@@ -93,7 +93,11 @@
     "earned": "Earned ∞",
     "claimable": "Available to claim",
     "progressToNext": "Progress to next reward",
-    "claimReward": "Claim reward"
+    "claimReward": "Claim reward",
+    "loginRequiredTitle": "Sign in required",
+    "loginRequiredText": "Sign in to see your referral code and rewards",
+    "loginCta": "Sign in",
+    "retry": "Retry"
   },
   "wallet": {
     "title": "Wallet",

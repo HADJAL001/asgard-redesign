@@ -1,27 +1,27 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import {
   FolderKanban,
   Gem,
   Coins,
-  Activity as ActivityIcon,
-  Trophy,
-  Medal,
-  Award,
+  TrendingUp,
   Circle,
   Wand2,
   MessageCircle,
   Plus,
   Mic,
   Zap,
+  Loader2,
   type LucideIcon,
 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { OnboardingTutorial } from "./OnboardingTutorial"
 import { apiClient } from "@/lib/api-client"
+import { useOsgardStore } from "@/lib/store/osgard-store"
+import { formatTokens, badgeIcon } from "@/lib/economy"
+import { fmtTC } from "@/lib/tc-market"
 
 
 /* ---- Palette ----
@@ -30,41 +30,14 @@ const ACCENT = "#00D4FF"
 const CARD = "#14141E"
 const BORDER = "#2A2A3E"
 const LABEL = "#6A6A8A"
+const GREEN = "#4ADE80"
+const YELLOW = "#FFD54A"
+const RED = "#FF5C5C"
 
-const METRICS: { label: string; value: string; Icon: LucideIcon }[] = [
-  { label: "Проектов", value: "12", Icon: FolderKanban },
-  { label: "Артефактов", value: "24", Icon: Gem },
-  { label: "Токенов", value: "7 340", Icon: Coins },
-  { label: "Активность", value: "89%", Icon: ActivityIcon },
-]
-
-const ACTIVITY = [
-  { day: "Пн", value: 42 },
-  { day: "Вт", value: 68 },
-  { day: "Ср", value: 55 },
-  { day: "Чт", value: 91 },
-  { day: "Пт", value: 74 },
-  { day: "Сб", value: 38 },
-  { day: "Вс", value: 61 },
-]
-
-const ACHIEVEMENTS: { Icon: LucideIcon; name: string; progress: number; total: number; color: string }[] = [
-  { Icon: Trophy, name: "Мастер проектов", progress: 12, total: 12, color: "#FFD54A" },
-  { Icon: Medal, name: "Кузнец артефактов", progress: 8, total: 12, color: "#00D4FF" },
-  { Icon: Award, name: "Голос Таверны", progress: 5, total: 12, color: "#B57BFF" },
-]
-
-const PROJECTS: { name: string; status: string; statusColor: string; date: string }[] = [
-  { name: "Нейросеть Один", status: "Активен", statusColor: "#4ADE80", date: "12 июля 2026" },
-  { name: "Нейросеть Валькирия", status: "В работе", statusColor: "#FFD54A", date: "9 июля 2026" },
-  { name: "Кристалл памяти", status: "Завершён", statusColor: "#6A6A8A", date: "3 июля 2026" },
-]
-
-const TAVERN: { name: string; text: string; time: string; color: string }[] = [
-  { name: "Medusa_Code", text: "Отличная идея по нейроядру!", time: "14:32", color: "#00D4FF" },
-  { name: "Assardi_Valkyrie", text: "Поддерживаю, начнём завтра.", time: "13:05", color: "#B57BFF" },
-  { name: "Gold_Architect", text: "Когда общая встреча?", time: "11:48", color: "#FFD54A" },
-]
+/** Форматирует timestamp (мс) в "12 июля 2026" — как на карточках проектов. */
+function formatProjectDate(ts: number): string {
+  return new Date(ts).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+}
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
@@ -91,6 +64,41 @@ function SectionTitle({ Icon, children }: { Icon: LucideIcon; children: React.Re
 export function DashboardView() {
   const router = useRouter()
   const [onboardingStep, setOnboardingStep] = useState<number | null>(null)
+
+  /* Реальные данные аккаунта — тот же источник, что используют /projects и /wallet
+     (useOsgardStore → GET /projects/mine и GET /wallet). Никаких моков. */
+  const { projects, wallet, fetchProjects, fetchWallet } = useOsgardStore()
+  const [dataLoading, setDataLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      await Promise.all([
+        fetchProjects({ skipAuthRedirect: true }),
+        fetchWallet({ skipAuthRedirect: true }),
+      ])
+      if (!cancelled) setDataLoading(false)
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const totalArtifacts = useMemo(() => projects.reduce((s, p) => s + p.artifactCount, 0), [projects])
+  const totalIncome = useMemo(() => projects.reduce((s, p) => s + p.income, 0), [projects])
+
+  const recentProjects = useMemo(
+    () => [...projects].sort((a, b) => b.createdAt - a.createdAt).slice(0, 5),
+    [projects],
+  )
+
+  const METRICS: { label: string; value: string; Icon: LucideIcon }[] = [
+    { label: "Проектов", value: `${projects.length}`, Icon: FolderKanban },
+    { label: "Артефактов", value: `${totalArtifacts}`, Icon: Gem },
+    { label: "Токенов", value: formatTokens(wallet.credits), Icon: Coins },
+    { label: "Доход", value: fmtTC(totalIncome), Icon: TrendingUp },
+  ]
 
   /* Проверяем прогресс онбординга при монтировании дашборда.
      Логика:
@@ -161,133 +169,79 @@ export function DashboardView() {
           ))}
         </section>
 
-        {/* Row 1 — Activity + Achievements */}
-        <section className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Card>
-            <SectionTitle Icon={ActivityIcon}>Активность</SectionTitle>
-            <div className="h-56 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={ACTIVITY} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="dashFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={ACCENT} stopOpacity={0.28} />
-                      <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke={BORDER} strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="day"
-                    tick={{ fill: LABEL, fontSize: 12 }}
-                    axisLine={{ stroke: BORDER }}
-                    tickLine={false}
-                  />
-                  <YAxis tick={{ fill: LABEL, fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    cursor={{ stroke: BORDER }}
-                    contentStyle={{
-                      backgroundColor: "#0A0A0F",
-                      border: `1px solid ${BORDER}`,
-                      borderRadius: 8,
-                      color: "#FFFFFF",
-                      fontSize: 12,
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke={ACCENT}
-                    strokeWidth={2}
-                    fill="url(#dashFill)"
-                    dot={{ r: 3, fill: ACCENT, strokeWidth: 0 }}
-                    activeDot={{ r: 5 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-
-          <Card>
-            <SectionTitle Icon={Trophy}>Достижения</SectionTitle>
-            <ul className="space-y-4">
-              {ACHIEVEMENTS.map((a) => {
-                const pct = Math.round((a.progress / a.total) * 100)
-                return (
-                  <li key={a.name} className="flex items-center gap-4">
-                    <span
-                      className="flex size-11 shrink-0 items-center justify-center rounded-lg"
-                      style={{ border: `1px solid ${a.color}`, backgroundColor: "#0A0A0F" }}
-                    >
-                      <a.Icon size={20} strokeWidth={1.5} style={{ color: a.color }} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="truncate text-[14px]">{a.name}</span>
-                        <span className="ml-3 shrink-0 font-mono text-[12px]" style={{ color: LABEL }}>
-                          {a.progress}/{a.total}
-                        </span>
-                      </div>
-                      <div className="mt-2 h-0.5 w-full overflow-hidden rounded-full" style={{ backgroundColor: BORDER }}>
-                        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: ACCENT }} />
-                      </div>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          </Card>
-        </section>
-
-        {/* Row 2 — Recent projects + Tavern */}
-        <section className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Последние проекты — реальные данные из useOsgardStore (GET /projects/mine) */}
+        <section className="mb-6">
           <Card>
             <SectionTitle Icon={FolderKanban}>Последние проекты</SectionTitle>
-            <ul className="divide-y" style={{ borderColor: BORDER }}>
-              {PROJECTS.map((p) => (
-                <li key={p.name} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                  <div className="min-w-0">
-                    <div className="truncate text-[14px]">{p.name}</div>
-                    <div className="mt-1 text-[12px]" style={{ color: LABEL }}>
-                      {p.date}
-                    </div>
-                  </div>
-                  <span className="ml-3 flex shrink-0 items-center gap-2">
-                    <Circle size={8} fill={p.statusColor} strokeWidth={0} />
-                    <span className="text-[12px]" style={{ color: p.statusColor }}>
-                      {p.status}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </Card>
 
-          <Card>
-            <SectionTitle Icon={MessageCircle}>Активность в Таверне</SectionTitle>
-            <ul className="space-y-4">
-              {TAVERN.map((t) => (
-                <li key={t.name} className="flex items-start gap-3">
-                  <span
-                    className="flex size-9 shrink-0 items-center justify-center rounded-full text-[13px] font-medium"
-                    style={{ backgroundColor: "#0A0A0F", border: `1px solid ${BORDER}`, color: t.color }}
-                  >
-                    {t.name.charAt(0)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="truncate text-[14px]" style={{ color: t.color }}>
-                        {t.name}
+            {dataLoading && projects.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-10 text-center">
+                <Loader2 size={24} className="animate-spin" style={{ color: ACCENT }} />
+                <p className="text-[13px]" style={{ color: LABEL }}>Загрузка проектов…</p>
+              </div>
+            ) : recentProjects.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-10 text-center">
+                <p className="text-[14px]" style={{ color: LABEL }}>У вас пока нет проектов</p>
+                <button
+                  type="button"
+                  onClick={() => router.push("/projects")}
+                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors"
+                  style={{ border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
+                >
+                  <Plus size={16} strokeWidth={1.75} />
+                  Создать проект
+                </button>
+              </div>
+            ) : (
+              <ul className="divide-y" style={{ borderColor: BORDER }}>
+                {recentProjects.map((p) => {
+                  const BadgeIcon = badgeIcon(p.badge)
+                  let statusLabel = "Готов"
+                  let statusColor = GREEN
+                  if (p.status === "generating") {
+                    statusLabel = "Генерируется"
+                    statusColor = YELLOW
+                  } else if (p.status === "failed") {
+                    statusLabel = "Ошибка"
+                    statusColor = RED
+                  } else if (p.deployStatus === "deploying") {
+                    statusLabel = "Деплой…"
+                    statusColor = YELLOW
+                  } else if (p.deployStatus === "deployed") {
+                    statusLabel = "Задеплоен"
+                    statusColor = GREEN
+                  } else if (p.deployStatus === "failed") {
+                    statusLabel = "Ошибка деплоя"
+                    statusColor = RED
+                  }
+                  return (
+                    <li
+                      key={p.id}
+                      onClick={() => router.push(`/projects/${p.id}`)}
+                      className="flex cursor-pointer items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg" style={{ border: `1px solid ${BORDER}` }}>
+                          <BadgeIcon size={16} strokeWidth={1.5} style={{ color: ACCENT }} />
+                        </span>
+                        <div className="min-w-0">
+                          <div className="truncate text-[14px]">{p.name}</div>
+                          <div className="mt-1 text-[12px]" style={{ color: LABEL }}>
+                            {formatProjectDate(p.createdAt)}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="ml-3 flex shrink-0 items-center gap-2">
+                        <Circle size={8} fill={statusColor} strokeWidth={0} />
+                        <span className="text-[12px]" style={{ color: statusColor }}>
+                          {statusLabel}
+                        </span>
                       </span>
-                      <span className="ml-3 shrink-0 text-[12px]" style={{ color: LABEL }}>
-                        {t.time}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 truncate text-[13px]" style={{ color: "rgba(255,255,255,0.7)" }}>
-                      {t.text}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
           </Card>
         </section>
 
@@ -356,7 +310,7 @@ export function DashboardView() {
                 {/* Stats row */}
                 <div className="mt-3 flex flex-wrap gap-4">
                   {[
-                    { icon: Zap, label: "Запросов сегодня", value: "47" },
+                    { icon: Zap, label: "Режим", value: "AI-помощник" },
                     { icon: Mic, label: "Голосовой режим", value: "Активен" },
                   ].map(({ icon: Icon, label, value }) => (
                     <div key={label} className="flex items-center gap-1.5">

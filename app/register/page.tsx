@@ -11,9 +11,12 @@ import { SocialLoginButtons } from "@/components/social-login-buttons"
    OSGARD · Register
    ----------------------------------------------------------------
    Отдельная страница регистрации в стиле /login (тёмный, премиум).
-   Поля: Имя, Email, Пароль, Повтор пароля.
+   Поля: Имя пользователя, Email, Пароль, Повтор пароля.
    После успешной регистрации → /dashboard.
    ================================================================ */
+
+// Должно соответствовать бэкенд-валидации username (см. backend/src/utils/validators.ts, USERNAME_RE)
+const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -32,6 +35,10 @@ export default function RegisterPage() {
 
     if (!name.trim() || !email.trim() || !password || !confirmPassword) {
       setError("Заполните все поля")
+      return
+    }
+    if (!USERNAME_RE.test(name.trim())) {
+      setError("Имя пользователя: только латинские буквы, цифры и подчёркивание, 3–20 символов, без пробелов")
       return
     }
     if (password.length < 6) {
@@ -78,17 +85,20 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="name" className="text-xs font-medium text-[#6A6A8A]">
-                Имя
+                Имя пользователя
               </label>
               <input
                 id="name"
                 type="text"
-                autoComplete="name"
+                autoComplete="username"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Alex Odin"
+                placeholder="alex_odin"
                 className="rounded-lg border border-[#2A2A3E] bg-[#0A0A0F] px-3 py-2.5 text-sm text-white outline-none placeholder:text-[#6A6A8A]/60 focus:border-[#00D4FF] focus:ring-1 focus:ring-[#00D4FF]"
               />
+              <p className="text-[11px] text-[#6A6A8A]/80">
+                Только латинские буквы, цифры и подчёркивание, без пробелов (3–20 символов)
+              </p>
             </div>
 
             <div className="flex flex-col gap-1.5">
