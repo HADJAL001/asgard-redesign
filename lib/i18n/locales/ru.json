@@ -415,12 +415,12 @@
     "editBtn": "Редактировать",
     "paletteTitle": "Узлы",
     "nodeType": {
-      "claude": "Claude",
-      "claudeDesc": "Запрос к Claude с системным промптом",
-      "deepseek": "DeepSeek",
-      "deepseekDesc": "Запрос к DeepSeek с системным промптом",
-      "grok": "Grok",
-      "grokDesc": "Запрос к Grok с системным промптом",
+      "claude": "OS 5.0",
+      "claudeDesc": "Обработка через собственную нейросеть OSGARD OS 5.0 с системным промптом",
+      "deepseek": "OS 3.0",
+      "deepseekDesc": "Обработка через собственную нейросеть OSGARD OS 3.0 с системным промптом",
+      "grok": "OS 3.3",
+      "grokDesc": "Обработка через собственную нейросеть OSGARD OS 3.3 с системным промптом",
       "promptTemplate": "Шаблон",
       "promptTemplateDesc": "Подстановка входа в текстовый шаблон без вызова модели"
     },
@@ -449,7 +449,11 @@
     "saveAsJarvisTemplate": "Сохранить как шаблон для ВАЛЛИ-советника",
     "removeJarvisTemplate": "Убрать из шаблонов ВАЛЛИ",
     "saveBeforeTemplate": "Сначала сохраните цепочку",
-    "templateError": "Не удалось сохранить шаблон"
+    "templateError": "Не удалось сохранить шаблон",
+    "editorNodeCount": "{{count}}/{{max}} узлов",
+    "maxNodesReached": "Достигнут максимум узлов в цепочке: {{max}}",
+    "heroTitle": "OS AI Python",
+    "heroSubtitle": "Собственный ИИ-конвейер OSGARD — соединяйте нейросети в единую цепочку"
   },
   "projectWizard": {
     "title": "Создание проекта",
@@ -486,6 +490,41 @@
     "generationFailed": "Не удалось сгенерировать файлы приложения",
     "errorGenerate": "Не удалось сгенерировать проект",
     "errorCreate": "Не удалось создать проект"
+  },
+  "quickStart": {
+    "title": "Быстрый старт",
+    "subtitle": "Опишите приложение одной фразой — AI соберёт его за вас",
+    "nameLabel": "Название приложения",
+    "namePlaceholder": "Например: Трекер привычек",
+    "descriptionLabel": "Описание (необязательно)",
+    "descriptionPlaceholder": "Что должно делать приложение?",
+    "errorNameRequired": "Укажите название приложения",
+    "remainingGenerations": "Осталось генераций: {{remaining}} из {{limit}}",
+    "noRemainingGenerations": "Лимит генераций исчерпан",
+    "createButton": "✨ Создать приложение",
+    "creating": "Запускаем генерацию…",
+    "errorCreate": "Не удалось запустить генерацию",
+    "errorTaskFailed": "Генерация не удалась",
+    "cancelledMessage": "Генерация отменена",
+    "stage": {
+      "spec": "Аналитик — техническое задание",
+      "schema": "Архитектор — структура данных",
+      "design": "Дизайнер — интерфейс",
+      "frontend": "Фронтенд — интерфейс приложения",
+      "backend": "Бэкенд — серверная логика",
+      "tests": "Тестировщик — проверка",
+      "optimized": "Оптимизатор — производительность",
+      "security": "Безопасник — проверка безопасности"
+    },
+    "resultTitle": "Приложение готово!",
+    "demoResultTitle": "Генерация завершена (демо-режим)",
+    "demoResultMessage": "Агенты пайплайна пока работают как заглушки — реальные ссылки на приложение и репозиторий появятся, когда бэкенд-агенты будут готовы.",
+    "openApp": "Открыть приложение",
+    "openRepo": "Открыть на GitHub",
+    "openOrchestrator": "Открыть в оркестраторе",
+    "openingOrchestrator": "Создаём цепочку…",
+    "errorOrchestrator": "Не удалось открыть в оркестраторе",
+    "close": "Закрыть"
   },
   "projectDetail": {
     "loading": "Загрузка проекта…",

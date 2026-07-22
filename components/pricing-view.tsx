@@ -92,7 +92,7 @@ const PLANS: PlanDef[] = [
     Icon:       Zap,
     features: [
       { text: "5 AI-генераций проектов/день" },
-      { text: "ДЖАРВИС — безлимит (DeepSeek)" },
+      { text: "ДЖАРВИС — безлимит (OS 3.0)" },
       { text: "ВАЛЛИ — советник и 3D-комната" },
       { text: "БЛИЗНЕЦ — обучение на артефактах" },
       { text: "Маркетплейс и торговля" },
@@ -114,7 +114,7 @@ const PLANS: PlanDef[] = [
     badge:      "Популярный",
     features: [
       { text: "15 AI-генераций проектов/день",      highlight: true },
-      { text: "2 Claude + 4 Grok + 9 DeepSeek/день", highlight: true },
+      { text: "2 OS 5.0 + 4 OS 3.3 + 9 OS 3.0/день", highlight: true },
       { text: "ДЖАРВИС — безлимит" },
       { text: "ВАЛЛИ + БЛИЗНЕЦ — полный доступ" },
       { text: "Деплой на Netlify" },
@@ -137,10 +137,10 @@ const PLANS: PlanDef[] = [
     badge:      "Максимум",
     features: [
       { text: "Безлимит AI-генераций",              highlight: true },
-      { text: "Claude / Grok / DeepSeek — безлимит", highlight: true },
+      { text: "OS 5.0 / OS 3.3 / OS 3.0 — безлимит", highlight: true },
       { text: "Оркестратор — 10 цепочек/день",       highlight: true },
       { text: "ДЖАРВИС + ВАЛЛИ + БЛИЗНЕЦ — всё" },
-      { text: "2 Claude + 4 Grok + 4 DeepSeek в оркестраторе" },
+      { text: "2 OS 5.0 + 4 OS 3.3 + 4 OS 3.0 в оркестраторе" },
       { text: "Деплой + GitHub + Netlify" },
       { text: "Ранний доступ к новым фичам" },
     ],
@@ -156,7 +156,7 @@ const AI_AGENTS = [
     name:  "ДЖАРВИС",
     Icon:  Bot,
     color: "#06B6D4",
-    desc:  "Советник, чат, помощь с артефактами — безлимит на DeepSeek/Claude для всех зарегистрированных пользователей.",
+    desc:  "Советник, чат, помощь с артефактами — безлимит на OS 3.0/OS 5.0 для всех зарегистрированных пользователей.",
   },
   {
     name:  "ВАЛЛИ",
@@ -174,7 +174,7 @@ const AI_AGENTS = [
     name:  "Оркестратор",
     Icon:  GitBranch,
     color: "#F59E0B",
-    desc:  "Цепочки нейросетей (Claude → Grok → DeepSeek). Доступен на тарифах Master и Supreme.",
+    desc:  "Цепочки нейросетей OSGARD (OS 5.0 → OS 3.3 → OS 3.0). Доступен на тарифах Master и Supreme.",
   },
 ]
 
@@ -245,7 +245,7 @@ export function PricingView() {
             Выбери свой путь
           </h1>
           <p className="text-[16px] max-w-xl mx-auto leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
-            От гостевого демо до полного безлимита — Claude, Grok и DeepSeek работают на тебя.
+            От гостевого демо до полного безлимита — OS 5.0, OS 3.3 и OS 3.0 работают на тебя.
           </p>
         </div>
 
@@ -341,9 +341,9 @@ export function PricingView() {
                     >
                       <p className="text-[10px] uppercase tracking-[0.1em] mb-2" style={{ color: LABEL }}>AI-лимиты / день</p>
                       {[
-                        { label: "Claude",   value: plan.aiLimits.claude,   color: "#F59E0B" },
-                        { label: "Grok",     value: plan.aiLimits.grok,     color: "#A855F7" },
-                        { label: "DeepSeek", value: plan.aiLimits.deepseek, color: "#06B6D4" },
+                        { label: "OS 5.0",   value: plan.aiLimits.claude,   color: "#F59E0B" },
+                        { label: "OS 3.3",     value: plan.aiLimits.grok,     color: "#A855F7" },
+                        { label: "OS 3.0", value: plan.aiLimits.deepseek, color: "#06B6D4" },
                         { label: "Итого",    value: plan.aiLimits.total,    color: "#34D399" },
                       ].map(({ label, value, color }) => (
                         <div key={label} className="flex items-center justify-between">
@@ -460,8 +460,8 @@ export function PricingView() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { plan: "Master ($49/мес)", color: "#06B6D4", items: ["10 запусков/день", "2 Claude в цепочке", "4 Grok в цепочке", "4 DeepSeek в цепочке", "До 20 узлов в цепочке"] },
-              { plan: "Supreme ($99/мес)", color: "#F59E0B", items: ["10 запусков/день", "4 Claude в цепочке", "6 Grok в цепочке", "4 DeepSeek в цепочке", "Безлимит узлов (20 max)", "Ранний доступ"] },
+              { plan: "Master ($49/мес)", color: "#06B6D4", items: ["10 запусков/день", "2 OS 5.0 в цепочке", "4 OS 3.3 в цепочке", "4 OS 3.0 в цепочке", "До 20 узлов в цепочке"] },
+              { plan: "Supreme ($99/мес)", color: "#F59E0B", items: ["10 запусков/день", "4 OS 5.0 в цепочке", "6 OS 3.3 в цепочке", "4 OS 3.0 в цепочке", "Безлимит узлов (20 max)", "Ранний доступ"] },
               { plan: "Что это даёт?", color: "#A855F7", items: ["Автоматизация задач", "Последовательная обработка текста", "Мульти-провайдерная генерация", "Сохранение как шаблоны ДЖАРВИСА", "SSE-поток прогресса в реальном времени"] },
             ].map(({ plan, color, items }) => (
               <div key={plan}>
@@ -486,7 +486,7 @@ export function PricingView() {
             {[
               {
                 q: "Что такое AI-лимиты?",
-                a: "Каждый день лимиты обнуляются в полночь UTC. Лимит — количество обращений к конкретному AI-провайдеру (Claude, Grok, DeepSeek) при генерации проектов, артефактов и чате.",
+                a: "Каждый день лимиты обнуляются в полночь UTC. Лимит — количество обращений к конкретной нейросети OSGARD (OS 5.0, OS 3.3, OS 3.0) при генерации проектов, артефактов и чате.",
               },
               {
                 q: "Входит ли ДЖАРВИС, ВАЛЛИ, БЛИЗНЕЦ в бесплатный план?",

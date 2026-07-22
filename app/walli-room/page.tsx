@@ -117,8 +117,8 @@ export default function WalliRoom() {
     }
     // ВАЛЛИ
     const wg = new THREE.Group()
-    const goldMat  = new THREE.MeshStandardMaterial({ color: 0xc8830e, roughness: 0.35, metalness: 0.65 })
-    const darkMat  = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.8,  metalness: 0.4 })
+    const goldMat  = new THREE.MeshPhysicalMaterial({ color: 0xc8830e, roughness: 0.28, metalness: 0.75, clearcoat: 0.6, clearcoatRoughness: 0.2, emissive: 0x2a1a00, emissiveIntensity: 0.15 })
+    const darkMat  = new THREE.MeshPhysicalMaterial({ color: 0x1a1a1a, roughness: 0.7,  metalness: 0.5, clearcoat: 0.3 })
     const eyeMat   = new THREE.MeshStandardMaterial({ color: 0x1a5aff, emissive: 0x0022aa, emissiveIntensity: 0.6 })
     const trackMat = new THREE.MeshStandardMaterial({ color: 0x121212, roughness: 0.9,  metalness: 0.5 })
     const wheelMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.7,  metalness: 0.6 })

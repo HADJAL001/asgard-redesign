@@ -1,4 +1,4 @@
-import { Router, Response, NextFunction } from "express"
+ import { Router, Response, NextFunction } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import stripe, {
@@ -18,7 +18,9 @@ import { getAiUsage, AI_LIMITS_BY_PLAN } from "../lib/aiDailyUsage"
 const router = Router()
 
 const PAID_PLANS: Exclude<PlanKey, "free">[] = ["architect", "master", "legend"]
-const MOCK_PERIOD_MS = 30 * 24 * 60 * 60 * 1000 // 30 дней
+const MOCK_PERIOD_MS  = 30 * 24 * 60 * 60 * 1000 // 30 дней
+const TRIAL_PERIOD_MS =  7 * 24 * 60 * 60 * 1000 //  7 дней
+const TRIAL_DAYS      = 7
 
 /* ================================================================
    Вспомогательные функции работы с таблицей subscriptions
@@ -36,6 +38,7 @@ type SubscriptionRow = {
   current_period_end: number | null
   cancel_at_period_end: number
   canceled_at: number | null
+  trial_used: number
   created_at: number
   updated_at: number
 }
@@ -55,8 +58,8 @@ function upsertSubscription(userId: number, fields: Partial<SubscriptionRow>) {
       `INSERT INTO subscriptions (
         user_id, plan, status, stripe_customer_id, stripe_subscription_id, stripe_price_id,
         current_period_start, current_period_end, cancel_at_period_end, canceled_at,
-        created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        trial_used, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       userId,
       fields.plan ?? "free",
@@ -68,6 +71,7 @@ function upsertSubscription(userId: number, fields: Partial<SubscriptionRow>) {
       fields.current_period_end ?? null,
       fields.cancel_at_period_end ?? 0,
       fields.canceled_at ?? null,
+      fields.trial_used ?? 0,
       now,
       now,
     )
@@ -76,7 +80,7 @@ function upsertSubscription(userId: number, fields: Partial<SubscriptionRow>) {
       `UPDATE subscriptions SET
         plan = ?, status = ?, stripe_customer_id = ?, stripe_subscription_id = ?, stripe_price_id = ?,
         current_period_start = ?, current_period_end = ?, cancel_at_period_end = ?, canceled_at = ?,
-        updated_at = ?
+        trial_used = ?, updated_at = ?
        WHERE user_id = ?`,
     ).run(
       fields.plan ?? existing.plan,
@@ -88,6 +92,7 @@ function upsertSubscription(userId: number, fields: Partial<SubscriptionRow>) {
       fields.current_period_end ?? existing.current_period_end,
       fields.cancel_at_period_end ?? existing.cancel_at_period_end,
       fields.canceled_at ?? existing.canceled_at,
+      fields.trial_used ?? existing.trial_used ?? 0,
       now,
       userId,
     )
@@ -107,6 +112,7 @@ function serializeSubscription(sub: SubscriptionRow | undefined) {
       currentPeriodEnd: null,
       cancelAtPeriodEnd: false,
       canceledAt: null,
+      trialUsed: false,
     }
   }
   return {
@@ -116,7 +122,16 @@ function serializeSubscription(sub: SubscriptionRow | undefined) {
     currentPeriodEnd: sub.current_period_end,
     cancelAtPeriodEnd: !!sub.cancel_at_period_end,
     canceledAt: sub.canceled_at,
+    trialUsed: !!sub.trial_used,
   }
+}
+
+/* Проверяет, использовал ли пользователь триал на данный план */
+function hasUsedTrial(userId: number, plan: string): boolean {
+  const row = db
+    .prepare(`SELECT id FROM trial_history WHERE user_id = ? AND plan = ?`)
+    .get(userId, plan)
+  return !!row
 }
 
 function planFromPriceId(priceId: string | null | undefined): PlanKey | null {
@@ -245,6 +260,9 @@ router.post("/create-checkout", requireAuth, asyncHandler(async (req: AuthReques
       upsertSubscription(userId, { stripe_customer_id: customerId })
     }
 
+    /* Предлагаем триал только если пользователь ещё не использовал его на этот план */
+    const trialEligible = !hasUsedTrial(userId, plan)
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -254,6 +272,7 @@ router.post("/create-checkout", requireAuth, asyncHandler(async (req: AuthReques
       metadata: { userId: String(userId), plan },
       subscription_data: {
         metadata: { userId: String(userId), plan },
+        ...(trialEligible ? { trial_period_days: TRIAL_DAYS } : {}),
       },
     })
 
@@ -521,5 +540,155 @@ router.post("/cancel", requireAuth, async (req: AuthRequest, res) => {
     res.status(500).json({ error: err.message || "Не удалось отменить подписку" })
   }
 })
+
+/* ================================================================
+   GET /subscription/trial-status
+   Возвращает, может ли пользователь воспользоваться триалом на план.
+   body query: ?plan=architect|master|legend
+   ================================================================ */
+router.get("/trial-status", requireAuth, (req: AuthRequest, res) => {
+  const userId = req.user!.userId
+  const plan = req.query.plan as string | undefined
+
+  if (!plan || !PAID_PLANS.includes(plan as any)) {
+    return res.status(400).json({ error: "Укажите корректный план: architect, master или legend" })
+  }
+
+  const used = hasUsedTrial(userId, plan)
+  const trialRow = used
+    ? (db.prepare(`SELECT ends_at FROM trial_history WHERE user_id = ? AND plan = ?`).get(userId, plan) as any)
+    : null
+
+  res.json({
+    plan,
+    eligible: !used,
+    trialDays: TRIAL_DAYS,
+    trialEndsAt: trialRow?.ends_at ?? null,
+  })
+})
+
+/* ================================================================
+   POST /subscription/start-trial
+   Активирует 7-дневный бесплатный триал.
+
+   В реальном режиме Stripe — создаёт Checkout Session с привязкой
+   карты и trial_period_days: 7 (оплата спишется после триала).
+   В mock-режиме (dev) — сразу активирует trialing-статус локально.
+
+   Каждый пользователь может использовать триал только 1 раз
+   на каждый платный план.
+   ================================================================ */
+router.post("/start-trial", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+  const { plan } = req.body || {}
+
+  if (!PAID_PLANS.includes(plan)) {
+    return res.status(400).json({
+      error: `Некорректный план. Допустимые платные планы: ${PAID_PLANS.join(", ")}`,
+    })
+  }
+
+  const userId = req.user!.userId
+
+  /* Проверяем, не использовал ли уже триал */
+  if (hasUsedTrial(userId, plan)) {
+    return res.status(409).json({
+      error: `Вы уже использовали бесплатный триал для плана «${plan}». Триал доступен 1 раз на план.`,
+      trialUsed: true,
+    })
+  }
+
+  const now  = Date.now()
+  const ends = now + TRIAL_PERIOD_MS
+
+  /* ── Mock-режим ── */
+  if (!isStripeConfigured || !stripe) {
+    if (process.env.NODE_ENV === "production") {
+      return res.status(503).json({ error: "Оплата временно недоступна. Попробуйте позже." })
+    }
+
+    upsertSubscription(userId, {
+      plan,
+      status: "trialing",
+      current_period_start: now,
+      current_period_end: ends,
+      cancel_at_period_end: 0,
+      canceled_at: null,
+      trial_used: 1,
+    })
+
+    /* Фиксируем использование триала */
+    db.prepare(
+      `INSERT OR IGNORE INTO trial_history (user_id, plan, started_at, ends_at) VALUES (?, ?, ?, ?)`,
+    ).run(userId, plan, now, ends)
+
+    db.prepare(
+      `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+       VALUES (?, 'subscription', ?, 'OSGARD (trial)', 0, 'cash_usd', 'done')`,
+    ).run(userId, `Триал ${plan} — 7 дней`)
+
+    logAudit(userId, "credit", 0, "trial_activated_mock", { plan, ends })
+
+    return res.status(200).json({
+      mock: true,
+      url: null,
+      message: `Триал «${plan}» активирован на 7 дней (dev-режим).`,
+      subscription: serializeSubscription(getSubscription(userId)),
+      trialEndsAt: ends,
+    })
+  }
+
+  /* ── Реальный Stripe-режим ── */
+  const priceId = PLAN_PRICE_IDS[plan as Exclude<PlanKey, "free">]
+  if (!priceId) {
+    return res.status(500).json({
+      error: `Stripe Price ID для плана '${plan}' не настроен (STRIPE_PRICE_${plan.toUpperCase()})`,
+    })
+  }
+
+  try {
+    const user: any = db.prepare(`SELECT id, username, email FROM users WHERE id = ?`).get(userId)
+    if (!user) return res.status(404).json({ error: "Пользователь не найден" })
+
+    let existingSub = getSubscription(userId)
+    let customerId = existingSub?.stripe_customer_id || undefined
+
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email || undefined,
+        name: user.username,
+        metadata: { userId: String(userId) },
+      })
+      customerId = customer.id
+      upsertSubscription(userId, { stripe_customer_id: customerId })
+    }
+
+    /* Checkout с привязкой карты + триал. Оплата спишется после 7 дней.
+       trial_history заполняется в webhook checkout.session.completed. */
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer: customerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${FRONTEND_URL}/wallet?checkout=trial&plan=${plan}`,
+      cancel_url:  `${FRONTEND_URL}/pricing?trial=cancel`,
+      metadata: { userId: String(userId), plan, isTrial: "1" },
+      subscription_data: {
+        trial_period_days: TRIAL_DAYS,
+        metadata: { userId: String(userId), plan, isTrial: "1" },
+      },
+      /* Обязательная привязка карты при триале */
+      payment_method_collection: "always",
+    })
+
+    res.status(200).json({
+      mock: false,
+      url: session.url,
+      sessionId: session.id,
+      trialDays: TRIAL_DAYS,
+    })
+  } catch (err: any) {
+    captureError("[subscription/start-trial] Stripe error:", err)
+    res.status(500).json({ error: err.message || "Не удалось создать триальную сессию Stripe" })
+  }
+}))
 
 export default router

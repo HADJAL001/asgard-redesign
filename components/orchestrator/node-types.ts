@@ -1,11 +1,18 @@
-import { Sparkles, Bot, Zap, FileText, type LucideIcon } from "lucide-react"
+import type { ComponentType } from "react"
+import {
+  PremiumClaudeIcon,
+  PremiumDeepseekIcon,
+  PremiumGrokIcon,
+  PremiumTemplateIcon,
+  type NodeIconProps,
+} from "./PremiumNodeIcon"
 import type { OrchestratorNodeData, OrchestratorNodeType } from "@/lib/orchestrator/types"
 
 export interface OrchestratorPaletteItem {
   type: OrchestratorNodeType
   labelKey: string
   descriptionKey: string
-  Icon: LucideIcon
+  Icon: ComponentType<NodeIconProps>
   color: string
   defaultData: OrchestratorNodeData
 }
@@ -15,10 +22,10 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     type: "claude",
     labelKey: "orchestrator.nodeType.claude",
     descriptionKey: "orchestrator.nodeType.claudeDesc",
-    Icon: Sparkles,
+    Icon: PremiumClaudeIcon,
     color: "#00D4FF",
     defaultData: {
-      label: "Claude",
+      label: "OS 5.0",
       type: "claude",
       systemPrompt: "",
       temperature: 0.7,
@@ -29,10 +36,10 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     type: "deepseek",
     labelKey: "orchestrator.nodeType.deepseek",
     descriptionKey: "orchestrator.nodeType.deepseekDesc",
-    Icon: Bot,
+    Icon: PremiumDeepseekIcon,
     color: "#4ADE80",
     defaultData: {
-      label: "DeepSeek",
+      label: "OS 3.0",
       type: "deepseek",
       systemPrompt: "",
       temperature: 0.7,
@@ -43,10 +50,10 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     type: "grok",
     labelKey: "orchestrator.nodeType.grok",
     descriptionKey: "orchestrator.nodeType.grokDesc",
-    Icon: Zap,
+    Icon: PremiumGrokIcon,
     color: "#FBBF24",
     defaultData: {
-      label: "Grok",
+      label: "OS 3.3",
       type: "grok",
       systemPrompt: "",
       temperature: 0.7,
@@ -57,7 +64,7 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     type: "prompt_template",
     labelKey: "orchestrator.nodeType.promptTemplate",
     descriptionKey: "orchestrator.nodeType.promptTemplateDesc",
-    Icon: FileText,
+    Icon: PremiumTemplateIcon,
     color: "#6A6A8A",
     defaultData: {
       label: "Шаблон",

@@ -3,7 +3,7 @@
 /* ================================================================
    AiUsageWidget — виджет дневного использования AI
    ----------------------------------------------------------------
-   Показывает текущее использование Claude / Grok / DeepSeek
+   Показывает текущее использование OS 5.0 / OS 3.3 / OS 3.0
    относительно дневного лимита тарифа. Обновляется при монтировании.
 
    Используется в dashboard-view.tsx и может быть вставлен
@@ -42,9 +42,9 @@ interface AiUsageResponse {
 
 /* ── Конфиги провайдеров ── */
 const PROVIDERS: { key: keyof AiUsageCounters; label: string; color: string }[] = [
-  { key: "claude",   label: "Claude",   color: "#F59E0B" },
-  { key: "grok",     label: "Grok",     color: "#A855F7" },
-  { key: "deepseek", label: "DeepSeek", color: "#06B6D4" },
+  { key: "claude",   label: "OS 5.0",   color: "#F59E0B" },
+  { key: "grok",     label: "OS 3.3",   color: "#A855F7" },
+  { key: "deepseek", label: "OS 3.0",   color: "#06B6D4" },
 ]
 
 const PLAN_LABELS: Record<string, string> = {

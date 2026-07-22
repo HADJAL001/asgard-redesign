@@ -41,6 +41,15 @@ import {
   savePersonalityModeToCache,
   fetchPersonalityFromServer,
 } from "@/lib/jarvis-personality-client"
+import {
+  type VoiceStyle,
+  ALL_VOICE_STYLES,
+  VOICE_STYLE_ICONS,
+  VOICE_STYLE_LABELS,
+  loadVoiceStyleFromCache,
+  saveVoiceStyleToCache,
+  fetchVoiceStylesFromServer,
+} from "@/lib/jarvis-voice-client"
 
 /* ----------------------------------------------------------------
    Типы
@@ -105,17 +114,22 @@ export function ВАЛЛИChat() {
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [replyMode, setReplyMode] = useState<ReplyMode>("both")
-  const { isSpeaking: speaking, speak, stopSpeaking, isListening, startListening, stopListening, sttSupported } = useVoice()
+  const { isSpeaking: speaking, speakPremium, stopSpeaking, isListening, startListening, stopListening, sttSupported } = useVoice()
   const [modeMenuOpen, setModeMenuOpen] = useState(false)
   /* Режим личности ВАЛЛИ (обычный/цитаты/вредный/поэт/новости) — влияет на стиль ответов. */
   const [personalityMode, setPersonalityMode] = useState<JarvisMode>("default")
   const [personalityMenuOpen, setPersonalityMenuOpen] = useState(false)
+  /* Голосовой стиль ElevenLabs (диктор/кино/реп/спокойный/энергичный) — отдельно от JarvisMode. */
+  const [voiceStyle, setVoiceStyle] = useState<VoiceStyle>("calm")
+  const [voiceStyleMenuOpen, setVoiceStyleMenuOpen] = useState(false)
+  const [premiumVoiceConfigured, setPremiumVoiceConfigured] = useState(false)
   /* Текущая экипировка ВАЛЛИА (skin/voice/accessory) — влияет на 3D-аватар и голос TTS. */
   const [equipment, setEquipment] = useState<JarvisEquipment>(EMPTY_EQUIPMENT)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const personalityMenuRef = useRef<HTMLDivElement>(null)
+  const voiceStyleMenuRef = useRef<HTMLDivElement>(null)
 
   /* Восстановление режима ответа из localStorage при монтировании */
   useEffect(() => {
@@ -127,6 +141,14 @@ export function ВАЛЛИChat() {
     setPersonalityMode(loadPersonalityModeFromCache())
     fetchPersonalityFromServer().then((mode) => {
       if (mode) setPersonalityMode(mode)
+    })
+  }, [])
+
+  /* Голосовой стиль: локальный кэш + проверка, настроен ли ElevenLabs на бэкенде (GET /jarvis/voice-styles). */
+  useEffect(() => {
+    setVoiceStyle(loadVoiceStyleFromCache())
+    fetchVoiceStylesFromServer().then((res) => {
+      if (res) setPremiumVoiceConfigured(res.configured)
     })
   }, [])
 
@@ -155,7 +177,7 @@ export function ВАЛЛИChat() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
   }, [messages, loading])
 
-  /* Закрытие выпадающих меню (режим ответа + личность) по клику снаружи */
+  /* Закрытие выпадающих меню (режим ответа + личность + голос) по клику снаружи */
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -163,6 +185,9 @@ export function ВАЛЛИChat() {
       }
       if (personalityMenuRef.current && !personalityMenuRef.current.contains(e.target as Node)) {
         setPersonalityMenuOpen(false)
+      }
+      if (voiceStyleMenuRef.current && !voiceStyleMenuRef.current.contains(e.target as Node)) {
+        setVoiceStyleMenuOpen(false)
       }
     }
     document.addEventListener("mousedown", handleClickOutside)
@@ -173,6 +198,12 @@ export function ВАЛЛИChat() {
     setPersonalityMode(mode)
     savePersonalityModeToCache(mode)
     setPersonalityMenuOpen(false)
+  }
+
+  function handleSetVoiceStyle(style: VoiceStyle) {
+    setVoiceStyle(style)
+    saveVoiceStyleToCache(style)
+    setVoiceStyleMenuOpen(false)
   }
 
   function handleSetReplyMode(mode: ReplyMode) {
@@ -257,10 +288,11 @@ export function ВАЛЛИChat() {
       }
       setMessages((prev) => [...prev, assistantMsg])
 
-      // Озвучиваем ответ, если включён голосовой канал.
+      // Озвучиваем ответ, если включён голосовой канал: премиум-голос ElevenLabs,
+      // при отсутствии ключа/ошибке — автоматический fallback на браузерный TTS.
       if (replyMode === "voice" || replyMode === "both") {
         const profile = resolveVoiceProfile(equipment.voice)
-        speak(res.answer, { rate: profile.rate, pitch: profile.pitch, langHint: profile.langHint })
+        speakPremium(res.answer, voiceStyle, { rate: profile.rate, pitch: profile.pitch, langHint: profile.langHint })
       }
 
       // Если ВАЛЛИ рекомендует запустить цепочку — автоматически переходим через 1.5 сек
@@ -381,6 +413,35 @@ export function ВАЛЛИChat() {
                   >
                     <span className="jarvis-mode-icon">{MODE_ICONS[mode]}</span>
                     {MODE_LABELS[mode]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Выпадающий список голосового стиля озвучки (диктор/кино/реп/спокойный/энергичный) */}
+          <div className="jarvis-mode-select" ref={voiceStyleMenuRef}>
+            <button
+              type="button"
+              className="jarvis-mode-btn"
+              onClick={() => setVoiceStyleMenuOpen((v) => !v)}
+              title={premiumVoiceConfigured ? "Голос ВАЛЛИ" : "Голос ВАЛЛИ (браузерный TTS — премиум-голос не настроен)"}
+            >
+              <span className="jarvis-mode-icon">{VOICE_STYLE_ICONS[voiceStyle]}</span>
+              <span className="jarvis-mode-label">{VOICE_STYLE_LABELS[voiceStyle]}</span>
+            </button>
+
+            {voiceStyleMenuOpen && (
+              <div className="jarvis-mode-menu">
+                {ALL_VOICE_STYLES.map((style) => (
+                  <button
+                    key={style}
+                    type="button"
+                    className={`jarvis-mode-option ${voiceStyle === style ? "active" : ""}`}
+                    onClick={() => handleSetVoiceStyle(style)}
+                  >
+                    <span className="jarvis-mode-icon">{VOICE_STYLE_ICONS[style]}</span>
+                    {VOICE_STYLE_LABELS[style]}
                   </button>
                 ))}
               </div>

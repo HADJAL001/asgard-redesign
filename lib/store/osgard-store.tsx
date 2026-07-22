@@ -51,6 +51,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from "react"
 import { create } from "zustand"
+import { useAuth } from "@/lib/auth-store"
 import { apiClient, ApiError } from "@/lib/api-client"
 import { CURRENCIES, convertQuote, toCredits, type CurrencyId, type Wallet } from "@/lib/economy"
 import {
@@ -1490,11 +1491,15 @@ const StoreContext = createContext<StoreValue | null>(null)
 
 export function OsgardStoreProvider({ children }: { children: ReactNode }) {
   const real = useOsgardStore()
+  const { user } = useAuth()
 
   useEffect(() => {
     // skipAuthRedirect: это фоновая гидратация при монтировании (на ВСЕХ страницах,
     // включая гостевые/публичные) — гостю с истёкшей/отсутствующей сессией нельзя
     // насильно рвать навигацию редиректом на /login из-за неё.
+    // Зависимость от user?.id: после клиентского router.push() при логине/логауте
+    // (app/login/page.tsx) этот провайдер не размонтируется — без этой зависимости
+    // кошелёк/TC/ордера остались бы данными гостя (нули) до полной перезагрузки страницы.
     const opts = { skipAuthRedirect: true }
     real.fetchWallet(opts)
     real.fetchTcState(opts)
@@ -1503,7 +1508,7 @@ export function OsgardStoreProvider({ children }: { children: ReactNode }) {
     real.fetchStakes(opts)
     real.fetchTransactions(opts)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [user?.id])
 
   const wallet = useMemo<Wallet>(
     () => ({

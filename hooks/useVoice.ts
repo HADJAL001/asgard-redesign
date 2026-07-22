@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import * as voiceService from "@/lib/voice.service"
 import type { ListenOptions, SpeakOptions } from "@/lib/voice.service"
+import type { VoiceStyle } from "@/lib/jarvis-voice-client"
 
 export function useVoice() {
   const [isSpeaking, setIsSpeaking] = useState(false)
@@ -38,6 +39,23 @@ export function useVoice() {
     setIsSpeaking(false)
   }, [])
 
+  /**
+   * Премиум-озвучка (ElevenLabs) с автоматическим fallback на браузерный speak(),
+   * если бэкенд не настроен (нет ключа) или запрос не удался.
+   */
+  const speakPremium = useCallback(
+    async (text: string, style: VoiceStyle, fallbackOptions: Omit<SpeakOptions, "onStart" | "onEnd"> = {}) => {
+      const ok = await voiceService.speakPremium(text, style, {
+        onStart: () => setIsSpeaking(true),
+        onEnd: () => setIsSpeaking(false),
+      })
+      if (!ok) {
+        speak(text, fallbackOptions)
+      }
+    },
+    [speak]
+  )
+
   const startListening = useCallback((options: Omit<ListenOptions, "onStart" | "onEnd"> = {}) => {
     voiceService.startListening({
       ...options,
@@ -51,5 +69,5 @@ export function useVoice() {
     setIsListening(false)
   }, [])
 
-  return { isSpeaking, isListening, sttSupported, speak, stopSpeaking, startListening, stopListening }
+  return { isSpeaking, isListening, sttSupported, speak, speakPremium, stopSpeaking, startListening, stopListening }
 }

@@ -407,12 +407,12 @@
     "editBtn": "Өңдеу",
     "paletteTitle": "Түйіндер",
     "nodeType": {
-      "claude": "Claude",
-      "claudeDesc": "Жүйелік промпты бар Claude-ге сұраныс",
-      "deepseek": "DeepSeek",
-      "deepseekDesc": "Жүйелік промпты бар DeepSeek-ке сұраныс",
-      "grok": "Grok",
-      "grokDesc": "Жүйелік промпты бар Grok-қа сұраныс",
+      "claude": "OS 5.0",
+      "claudeDesc": "OSGARD-тың жеке нейрондық желісі OS 5.0 арқылы жүйелік промптпен өңдеу",
+      "deepseek": "OS 3.0",
+      "deepseekDesc": "OSGARD-тың жеке нейрондық желісі OS 3.0 арқылы жүйелік промптпен өңдеу",
+      "grok": "OS 3.3",
+      "grokDesc": "OSGARD-тың жеке нейрондық желісі OS 3.3 арқылы жүйелік промптпен өңдеу",
       "promptTemplate": "Шаблон",
       "promptTemplateDesc": "Модельді шақырмай кірісті мәтіндік шаблонға қою"
     },
@@ -441,7 +441,11 @@
     "saveAsJarvisTemplate": "ВАЛЛИ-кеңесшісі үшін үлгі ретінде сақтау",
     "removeJarvisTemplate": "ВАЛЛИ үлгілерінен алып тастау",
     "saveBeforeTemplate": "Алдымен тізбекті сақтаңыз",
-    "templateError": "Үлгіні сақтау сәтсіз аяқталды"
+    "templateError": "Үлгіні сақтау сәтсіз аяқталды",
+    "editorNodeCount": "{{count}}/{{max}} түйін",
+    "maxNodesReached": "Тізбектегі түйіндердің максимумына жетті: {{max}}",
+    "heroTitle": "OS AI Python",
+    "heroSubtitle": "OSGARD-тың жеке ЖИ-конвейері — нейрожелілерді бір тізбекке біріктіріңіз"
   },
   "projectWizard": {
     "title": "Жоба құру",
@@ -478,6 +482,41 @@
     "generationFailed": "Қолданба файлдарын жасау мүмкін болмады",
     "errorGenerate": "Жобаны жасау мүмкін болмады",
     "errorCreate": "Жобаны құру мүмкін болмады"
+  },
+  "quickStart": {
+    "title": "Жылдам старт",
+    "subtitle": "Қолданбаны бір сөйлеммен сипаттаңыз — AI оны сіз үшін жасайды",
+    "nameLabel": "Қолданба атауы",
+    "namePlaceholder": "Мысалы: Әдеттер трекері",
+    "descriptionLabel": "Сипаттама (міндетті емес)",
+    "descriptionPlaceholder": "Қолданба нені жасауы керек?",
+    "errorNameRequired": "Қолданба атауын енгізіңіз",
+    "remainingGenerations": "Қалған генерациялар: {{remaining}} / {{limit}}",
+    "noRemainingGenerations": "Генерация лимиті таусылды",
+    "createButton": "✨ Қолданба жасау",
+    "creating": "Генерация басталуда…",
+    "errorCreate": "Генерацияны бастау мүмкін болмады",
+    "errorTaskFailed": "Генерация сәтсіз аяқталды",
+    "cancelledMessage": "Генерация тоқтатылды",
+    "stage": {
+      "spec": "Аналитик — техникалық тапсырма",
+      "schema": "Архитектор — деректер құрылымы",
+      "design": "Дизайнер — интерфейс",
+      "frontend": "Фронтенд — қолданба интерфейсі",
+      "backend": "Бэкенд — серверлік логика",
+      "tests": "Тестілеуші — тексеру",
+      "optimized": "Оптимизатор — өнімділік",
+      "security": "Қауіпсіздік — тексеру"
+    },
+    "resultTitle": "Қолданба дайын!",
+    "demoResultTitle": "Генерация аяқталды (демо-режим)",
+    "demoResultMessage": "Пайплайн агенттері әзірге бос орындаушылар — бэкенд-агенттер дайын болғанда, қолданба мен репозиторийге нақты сілтемелер пайда болады.",
+    "openApp": "Қолданбаны ашу",
+    "openRepo": "GitHub-та ашу",
+    "openOrchestrator": "Оркестраторда ашу",
+    "openingOrchestrator": "Тізбек құрылуда…",
+    "errorOrchestrator": "Оркестраторда ашу мүмкін болмады",
+    "close": "Жабу"
   },
   "projectDetail": {
     "loading": "Жоба жүктелуде…",

@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import apiClient from "@/lib/api-client";
 import { useVoice } from "@/hooks/useVoice";
+import { loadVoiceStyleFromCache } from "@/lib/jarvis-voice-client";
 
 export type ResponseMode = "text" | "voice" | "both";
 
@@ -24,7 +25,10 @@ export function useWalliVoice() {
 
   const speak = useCallback(
     (text: string) => {
-      voice.speak(text, { lang, rate: 0.7, pitch: 1.6 });
+      // Премиум-голос ElevenLabs (стиль сохранён из JarvisChat), с fallback на
+      // браузерный speechSynthesis при отсутствии ключа/ошибке — те же rate/pitch,
+      // что использовались раньше для фиксированной озвучки ВАЛЛИ.
+      voice.speakPremium(text, loadVoiceStyleFromCache(), { lang, rate: 0.7, pitch: 1.6 });
     },
     [voice, lang]
   );

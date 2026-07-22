@@ -6,7 +6,14 @@
    ранее жившие отдельно в components/JarvisChat.tsx и
    app/walli-room/useWalliVoice.ts — используйте hooks/useVoice.ts
    для React-обвязки (isSpeaking/isListening).
+
+   speakPremium() — премиум-озвучка через ElevenLabs (backend /jarvis/speak),
+   отдельно от speak() (браузерный speechSynthesis, используется как fallback
+   при отсутствии ELEVENLABS_API_KEY или сетевой ошибке).
    ================================================================ */
+
+import { API_BASE_URL } from "@/lib/api-client"
+import type { VoiceStyle } from "@/lib/jarvis-voice-client"
 
 export type SpeakOptions = {
   /** Язык озвучки, напр. "ru-RU". По умолчанию "ru-RU". */
@@ -52,6 +59,68 @@ export function speak(text: string, options: SpeakOptions = {}) {
 export function stopSpeaking() {
   if (typeof window === "undefined") return
   window.speechSynthesis?.cancel()
+  stopPremiumSpeaking()
+}
+
+let activePremiumAudio: HTMLAudioElement | null = null
+
+export type SpeakPremiumOptions = {
+  onStart?: () => void
+  onEnd?: () => void
+}
+
+/** Останавливает текущее премиум-аудио (ElevenLabs), если оно воспроизводится. */
+export function stopPremiumSpeaking() {
+  if (activePremiumAudio) {
+    activePremiumAudio.pause()
+    activePremiumAudio = null
+  }
+}
+
+/**
+ * Озвучка через ElevenLabs (POST /jarvis/speak). Возвращает true, если удалось
+ * воспроизвести премиум-голос, иначе false — вызывающий код должен сам сделать
+ * fallback на speak() (нет ключа на бэкенде, сеть недоступна и т.п.).
+ */
+export async function speakPremium(
+  text: string,
+  style: VoiceStyle,
+  options: SpeakPremiumOptions = {}
+): Promise<boolean> {
+  if (typeof window === "undefined") return false
+  stopPremiumSpeaking()
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/jarvis/speak`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ text, style }),
+    })
+    if (!res.ok) return false
+
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const audio = new Audio(url)
+    activePremiumAudio = audio
+
+    audio.onplay = () => options.onStart?.()
+    audio.onended = () => {
+      URL.revokeObjectURL(url)
+      if (activePremiumAudio === audio) activePremiumAudio = null
+      options.onEnd?.()
+    }
+    audio.onerror = () => {
+      URL.revokeObjectURL(url)
+      if (activePremiumAudio === audio) activePremiumAudio = null
+      options.onEnd?.()
+    }
+
+    await audio.play()
+    return true
+  } catch {
+    return false
+  }
 }
 
 /** Прогружает список голосов заранее (некоторые браузеры грузят их асинхронно). */

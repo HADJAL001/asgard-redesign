@@ -37,7 +37,7 @@ const PERKS = [
     color: "#A855F7",
     glow: "rgba(168,85,247,0.15)",
     title: "Pro — $19/мес",
-    desc: "15 генераций/день · Claude + Grok + DeepSeek",
+    desc: "15 генераций/день · OS 5.0 + OS 3.3 + OS 3.0",
   },
   {
     Icon: Crown,
@@ -58,7 +58,7 @@ const PERKS = [
     color: "#34D399",
     glow: "rgba(52,211,153,0.15)",
     title: "Оркестратор AI-цепочек",
-    desc: "Claude → Grok → DeepSeek в одном пайплайне",
+    desc: "OS 5.0 → OS 3.3 → OS 3.0 в одном пайплайне",
   },
 ]
 

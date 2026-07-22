@@ -658,4 +658,22 @@ svg { width: 1rem; height: 1rem; flex: none; }
   .platform-hotspot-rise { opacity: 1; transform: none; }
 }
 
+/* ===== AvatarOrb (премиум-бейдж ДЖАРВИС/ВАЛЛИ) ===== */
+.avatar-orb { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+.avatar-orb-glow { position: absolute; inset: -35%; border-radius: 50%; filter: blur(6px); pointer-events: none; animation: orb-glow-pulse 3.2s ease-in-out infinite; }
+.avatar-orb-ring { transform-box: fill-box; transform-origin: center; animation: orb-ring-spin 9s linear infinite; }
+.avatar-orb-core { transform-box: fill-box; transform-origin: center; filter: drop-shadow(0 0 6px var(--orb-glow-color, #00D4FF)); animation: orb-core-breathe 3.6s ease-in-out infinite; }
+.avatar-orb--speaking .avatar-orb-core { animation: orb-core-speak .5s ease-in-out infinite; }
+.avatar-orb--speaking .avatar-orb-glow { animation: orb-glow-pulse 1s ease-in-out infinite; }
+.avatar-orb--listening .avatar-orb-ring { animation: orb-ring-spin 2.4s linear infinite; }
+
+@keyframes orb-glow-pulse { 0%, 100% { opacity: .55; transform: scale(1); } 50% { opacity: .9; transform: scale(1.08); } }
+@keyframes orb-ring-spin { to { transform: rotate(360deg); } }
+@keyframes orb-core-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+@keyframes orb-core-speak { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.09); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-orb-glow, .avatar-orb-ring, .avatar-orb-core { animation: none; }
+}
+
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto !important; } }

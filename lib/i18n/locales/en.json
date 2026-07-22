@@ -407,12 +407,12 @@
     "editBtn": "Edit",
     "paletteTitle": "Nodes",
     "nodeType": {
-      "claude": "Claude",
-      "claudeDesc": "Request to Claude with a system prompt",
-      "deepseek": "DeepSeek",
-      "deepseekDesc": "Request to DeepSeek with a system prompt",
-      "grok": "Grok",
-      "grokDesc": "Request to Grok with a system prompt",
+      "claude": "OS 5.0",
+      "claudeDesc": "Processed by OSGARD's own neural network OS 5.0 with a system prompt",
+      "deepseek": "OS 3.0",
+      "deepseekDesc": "Processed by OSGARD's own neural network OS 3.0 with a system prompt",
+      "grok": "OS 3.3",
+      "grokDesc": "Processed by OSGARD's own neural network OS 3.3 with a system prompt",
       "promptTemplate": "Template",
       "promptTemplateDesc": "Substitute the input into a text template without calling a model"
     },
@@ -441,7 +441,11 @@
     "saveAsJarvisTemplate": "Save as WALLI advisor template",
     "removeJarvisTemplate": "Remove from WALLI templates",
     "saveBeforeTemplate": "Save the chain first",
-    "templateError": "Failed to save template"
+    "templateError": "Failed to save template",
+    "editorNodeCount": "{{count}}/{{max}} nodes",
+    "maxNodesReached": "Maximum chain size reached: {{max}} nodes",
+    "heroTitle": "OS AI Python",
+    "heroSubtitle": "OSGARD's own AI pipeline — chain neural networks together"
   },
   "projectWizard": {
     "title": "Create Project",
@@ -478,6 +482,41 @@
     "generationFailed": "Failed to generate application files",
     "errorGenerate": "Failed to generate project",
     "errorCreate": "Failed to create project"
+  },
+  "quickStart": {
+    "title": "Quick Start",
+    "subtitle": "Describe your app in one sentence — AI will build it for you",
+    "nameLabel": "App name",
+    "namePlaceholder": "e.g. Habit tracker",
+    "descriptionLabel": "Description (optional)",
+    "descriptionPlaceholder": "What should the app do?",
+    "errorNameRequired": "Please enter an app name",
+    "remainingGenerations": "Generations left: {{remaining}} of {{limit}}",
+    "noRemainingGenerations": "Generation limit reached",
+    "createButton": "✨ Create App",
+    "creating": "Starting generation…",
+    "errorCreate": "Failed to start generation",
+    "errorTaskFailed": "Generation failed",
+    "cancelledMessage": "Generation cancelled",
+    "stage": {
+      "spec": "Analyst — specification",
+      "schema": "Architect — data structure",
+      "design": "Designer — interface",
+      "frontend": "Frontend — app interface",
+      "backend": "Backend — server logic",
+      "tests": "Tester — verification",
+      "optimized": "Optimizer — performance",
+      "security": "Security — safety review"
+    },
+    "resultTitle": "Your app is ready!",
+    "demoResultTitle": "Generation complete (demo mode)",
+    "demoResultMessage": "Pipeline agents are currently stubs — real app and repository links will appear once the backend agents are ready.",
+    "openApp": "Open app",
+    "openRepo": "Open on GitHub",
+    "openOrchestrator": "Open in orchestrator",
+    "openingOrchestrator": "Creating chain…",
+    "errorOrchestrator": "Failed to open in orchestrator",
+    "close": "Close"
   },
   "projectDetail": {
     "loading": "Loading project…",

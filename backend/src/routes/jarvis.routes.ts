@@ -10,6 +10,14 @@ import {
   isAnyProviderConfigured,
 } from "../services/jarvis.service"
 import { ALL_MODES, MODE_ICONS, MODE_LABELS, isValidMode } from "../services/jarvis-personality.service"
+import {
+  VOICE_STYLE_ICONS,
+  VOICE_STYLE_KEYS,
+  VOICE_STYLE_LABELS,
+  isElevenLabsConfigured,
+  isValidVoiceStyle,
+  synthesizeSpeech,
+} from "../services/elevenlabs"
 import { captureError } from "../lib/sentry"
 
 const router = Router()
@@ -70,6 +78,51 @@ router.get("/personality", requireAuth, (req: AuthRequest, res) => {
     label: MODE_LABELS[mode],
     modes: ALL_MODES.map((m) => ({ mode: m, icon: MODE_ICONS[m], label: MODE_LABELS[m] })),
   })
+})
+
+/* ================================================================
+   GET /jarvis/voice-styles
+   Справочник голосовых стилей ElevenLabs (для выбора в UI «Голос»).
+   ================================================================ */
+router.get("/voice-styles", requireAuth, (_req: AuthRequest, res) => {
+  res.json({
+    configured: isElevenLabsConfigured(),
+    styles: VOICE_STYLE_KEYS.map((style) => ({ style, icon: VOICE_STYLE_ICONS[style], label: VOICE_STYLE_LABELS[style] })),
+  })
+})
+
+/* ================================================================
+   POST /jarvis/speak
+   Синтез речи через ElevenLabs.
+
+   body: { text: string, style?: VoiceStyle } (по умолчанию — "calm")
+   Возвращает audio/mpeg байты. Если ключ не задан или провайдер
+   недоступен — 503, фронт делает fallback на браузерный TTS.
+   ================================================================ */
+router.post("/speak", requireAuth, async (req: AuthRequest, res) => {
+  const { text, style = "calm" } = req.body || {}
+
+  if (typeof text !== "string" || !text.trim()) {
+    return res.status(400).json({ error: "Поле 'text' обязательно и должно быть непустой строкой" })
+  }
+  if (!isValidVoiceStyle(style)) {
+    return res.status(400).json({ error: `Поле 'style' должно быть одним из: ${VOICE_STYLE_KEYS.join(", ")}` })
+  }
+  if (!isElevenLabsConfigured()) {
+    return res.status(503).json({ error: "Голосовой синтез не настроен" })
+  }
+
+  try {
+    const audio = await synthesizeSpeech(text.slice(0, 2000), style)
+    if (!audio) {
+      return res.status(502).json({ error: "Не удалось синтезировать речь" })
+    }
+    res.setHeader("Content-Type", "audio/mpeg")
+    res.send(audio)
+  } catch (err: any) {
+    captureError("[jarvis/speak] error:", err)
+    res.status(500).json({ error: err.message || "Не удалось синтезировать речь" })
+  }
 })
 
 /* ================================================================

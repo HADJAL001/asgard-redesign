@@ -20,10 +20,12 @@ import { Loader2, Play, Save, Coins, Bot, CheckCircle2 } from "lucide-react"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { orchestratorApi } from "@/lib/orchestrator/api"
+import { temperatureLabel } from "@/lib/orchestrator/temperature-label"
 import { ApiError } from "@/lib/api-client"
 import { useOrchestratorRun } from "@/hooks/useOrchestratorRun"
 import { ORCHESTRATOR_PALETTE, DRAG_DATA_FORMAT } from "./node-types"
 import { OrchestratorNode } from "./nodes/OrchestratorNode"
+import { SnakeEdge } from "./edges/SnakeEdge"
 import { PremiumModal } from "@/components/PremiumModal"
 import type {
   OrchestratorChain,
@@ -33,6 +35,30 @@ import type {
 } from "@/lib/orchestrator/types"
 
 const NODE_TYPES = { orchestratorNode: OrchestratorNode }
+const EDGE_TYPES = { snake: SnakeEdge }
+const DEFAULT_EDGE_OPTIONS = { type: "snake" }
+const MAX_NODES = 20
+
+/** Старые сохранённые цепочки могут хранить edges без type — проставляем "snake" сразу при инициализации, чтобы не было "мигания" стандартной связи. */
+function normalizeEdges(edges: OrchestratorFlowEdge[]): OrchestratorFlowEdge[] {
+  return edges.map((edge) => (edge.type ? edge : { ...edge, type: "snake" }))
+}
+
+/** Старые сохранённые узлы могут хранить сырое имя провайдера в data.label ещё до ребрендинга — приводим такие значения к актуальному дефолту из палитры. Любое реальное пользовательское имя узла (не совпадающее с "Claude"/"DeepSeek"/"Grok") остаётся нетронутым. */
+const STALE_PROVIDER_LABELS: Record<string, string> = {
+  claude: "claude",
+  deepseek: "deepseek",
+  grok: "grok",
+}
+function normalizeNodes(nodes: OrchestratorFlowNode[]): OrchestratorFlowNode[] {
+  return nodes.map((node) => {
+    const isStale = STALE_PROVIDER_LABELS[node.data.type] === node.data.label?.trim().toLowerCase()
+    if (!isStale) return node
+    const palette = ORCHESTRATOR_PALETTE.find((p) => p.type === node.data.type)
+    if (!palette) return node
+    return { ...node, data: { ...node.data, label: palette.defaultData.label } }
+  })
+}
 
 let idCounter = 0
 function nextNodeId() {
@@ -52,8 +78,8 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
   const { screenToFlowPosition } = useReactFlow()
 
   const [name, setName] = useState(initialChain?.name ?? t("orchestrator.untitled"))
-  const [nodes, setNodes, onNodesChange] = useNodesState<OrchestratorFlowNode>(initialChain?.nodes ?? [])
-  const [edges, setEdges, onEdgesChange] = useEdgesState<OrchestratorFlowEdge>(initialChain?.edges ?? [])
+  const [nodes, setNodes, onNodesChange] = useNodesState<OrchestratorFlowNode>(normalizeNodes(initialChain?.nodes ?? []))
+  const [edges, setEdges, onEdgesChange] = useEdgesState<OrchestratorFlowEdge>(normalizeEdges(initialChain?.edges ?? []))
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [chainInput, setChainInput] = useState("")
   const [saving, setSaving] = useState(false)
@@ -93,7 +119,7 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
   }, [currentChainId, executionId])
 
   const onConnect = useCallback(
-    (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
+    (connection: Connection) => setEdges((eds) => addEdge({ ...connection, type: "snake" }, eds)),
     [setEdges],
   )
 
@@ -109,6 +135,10 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
       if (!nodeType) return
       const palette = ORCHESTRATOR_PALETTE.find((p) => p.type === nodeType)
       if (!palette) return
+      if (nodes.length >= MAX_NODES) {
+        setSaveError(t("orchestrator.maxNodesReached", { max: MAX_NODES }))
+        return
+      }
 
       const position = screenToFlowPosition({ x: event.clientX, y: event.clientY })
       const newNode: OrchestratorFlowNode = {
@@ -119,7 +149,7 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
       }
       setNodes((nds) => nds.concat(newNode))
     },
-    [screenToFlowPosition, setNodes],
+    [screenToFlowPosition, setNodes, nodes.length, t],
   )
 
   function updateSelectedNodeData(patch: Partial<OrchestratorFlowNode["data"]>) {
@@ -228,6 +258,18 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
           className="min-w-0 flex-1 rounded-lg px-3 py-2 text-[14px] font-medium outline-none"
           style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text }}
         />
+
+        {/* Счётчик узлов цепочки */}
+        <div
+          className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium"
+          style={{
+            backgroundColor: COLORS.card,
+            border: `1px solid ${COLORS.border}`,
+            color: nodes.length >= MAX_NODES ? COLORS.red : COLORS.label,
+          }}
+        >
+          {t("orchestrator.editorNodeCount", { count: nodes.length, max: MAX_NODES })}
+        </div>
 
         {/* Индикатор остатка запросов */}
         {quota !== null && !quotaLoading && (
@@ -344,6 +386,8 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
             onNodeClick={(_, node) => setSelectedNodeId(node.id)}
             onPaneClick={() => setSelectedNodeId(null)}
             nodeTypes={NODE_TYPES}
+            edgeTypes={EDGE_TYPES}
+            defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
             colorMode="dark"
             fitView
           >
@@ -397,7 +441,7 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
                 </label>
 
                 <label className="block text-[12px]" style={{ color: COLORS.label }}>
-                  {t("orchestrator.paramTemperature")}: {selectedNode.data.temperature ?? 0.7}
+                  {t("orchestrator.paramTemperature")}: {temperatureLabel(selectedNode.data.temperature ?? 0.7)}
                   <input
                     type="range"
                     min={0}

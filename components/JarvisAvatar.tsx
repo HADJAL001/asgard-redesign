@@ -85,8 +85,12 @@ function AvatarCore({ skin, speaking }: { skin: SkinPreset; speaking?: boolean }
         emissiveIntensity={skin.emissiveIntensity}
         metalness={skin.metalness}
         roughness={skin.roughness}
-        clearcoat={0.4}
-        clearcoatRoughness={0.15}
+        clearcoat={0.75}
+        clearcoatRoughness={0.1}
+        iridescence={0.5}
+        iridescenceIOR={1.3}
+        sheen={0.35}
+        sheenColor={skin.color}
         transparent
         opacity={0.92}
         wireframe={false}
@@ -223,6 +227,7 @@ function AvatarScene({ equipment, speaking }: { equipment: JarvisEquipment; spea
       <ambientLight intensity={0.5} color="#1A2A4A" />
       <directionalLight position={[4, 6, 5]} intensity={1.1} color="#4A8AB5" />
       <pointLight position={[-4, 0, 4]} intensity={0.7} color={skin.color} />
+      <pointLight position={[0, -3, -3]} intensity={0.9} color="#ffffff" distance={8} />{/* тонкий rim-свет для премиального контура */}
 
       <Environment resolution={128} frames={1}>
         <color attach="background" args={["#05070f"]} />

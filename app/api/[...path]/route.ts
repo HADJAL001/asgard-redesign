@@ -189,6 +189,7 @@ async function handleGithubPublishConnect(req: NextRequest) {
 }
 
 const ORCHESTRATOR_STREAM_RE = /^orchestrator\/stream\/[^/]+$/
+const GENERATION_STREAM_RE = /^task\/[^/]+\/stream$/
 
 /**
  * SSE-эндпоинт выполнения цепочки нельзя пропускать через forwardToBackend —
@@ -286,6 +287,9 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
   const accessToken = req.cookies.get(ACCESS_COOKIE)?.value
 
   if (req.method === "GET" && ORCHESTRATOR_STREAM_RE.test(pathStr)) {
+    return handleOrchestratorStream(pathStr, req, accessToken)
+  }
+  if (req.method === "GET" && GENERATION_STREAM_RE.test(pathStr)) {
     return handleOrchestratorStream(pathStr, req, accessToken)
   }
 

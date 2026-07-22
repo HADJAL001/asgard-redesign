@@ -4,8 +4,17 @@ import { memo } from "react"
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react"
 import { Loader2, CheckCircle2, XCircle, Clock } from "lucide-react"
 import { COLORS } from "@/lib/economy"
+import { temperatureLabel } from "@/lib/orchestrator/temperature-label"
+import { useTranslation } from "@/lib/i18n/use-translation"
 import { ORCHESTRATOR_PALETTE } from "../node-types"
 import type { OrchestratorNodeData, OrchestratorNodeRunStatus } from "@/lib/orchestrator/types"
+
+/** Старые сохранённые цепочки могли записать сырое имя провайдера в data.label ещё до ребрендинга — такие значения подменяются на актуальный i18n-лейбл, а любое реальное пользовательское имя узла остаётся нетронутым. */
+const STALE_PROVIDER_LABELS: Record<string, string> = {
+  claude: "claude",
+  deepseek: "deepseek",
+  grok: "grok",
+}
 
 /** displayNodes в OrchestratorEditor подмешивает статус/выход текущего запуска поверх сохранённых данных узла. */
 type OrchestratorNodeRuntimeData = OrchestratorNodeData & {
@@ -47,8 +56,11 @@ export const OrchestratorNode = memo(function OrchestratorNode({
   data,
   selected,
 }: NodeProps<Node<OrchestratorNodeRuntimeData>>) {
+  const { t } = useTranslation()
   const palette = ORCHESTRATOR_PALETTE.find((p) => p.type === data.type)
   const Icon = palette?.Icon
+  const isStaleProviderLabel = STALE_PROVIDER_LABELS[data.type] === data.label?.trim().toLowerCase()
+  const displayLabel = isStaleProviderLabel && palette ? t(palette.labelKey) : data.label
 
   // Обрезаем вывод до 80 символов для компактного отображения в ноде
   const outputPreview = data.output ? data.output.slice(0, 80) + (data.output.length > 80 ? "…" : "") : null
@@ -71,7 +83,7 @@ export const OrchestratorNode = memo(function OrchestratorNode({
         <div className="flex items-center gap-2">
           {Icon && (
             <Icon
-              size={15}
+              size={22}
               strokeWidth={1.75}
               style={{
                 color: data.status === "running" ? COLORS.accent : palette?.color,
@@ -87,7 +99,7 @@ export const OrchestratorNode = memo(function OrchestratorNode({
               transition: "color 0.3s ease",
             }}
           >
-            {data.label}
+            {displayLabel}
           </span>
 
           {/* Иконка статуса */}
@@ -114,7 +126,7 @@ export const OrchestratorNode = memo(function OrchestratorNode({
           </p>
         ) : (
           <p className="mt-1 truncate text-[11px]" style={{ color: COLORS.label }}>
-            t={data.temperature ?? 0.7}
+            {temperatureLabel(data.temperature ?? 0.7)}
           </p>
         )}
 

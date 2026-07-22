@@ -10,10 +10,11 @@
    ================================================================ */
 
 import { useState } from "react"
-import { Bot, X } from "lucide-react"
+import { X } from "lucide-react"
 import ВАЛЛИChat from "@/components/JarvisChat"
 import { useAuth } from "@/lib/auth-store"
 import { useReadonlyMode } from "@/lib/readonly-mode"
+import { AvatarOrb } from "@/components/ui/AvatarOrb"
 
 export function JarvisFloatingWidget() {
   const [open, setOpen] = useState(false)
@@ -61,17 +62,29 @@ export function JarvisFloatingWidget() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#00D4FF",
-          color: "#0A0A0F",
+          background: "transparent",
           border: "none",
-          boxShadow: "0 4px 20px rgba(0,212,255,0.45)",
           cursor: "pointer",
         }}
       >
         {open && isAuthenticated ? (
-          <X size={24} strokeWidth={2} aria-hidden="true" />
+          <span
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "#0A0A0F",
+              color: "#00D4FF",
+              boxShadow: "0 4px 20px rgba(0,212,255,0.45)",
+            }}
+          >
+            <X size={24} strokeWidth={2} aria-hidden="true" />
+          </span>
         ) : (
-          <Bot size={26} strokeWidth={1.75} aria-hidden="true" />
+          <AvatarOrb size={56} variant="idle" />
         )}
       </button>
     </>

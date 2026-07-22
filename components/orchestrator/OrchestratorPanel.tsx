@@ -33,7 +33,7 @@ export function OrchestratorPanel() {
           onMouseLeave={(e) => (e.currentTarget.style.borderColor = COLORS.border)}
         >
           <div className="flex items-center gap-2">
-            <item.Icon size={15} strokeWidth={1.75} style={{ color: item.color }} aria-hidden="true" />
+            <item.Icon size={22} strokeWidth={1.75} style={{ color: item.color }} aria-hidden="true" />
             <span className="text-[13px] font-medium" style={{ color: COLORS.text }}>
               {t(item.labelKey)}
             </span>
