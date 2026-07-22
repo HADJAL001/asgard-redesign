@@ -81,9 +81,11 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
     (event: React.DragEvent) => {
       event.preventDefault()
       const nodeType = event.dataTransfer.getData(DRAG_DATA_FORMAT) as OrchestratorNodeType
+      if (!nodeType) return
       const palette = ORCHESTRATOR_PALETTE.find((p) => p.type === nodeType)
       if (!palette) return
 
+      // screenToFlowPosition принимает координаты экрана напрямую (clientX/Y)
       const position = screenToFlowPosition({ x: event.clientX, y: event.clientY })
       const newNode: OrchestratorFlowNode = {
         id: nextNodeId(),
@@ -237,6 +239,8 @@ function EditorInner({ chainId, initialChain, autoRun }: OrchestratorEditorProps
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
             onNodeClick={(_, node) => setSelectedNodeId(node.id)}
             onPaneClick={() => setSelectedNodeId(null)}
             nodeTypes={NODE_TYPES}

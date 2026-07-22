@@ -8,6 +8,7 @@ const OrchestratorEditorView = dynamic(
         Загрузка…
       </div>
     ),
+    ssr: false,
   }
 )
 
