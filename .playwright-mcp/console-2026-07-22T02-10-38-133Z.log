@@ -1,6 +1,0 @@
-[     325ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2343
-[    1249ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://osgardnewworld.com/favicon.ico:0
-[    1649ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://osgardnewworld.com/api/stakes:0
-[    2073ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://osgardnewworld.com/api/wallet:0
-[    2128ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://osgardnewworld.com/api/auth/me:0
-[    2137ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://osgardnewworld.com/api/transactions:0
