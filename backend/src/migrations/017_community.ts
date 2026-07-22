@@ -6,7 +6,7 @@ import db from "../lib/db"
 
 export function runCommunityMigration() {
   /* users.display_name/avatar_url/level/bio отсутствуют в фактической схеме
-     (001_initial_schema без них), хотя auth.routes.ts (PATCH /auth/me) и
+     (легаси-схема без них), хотя auth.routes.ts (PATCH /auth/me) и
      новые роуты постов/комментариев уже на них рассчитывают — добавляем,
      если колонок ещё нет, по паттерну миграции 015_social_login. */
   const userColumns = (db.prepare(`PRAGMA table_info(users)`).all() as Array<{ name: string }>).map((c) => c.name)

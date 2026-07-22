@@ -26,7 +26,7 @@ export class AdminController {
       const totalArtifacts = safeCount(`SELECT COUNT(*) as c FROM artifacts`)
       const transactions24h = safeCount(`SELECT COUNT(*) as c FROM transactions WHERE created_at >= ${dayAgoMs}`)
       // Балансы живут в таблице wallets (см. auth.controller.ts::register), а не в users —
-      // users.balance_* существует только в db/migrations/001_initial_schema.ts, но не в
+      // users.balance_* существовал только в устаревшей, ныне удалённой ручной миграции, но не в
       // legacy-схеме scripts/init-db.ts, которая создала реальную прод-таблицу.
       const walletTotals = safeAggregate(
         `SELECT COALESCE(SUM(credits),0) as credits, COALESCE(SUM(timecoin),0) as tc FROM wallets`,

@@ -44,7 +44,7 @@ export function runReferralMigration() {
   addColumnIfMissing("users", "onboarding_step", "INTEGER NOT NULL DEFAULT 0")
 
   /* ---------------- 2. Таблица referrals ----------------
-     Таблица уже создаётся в db/migrations/001_initial_schema.ts со схемой
+     Таблица уже создавалась в устаревшей, ныне удалённой ручной миграции со схемой
      (referrer_id, referee_id, reward_amount, status, created_at) — здесь её
      НЕ трогаем, чтобы не создать конфликтующие индексы на несуществующих колонках. */
 

@@ -6,7 +6,7 @@ import db from "../lib/db"
    В репозитории существуют два независимых скрипта создания схемы:
    scripts/init-db.ts (transactions с колонками item/counterparty,
    на которые рассчитывает весь текущий код — onboarding, artifacts,
-   wallet, tcmarket и т.д.) и db/migrations/001_initial_schema.ts
+   wallet, tcmarket и т.д.) и устаревшая, ныне удалённая ручная миграция
    (более старая схема transactions с fee/external_tx_id/metadata,
    без item/counterparty). Если конкретная БД была инициализирована
    вторым путём, каждый INSERT INTO transactions (..., item,

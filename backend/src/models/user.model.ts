@@ -173,7 +173,7 @@ export const UserModel = {
     db.prepare(`UPDATE users SET ${columns.join(', ')} WHERE id = ?`).run(...values);
   },
 
-  // Создать пользователя — совместимо со схемой db/migrations/001_initial_schema.ts
+  // Создать пользователя — совместимо со схемой устаревшей, ныне удалённой ручной миграции
   // Схема: id, email, password_hash, username, balance_credits, balance_shards,
   //        balance_crystals, balance_tc, referral_code, referred_by, is_verified,
   //        twofa_secret, twofa_enabled, nonce, role, created_at, updated_at
@@ -193,7 +193,7 @@ export const UserModel = {
     }
 
     // display_name существует только в legacy-схеме (backend/src/scripts/init-db.ts,
-    // NOT NULL без default) и отсутствует в 001_initial_schema.ts — заполняем
+    // NOT NULL без default) и отсутствует в устаревшей, ныне удалённой ручной миграции — заполняем
     // её только если колонка реально есть, чтобы работать на обеих схемах.
     const hasDisplayName = (db.prepare(`PRAGMA table_info(users)`).all() as { name: string }[])
       .some((c) => c.name === 'display_name');

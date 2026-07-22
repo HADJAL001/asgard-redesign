@@ -4,7 +4,7 @@ import db from "../lib/db"
    OSGARD · Миграция 024: гарантируем каноническую схему projects
    ----------------------------------------------------------------
    Та же проблема расхождения двух схем, что и в миграциях 018/019/020:
-   легаси-схема (db/migrations/001_initial_schema.ts) создаёт projects
+   легаси-схема (устаревшая, ныне удалённая ручная миграция) создаёт projects
    с колонками id/user_id/name/description/status/created_at/updated_at,
    а весь текущий код (projects.routes.ts, demo.routes.ts) рассчитывает
    на канонические колонки badge/artifact_count/sold/income (схема из

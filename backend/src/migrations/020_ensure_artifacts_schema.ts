@@ -5,7 +5,7 @@ import db from "../lib/db"
    ----------------------------------------------------------------
    Та же проблема расхождения двух схем, что и в миграциях 018/019,
    но здесь ещё и другие имена колонок: легаси-схема
-   (db/migrations/001_initial_schema.ts) создаёт artifacts с
+   (устаревшая, ныне удалённая ручная миграция) создаёт artifacts с
    user_id/stats(JSON)/price_tc/is_listed, а весь текущий код
    (artifacts.routes.ts, demo.routes.ts, projects.routes.ts,
    marketplace.routes.ts, twin.routes.ts, leaderboard.routes.ts)
