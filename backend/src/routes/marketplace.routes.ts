@@ -9,6 +9,16 @@ const router = Router()
 const CURRENCIES = ["credits", "shards", "crystals", "timecoin", "cash_usd"]
 const MARKET_FEE = 0.05 /* комиссия маркетплейса при продаже, 5% с продавца */
 
+/* Порог «крупной продажи» для попадания в Зал Славы, per-currency
+   (примерно эквивалент $50 по курсам из wallet.routes.ts RATE_TO_USD). */
+const HOF_MIN_PRICE: Record<string, number> = {
+  credits: 5000,
+  shards: 500,
+  crystals: 50,
+  timecoin: 5,
+  cash_usd: 50,
+}
+
 /* ---------------- GET /marketplace/listings ---------------- */
 router.get("/listings", (_req, res) => {
   const listings = db
@@ -104,6 +114,7 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
   const now = Date.now()
   const fee = listing.price * MARKET_FEE
   const sellerReceives = listing.price - fee
+  const isLargeSale = listing.price >= (HOF_MIN_PRICE[currency] ?? Infinity)
 
   db.exec("BEGIN IMMEDIATE")
   try {
@@ -138,20 +149,22 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
        VALUES (?, 'sale', ?, ?, ?, ?, 'done')`,
     ).run(listing.seller_id, artifact.name, `Покупатель #${req.user!.userId}`, sellerReceives, currency)
 
-    /* Записываем в Зал Славы, если продажа крупная (эвристика: топ по цене) */
-    db.prepare(
-      `INSERT INTO hall_of_fame (artifact_id, artifact_name, type, rarity, architect, price, achieved_at)
-       SELECT ?, ?, ?, ?, u.username, ?, ?
-       FROM users u WHERE u.id = ?`,
-    ).run(
-      artifact.id,
-      artifact.name,
-      artifact.type,
-      artifact.rarity,
-      listing.price,
-      now,
-      listing.seller_id,
-    )
+    /* Записываем в Зал Славы, только если продажа крупная (порог по валюте) */
+    if (isLargeSale) {
+      db.prepare(
+        `INSERT INTO hall_of_fame (artifact_id, artifact_name, type, rarity, architect, price, achieved_at)
+         SELECT ?, ?, ?, ?, u.username, ?, ?
+         FROM users u WHERE u.id = ?`,
+      ).run(
+        artifact.id,
+        artifact.name,
+        artifact.type,
+        artifact.rarity,
+        listing.price,
+        now,
+        listing.seller_id,
+      )
+    }
 
     db.exec("COMMIT")
   } catch (err) {
@@ -171,14 +184,16 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
     metadata: { name: artifact.name, rarity: artifact.rarity, price: listing.price, currency },
   })
 
-  createActivityEvent({
-    userId: listing.seller_id,
-    type: "hof_entry",
-    entityType: "artifact",
-    entityId: listing.artifact_id,
-    text: `пополнил Зал Славы артефактом «${artifact.name}»`,
-    metadata: { name: artifact.name, rarity: artifact.rarity, price: listing.price, currency },
-  })
+  if (isLargeSale) {
+    createActivityEvent({
+      userId: listing.seller_id,
+      type: "hof_entry",
+      entityType: "artifact",
+      entityId: listing.artifact_id,
+      text: `пополнил Зал Славы артефактом «${artifact.name}»`,
+      metadata: { name: artifact.name, rarity: artifact.rarity, price: listing.price, currency },
+    })
+  }
 
   const updatedWallet = db
     .prepare(

@@ -92,29 +92,59 @@ export class AuthController {
       // казна способна покрыть весь ∞ в обращении 1:1 (canEmitUnbacked).
       // Уже начисленные балансы это никогда не уменьшает — только блокирует
       // будущее начисление.
+      //
+      // TOCTOU-safe: подсчёт лимита и резервирование слота делаются синхронно
+      // под BEGIN IMMEDIATE (без await внутри) — конкурентные регистрации по
+      // одной реф-ссылке физически не могут обе пройти проверку лимита, т.к.
+      // вторая обязана дождаться COMMIT первой (эксклюзивная блокировка записи)
+      // и увидит уже зарезервированный 'pending'-слот. Сетевой canEmitUnbacked
+      // выполняется вне блокировки, финализация статуса — снова под блокировкой.
       if (referredBy) {
         try {
-          const { count: activeReferrals } = db.prepare(`
-            SELECT COUNT(*) as count FROM referrals WHERE referrer_id = ? AND status = 'active'
-          `).get(referredBy) as { count: number };
+          let reserved: 'pending' | 'referral_cap_reached';
 
-          let status: 'active' | 'reserve_capped' | 'referral_cap_reached';
-          let rewardAmount = 0;
+          db.exec('BEGIN IMMEDIATE');
+          try {
+            const { count: reservedReferrals } = db.prepare(`
+              SELECT COUNT(*) as count FROM referrals WHERE referrer_id = ? AND status IN ('active', 'pending')
+            `).get(referredBy) as { count: number };
 
-          if (activeReferrals >= MAX_REFERRAL_REWARDS_PER_USER) {
-            status = 'referral_cap_reached';
-          } else if (await canEmitUnbacked(10)) {
-            db.prepare(`UPDATE wallets SET timecoin = timecoin + 10 WHERE user_id = ?`).run(referredBy);
-            status = 'active';
-            rewardAmount = 10;
-          } else {
-            status = 'reserve_capped';
+            reserved = reservedReferrals >= MAX_REFERRAL_REWARDS_PER_USER ? 'referral_cap_reached' : 'pending';
+
+            db.prepare(`
+              INSERT OR IGNORE INTO referrals (referrer_id, referee_id, reward_amount, status)
+              VALUES (?, ?, 0, ?)
+            `).run(referredBy, userId, reserved);
+
+            db.exec('COMMIT');
+          } catch (txErr) {
+            db.exec('ROLLBACK');
+            throw txErr;
           }
 
-          db.prepare(`
-            INSERT OR IGNORE INTO referrals (referrer_id, referee_id, reward_amount, status)
-            VALUES (?, ?, ?, ?)
-          `).run(referredBy, userId, rewardAmount, status);
+          if (reserved === 'pending') {
+            const guardPassed = await canEmitUnbacked(10);
+
+            db.exec('BEGIN IMMEDIATE');
+            try {
+              if (guardPassed) {
+                db.prepare(`UPDATE wallets SET timecoin = timecoin + 10 WHERE user_id = ?`).run(referredBy);
+                db.prepare(`
+                  UPDATE referrals SET status = 'active', reward_amount = 10
+                  WHERE referrer_id = ? AND referee_id = ? AND status = 'pending'
+                `).run(referredBy, userId);
+              } else {
+                db.prepare(`
+                  UPDATE referrals SET status = 'reserve_capped'
+                  WHERE referrer_id = ? AND referee_id = ? AND status = 'pending'
+                `).run(referredBy, userId);
+              }
+              db.exec('COMMIT');
+            } catch (txErr) {
+              db.exec('ROLLBACK');
+              throw txErr;
+            }
+          }
         } catch (e) {
           // referrals таблица может не существовать
         }

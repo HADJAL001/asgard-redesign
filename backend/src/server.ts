@@ -252,6 +252,7 @@ import { runNotificationsMigration } from "./migrations/063_notifications_table"
 import { runPushTokensMigration } from "./migrations/064_push_tokens"
 import { runActivityFeedMigration } from "./migrations/065_activity_feed_table"
 import { runAnalyticsEventsMigration } from "./migrations/066_analytics_events"
+import "./migrations/067_hall_of_fame_index"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"

@@ -8,6 +8,8 @@ import { createActivityEvent } from "../lib/activity"
 
 const router = Router()
 
+const MAX_ARTIFACT_NAME_LENGTH = 100
+
 const RARITIES = ["common", "rare", "epic", "legendary", "mythic"]
 const RARITY_MULT: Record<string, number> = { common: 1, rare: 2, epic: 3, legendary: 4, mythic: 5 }
 const NEXT_RARITY: Record<string, string | null> = {
@@ -74,11 +76,15 @@ router.get("/mine", requireAuth, (req: AuthRequest, res) => {
 
 /* ---------------- POST /artifacts/forge ---------------- */
 router.post("/forge", requireAuth, (req: AuthRequest, res) => {
-  const { name, type, projectId } = req.body || {}
+  let { name, type, projectId } = req.body || {}
 
-  if (!name || typeof name !== "string") {
+  if (!name || typeof name !== "string" || !name.trim()) {
     return res.status(400).json({ error: "Укажите название артефакта" })
   }
+  if (name.trim().length > MAX_ARTIFACT_NAME_LENGTH) {
+    return res.status(400).json({ error: `Название слишком длинное (макс. ${MAX_ARTIFACT_NAME_LENGTH} символов)` })
+  }
+  name = name.trim()
   if (!type || typeof type !== "string") {
     return res.status(400).json({ error: "Укажите тип артефакта" })
   }

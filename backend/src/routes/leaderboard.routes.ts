@@ -21,6 +21,7 @@ router.get("/", (req, res) => {
          (SELECT COUNT(*) FROM artifacts a WHERE a.owner_id = u.id) as artifactCount
        FROM users u
        LEFT JOIN transactions t ON t.user_id = u.id
+       WHERE u.banned = 0
        GROUP BY u.id
        ORDER BY totalIncome DESC
        LIMIT ?`,

@@ -1,7 +1,9 @@
 import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, optionalAuth, AuthRequest } from "../middleware/authMiddleware"
+import { rateLimit } from "../middleware/rateLimiter"
 import { createNotification } from "../lib/notifications"
+import { UserModel } from "../models/user.model"
 
 const router = Router()
 
@@ -9,6 +11,7 @@ const MAX_POST_LENGTH = 4000
 const MAX_TITLE_LENGTH = 200
 const MAX_COMMENT_LENGTH = 2000
 const POSTS_PAGE_SIZE = 50
+const COMMENTS_PAGE_SIZE = 200
 
 type AuthorRow = {
   id: number
@@ -31,6 +34,8 @@ function mapAuthor(row: AuthorRow) {
 /* ---------------- GET /posts ---------------- */
 router.get("/", optionalAuth, (req: AuthRequest, res) => {
   const userId = req.user?.userId ?? null
+  const limit = Math.min(Math.max(Number(req.query.limit) || POSTS_PAGE_SIZE, 1), POSTS_PAGE_SIZE)
+  const offset = Math.max(Number(req.query.offset) || 0, 0)
 
   const rows = db
     .prepare(
@@ -41,10 +46,11 @@ router.get("/", optionalAuth, (req: AuthRequest, res) => {
               (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.id AND pl.user_id = ?) as liked_by_me
        FROM posts p
        JOIN users u ON u.id = p.user_id
+       WHERE u.banned = 0
        ORDER BY p.created_at DESC
-       LIMIT ?`,
+       LIMIT ? OFFSET ?`,
     )
-    .all(userId, POSTS_PAGE_SIZE) as any[]
+    .all(userId, limit, offset) as any[]
 
   const posts = rows.map((r) => ({
     id: r.id,
@@ -63,7 +69,7 @@ router.get("/", optionalAuth, (req: AuthRequest, res) => {
     }),
   }))
 
-  res.json({ success: true, posts })
+  res.json({ success: true, posts, offset, limit })
 })
 
 /* ---------------- POST /posts ---------------- */
@@ -114,16 +120,20 @@ router.get("/:id/comments", optionalAuth, (req, res) => {
     return res.status(400).json({ error: "Некорректный ID поста" })
   }
 
+  const limit = Math.min(Math.max(Number(req.query.limit) || COMMENTS_PAGE_SIZE, 1), COMMENTS_PAGE_SIZE)
+  const offset = Math.max(Number(req.query.offset) || 0, 0)
+
   const rows = db
     .prepare(
       `SELECT c.id, c.text, c.created_at,
               u.id as author_id, u.username, u.display_name, u.avatar_url, u.level
        FROM comments c
        JOIN users u ON u.id = c.user_id
-       WHERE c.post_id = ?
-       ORDER BY c.created_at ASC`,
+       WHERE c.post_id = ? AND u.banned = 0
+       ORDER BY c.created_at ASC
+       LIMIT ? OFFSET ?`,
     )
-    .all(postId) as any[]
+    .all(postId, limit, offset) as any[]
 
   const comments = rows.map((r) => ({
     id: r.id,
@@ -138,7 +148,7 @@ router.get("/:id/comments", optionalAuth, (req, res) => {
     }),
   }))
 
-  res.json({ success: true, comments })
+  res.json({ success: true, comments, offset, limit })
 })
 
 /* ---------------- POST /posts/:id/comments ---------------- */
@@ -198,7 +208,7 @@ router.post("/:id/comments", requireAuth, (req: AuthRequest, res) => {
 })
 
 /* ---------------- POST /posts/:id/like (toggle) ---------------- */
-router.post("/:id/like", requireAuth, (req: AuthRequest, res) => {
+router.post("/:id/like", rateLimit(60_000, 30), requireAuth, (req: AuthRequest, res) => {
   const userId = req.user?.userId
   if (!userId) {
     return res.status(401).json({ error: "Требуется авторизация" })
@@ -248,6 +258,76 @@ router.post("/:id/like", requireAuth, (req: AuthRequest, res) => {
   ).c
 
   res.json({ success: true, likesCount, likedByMe: !existing })
+})
+
+/* ---------------- DELETE /posts/:id ---------------- */
+/* Удалить может автор поста или админ. */
+router.delete("/:id", requireAuth, (req: AuthRequest, res) => {
+  const userId = req.user?.userId
+  if (!userId) {
+    return res.status(401).json({ error: "Требуется авторизация" })
+  }
+
+  const postId = Number(req.params.id)
+  if (!Number.isInteger(postId)) {
+    return res.status(400).json({ error: "Некорректный ID поста" })
+  }
+
+  const post = db.prepare(`SELECT id, user_id FROM posts WHERE id = ?`).get(postId) as
+    | { id: number; user_id: number }
+    | undefined
+  if (!post) {
+    return res.status(404).json({ error: "Пост не найден" })
+  }
+
+  if (post.user_id !== userId && !UserModel.isAdmin(userId)) {
+    return res.status(403).json({ error: "Недостаточно прав" })
+  }
+
+  db.prepare(`DELETE FROM comments WHERE post_id = ?`).run(postId)
+  db.prepare(`DELETE FROM post_likes WHERE post_id = ?`).run(postId)
+  db.prepare(`DELETE FROM notifications WHERE entity_type = 'post' AND entity_id = ?`).run(postId)
+  db.prepare(`DELETE FROM posts WHERE id = ?`).run(postId)
+
+  res.json({ success: true })
+})
+
+/* ---------------- DELETE /posts/:id/comments/:commentId ---------------- */
+/* Удалить может автор комментария, автор поста или админ. */
+router.delete("/:id/comments/:commentId", requireAuth, (req: AuthRequest, res) => {
+  const userId = req.user?.userId
+  if (!userId) {
+    return res.status(401).json({ error: "Требуется авторизация" })
+  }
+
+  const postId = Number(req.params.id)
+  const commentId = Number(req.params.commentId)
+  if (!Number.isInteger(postId) || !Number.isInteger(commentId)) {
+    return res.status(400).json({ error: "Некорректный ID" })
+  }
+
+  const post = db.prepare(`SELECT id, user_id FROM posts WHERE id = ?`).get(postId) as
+    | { id: number; user_id: number }
+    | undefined
+  if (!post) {
+    return res.status(404).json({ error: "Пост не найден" })
+  }
+
+  const comment = db.prepare(`SELECT id, user_id FROM comments WHERE id = ? AND post_id = ?`).get(commentId, postId) as
+    | { id: number; user_id: number }
+    | undefined
+  if (!comment) {
+    return res.status(404).json({ error: "Комментарий не найден" })
+  }
+
+  const canDelete = comment.user_id === userId || post.user_id === userId || UserModel.isAdmin(userId)
+  if (!canDelete) {
+    return res.status(403).json({ error: "Недостаточно прав" })
+  }
+
+  db.prepare(`DELETE FROM comments WHERE id = ?`).run(commentId)
+
+  res.json({ success: true })
 })
 
 export default router
