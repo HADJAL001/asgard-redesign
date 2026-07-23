@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Joi from 'joi';
 import db from '../db/database';
 import { captureError } from '../lib/sentry';
+import { canEmitUnbacked } from '../lib/emission-guard';
 
 const SOCIAL_PROVIDERS: SocialProvider[] = ['google', 'github'];
 
@@ -81,14 +82,20 @@ export class AuthController {
         // wallets таблица может не существовать — игнорируем
       }
 
-      // Начисляем бонус рефереру
+      // Начисляем бонус рефереру — не обеспечен резервом, поэтому только пока
+      // казна способна покрыть весь ∞ в обращении 1:1 (canEmitUnbacked).
+      // Уже начисленные балансы это никогда не уменьшает — только блокирует
+      // будущее начисление.
       if (referredBy) {
         try {
-          db.prepare(`UPDATE wallets SET timecoin = timecoin + 10 WHERE user_id = ?`).run(referredBy);
+          const canEmit = await canEmitUnbacked(10);
+          if (canEmit) {
+            db.prepare(`UPDATE wallets SET timecoin = timecoin + 10 WHERE user_id = ?`).run(referredBy);
+          }
           db.prepare(`
             INSERT OR IGNORE INTO referrals (referrer_id, referee_id, reward_amount, status)
-            VALUES (?, ?, ?, 'active')
-          `).run(referredBy, userId, 10);
+            VALUES (?, ?, ?, ?)
+          `).run(referredBy, userId, canEmit ? 10 : 0, canEmit ? 'active' : 'reserve_capped');
         } catch (e) {
           // referrals таблица может не существовать
         }

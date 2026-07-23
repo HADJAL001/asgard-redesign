@@ -4,6 +4,7 @@ import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { asyncHandler } from "../utils/async-handler"
 import { logAudit } from "../lib/audit"
 import { captureError } from "../lib/sentry"
+import { canEmitUnbacked } from "../lib/emission-guard"
 
 /* ================================================================
    OSGARD · Промокоды
@@ -75,6 +76,15 @@ router.post(
 
     if (alreadyUsed) {
       return res.status(409).json({ error: "Вы уже использовали этот промокод" })
+    }
+
+    /* timecoin-промокоды не обеспечены резервом — блокируем начисление
+       (не расходуя использование промокода), если казна уже не покрывает
+       весь ∞ в обращении 1:1. Проверяем до открытия транзакции. */
+    if (promo.type === "timecoin" && !(await canEmitUnbacked(promo.amount))) {
+      return res.status(503).json({
+        error: "Резерв временно не позволяет начислить TimeCoin по промокоду. Попробуйте позже.",
+      })
     }
 
     /* ── Применяем бонус в транзакции ── */

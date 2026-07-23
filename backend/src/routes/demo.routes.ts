@@ -161,6 +161,9 @@ router.post("/generate", async (req: Request, res: Response) => {
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { logAudit } from "../lib/audit"
+import { canEmitUnbacked } from "../lib/emission-guard"
+
+const DEMO_BONUS_TC = 50
 
 router.post("/convert", requireAuth, async (req: AuthRequest, res: Response) => {
   const userId = req.user!.userId
@@ -169,6 +172,12 @@ router.post("/convert", requireAuth, async (req: AuthRequest, res: Response) => 
   if (!Array.isArray(demoProjects) || demoProjects.length === 0) {
     return res.status(400).json({ error: "Нет демо-данных для конвертации" })
   }
+
+  // Проверяем резерв ДО открытия транзакции — не обеспеченный резервом
+  // бонус не начисляем, если казна уже не покрывает весь ∞ 1:1. Флаг
+  // demo_bonus_claimed при этом не выставляем, чтобы бонус мог
+  // начислиться позже, когда резерв восстановится.
+  const canEmitBonus = await canEmitUnbacked(DEMO_BONUS_TC)
 
   const now = Date.now()
   let totalArtifacts = 0
@@ -224,15 +233,19 @@ router.post("/convert", requireAuth, async (req: AuthRequest, res: Response) => 
       updateArtifactCount.run(count, projectId)
     }
 
-    // Начисляем 50 бонусных токенов, но только один раз на пользователя —
+    // Начисляем бонусные токены, но только один раз на пользователя —
     // атомарный условный UPDATE (WHERE demo_bonus_claimed = 0) исключает повторный
-    // фарм TC при многократных вызовах /demo/convert.
-    const bonusClaim = db
-      .prepare(`UPDATE wallets SET timecoin = timecoin + 50, demo_bonus_claimed = 1 WHERE user_id = ? AND demo_bonus_claimed = 0`)
-      .run(userId)
-    const bonusTokens = bonusClaim.changes === 1 ? 50 : 0
-    if (bonusTokens > 0) {
-      logAudit(userId, "credit", bonusTokens, "demo_conversion_bonus")
+    // фарм TC при многократных вызовах /demo/convert. Плюс не начисляем, если
+    // резерв уже не покрывает весь ∞ 1:1 (canEmitBonus, проверено до транзакции).
+    let bonusTokens = 0
+    if (canEmitBonus) {
+      const bonusClaim = db
+        .prepare(`UPDATE wallets SET timecoin = timecoin + ?, demo_bonus_claimed = 1 WHERE user_id = ? AND demo_bonus_claimed = 0`)
+        .run(DEMO_BONUS_TC, userId)
+      bonusTokens = bonusClaim.changes === 1 ? DEMO_BONUS_TC : 0
+      if (bonusTokens > 0) {
+        logAudit(userId, "credit", bonusTokens, "demo_conversion_bonus")
+      }
     }
 
     db.exec("COMMIT")

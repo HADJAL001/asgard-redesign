@@ -5,6 +5,7 @@ import { asyncHandler } from "../utils/async-handler"
 import { rateLimit } from "../middleware/rateLimiter"
 import { captureError } from "../lib/sentry"
 import { logAudit } from "../lib/audit"
+import { canEmitUnbacked } from "../lib/emission-guard"
 
 const router = Router()
 
@@ -121,7 +122,7 @@ router.post("/", rateLimit(60_000, 5), optionalAuth, asyncHandler(async (req: Au
       )
       .get(userId, oneDayAgo) as { count: number }
 
-    if (rewardedToday < FEEDBACK_DAILY_REWARD_LIMIT) {
+    if (rewardedToday < FEEDBACK_DAILY_REWARD_LIMIT && (await canEmitUnbacked(FEEDBACK_REWARD_TC))) {
       db.prepare(
         `UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`,
       ).run(FEEDBACK_REWARD_TC, now, userId)

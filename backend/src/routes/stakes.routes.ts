@@ -1,6 +1,7 @@
 import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
+import { canEmitUnbacked } from "../lib/emission-guard"
 
 const router = Router()
 
@@ -83,7 +84,7 @@ router.post("/", requireAuth, (req: AuthRequest, res) => {
 })
 
 /* ---------------- POST /stakes/:id/unstake ---------------- */
-router.post("/:id/unstake", requireAuth, (req: AuthRequest, res) => {
+router.post("/:id/unstake", requireAuth, async (req: AuthRequest, res) => {
   const id = Number(req.params.id)
   const stake: any = db.prepare(`SELECT * FROM stakes WHERE id = ?`).get(id)
 
@@ -104,6 +105,14 @@ router.post("/:id/unstake", requireAuth, (req: AuthRequest, res) => {
   let reward = stake.amount_tc * stake.apr * (elapsedDays / 365)
   if (!isMatured) {
     reward = reward * (1 - stake.market_fee)
+  }
+
+  /* Проценты по стейку не обеспечены резервом (в отличие от самого тела
+     стейка — оно уже принадлежало пользователю и просто возвращается).
+     Если казна больше не покрывает весь ∞ 1:1, проценты не начисляем —
+     тело стейка возвращается полностью в любом случае. */
+  if (reward > 0 && !(await canEmitUnbacked(reward))) {
+    reward = 0
   }
 
   const totalReturn = stake.amount_tc + reward

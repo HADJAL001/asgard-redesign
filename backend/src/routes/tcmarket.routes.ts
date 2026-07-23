@@ -9,6 +9,7 @@ import {
   TradeRow,
 } from "../services/matching-engine"
 import { logAudit } from "../lib/audit"
+import { canEmitUnbacked } from "../lib/emission-guard"
 
 const router = Router()
 
@@ -186,7 +187,7 @@ router.delete("/order/:id", requireAuth, (req: AuthRequest, res) => {
    через эмиссию (mint) TimeCoin по текущей цене рынка с небольшим
    price-impact, чтобы гарантировать исполнение всей суммы usdAmount.
    ================================================================ */
-router.post("/buy", requireAuth, (req: AuthRequest, res) => {
+router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
   const { usdAmount } = req.body || {}
   const usd = Number(usdAmount)
   if (!Number.isFinite(usd) || usd <= 0) {
@@ -241,28 +242,36 @@ router.post("/buy", requireAuth, (req: AuthRequest, res) => {
   let mintUsd = 0
   let newPrice = state.price
 
+  // Эмиссия (mint) не обеспечена резервом — докупаем через неё только пока
+  // казна покрывает весь ∞ в обращении 1:1. Если нет, остаток заявки просто
+  // не исполняется через mint (частичное исполнение против стакана — не бага,
+  // а намеренное ограничение необеспеченного начисления).
   if (remainingUsd > EPS) {
     const currentState: any = getMarketState()
     const fallbackPrice = currentState.price
-    mintTc = remainingUsd / fallbackPrice
-    mintUsd = remainingUsd
-    newPrice = Math.round(fallbackPrice * (1 + PRICE_IMPACT_FACTOR * mintTc) * 1e6) / 1e6
+    const candidateMintTc = remainingUsd / fallbackPrice
 
-    const now = Date.now()
+    if (await canEmitUnbacked(candidateMintTc)) {
+      mintTc = candidateMintTc
+      mintUsd = remainingUsd
+      newPrice = Math.round(fallbackPrice * (1 + PRICE_IMPACT_FACTOR * mintTc) * 1e6) / 1e6
 
-    db.prepare(`UPDATE wallets SET cash_usd = cash_usd - ?, timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`).run(
-      mintUsd,
-      mintTc,
-      now,
-      req.user!.userId,
-    )
+      const now = Date.now()
 
-    db.prepare(`UPDATE tc_market_state SET price = ?, minted = minted + ? WHERE id = 1`).run(newPrice, mintTc)
-    db.prepare(`INSERT INTO tc_price_history (ts, price) VALUES (?, ?)`).run(now, newPrice)
+      db.prepare(`UPDATE wallets SET cash_usd = cash_usd - ?, timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`).run(
+        mintUsd,
+        mintTc,
+        now,
+        req.user!.userId,
+      )
 
-    db.prepare(
-      `INSERT INTO tc_trades (user_id, ts, price, amount, side, origin) VALUES (?, ?, ?, ?, 'buy', 'emission')`,
-    ).run(req.user!.userId, now, newPrice, mintTc)
+      db.prepare(`UPDATE tc_market_state SET price = ?, minted = minted + ? WHERE id = 1`).run(newPrice, mintTc)
+      db.prepare(`INSERT INTO tc_price_history (ts, price) VALUES (?, ?)`).run(now, newPrice)
+
+      db.prepare(
+        `INSERT INTO tc_trades (user_id, ts, price, amount, side, origin) VALUES (?, ?, ?, ?, 'buy', 'emission')`,
+      ).run(req.user!.userId, now, newPrice, mintTc)
+    }
   }
 
   const totalTc = orderbookExecutedTc + mintTc
