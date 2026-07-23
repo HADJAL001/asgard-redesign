@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Joi from 'joi';
 import db from '../db/database';
 import { captureError } from '../lib/sentry';
-import { canEmitUnbacked } from '../lib/emission-guard';
+import { fetchTreasuryTcForEmission, canEmitUnbackedSync } from '../lib/emission-guard';
 
 const SOCIAL_PROVIDERS: SocialProvider[] = ['google', 'github'];
 
@@ -123,10 +123,14 @@ export class AuthController {
           }
 
           if (reserved === 'pending') {
-            const guardPassed = await canEmitUnbacked(10);
+            // Сетевой запрос баланса казны — до открытия транзакции (внутри
+            // BEGIN IMMEDIATE нельзя await). Сама проверка резерва — синхронно
+            // внутри транзакции ниже, вместе с самим начислением бонуса.
+            const treasuryTc = await fetchTreasuryTcForEmission();
 
             db.exec('BEGIN IMMEDIATE');
             try {
+              const guardPassed = treasuryTc !== null && canEmitUnbackedSync(10, treasuryTc);
               if (guardPassed) {
                 db.prepare(`UPDATE wallets SET timecoin = timecoin + 10 WHERE user_id = ?`).run(referredBy);
                 db.prepare(`

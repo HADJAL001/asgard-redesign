@@ -1,7 +1,7 @@
 import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
-import { canEmitUnbacked } from "../lib/emission-guard"
+import { fetchTreasuryTcForEmission, canEmitUnbackedSync } from "../lib/emission-guard"
 
 const router = Router()
 
@@ -110,24 +110,42 @@ router.post("/:id/unstake", requireAuth, async (req: AuthRequest, res) => {
   /* Проценты по стейку не обеспечены резервом (в отличие от самого тела
      стейка — оно уже принадлежало пользователю и просто возвращается).
      Если казна больше не покрывает весь ∞ 1:1, проценты не начисляем —
-     тело стейка возвращается полностью в любом случае. */
-  if (reward > 0 && !(await canEmitUnbacked(reward))) {
-    reward = 0
+     тело стейка возвращается полностью в любом случае.
+
+     Сетевой запрос баланса казны — до открытия транзакции (внутри BEGIN
+     IMMEDIATE нельзя await). Сама проверка "хватит ли резерва" ОБЯЗАНА
+     выполняться синхронно внутри транзакции ниже, а не здесь — иначе
+     конкурентное начисление из другого источника ∞-эмиссии могло бы
+     проскочить между проверкой и записью. */
+  const treasuryTc = reward > 0 ? await fetchTreasuryTcForEmission() : null
+
+  db.exec("BEGIN IMMEDIATE")
+  try {
+    if (reward > 0 && !(treasuryTc !== null && canEmitUnbackedSync(reward, treasuryTc))) {
+      reward = 0
+    }
+
+    const totalReturn = stake.amount_tc + reward
+
+    db.prepare(`UPDATE stakes SET status = 'unstaked' WHERE id = ?`).run(id)
+    db.prepare(`UPDATE tc_market_state SET staked = MAX(0, staked - ?) WHERE id = 1`).run(stake.amount_tc)
+
+    db.prepare(
+      `UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`,
+    ).run(totalReturn, now, req.user!.userId)
+
+    db.prepare(
+      `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+       VALUES (?, 'unstake', 'TimeCoin Unstake', 'Asgard Vault', ?, 'timecoin', 'done')`,
+    ).run(req.user!.userId, totalReturn)
+
+    db.exec("COMMIT")
+  } catch (err) {
+    db.exec("ROLLBACK")
+    throw err
   }
 
   const totalReturn = stake.amount_tc + reward
-
-  db.prepare(`UPDATE stakes SET status = 'unstaked' WHERE id = ?`).run(id)
-  db.prepare(`UPDATE tc_market_state SET staked = MAX(0, staked - ?) WHERE id = 1`).run(stake.amount_tc)
-
-  db.prepare(
-    `UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`,
-  ).run(totalReturn, now, req.user!.userId)
-
-  db.prepare(
-    `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-     VALUES (?, 'unstake', 'TimeCoin Unstake', 'Asgard Vault', ?, 'timecoin', 'done')`,
-  ).run(req.user!.userId, totalReturn)
 
   const updatedStake = db
     .prepare(

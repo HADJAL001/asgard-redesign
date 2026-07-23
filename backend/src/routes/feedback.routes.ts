@@ -5,7 +5,7 @@ import { asyncHandler } from "../utils/async-handler"
 import { rateLimit } from "../middleware/rateLimiter"
 import { captureError } from "../lib/sentry"
 import { logAudit } from "../lib/audit"
-import { canEmitUnbacked } from "../lib/emission-guard"
+import { fetchTreasuryTcForEmission, canEmitUnbackedSync } from "../lib/emission-guard"
 
 const router = Router()
 
@@ -122,18 +122,36 @@ router.post("/", rateLimit(60_000, 5), optionalAuth, asyncHandler(async (req: Au
       )
       .get(userId, oneDayAgo) as { count: number }
 
-    if (rewardedToday < FEEDBACK_DAILY_REWARD_LIMIT && (await canEmitUnbacked(FEEDBACK_REWARD_TC))) {
-      db.prepare(
-        `UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`,
-      ).run(FEEDBACK_REWARD_TC, now, userId)
+    if (rewardedToday < FEEDBACK_DAILY_REWARD_LIMIT) {
+      // TOCTOU-safe: резерв казны сверяется под BEGIN IMMEDIATE вместе с самим
+      // начислением, чтобы конкурентные начисления из других источников
+      // ∞-эмиссии (реферал, промокод, стейкинг и т.д.) не могли суммарно
+      // превысить резерв — см. lib/emission-guard.ts.
+      const treasuryTc = await fetchTreasuryTcForEmission()
+      if (treasuryTc !== null) {
+        db.exec("BEGIN IMMEDIATE")
+        try {
+          if (canEmitUnbackedSync(FEEDBACK_REWARD_TC, treasuryTc)) {
+            db.prepare(
+              `UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`,
+            ).run(FEEDBACK_REWARD_TC, now, userId)
 
-      db.prepare(
-        `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-         VALUES (?, 'feedback_reward', 'Фидбек создателю', 'OSGARD', ?, 'timecoin', 'done')`,
-      ).run(userId, FEEDBACK_REWARD_TC)
-      logAudit(userId, "credit", FEEDBACK_REWARD_TC, "feedback_reward")
+            db.prepare(
+              `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+               VALUES (?, 'feedback_reward', 'Фидбек создателю', 'OSGARD', ?, 'timecoin', 'done')`,
+            ).run(userId, FEEDBACK_REWARD_TC)
 
-      rewardGranted = true
+            db.exec("COMMIT")
+            rewardGranted = true
+            logAudit(userId, "credit", FEEDBACK_REWARD_TC, "feedback_reward")
+          } else {
+            db.exec("ROLLBACK")
+          }
+        } catch (err) {
+          db.exec("ROLLBACK")
+          throw err
+        }
+      }
     }
   }
 

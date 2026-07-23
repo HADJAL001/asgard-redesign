@@ -4,7 +4,7 @@ import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { asyncHandler } from "../utils/async-handler"
 import { logAudit } from "../lib/audit"
 import { captureError } from "../lib/sentry"
-import { canEmitUnbacked } from "../lib/emission-guard"
+import { fetchTreasuryTcForEmission, canEmitUnbackedSync } from "../lib/emission-guard"
 
 /* ================================================================
    OSGARD · Промокоды
@@ -78,10 +78,14 @@ router.post(
       return res.status(409).json({ error: "Вы уже использовали этот промокод" })
     }
 
-    /* timecoin-промокоды не обеспечены резервом — блокируем начисление
-       (не расходуя использование промокода), если казна уже не покрывает
-       весь ∞ в обращении 1:1. Проверяем до открытия транзакции. */
-    if (promo.type === "timecoin" && !(await canEmitUnbacked(promo.amount))) {
+    /* timecoin-промокоды не обеспечены резервом — сетевой запрос баланса казны
+       делаем до открытия транзакции (внутри BEGIN IMMEDIATE нельзя await), а
+       саму проверку "хватит ли резерва" — синхронно внутри транзакции ниже,
+       вместе с самим начислением. TOCTOU-safe: конкурентные начисления из
+       других источников ∞-эмиссии не могут суммарно превысить резерв, т.к.
+       делят одно и то же SQLite-соединение (см. lib/emission-guard.ts). */
+    const treasuryTc = promo.type === "timecoin" ? await fetchTreasuryTcForEmission() : null
+    if (promo.type === "timecoin" && treasuryTc === null) {
       return res.status(503).json({
         error: "Резерв временно не позволяет начислить TimeCoin по промокоду. Попробуйте позже.",
       })
@@ -93,6 +97,13 @@ router.post(
 
     db.exec("BEGIN IMMEDIATE")
     try {
+      if (promo.type === "timecoin" && !canEmitUnbackedSync(promo.amount, treasuryTc!)) {
+        db.exec("ROLLBACK")
+        return res.status(503).json({
+          error: "Резерв временно не позволяет начислить TimeCoin по промокоду. Попробуйте позже.",
+        })
+      }
+
       /* Фиксируем использование промокода */
       db.prepare(
         `INSERT INTO promo_redemptions (promo_id, user_id, redeemed_at) VALUES (?, ?, ?)`,

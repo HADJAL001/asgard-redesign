@@ -48,11 +48,14 @@ function checkWithdrawalLimits(userId: number, amount: number): { valid: boolean
   const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
   const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  // 3 вывода за 5 минут
+  // 3 вывода за 5 минут. Считаем и 'pending' (зарезервированные под текущей
+  // блокировкой, ещё не отправленные в Solana), и 'completed' — иначе
+  // конкурентные запросы, ещё не дошедшие до финализации, не будут видны
+  // друг другу и смогут суммарно превысить лимит (TOCTOU).
   const countStmt = db.prepare(`
     SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as totalAmount
-    FROM withdrawals 
-    WHERE userId = ? AND createdAt > ?
+    FROM withdrawals
+    WHERE userId = ? AND createdAt > ? AND status IN ('completed', 'pending')
   `);
   const stats = countStmt.get(userId, fiveMinutesAgo.toISOString()) as unknown as WithdrawalStats;
 
@@ -70,8 +73,8 @@ function checkWithdrawalLimits(userId: number, amount: number): { valid: boolean
   // 500 TC в день
   const dailyStmt = db.prepare(`
     SELECT COALESCE(SUM(amount), 0) as totalAmount
-    FROM withdrawals 
-    WHERE userId = ? AND createdAt > ?
+    FROM withdrawals
+    WHERE userId = ? AND createdAt > ? AND status IN ('completed', 'pending')
   `);
   const dailyStats = dailyStmt.get(userId, oneDayAgo.toISOString()) as unknown as DailyStats;
   const DAILY_LIMIT = 500;
@@ -93,10 +96,13 @@ function checkGlobalDailyWithdrawalLimit(
   treasuryBalance: number
 ): { valid: boolean; error?: string } {
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  // 'pending' включены по той же причине, что и в checkWithdrawalLimits —
+  // без этого конкурентные выводы могли бы суммарно превысить глобальный
+  // дневной кап казны, пока каждый из них ждёт своей async-отправки в Solana.
   const row = db.prepare(`
     SELECT COALESCE(SUM(amount), 0) as totalAmount
     FROM withdrawals
-    WHERE createdAt > ?
+    WHERE createdAt > ? AND status IN ('completed', 'pending')
   `).get(oneDayAgo.toISOString()) as unknown as DailyStats;
 
   const cap = treasuryBalance * GLOBAL_DAILY_WITHDRAWAL_RATIO;
@@ -210,14 +216,6 @@ router.post('/deposit', rateLimit(60_000, 5), requireAuth, async (req: Request, 
 
 router.post('/withdraw', rateLimit(60_000, 10), requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.userId;
-  let debited = false;
-
-  const refundDebit = (reason: string) => {
-    if (!debited) return;
-    debited = false;
-    db.prepare('UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?').run(req.body.amount, userId);
-    logAudit(userId, 'credit', req.body.amount, 'withdraw_refund', { reason });
-  };
 
   try {
     // 0. Joi-валидация входных данных
@@ -245,13 +243,59 @@ router.post('/withdraw', rateLimit(60_000, 10), requireAuth, async (req: Request
       }
     }
 
-    // 2-4. Атомарно захватываем nonce и списываем баланс в одной транзакции.
-    // Всё до этого момента — синхронный код без единого await, поэтому два
-    // конкурентных запроса с одинаковым nonce физически не могут оба пройти
-    // проверку: JS-код между await-точками не прерывается, значит первый
-    // начавшийся запрос успевает захватить nonce и списать баланс до того,
-    // как второй вообще начнёт свою часть транзакции (SQLite BEGIN IMMEDIATE
-    // дополнительно берёт эксклюзивную блокировку записи).
+    // 2. Баланс казны (TC) — сетевой вызов, поэтому ДО открытия транзакции
+    //    (внутри BEGIN IMMEDIATE нельзя await). Сам лимит проверяется
+    //    синхронно внутри транзакции ниже (п.4), вместе со списанием.
+    let treasuryBalance: number;
+    try {
+      treasuryBalance = await solanaService.getTreasuryBalance();
+    } catch (balanceError: unknown) {
+      captureError('❌ Treasury balance check failed:', balanceError);
+      return res.status(503).json({
+        error: 'Не удалось проверить баланс казны. Попробуйте ещё раз позже.'
+      });
+    }
+    if (treasuryBalance < amount) {
+      return res.status(400).json({
+        error: 'Treasury temporarily low. Please try again later.'
+      });
+    }
+
+    // 3. Проверка баланса SOL на казне (для газа) — тоже сетевой вызов, тоже до транзакции.
+    try {
+      const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');
+      const pubkey = new PublicKey(solanaService.getTreasuryPublicKey());
+      const solBalance = await connection.getBalance(pubkey);
+      const MIN_SOL = 0.01 * 1e9; // 0.01 SOL в lamports
+
+      if (solBalance < MIN_SOL) {
+        return res.status(400).json({
+          error: 'Treasury is low on SOL for transaction fees. Please wait.'
+        });
+      }
+    } catch (solError: unknown) {
+      const msg = solError instanceof Error ? solError.message : String(solError);
+      console.warn('⚠️ Could not check SOL balance:', msg);
+      // Продолжаем, но логируем
+    }
+
+    // 4. Атомарно: захватываем nonce, списываем баланс, проверяем лимиты
+    //    (пользовательский и общесистемный дневной кап казны) и сразу же
+    //    резервируем строку в withdrawals со статусом 'pending' — всё в
+    //    одной транзакции, без единого await между BEGIN IMMEDIATE и
+    //    COMMIT/ROLLBACK. Это делает оба лимита TOCTOU-safe: строка
+    //    withdrawals появляется ДО отправки в Solana (которая асинхронна и
+    //    может занять секунды), поэтому конкурентный вывод — от этого же
+    //    или другого пользователя — обязан дождаться эксклюзивной
+    //    блокировки записи и увидит уже зарезервированную сумму в SUM(...)
+    //    обеих лимитных проверок, а не только уже подтверждённые выводы.
+    //    Плейсхолдер signature ('pending:userId:nonce') уникален в рамках
+    //    системы (nonce уникален для пары userId/nonce) и не пересечётся ни
+    //    с одной настоящей Solana-подписью; колонка signature не имеет
+    //    UNIQUE-ограничения, так что финализация ниже просто перезапишет её.
+    const pendingSignature = `pending:${userId}:${nonce}`;
+    let withdrawalRowId: number;
+
     db.exec('BEGIN IMMEDIATE');
     let inTx = true;
     const rollback = () => { if (inTx) { inTx = false; db.exec('ROLLBACK'); } };
@@ -285,61 +329,48 @@ router.post('/withdraw', rateLimit(60_000, 10), requireAuth, async (req: Request
         return res.status(429).json({ error: limits.error });
       }
 
+      // Общесистемный дневной лимит оттока — не более X% текущего баланса
+      // казны в сутки суммарно по всем пользователям.
+      const globalLimit = checkGlobalDailyWithdrawalLimit(amount, treasuryBalance);
+      if (!globalLimit.valid) {
+        rollback();
+        logAudit(userId, 'rejected', amount, 'global_daily_limit_exceeded', { detail: globalLimit.error });
+        return res.status(429).json({ error: globalLimit.error });
+      }
+
+      const inserted = db.prepare(`
+        INSERT INTO withdrawals (userId, amount, signature, externalAddress, status)
+        VALUES (?, ?, ?, ?, 'pending')
+      `).run(userId, amount, pendingSignature, externalWalletAddress);
+      withdrawalRowId = Number(inserted.lastInsertRowid);
+
       db.exec('COMMIT');
       inTx = false;
-      debited = true;
       logAudit(userId, 'debit', amount, 'withdraw_initiated', { externalWalletAddress });
     } catch (txErr) {
       rollback();
       throw txErr;
     }
 
-    // 5. Проверка баланса казны (TC) — сетевой вызов, поэтому вне транзакции;
-    //    при неудаче возвращаем списанное.
-    const treasuryBalance = await solanaService.getTreasuryBalance();
-    if (treasuryBalance < amount) {
-      refundDebit('treasury_low');
-      return res.status(400).json({
-        error: 'Treasury temporarily low. Please try again later.'
-      });
-    }
-
-    // 5b. Общесистемный дневной лимит оттока — не более X% текущего баланса
-    //     казны в сутки суммарно по всем пользователям.
-    const globalLimit = checkGlobalDailyWithdrawalLimit(amount, treasuryBalance);
-    if (!globalLimit.valid) {
-      refundDebit('global_daily_limit_exceeded');
-      logAudit(userId, 'rejected', amount, 'global_daily_limit_exceeded', { detail: globalLimit.error });
-      return res.status(429).json({ error: globalLimit.error });
-    }
-
-    // 6. Проверка баланса SOL на казне (для газа)
-    try {
-      const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');
-      const pubkey = new PublicKey(solanaService.getTreasuryPublicKey());
-      const solBalance = await connection.getBalance(pubkey);
-      const MIN_SOL = 0.01 * 1e9; // 0.01 SOL в lamports
-
-      if (solBalance < MIN_SOL) {
-        refundDebit('treasury_sol_low');
-        return res.status(400).json({
-          error: 'Treasury is low on SOL for transaction fees. Please wait.'
-        });
-      }
-    } catch (solError: unknown) {
-      const msg = solError instanceof Error ? solError.message : String(solError);
-      console.warn('⚠️ Could not check SOL balance:', msg);
-      // Продолжаем, но логируем
-    }
-
-    // 7. Отправка транзакции в Solana
+    // 5. Отправка транзакции в Solana
     let signature: string;
     try {
       signature = await solanaService.sendTokens(externalWalletAddress, amount);
     } catch (solanaError: unknown) {
-      // ОТКАТ: возвращаем баланс (nonce уже использован для этой попытки —
-      // клиент получит новый через GET /nonce)
-      refundDebit('solana_send_failed');
+      // ОТКАТ: возвращаем баланс и помечаем зарезервированную строку как
+      // 'failed' (не удаляем — иначе она перестанет учитываться в SUM(...)
+      // лимитных проверок задним числом для уже принятых решений, и сама
+      // история выводов потеряет след неудачной попытки).
+      try {
+        db.exec('BEGIN IMMEDIATE');
+        db.prepare('UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?').run(amount, userId);
+        db.prepare(`UPDATE withdrawals SET status = 'failed' WHERE id = ?`).run(withdrawalRowId);
+        db.exec('COMMIT');
+        logAudit(userId, 'credit', amount, 'withdraw_refund', { reason: 'solana_send_failed' });
+      } catch (refundErr) {
+        db.exec('ROLLBACK');
+        captureError('🚨 CRITICAL: failed to refund withdrawal after Solana send error — needs manual reconciliation:', refundErr);
+      }
 
       const msg = solanaError instanceof Error ? solanaError.message : String(solanaError);
       captureError('❌ Solana transaction failed:', solanaError);
@@ -348,13 +379,21 @@ router.post('/withdraw', rateLimit(60_000, 10), requireAuth, async (req: Request
       });
     }
 
-    // 8. Логирование вывода (nonce уже увеличен в транзакции на шаге 2-4)
-    db.prepare(`
-      INSERT INTO withdrawals (userId, amount, signature, externalAddress, status)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(userId, amount, signature, externalWalletAddress, 'completed');
+    // 6. Финализируем зарезервированную строку реальной подписью и статусом
+    //    'completed'. Токены уже отправлены on-chain — если это обновление
+    //    не удастся, деньги всё равно ушли, поэтому НЕ откатываем и не
+    //    возвращаем ошибку клиенту (у него уже есть signature/explorerLink),
+    //    а громко логируем инцидент для ручной сверки, чтобы запись не
+    //    потерялась молча.
+    try {
+      db.prepare(`UPDATE withdrawals SET signature = ?, status = 'completed' WHERE id = ?`)
+        .run(signature, withdrawalRowId);
+    } catch (updateError: unknown) {
+      captureError('🚨 CRITICAL: withdrawal sent on-chain but not finalized in DB — needs manual reconciliation:', updateError);
+      logAudit(userId, 'debit', amount, 'withdraw_record_failed', { signature, externalWalletAddress });
+    }
 
-    // 9. Успешный ответ
+    // 7. Успешный ответ
     res.json({
       success: true,
       signature,

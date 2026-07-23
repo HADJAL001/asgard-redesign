@@ -9,7 +9,7 @@ import {
   TradeRow,
 } from "../services/matching-engine"
 import { logAudit } from "../lib/audit"
-import { canEmitUnbacked } from "../lib/emission-guard"
+import { fetchTreasuryTcForEmission, canEmitUnbackedSync } from "../lib/emission-guard"
 
 const router = Router()
 
@@ -252,37 +252,55 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
   // казна покрывает весь ∞ в обращении 1:1. Если нет, остаток заявки просто
   // не исполняется через mint (частичное исполнение против стакана — не бага,
   // а намеренное ограничение необеспеченного начисления).
+  //
+  // Сетевой запрос баланса казны — до открытия транзакции (внутри BEGIN
+  // IMMEDIATE нельзя await). Проверка резерва (canEmitUnbackedSync) и пересчёт
+  // TC_TOTAL_CAP (minted мог измениться от другой конкурентной эмиссии) —
+  // синхронно внутри транзакции, вместе с самим начислением: TOCTOU-safe
+  // относительно других источников ∞-эмиссии (см. lib/emission-guard.ts) и
+  // относительно конкурентных /tc-market/buy-запросов, бьющихся за один и тот
+  // же остаток TC_TOTAL_CAP.
+  const treasuryTc = remainingUsd > EPS ? await fetchTreasuryTcForEmission() : null
+
   if (remainingUsd > EPS) {
-    const currentState: any = getMarketState()
-    const fallbackPrice = currentState.price
-    const candidateMintTc = remainingUsd / fallbackPrice
+    db.exec("BEGIN IMMEDIATE")
+    try {
+      const currentState: any = getMarketState()
+      const fallbackPrice = currentState.price
+      const candidateMintTc = remainingUsd / fallbackPrice
 
-    // Частичное исполнение под потолком TC_TOTAL_CAP: если оставшегося "места" до
-    // потолка меньше, чем кандидат на минт, минтим только оставшееся место (и
-    // списываем/зачисляем пропорционально меньшую сумму), а не всё remainingUsd.
-    const capRemaining = Math.max(0, TC_TOTAL_CAP - currentState.minted)
-    const cappedMintTc = Math.min(candidateMintTc, capRemaining)
+      // Частичное исполнение под потолком TC_TOTAL_CAP: если оставшегося "места" до
+      // потолка меньше, чем кандидат на минт, минтим только оставшееся место (и
+      // списываем/зачисляем пропорционально меньшую сумму), а не всё remainingUsd.
+      const capRemaining = Math.max(0, TC_TOTAL_CAP - currentState.minted)
+      const cappedMintTc = Math.min(candidateMintTc, capRemaining)
 
-    if (cappedMintTc > EPS && (await canEmitUnbacked(cappedMintTc))) {
-      mintTc = cappedMintTc
-      mintUsd = mintTc * fallbackPrice
-      newPrice = Math.round(fallbackPrice * (1 + PRICE_IMPACT_FACTOR * mintTc) * 1e6) / 1e6
+      if (cappedMintTc > EPS && treasuryTc !== null && canEmitUnbackedSync(cappedMintTc, treasuryTc)) {
+        mintTc = cappedMintTc
+        mintUsd = mintTc * fallbackPrice
+        newPrice = Math.round(fallbackPrice * (1 + PRICE_IMPACT_FACTOR * mintTc) * 1e6) / 1e6
 
-      const now = Date.now()
+        const now = Date.now()
 
-      db.prepare(`UPDATE wallets SET cash_usd = cash_usd - ?, timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`).run(
-        mintUsd,
-        mintTc,
-        now,
-        req.user!.userId,
-      )
+        db.prepare(`UPDATE wallets SET cash_usd = cash_usd - ?, timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`).run(
+          mintUsd,
+          mintTc,
+          now,
+          req.user!.userId,
+        )
 
-      db.prepare(`UPDATE tc_market_state SET price = ?, minted = minted + ? WHERE id = 1`).run(newPrice, mintTc)
-      db.prepare(`INSERT INTO tc_price_history (ts, price) VALUES (?, ?)`).run(now, newPrice)
+        db.prepare(`UPDATE tc_market_state SET price = ?, minted = minted + ? WHERE id = 1`).run(newPrice, mintTc)
+        db.prepare(`INSERT INTO tc_price_history (ts, price) VALUES (?, ?)`).run(now, newPrice)
 
-      db.prepare(
-        `INSERT INTO tc_trades (user_id, ts, price, amount, side, origin) VALUES (?, ?, ?, ?, 'buy', 'emission')`,
-      ).run(req.user!.userId, now, newPrice, mintTc)
+        db.prepare(
+          `INSERT INTO tc_trades (user_id, ts, price, amount, side, origin) VALUES (?, ?, ?, ?, 'buy', 'emission')`,
+        ).run(req.user!.userId, now, newPrice, mintTc)
+      }
+
+      db.exec("COMMIT")
+    } catch (err) {
+      db.exec("ROLLBACK")
+      throw err
     }
   }
 

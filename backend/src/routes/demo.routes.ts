@@ -161,7 +161,7 @@ router.post("/generate", async (req: Request, res: Response) => {
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { logAudit } from "../lib/audit"
-import { canEmitUnbacked } from "../lib/emission-guard"
+import { fetchTreasuryTcForEmission, canEmitUnbackedSync } from "../lib/emission-guard"
 
 const DEMO_BONUS_TC = 50
 
@@ -173,11 +173,14 @@ router.post("/convert", requireAuth, async (req: AuthRequest, res: Response) => 
     return res.status(400).json({ error: "Нет демо-данных для конвертации" })
   }
 
-  // Проверяем резерв ДО открытия транзакции — не обеспеченный резервом
-  // бонус не начисляем, если казна уже не покрывает весь ∞ 1:1. Флаг
-  // demo_bonus_claimed при этом не выставляем, чтобы бонус мог
-  // начислиться позже, когда резерв восстановится.
-  const canEmitBonus = await canEmitUnbacked(DEMO_BONUS_TC)
+  // Сетевой запрос баланса казны — до открытия транзакции (внутри
+  // BEGIN IMMEDIATE нельзя await). Сама проверка "хватит ли резерва"
+  // выполняется синхронно внутри транзакции ниже, вместе с самим
+  // начислением бонуса — TOCTOU-safe относительно других источников
+  // ∞-эмиссии (см. lib/emission-guard.ts). Если резерв не проверить
+  // или он не покрывает бонус, флаг demo_bonus_claimed не выставляем,
+  // чтобы бонус мог начислиться позже, когда резерв восстановится.
+  const treasuryTc = await fetchTreasuryTcForEmission()
 
   const now = Date.now()
   let totalArtifacts = 0
@@ -199,7 +202,7 @@ router.post("/convert", requireAuth, async (req: AuthRequest, res: Response) => 
   // но поддерживает обычный SQL BEGIN/COMMIT/ROLLBACK — оборачиваем все вставки проектов,
   // артефактов и начисление бонуса в одну транзакцию, чтобы при ошибке на середине цикла
   // (например, на 2-м из 3 проектов) не оставалось частично сконвертированных демо-данных.
-  db.exec("BEGIN")
+  db.exec("BEGIN IMMEDIATE")
   try {
     for (const proj of demoProjects.slice(0, 3)) {
       const pInfo = insertProject.run(
@@ -238,7 +241,7 @@ router.post("/convert", requireAuth, async (req: AuthRequest, res: Response) => 
     // фарм TC при многократных вызовах /demo/convert. Плюс не начисляем, если
     // резерв уже не покрывает весь ∞ 1:1 (canEmitBonus, проверено до транзакции).
     let bonusTokens = 0
-    if (canEmitBonus) {
+    if (treasuryTc !== null && canEmitUnbackedSync(DEMO_BONUS_TC, treasuryTc)) {
       const bonusClaim = db
         .prepare(`UPDATE wallets SET timecoin = timecoin + ?, demo_bonus_claimed = 1 WHERE user_id = ? AND demo_bonus_claimed = 0`)
         .run(DEMO_BONUS_TC, userId)
