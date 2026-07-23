@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Crown } from 'lucide-react-native';
+import { Crown, Receipt } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 
 import { Card } from '@/components/ui/Card';
@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useAuthStore } from '@/store/authStore';
 import { useLeaderboardQuery } from '@/hooks/useLeaderboardQuery';
 import { useTransactionsQuery } from '@/hooks/useTransactionsQuery';
+import { groupByDate } from '@/lib/date-groups';
 
 const TOP_N = 5;
 
@@ -33,7 +34,11 @@ export default function ProfileScreen() {
     return idx >= 0 ? idx + 1 : null;
   }, [leaderboard, user]);
 
-  const recentTransactions = useMemo(() => (transactions ?? []).slice(0, 5), [transactions]);
+  const recentTransactions = useMemo(() => (transactions ?? []).slice(0, 15), [transactions]);
+  const transactionGroups = useMemo(
+    () => groupByDate(recentTransactions, (tx) => tx.createdAt),
+    [recentTransactions],
+  );
 
   const handleShareReferral = async () => {
     if (!user?.referralCode) return;
@@ -110,15 +115,23 @@ export default function ProfileScreen() {
         <Card className="gap-3">
           <Text className="text-lg font-bold text-white">Последние операции</Text>
           {recentTransactions.length === 0 ? (
-            <Text className="text-muted">Операций пока нет</Text>
+            <View className="items-center gap-2 py-6">
+              <Receipt size={28} color="#6A6A8A" />
+              <Text className="text-muted">Операций пока нет</Text>
+            </View>
           ) : (
-            recentTransactions.map((tx) => (
-              <View key={tx.id} className="flex-row items-center justify-between">
-                <Text className="text-white">{tx.item ?? tx.type}</Text>
-                <Text className={tx.amount >= 0 ? 'text-up' : 'text-down'}>
-                  {tx.amount >= 0 ? '+' : ''}
-                  {tx.amount} {tx.currency}
-                </Text>
+            transactionGroups.map((group) => (
+              <View key={group.label} className="gap-2">
+                <Text className="text-xs font-semibold uppercase text-muted">{group.label}</Text>
+                {group.items.map((tx) => (
+                  <View key={tx.id} className="flex-row items-center justify-between">
+                    <Text className="text-white">{tx.item ?? tx.type}</Text>
+                    <Text className={tx.amount >= 0 ? 'text-up' : 'text-down'}>
+                      {tx.amount >= 0 ? '+' : ''}
+                      {tx.amount} {tx.currency}
+                    </Text>
+                  </View>
+                ))}
               </View>
             ))
           )}

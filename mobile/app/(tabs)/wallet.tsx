@@ -8,6 +8,9 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
 import { useToast } from '@/components/ui/Toast';
+import { PriceChart } from '@/components/PriceChart';
+import { AnimatedBalance } from '@/components/AnimatedBalance';
+import { CurrencyIcon } from '@/components/CurrencyIcon';
 
 import { useWalletQuery } from '@/hooks/useWalletQuery';
 import { useTcMarketQuery } from '@/hooks/useTcMarketQuery';
@@ -17,7 +20,7 @@ import { useStakesQuery } from '@/hooks/useStakesQuery';
 import { useStakeMutation } from '@/hooks/useStakeMutation';
 import { useUnstakeMutation } from '@/hooks/useUnstakeMutation';
 
-import { CURRENCY_ORDER, CURRENCIES, formatCurrency } from '@/lib/economy';
+import { CURRENCY_ORDER, CURRENCIES, formatCurrencyAmount } from '@/lib/economy';
 import { STAKE_TERMS, MIN_STAKE, fmtUSD, fmtTC } from '@/lib/tc-market';
 
 type ActiveModal = 'buy' | 'sell' | 'stake' | null;
@@ -105,15 +108,32 @@ export default function WalletScreen() {
         <Card className="gap-3">
           {CURRENCY_ORDER.map((id) => (
             <View key={id} className="flex-row items-center justify-between">
-              <Text className="text-muted">{CURRENCIES[id].label}</Text>
-              <Text className="text-base font-bold text-white">
-                {formatCurrency(id, wallet?.[id] ?? 0)}
-              </Text>
+              <View className="flex-row items-center gap-2">
+                <CurrencyIcon currency={id} />
+                <Text className="text-muted">{CURRENCIES[id].label}</Text>
+              </View>
+              <View className="flex-row items-center">
+                <AnimatedBalance
+                  value={wallet?.[id] ?? 0}
+                  format={(n) => formatCurrencyAmount(id, n)}
+                  className="text-base font-bold text-white"
+                  style={{ padding: 0, textAlign: 'right' }}
+                />
+                <Text className="text-base font-bold text-white"> {CURRENCIES[id].symbol}</Text>
+              </View>
             </View>
           ))}
           <View className="flex-row items-center justify-between border-t border-border pt-3">
-            <Text className="text-muted">USD-баланс</Text>
-            <Text className="text-base font-bold text-white">{fmtUSD(wallet?.cash_usd ?? 0)}</Text>
+            <View className="flex-row items-center gap-2">
+              <CurrencyIcon currency="usd" />
+              <Text className="text-muted">USD-баланс</Text>
+            </View>
+            <AnimatedBalance
+              value={wallet?.cash_usd ?? 0}
+              format={(n) => fmtUSD(n)}
+              className="text-base font-bold text-white"
+              style={{ padding: 0, textAlign: 'right' }}
+            />
           </View>
         </Card>
 
@@ -122,6 +142,7 @@ export default function WalletScreen() {
             <Text className="text-muted">Курс TimeCoin</Text>
             <Text className="text-lg font-bold text-accent">{fmtUSD(tcState?.price ?? 0)}</Text>
           </View>
+          <PriceChart history={tcState?.history ?? []} />
           <View className="flex-row gap-3">
             <Button className="flex-1" variant="primary" onPress={() => setActiveModal('buy')}>
               Купить

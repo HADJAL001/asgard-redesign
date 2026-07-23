@@ -18,6 +18,8 @@ export function useGenerateArtifact() {
       queryClient.setQueryData<OsgardWallet>(WALLET_QUERY_KEY, (old) =>
         old ? { ...old, timecoin: old.timecoin - AI_GENERATE_COST_TC } : old,
       );
+      // Ответ generate-ai не возвращает кошелёк — сверяем оптимистичное списание с сервером в фоне.
+      queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
     },
   });
 }
