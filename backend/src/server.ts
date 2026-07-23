@@ -174,6 +174,7 @@ import jarvisRoutes from "./routes/jarvis.routes"
 import jarvisShopRoutes from "./routes/jarvis-shop.routes"
 import twinRoutes from "./routes/twin.routes"
 import feedbackRoutes from "./routes/feedback.routes"
+import analyticsRoutes from "./routes/analytics.routes"
 import communityRoutes from "./routes/community.routes"
 import tcRoutes from "./routes/tc.routes"
 import notificationsRoutes from "./routes/notifications.routes"
@@ -250,6 +251,7 @@ import { runReferralsTableMigration } from "./migrations/062_referrals_table"
 import { runNotificationsMigration } from "./migrations/063_notifications_table"
 import { runPushTokensMigration } from "./migrations/064_push_tokens"
 import { runActivityFeedMigration } from "./migrations/065_activity_feed_table"
+import { runAnalyticsEventsMigration } from "./migrations/066_analytics_events"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
@@ -302,6 +304,9 @@ run2FAMigration()
 
 /* Гарантируем наличие таблицы notifications (лайки/комментарии к постам) при старте сервера. */
 runNotificationsMigration()
+
+/* Гарантируем наличие таблицы analytics_events (продуктовые события, сейчас — paywall-воронка) при старте сервера. */
+runAnalyticsEventsMigration()
 
 /* Гарантируем наличие таблицы push_tokens (Expo push-токены мобильного приложения) при старте сервера. */
 runPushTokensMigration()
@@ -388,6 +393,7 @@ app.use("/jarvis", jarvisRoutes)
 app.use("/jarvis", jarvisShopRoutes)
 app.use("/twin", twinRoutes)
 app.use("/feedback", feedbackRoutes)
+app.use("/analytics", analyticsRoutes)
 app.use("/posts", communityRoutes)
 app.use("/api/tc", tcRoutes)
 app.use("/walli", walliRoutes)

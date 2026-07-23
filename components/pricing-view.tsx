@@ -15,7 +15,7 @@
    локально через POST /subscription/create-checkout.
    ================================================================ */
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import {
   Check,
@@ -39,6 +39,7 @@ import {
 import { Navbar } from "./navbar"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-store"
+import { track, getAnalyticsSessionId } from "@/lib/analytics"
 
 /* ── Палитра ───────────────────────────────────────────────────── */
 const BG     = "#0A0A0F"
@@ -318,6 +319,7 @@ export function PricingView() {
   const [loading, setLoading] = useState(false)
   const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
+  const clickedAnyPlanRef = useRef(false)
 
   /* Загружаем текущий план подписки */
   useEffect(() => {
@@ -328,8 +330,29 @@ export function PricingView() {
       .catch(() => setCurrentPlan("free"))
   }, [user])
 
+  /* Конверсионная воронка paywall (pricing_view/pricing_click/pricing_conversion/
+     pricing_abandon) — см. lib/analytics.ts и AdminController.paywallFunnel.
+     pricing_abandon шлём только если за визит не было ни одного клика по тарифу —
+     иначе страница "отваливается" из воронки уже после того, как пользователь
+     ушёл оформлять оплату (это не abandon, а нормальный переход на Stripe). */
+  useEffect(() => {
+    track("pricing_view")
+
+    function handleBeforeUnload() {
+      if (!clickedAnyPlanRef.current) {
+        track("pricing_abandon")
+      }
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [])
+
   async function handleSubscribe(plan: PlanDef) {
     if (!plan.stripePlan) return
+    clickedAnyPlanRef.current = true
+    track("pricing_click", { plan: plan.stripePlan })
+
     if (!user) {
       setNotice({ ok: false, text: "Войдите или зарегистрируйтесь для оформления подписки" })
       return
@@ -342,7 +365,7 @@ export function PricingView() {
     try {
       const res = await apiClient.post<{ mock?: boolean; url?: string; subscription?: any }>(
         "/subscription/create-checkout",
-        { plan: plan.stripePlan },
+        { plan: plan.stripePlan, session_id: getAnalyticsSessionId() },
       )
 
       if (res.mock) {

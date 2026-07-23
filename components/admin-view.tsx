@@ -16,6 +16,8 @@ import {
   CheckCircle2,
   Gift,
   ScrollText,
+  TrendingUp,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react"
 import { Navbar } from "./navbar"
@@ -55,6 +57,37 @@ type AdminLog = {
   createdAt: number
   admin: { id: number; username: string }
   target: { id: number; username: string } | null
+}
+
+type AdminFunnel = {
+  days: number
+  registered: number
+  activated: number
+  paid: number
+  activationRate: number
+  paidConversionRate: number
+}
+
+type AdminRetentionRow = {
+  cohortDay: string
+  cohortSize: number
+  d1: number
+  d7: number
+  d30: number
+}
+
+type AdminPaywallFunnel = {
+  days: number
+  totalViews: number
+  totalClicks: number
+  totalConversions: number
+  totalAbandons: number
+  viewToClickRate: number
+  clickToConversionRate: number
+  overallConversionRate: number
+  mostPopularTier: string | null
+  avgDecisionTimeSec: number
+  byTier: { tier: string; clicks: number; conversions: number; abandoned: number }[]
 }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -99,12 +132,17 @@ export function AdminView() {
   const [totalPages, setTotalPages] = useState(1)
   const [loadingUsers, setLoadingUsers] = useState(true)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [tab, setTab] = useState<"users" | "logs">("users")
+  const [tab, setTab] = useState<"users" | "logs" | "analytics">("users")
 
   const [logs, setLogs] = useState<AdminLog[]>([])
   const [logsPage, setLogsPage] = useState(1)
   const [logsTotalPages, setLogsTotalPages] = useState(1)
   const [loadingLogs, setLoadingLogs] = useState(false)
+
+  const [funnel, setFunnel] = useState<AdminFunnel | null>(null)
+  const [retention, setRetention] = useState<AdminRetentionRow[]>([])
+  const [paywallFunnel, setPaywallFunnel] = useState<AdminPaywallFunnel | null>(null)
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false)
 
   const [grantingUserId, setGrantingUserId] = useState<number | null>(null)
   const [grantCredits, setGrantCredits] = useState("")
@@ -176,6 +214,37 @@ export function AdminView() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.role, tab, logsPage])
+
+  const loadAnalytics = useCallback(async () => {
+    setLoadingAnalytics(true)
+    try {
+      const [funnelData, retentionData, paywallFunnelData] = await Promise.all([
+        apiClient.get<{ funnel: AdminFunnel }>("/admin/analytics/funnel?days=30", { skipAuthRedirect: true }),
+        apiClient.get<{ retention: AdminRetentionRow[] }>("/admin/analytics/retention?days=30", {
+          skipAuthRedirect: true,
+        }),
+        apiClient.get<{ funnel: AdminPaywallFunnel }>("/admin/analytics/paywall-funnel?days=30", {
+          skipAuthRedirect: true,
+        }),
+      ])
+      setFunnel(funnelData.funnel)
+      setRetention(retentionData.retention)
+      setPaywallFunnel(paywallFunnelData.funnel)
+    } catch {
+      setFunnel(null)
+      setRetention([])
+      setPaywallFunnel(null)
+    } finally {
+      setLoadingAnalytics(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!authLoading && user?.role === "admin" && tab === "analytics") {
+      loadAnalytics()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user?.role, tab])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -323,6 +392,19 @@ export function AdminView() {
           >
             <ScrollText size={14} />
             Логи
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("analytics")}
+            className="inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-colors"
+            style={
+              tab === "analytics"
+                ? { backgroundColor: "rgba(0,212,255,0.1)", border: `1px solid ${ACCENT}`, color: ACCENT }
+                : { border: `1px solid ${BORDER}`, color: LABEL }
+            }
+          >
+            <TrendingUp size={14} />
+            Аналитика
           </button>
         </div>
 
@@ -630,6 +712,194 @@ export function AdminView() {
               </div>
             )}
           </Card>
+        )}
+
+        {/* Analytics */}
+        {tab === "analytics" && (
+          <div className="space-y-6">
+            <Card>
+              <SectionTitle Icon={TrendingUp}>Воронка за 30 дней</SectionTitle>
+              {loadingAnalytics ? (
+                <div className="py-6 text-center text-[13px]" style={{ color: LABEL }}>
+                  Загрузка…
+                </div>
+              ) : !funnel ? (
+                <div className="py-6 text-center text-[13px]" style={{ color: LABEL }}>
+                  Нет данных
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                  <div>
+                    <div className="text-[24px] font-medium leading-none">{funnel.registered}</div>
+                    <div className="mt-2 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+                      Регистраций
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[24px] font-medium leading-none">{funnel.activated}</div>
+                    <div className="mt-2 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+                      Активировались (1-я генерация)
+                    </div>
+                    <div className="mt-1 text-[11px]" style={{ color: ACCENT }}>
+                      {(funnel.activationRate * 100).toFixed(1)}%
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[24px] font-medium leading-none">{funnel.paid}</div>
+                    <div className="mt-2 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+                      Оформили платный тариф
+                    </div>
+                    <div className="mt-1 text-[11px]" style={{ color: ACCENT }}>
+                      {(funnel.paidConversionRate * 100).toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            <Card>
+              <SectionTitle Icon={ActivityIcon}>Retention по когортам (D1 / D7 / D30)</SectionTitle>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-[13px]">
+                  <thead>
+                    <tr style={{ color: LABEL }}>
+                      <th className="pb-3 pr-4 font-medium">Когорта (день регистрации)</th>
+                      <th className="pb-3 pr-4 font-medium">Размер</th>
+                      <th className="pb-3 pr-4 font-medium">D1</th>
+                      <th className="pb-3 pr-4 font-medium">D7</th>
+                      <th className="pb-3 pr-4 font-medium">D30</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y" style={{ borderColor: BORDER }}>
+                    {loadingAnalytics ? (
+                      <tr>
+                        <td colSpan={5} className="py-6 text-center" style={{ color: LABEL }}>
+                          Загрузка…
+                        </td>
+                      </tr>
+                    ) : retention.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-6 text-center" style={{ color: LABEL }}>
+                          Нет данных
+                        </td>
+                      </tr>
+                    ) : (
+                      retention.map((r) => (
+                        <tr key={r.cohortDay}>
+                          <td className="py-3 pr-4" style={{ color: LABEL }}>{r.cohortDay}</td>
+                          <td className="py-3 pr-4">{r.cohortSize}</td>
+                          <td className="py-3 pr-4">
+                            {r.cohortSize > 0 ? `${r.d1} (${((r.d1 / r.cohortSize) * 100).toFixed(0)}%)` : "—"}
+                          </td>
+                          <td className="py-3 pr-4">
+                            {r.cohortSize > 0 ? `${r.d7} (${((r.d7 / r.cohortSize) * 100).toFixed(0)}%)` : "—"}
+                          </td>
+                          <td className="py-3 pr-4">
+                            {r.cohortSize > 0 ? `${r.d30} (${((r.d30 / r.cohortSize) * 100).toFixed(0)}%)` : "—"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+
+            <Card>
+              <SectionTitle Icon={CreditCard}>Воронка paywall за {paywallFunnel?.days ?? 30} дней</SectionTitle>
+              {loadingAnalytics ? (
+                <div className="py-6 text-center text-[13px]" style={{ color: LABEL }}>
+                  Загрузка…
+                </div>
+              ) : !paywallFunnel ? (
+                <div className="py-6 text-center text-[13px]" style={{ color: LABEL }}>
+                  Нет данных
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                    <div>
+                      <div className="text-[24px] font-medium leading-none">{paywallFunnel.totalViews}</div>
+                      <div className="mt-2 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+                        Просмотров pricing
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[24px] font-medium leading-none">{paywallFunnel.totalClicks}</div>
+                      <div className="mt-2 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+                        Кликов по тарифу
+                      </div>
+                      <div className="mt-1 text-[11px]" style={{ color: ACCENT }}>
+                        {(paywallFunnel.viewToClickRate * 100).toFixed(1)}% от просмотров
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[24px] font-medium leading-none">{paywallFunnel.totalConversions}</div>
+                      <div className="mt-2 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+                        Оплатили
+                      </div>
+                      <div className="mt-1 text-[11px]" style={{ color: ACCENT }}>
+                        {(paywallFunnel.clickToConversionRate * 100).toFixed(1)}% от кликов ·{" "}
+                        {(paywallFunnel.overallConversionRate * 100).toFixed(1)}% всего
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[24px] font-medium leading-none">{paywallFunnel.totalAbandons}</div>
+                      <div className="mt-2 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+                        Ушли без выбора тарифа
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-[13px]" style={{ color: LABEL }}>
+                        Популярнее всего
+                      </div>
+                      <div className="mt-1 text-[15px] font-medium">{paywallFunnel.mostPopularTier ?? "—"}</div>
+                    </div>
+                    <div>
+                      <div className="text-[13px]" style={{ color: LABEL }}>
+                        Среднее время принятия решения
+                      </div>
+                      <div className="mt-1 text-[15px] font-medium">{paywallFunnel.avgDecisionTimeSec} сек</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 overflow-x-auto">
+                    <table className="w-full text-left text-[13px]">
+                      <thead>
+                        <tr style={{ color: LABEL }}>
+                          <th className="pb-3 pr-4 font-medium">Тариф</th>
+                          <th className="pb-3 pr-4 font-medium">Клики</th>
+                          <th className="pb-3 pr-4 font-medium">Оплатили</th>
+                          <th className="pb-3 pr-4 font-medium">Отвалились</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y" style={{ borderColor: BORDER }}>
+                        {paywallFunnel.byTier.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="py-6 text-center" style={{ color: LABEL }}>
+                              Нет данных
+                            </td>
+                          </tr>
+                        ) : (
+                          paywallFunnel.byTier.map((t) => (
+                            <tr key={t.tier}>
+                              <td className="py-3 pr-4" style={{ color: LABEL }}>{t.tier}</td>
+                              <td className="py-3 pr-4">{t.clicks}</td>
+                              <td className="py-3 pr-4">{t.conversions}</td>
+                              <td className="py-3 pr-4">{t.abandoned}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </Card>
+          </div>
         )}
       </main>
     </div>
