@@ -1,0 +1,37 @@
+name: mobile-ci
+
+on:
+  pull_request:
+    paths:
+      - "mobile/**"
+      - ".github/workflows/mobile-ci.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npx tsc --noEmit
+
+      - run: npm test -- --watchAll=false
+
+      # Detox e2e требует нативной сборки (Android emulator/iOS simulator) и
+      # здесь намеренно не запускается — нет доступного device farm в этом
+      # workflow. Прогон вручную: `npx expo prebuild`, затем
+      # `npm run e2e:build:android && npm run e2e:test:android`.
+      # TODO: подключить Detox через EAS Build + `wix/detox-github-action`
+      # (или device farm), когда появится подходящий раннер.
