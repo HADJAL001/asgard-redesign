@@ -105,7 +105,7 @@ app.use(cors({
   credentials: true
 }))
 app.use(morgan("dev"))
-app.use(compression({ level: 9, threshold: 1024 })) // сжимаем ответы > 1KB
+app.use(compression({ level: 6, threshold: 1024 })) // сжимаем ответы > 1KB
 
 /* Stripe webhook требует "сырое" (raw) тело запроса для проверки подписи,
    поэтому монтируем его ДО express.json(), с express.raw() именно для этого пути. */

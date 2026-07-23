@@ -59,6 +59,7 @@ router.get("/state", (_req, res) => {
     .prepare(`SELECT COALESCE(SUM(amount), 0) as volume FROM tc_trades WHERE ts >= ?`)
     .get(Date.now() - 24 * 60 * 60 * 1000)
 
+  res.set("Cache-Control", "public, max-age=3")
   res.json({
     price: state.price,
     minted: state.minted,
@@ -81,6 +82,7 @@ router.get("/orderbook", (_req, res) => {
   const bestAsk = book.asks[0]?.price ?? null
   const spread = bestBid !== null && bestAsk !== null ? Math.round((bestAsk - bestBid) * 100) / 100 : 0
 
+  res.set("Cache-Control", "public, max-age=3")
   res.json({
     bids: book.bids,
     asks: book.asks,
@@ -97,6 +99,7 @@ router.get("/trades", (req, res) => {
   const trades = db
     .prepare(`SELECT id, ts, price, amount, side, origin FROM tc_trades ORDER BY ts DESC, id DESC LIMIT ?`)
     .all(limit)
+  res.set("Cache-Control", "public, max-age=3")
   res.json({ trades })
 })
 

@@ -25,6 +25,7 @@ router.get("/listings", (_req, res) => {
     )
     .all()
 
+  res.set("Cache-Control", "public, max-age=3")
   res.json({ listings })
 })
 
