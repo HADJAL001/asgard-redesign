@@ -3,3 +3,4 @@ dist/
 data/*.db
 *.db
 .env
+load-test-results/
