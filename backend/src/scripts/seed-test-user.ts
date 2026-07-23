@@ -8,14 +8,9 @@
  */
 
 import bcrypt from 'bcryptjs'
-import path from 'path'
-import Database from 'better-sqlite3'
-
-const DB_PATH = path.resolve(__dirname, '../../osgard.db')
+import db from '../lib/db'
 
 async function seed() {
-  const db = new Database(DB_PATH)
-
   const email = 'test@osgard.com'
   const username = 'TestUser'
   const password = 'Test1234!'
@@ -26,7 +21,6 @@ async function seed() {
   const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email)
   if (existing) {
     console.log(`✓ Пользователь ${email} уже существует (id=${(existing as any).id})`)
-    db.close()
     return
   }
 
@@ -59,8 +53,6 @@ async function seed() {
   console.log(`   Email:    ${email}`)
   console.log(`   Password: ${password}`)
   console.log(`   Кошелёк:  $10000 · 5000 ∞ · 50000 credits · 2000 shards · 100 crystals`)
-
-  db.close()
 }
 
 seed().catch(console.error)
