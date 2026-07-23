@@ -1,5 +1,5 @@
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
-import { getOrCreateAssociatedTokenAccount, transfer } from '@solana/spl-token';
+import { getOrCreateAssociatedTokenAccount, transfer, getMint } from '@solana/spl-token';
 import bs58 from 'bs58';
 import { solanaConfig } from '../config/solana.config';
 import { cacheService } from './cache.service';
@@ -88,5 +88,65 @@ export class SolanaService {
   getTreasuryPublicKey(): string {
     const { wallet } = this.requireWallet();
     return wallet.publicKey.toBase58();
+  }
+
+  /**
+   * Проверка входящего перевода TC на казначейский адрес — используется для
+   * депозита ∞ (TC → ∞). Клиент присылает подпись транзакции, которую он
+   * подписал в своём Solana-кошельке, переведя TC на адрес казначейства.
+   * Сверяем on-chain дельту баланса ATA казначейства, а не верим заявленной
+   * клиентом сумме напрямую (allowed tolerance ±1%, защита от округления).
+   */
+  async verifyIncomingTransfer(signature: string, expectedAmount: number): Promise<{ amount: number; from: string }> {
+    const { wallet, mint } = this.requireWallet();
+    const mintInfo = await getMint(this.connection, mint);
+
+    const tx = await this.connection.getParsedTransaction(signature, {
+      maxSupportedTransactionVersion: 0,
+      commitment: 'confirmed',
+    });
+
+    if (!tx) {
+      throw new Error('Транзакция не найдена в сети Solana (ещё не подтверждена или неверная подпись)');
+    }
+    if (tx.meta?.err) {
+      throw new Error('Транзакция завершилась с ошибкой on-chain');
+    }
+
+    const treasuryAta = await getOrCreateAssociatedTokenAccount(this.connection, wallet, mint, wallet.publicKey);
+    const treasuryAtaStr = treasuryAta.address.toBase58();
+
+    const preBalances = tx.meta?.preTokenBalances || [];
+    const postBalances = tx.meta?.postTokenBalances || [];
+
+    const postTreasury = postBalances.find(
+      (b: any) =>
+        b.mint === mint.toBase58() &&
+        tx.transaction.message.accountKeys[b.accountIndex]?.pubkey.toBase58() === treasuryAtaStr,
+    );
+    const preTreasury = preBalances.find(
+      (b: any) =>
+        b.mint === mint.toBase58() &&
+        tx.transaction.message.accountKeys[b.accountIndex]?.pubkey.toBase58() === treasuryAtaStr,
+    );
+
+    if (!postTreasury) {
+      throw new Error('Транзакция не содержит перевод TC на адрес казначейства');
+    }
+
+    const preAmount = preTreasury ? Number(preTreasury.uiTokenAmount.amount) : 0;
+    const postAmount = Number(postTreasury.uiTokenAmount.amount);
+    const rawDelta = postAmount - preAmount;
+    const amount = rawDelta / 10 ** mintInfo.decimals;
+
+    if (amount <= 0) {
+      throw new Error('Транзакция не увеличивает баланс казначейства TC');
+    }
+    if (Math.abs(amount - expectedAmount) > expectedAmount * 0.01 + 1e-6) {
+      throw new Error(`Сумма в транзакции (${amount} TC) не совпадает с запрошенной (${expectedAmount} TC)`);
+    }
+
+    const sender = tx.transaction.message.accountKeys[0]?.pubkey.toBase58() || 'unknown';
+    return { amount, from: sender };
   }
 }

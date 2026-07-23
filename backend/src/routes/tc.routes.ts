@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/authMiddleware';
 import { rateLimit } from '../middleware/rateLimiter';
 import { SolanaService } from '../services/solana.service';
 import { withdrawSchema } from '../validators/withdraw.validator';
+import { depositSchema } from '../validators/deposit.validator';
 import { TwoFAService } from '../services/twofa.service';
 import db from '../lib/db';
 import { captureError } from '../lib/sentry';
@@ -11,6 +12,7 @@ import { logAudit } from '../lib/audit';
 
 const router = Router();
 const solanaService = new SolanaService();
+const TC_CONVERT_FEE = 0.005;
 
 // ========== ТИПЫ ==========
 
@@ -104,6 +106,77 @@ router.get('/nonce', requireAuth, (req: Request, res: Response) => {
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     res.status(500).json({ error: msg });
+  }
+});
+
+// ========== РОУТ ДЕПОЗИТА (TC → ∞) ==========
+
+/**
+ * POST /api/tc/deposit
+ * Пользователь переводит TC на адрес казначейства в своём Solana-кошельке,
+ * затем присылает подпись транзакции сюда. Мы верифицируем перевод on-chain
+ * (а не доверяем заявленной сумме) и зачисляем ∞ за вычетом комиссии 0.5%.
+ */
+router.post('/deposit', rateLimit(60_000, 5), requireAuth, async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+
+  const { error: validationError } = depositSchema.validate(req.body);
+  if (validationError) return res.status(400).json({ error: validationError.details[0].message });
+
+  const { amount, txSignature } = req.body;
+
+  // TOCTOU-safe захват подписи транзакции под UNIQUE-индексом, до сетевой
+  // верификации — конкурентные запросы с одной подписью не смогут оба пройти.
+  try {
+    db.prepare(
+      `INSERT INTO tc_convert_log (user_id, direction, amount, solana_address, tx_signature, status)
+       VALUES (?, 'from_tc', ?, NULL, ?, 'pending')`
+    ).run(userId, amount, txSignature);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'Эта транзакция уже была использована для депозита' });
+    }
+    captureError('❌ Deposit log insert error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+
+  try {
+    const { amount: verifiedAmount, from } = await solanaService.verifyIncomingTransfer(txSignature, amount);
+    const infinityToCredit = verifiedAmount * (1 - TC_CONVERT_FEE);
+
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      db.prepare('UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?').run(infinityToCredit, userId);
+      db.prepare(
+        `UPDATE tc_convert_log SET amount = ?, solana_address = ?, status = 'done' WHERE tx_signature = ?`
+      ).run(verifiedAmount, from, txSignature);
+      db.exec('COMMIT');
+    } catch (txErr) {
+      db.exec('ROLLBACK');
+      throw txErr;
+    }
+
+    logAudit(userId, 'credit', infinityToCredit, 'deposit_completed', { txSignature, from });
+
+    const walletRow = db.prepare('SELECT timecoin FROM wallets WHERE user_id = ?').get(userId) as
+      | { timecoin: number }
+      | undefined;
+
+    res.json({
+      success: true,
+      amountReceivedTc: verifiedAmount,
+      amountCreditedInfinity: infinityToCredit,
+      fee: TC_CONVERT_FEE,
+      from,
+      txSignature,
+      timecoin: walletRow?.timecoin ?? null,
+    });
+  } catch (err: unknown) {
+    db.prepare(`DELETE FROM tc_convert_log WHERE tx_signature = ? AND status = 'pending'`).run(txSignature);
+    const msg = err instanceof Error ? err.message : 'Не удалось проверить транзакцию TC';
+    captureError('❌ Deposit verify error:', err);
+    res.status(400).json({ error: msg });
   }
 });
 
