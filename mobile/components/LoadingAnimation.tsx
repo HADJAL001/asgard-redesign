@@ -17,6 +17,8 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles } from 'lucide-react-native';
 
+import { colors } from '@/design-system/colors';
+
 const DOT_INTERVAL_MS = 400;
 
 function useDots(): string {
@@ -60,7 +62,7 @@ export function LoadingAnimation({ label = 'Загрузка' }: { label?: strin
       <View className="h-1.5 w-40 overflow-hidden rounded-full bg-border">
         <Animated.View style={[{ height: '100%', width: '100%', transformOrigin: 'left' }, barStyle]}>
           <LinearGradient
-            colors={['#D4AF37', '#00D4FF']}
+            colors={[colors.gold, colors.cyan]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{ flex: 1 }}

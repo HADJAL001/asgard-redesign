@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 import { Rocket, Wand2, Cpu, Cog, type LucideIcon } from 'lucide-react-native';
 import { ARTIFACT_THEMES, type ArtifactThemeKey } from '@/types/artifact';
+import { colors } from '@/design-system/colors';
 
 const THEME_ICONS: Record<ArtifactThemeKey, LucideIcon> = {
   scifi: Rocket,
@@ -28,7 +29,7 @@ export function ThemePicker({ value, onChange }: Props) {
               selected ? 'border-accent bg-accent/10' : 'border-border bg-card'
             }`}
           >
-            <Icon size={18} color={selected ? '#00D4FF' : '#8A8A9A'} />
+            <Icon size={18} color={selected ? colors.cyan : '#8A8A9A'} />
             <Text className={selected ? 'text-accent font-semibold' : 'text-muted font-medium'}>
               {theme.label}
             </Text>

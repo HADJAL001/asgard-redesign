@@ -1,6 +1,7 @@
 import { Text, View } from 'react-native';
 import { rarityMeta, typeMeta, STAT_META } from '@/lib/economy';
 import type { OsgardArtifact } from '@/types/artifact';
+import { colors } from '@/design-system/colors';
 
 export function ResultCard({ artifact }: { artifact: OsgardArtifact }) {
   const rarity = rarityMeta(artifact.rarity);
@@ -32,7 +33,7 @@ export function ResultCard({ artifact }: { artifact: OsgardArtifact }) {
           const Icon = stat.Icon;
           return (
             <View key={stat.key} className="min-w-[45%] flex-1 flex-row items-center gap-2 rounded-xl border border-border bg-bg px-3 py-2">
-              <Icon size={16} color="#00D4FF" />
+              <Icon size={16} color={colors.cyan} />
               <Text className="text-muted">{stat.label}</Text>
               <Text className="ml-auto text-base font-bold text-white">{artifact[stat.key]}</Text>
             </View>

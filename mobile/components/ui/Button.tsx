@@ -1,6 +1,7 @@
 import { ActivityIndicator, Pressable, Text, type PressableProps } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { cn } from '@/lib/utils';
+import { colors } from '@/design-system/colors';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 export type ButtonSize = 'sm' | 'md' | 'lg';
@@ -67,7 +68,7 @@ export function Button({
       {...props}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#0A0A0F' : '#00D4FF'} size="small" />
+        <ActivityIndicator color={variant === 'primary' ? '#0A0A0F' : colors.cyan} size="small" />
       ) : null}
       <Text className={cn('font-bold', SIZE_TEXT[size], VARIANT_TEXT[variant])}>{children}</Text>
     </Pressable>

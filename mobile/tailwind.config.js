@@ -8,7 +8,7 @@ module.exports = {
         bg: '#0A0A0F',
         card: '#14141E',
         border: '#22222E',
-        accent: '#00D4FF',
+        accent: '#00F0FF',
         up: '#10B981',
         down: '#EF4444',
         muted: '#8A8A9A',

@@ -25,6 +25,7 @@ import { useLeaderboardQuery } from '@/hooks/useLeaderboardQuery';
 import { useTransactionsQuery } from '@/hooks/useTransactionsQuery';
 import { useArtifactsQuery } from '@/hooks/useArtifactsQuery';
 import { groupByDate } from '@/lib/date-groups';
+import { colors } from '@/design-system/colors';
 
 const TOP_N = 5;
 const HEADER_SHRINK_RANGE = 100;
@@ -139,7 +140,7 @@ export default function ProfileScreen() {
           stats={[
             { icon: Sparkles, value: String(artifacts?.length ?? 0), label: 'Артефактов' },
             { icon: Star, value: String(myEntry?.level ?? 1), label: 'Уровень', color: '#D4AF37' },
-            { icon: Coins, value: String(tcEarned), label: 'TC заработано', color: '#00D4FF' },
+            { icon: Coins, value: String(tcEarned), label: 'TC заработано', color: colors.cyan },
           ]}
         />
 

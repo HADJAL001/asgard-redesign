@@ -1,5 +1,6 @@
 import { ActivityIndicator, View } from 'react-native';
 import { cn } from '@/lib/utils';
+import { colors } from '@/design-system/colors';
 
 type SpinnerProps = {
   size?: 'small' | 'large';
@@ -9,7 +10,7 @@ type SpinnerProps = {
   className?: string;
 };
 
-export function Spinner({ size = 'small', color = '#00D4FF', fullscreen = false, className }: SpinnerProps) {
+export function Spinner({ size = 'small', color = colors.cyan, fullscreen = false, className }: SpinnerProps) {
   if (!fullscreen) return <ActivityIndicator size={size} color={color} />;
 
   return (

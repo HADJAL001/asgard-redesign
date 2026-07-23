@@ -6,6 +6,7 @@ import { Fingerprint } from 'lucide-react-native';
 
 import { useBiometricStore } from '@/store/biometricStore';
 import { useAuthStore } from '@/store/authStore';
+import { colors } from '@/design-system/colors';
 
 export default function BiometricLockScreen() {
   const [checking, setChecking] = useState(false);
@@ -41,7 +42,7 @@ export default function BiometricLockScreen() {
     <SafeAreaView className="flex-1 bg-bg">
       <View className="flex-1 items-center justify-center gap-6 px-8">
         <View className="h-24 w-24 items-center justify-center rounded-full bg-card">
-          <Fingerprint size={40} color="#00D4FF" />
+          <Fingerprint size={40} color={colors.cyan} />
         </View>
         <Text className="text-center text-2xl font-bold text-white">Подтвердите личность</Text>
         <Text className="text-center text-muted">

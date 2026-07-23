@@ -12,7 +12,7 @@
    ================================================================ */
 
 export const TC_SYMBOL = "∞"
-export const TC_ACCENT = "#00D4FF" // ∞ brand color
+export const TC_ACCENT = "#00F0FF" // ∞ brand color
 export const UP = "#10B981" // price rising
 export const DOWN = "#EF4444" // price falling
 

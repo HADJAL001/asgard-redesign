@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { Sparkles, Wallet, Shield } from 'lucide-react-native';
 
 import { useOnboardingStore } from '@/store/onboardingStore';
+import { colors } from '@/design-system/colors';
 
 const { width } = Dimensions.get('window');
 
@@ -64,7 +65,7 @@ export default function OnboardingScreen() {
   const renderItem = ({ item }: ListRenderItemInfo<Slide>) => (
     <View style={{ width }} className="flex-1 items-center justify-center gap-6 px-8">
       <View className="h-24 w-24 items-center justify-center rounded-full bg-card">
-        <item.Icon size={40} color="#00D4FF" />
+        <item.Icon size={40} color={colors.cyan} />
       </View>
       <Text className="text-center text-2xl font-bold text-white">{item.title}</Text>
       <Text className="text-center text-base text-muted">{item.description}</Text>

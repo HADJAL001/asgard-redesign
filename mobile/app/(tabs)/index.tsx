@@ -14,6 +14,7 @@ import { useArtifactsQuery, countTodayAiGenerated } from '@/hooks/useArtifactsQu
 import { useGenerateArtifact, AI_GENERATE_COST_TC } from '@/hooks/useGenerateArtifact';
 import { ARTIFACT_THEMES, DAILY_AI_GENERATION_SOFT_LIMIT, type ArtifactThemeKey } from '@/types/artifact';
 import { ApiError } from '@/lib/api-client';
+import { colors } from '@/design-system/colors';
 
 export default function CreateScreen() {
   const [description, setDescription] = useState('');
@@ -67,7 +68,7 @@ export default function CreateScreen() {
 
         <View className="flex-row items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
           <View className="flex-row items-center gap-2">
-            <Coins size={18} color="#00D4FF" />
+            <Coins size={18} color={colors.cyan} />
             <Text className="text-white">{balance.toLocaleString('ru-RU')} ∞</Text>
           </View>
           <Text className={todayCount >= DAILY_AI_GENERATION_SOFT_LIMIT ? 'text-down' : 'text-muted'}>

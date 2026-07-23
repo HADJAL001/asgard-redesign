@@ -11,6 +11,7 @@ import Animated, {
 import { Mic } from 'lucide-react-native';
 
 import type { VoiceLanguage } from '@/hooks/useVoiceInput';
+import { colors } from '@/design-system/colors';
 
 const LANGUAGE_LABELS: Record<VoiceLanguage, string> = {
   'ru-RU': 'RU',
@@ -94,7 +95,7 @@ export function VoiceInputButton({ isListening, onPress, error, volume = 0, lang
             isListening ? 'border-accent bg-accent/20' : 'border-border bg-card'
           }`}
         >
-          <Mic size={20} color={isListening ? '#00D4FF' : '#8A8A9A'} />
+          <Mic size={20} color={isListening ? colors.cyan : '#8A8A9A'} />
         </Pressable>
       </View>
 
