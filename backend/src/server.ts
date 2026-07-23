@@ -176,6 +176,10 @@ import twinRoutes from "./routes/twin.routes"
 import feedbackRoutes from "./routes/feedback.routes"
 import communityRoutes from "./routes/community.routes"
 import tcRoutes from "./routes/tc.routes"
+import notificationsRoutes from "./routes/notifications.routes"
+import usersRoutes from "./routes/users.routes"
+import pushRoutes from "./routes/push.routes"
+import feedRoutes from "./routes/feed.routes"
 import { runOrderBookMigration } from "./migrations/001_order_book"
 import { runReferralMigration } from "./migrations/002_referral_system"
 import { runPremiumUpgradeMigration } from "./migrations/003_premium_upgrade"
@@ -242,6 +246,9 @@ import { runSeedCoursesMigration } from "./migrations/059_seed_courses"
 import "./migrations/060_tc_price_history_index"
 import { runOrchestratorWebhookTriggersMigration } from "./migrations/061_orchestrator_webhook_triggers"
 import { runReferralsTableMigration } from "./migrations/062_referrals_table"
+import { runNotificationsMigration } from "./migrations/063_notifications_table"
+import { runPushTokensMigration } from "./migrations/064_push_tokens"
+import { runActivityFeedMigration } from "./migrations/065_activity_feed_table"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
@@ -291,6 +298,15 @@ runTcConvertMigration()
 
 /* Гарантируем наличие колонок twofa_secret и twofa_enabled при старте сервера. */
 run2FAMigration()
+
+/* Гарантируем наличие таблицы notifications (лайки/комментарии к постам) при старте сервера. */
+runNotificationsMigration()
+
+/* Гарантируем наличие таблицы push_tokens (Expo push-токены мобильного приложения) при старте сервера. */
+runPushTokensMigration()
+
+/* Гарантируем наличие таблицы activity_events (публичная глобальная лента активности) при старте сервера. */
+runActivityFeedMigration()
 
 /* Гарантируем наличие колонки nonce в таблице users при старте сервера. */
 runNonceMigration()
@@ -356,6 +372,10 @@ app.use("/marketplace", marketplaceRoutes)
 app.use("/projects", projectsRoutes)
 app.use("/leaderboard", leaderboardRoutes)
 app.use("/hall-of-fame", hallOfFameRoutes)
+app.use("/notifications", notificationsRoutes)
+app.use("/feed", feedRoutes)
+app.use("/users", usersRoutes)
+app.use("/push", pushRoutes)
 app.use("/transactions", transactionsRoutes)
 app.use("/onboarding", onboardingRoutes)
 app.use("/referral", referralRoutes)

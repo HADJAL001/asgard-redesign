@@ -19,6 +19,7 @@
     "orchestrator": "Оркестратор",
     "integrations": "Интеграциялар",
     "community": "Тавернa",
+    "feed": "Лента",
     "forge": "Кузница",
     "marketplace": "Маркет",
     "exchange": "Биржа",
@@ -255,6 +256,12 @@
     "buyFor": "{{amount}} үшін сатып алу",
     "buyFailed": "Артефакт сатып алынбады"
   },
+  "activityFeed": {
+    "title": "Белсенділік лентасы",
+    "subtitle": "Платформаның соңғы оқиғалары: артефакт жасау, сату, Даңқ залына ену.",
+    "empty": "Әзірге оқиғалар жоқ",
+    "loadMore": "Тағы жүктеу"
+  },
   "hallOfFame": {
     "title": "OSGARD Даңқ залы",
     "subtitle": "OSGARD экожүйесінің аңыздары — ең жоғары табысы, сатылымы және рейтингі бар архитекторлар.",
@@ -298,6 +305,7 @@
     "filterStake": "Стейкинг",
     "filterUnstake": "Анстейк",
     "filterConvert": "Конвертация",
+    "filterTransfer": "Аударым",
     "loading": "Транзакциялар тарихы жүктелуде…",
     "noTransactions": "Транзакциялар әлі жоқ",
     "noFiltered": "Таңдалған сүзгі бойынша транзакциялар жоқ",
@@ -311,6 +319,7 @@
     "typeStakeTx": "Стейкинг",
     "typeUnstake": "Анстейк",
     "typeConvert": "Конвертация",
+    "typeTransfer": "Аударым",
     "typeOther": "Басқа",
     "statusDone": "Орындалды",
     "statusPending": "Өңделуде",

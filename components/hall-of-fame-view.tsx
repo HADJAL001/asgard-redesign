@@ -16,7 +16,7 @@
    - Три кнопки сортировки: Доход / Продажи / Рейтинг — сохраняют
      визуальный стиль оригинального Hall of Fame (золотая тема, sparks,
      фильтры по тирам HOF_TIERS на основе totalIncome).
-   - Карточки не кликабельны (просто div, без перехода на профиль).
+   - Карточки кликабельны — ведут на публичный профиль (/profile/:id).
    ================================================================ */
 
 import { useEffect, useMemo, useState } from "react"
@@ -313,7 +313,12 @@ export function HallOfFameView() {
             const name = u.displayName || u.username
 
             return (
-              <div key={u.userId} className="hof-card hof-rise block p-6" style={{ animationDelay: `${i * 70}ms` }}>
+              <Link
+                key={u.userId}
+                href={`/profile/${u.userId}`}
+                className="hof-card hof-rise block p-6"
+                style={{ animationDelay: `${i * 70}ms` }}
+              >
                 <div className="flex items-center gap-5">
                   {/* Rank + tier symbol */}
                   <div className="flex flex-col items-center gap-1" style={{ minWidth: 52 }}>
@@ -382,7 +387,7 @@ export function HallOfFameView() {
                     </p>
                   </div>
                 </div>
-              </div>
+              </Link>
             )
           })}
         </div>

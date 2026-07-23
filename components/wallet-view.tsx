@@ -26,7 +26,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowRight, Plus, Info, DollarSign, Loader2, ArrowDownToLine, ArrowUpFromLine } from "lucide-react"
+import { ArrowRight, Plus, Info, DollarSign, Loader2, ArrowDownToLine, ArrowUpFromLine, Send } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useOsgardStore, type CurrencyKey } from "@/lib/store/osgard-store"
 import { COLORS, CURRENCIES, CURRENCY_ORDER, formatTokens } from "@/lib/economy"
@@ -230,6 +230,14 @@ export function WalletView() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+            <Link
+              href="/transfer"
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-medium transition-opacity hover:opacity-90"
+              style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
+            >
+              <Send size={16} strokeWidth={2} />
+              Отправить TC
+            </Link>
             <button
               type="button"
               onClick={() => { setWithdrawNotice(null); setWithdrawOpen(true) }}

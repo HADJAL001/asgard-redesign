@@ -2,6 +2,7 @@ import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { logAudit } from "../lib/audit"
+import { createActivityEvent } from "../lib/activity"
 
 const router = Router()
 
@@ -160,6 +161,24 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
 
   logAudit(req.user!.userId, "debit", listing.price, "marketplace_purchase", { listingId, artifactId: listing.artifact_id, currency })
   logAudit(listing.seller_id, "credit", sellerReceives, "marketplace_sale", { listingId, artifactId: listing.artifact_id, currency, fee })
+
+  createActivityEvent({
+    userId: listing.seller_id,
+    type: "artifact_sold",
+    entityType: "artifact",
+    entityId: listing.artifact_id,
+    text: `продал артефакт «${artifact.name}»`,
+    metadata: { name: artifact.name, rarity: artifact.rarity, price: listing.price, currency },
+  })
+
+  createActivityEvent({
+    userId: listing.seller_id,
+    type: "hof_entry",
+    entityType: "artifact",
+    entityId: listing.artifact_id,
+    text: `пополнил Зал Славы артефактом «${artifact.name}»`,
+    metadata: { name: artifact.name, rarity: artifact.rarity, price: listing.price, currency },
+  })
 
   const updatedWallet = db
     .prepare(

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import {
   Home,
   FolderKanban,
+  Activity,
   Beer,
   Hammer,
   ShoppingBag,
@@ -28,6 +29,7 @@ import {
 } from "lucide-react"
 
 import { useOsgard } from "@/lib/store/osgard-store"
+import { useNotificationsStore } from "@/lib/store/notifications-store"
 import { useAuth } from "@/lib/auth-store"
 import { CURRENCIES, CURRENCY_ORDER, formatCurrencyAmount } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
@@ -50,6 +52,7 @@ export const NAV: NavItem[] = [
   { key: "nav.orchestrator", href: "/orchestrator", Icon: GitBranch },
   { key: "nav.integrations", href: "/integrations", Icon: Plug },
   { key: "nav.community", href: "/community", Icon: Beer },
+  { key: "nav.feed", href: "/feed", Icon: Activity },
   { key: "nav.forge", href: "/forge", Icon: Hammer },
   { key: "nav.marketplace", href: "/marketplace", Icon: ShoppingBag },
   { key: "nav.exchange", href: "/exchange", Icon: TrendingUp },
@@ -237,6 +240,14 @@ export function Navbar() {
   const { wallet } = useOsgard()
   const { t } = useTranslation()
   const { user, isAuthenticated, logout } = useAuth()
+  const { unreadCount, fetchUnreadCount } = useNotificationsStore()
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    fetchUnreadCount({ skipAuthRedirect: true })
+    const id = setInterval(() => fetchUnreadCount({ skipAuthRedirect: true }), 60_000)
+    return () => clearInterval(id)
+  }, [isAuthenticated, fetchUnreadCount])
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/")
@@ -350,7 +361,7 @@ export function Navbar() {
           style={{ color: isActive("/notifications") ? "#00D4FF" : "#6A6A8A" }}
         >
           <Bell size={18} strokeWidth={1.5} aria-hidden="true" />
-          <Badge count={1} />
+          <Badge count={isAuthenticated ? unreadCount : 0} />
         </Link>
         <Link
           href="/messages"

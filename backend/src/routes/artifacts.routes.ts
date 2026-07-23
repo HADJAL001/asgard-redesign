@@ -4,6 +4,7 @@ import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { generateAiArtifactContent, computeUniqueHash, ARTIFACT_RARITIES } from "../services/ai-artifact-generator"
 import { asyncHandler } from "../utils/async-handler"
 import { logAudit } from "../lib/audit"
+import { createActivityEvent } from "../lib/activity"
 
 const router = Router()
 
@@ -155,6 +156,15 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
     )
     .get(Number(info.lastInsertRowid))
 
+  createActivityEvent({
+    userId: req.user!.userId,
+    type: "artifact_crafted",
+    entityType: "artifact",
+    entityId: Number(info.lastInsertRowid),
+    text: `выковал артефакт «${name}»`,
+    metadata: { name, rarity },
+  })
+
   res.status(201).json({ artifact })
 })
 
@@ -245,6 +255,15 @@ router.post("/generate-ai", requireAuth, asyncHandler(async (req: AuthRequest, r
        FROM artifacts WHERE id = ?`,
     )
     .get(Number(info.lastInsertRowid))
+
+  createActivityEvent({
+    userId: req.user!.userId,
+    type: "artifact_crafted",
+    entityType: "artifact",
+    entityId: Number(info.lastInsertRowid),
+    text: `сгенерировал ИИ-артефакт «${finalName}»`,
+    metadata: { name: finalName, rarity },
+  })
 
   res.status(201).json({ artifact, aiSource: generated.source })
 }))

@@ -263,6 +263,25 @@ export interface ConvertActionResult {
   error?: string
 }
 
+/** Результат lookupRecipient — предпросмотр получателя перед переводом TC. */
+export interface RecipientLookupResult {
+  found: boolean
+  displayName?: string
+  error?: string
+}
+
+/** Результат transferTC — унифицированный ответ для UI. */
+export interface TransferActionResult {
+  success: boolean
+  transfer?: {
+    recipientEmail: string
+    recipientName: string
+    amount: number
+    comment: string
+  }
+  error?: string
+}
+
 /** Результат forgeArtifact — унифицированный ответ для UI. */
 export interface ForgeActionResult {
   success: boolean
@@ -430,6 +449,16 @@ export interface OsgardStoreState {
     to: CurrencyKey,
     amount: number,
   ) => Promise<ConvertActionResult>
+  /** GET /wallet/lookup-recipient — найти получателя перевода TC по email (для live-предпросмотра в форме). */
+  lookupRecipient: (email: string) => Promise<RecipientLookupResult>
+  /** POST /wallet/transfer — перевести amount TC другому пользователю (email + комментарий + пароль/2FA). */
+  transferTC: (
+    recipientEmail: string,
+    amount: number,
+    comment: string,
+    password: string,
+    twofaToken?: string,
+  ) => Promise<TransferActionResult>
 
   /* ---- кузница артефактов ---- */
   /** GET /artifacts/mine — артефакты текущего пользователя. */
@@ -855,6 +884,46 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       return { success: true, conversion: res.conversion }
     } catch (err) {
       const message = extractErrorMessage(err, "Не удалось выполнить конвертацию валюты")
+      set({ loading: false, error: message })
+      return { success: false, error: message }
+    }
+  },
+
+  /* ---- action: GET /wallet/lookup-recipient — предпросмотр получателя перевода TC ----
+     Не трогает глобальные loading/error — используется для live-поиска при вводе email. */
+  lookupRecipient: async (email) => {
+    try {
+      return await apiClient.get<RecipientLookupResult>(
+        `/wallet/lookup-recipient?email=${encodeURIComponent(email)}`,
+      )
+    } catch (err) {
+      return { found: false, error: extractErrorMessage(err, "Не удалось найти получателя") }
+    }
+  },
+
+  /* ---- action: POST /wallet/transfer — перевод TC другому пользователю ---- */
+  transferTC: async (recipientEmail, amount, comment, password, twofaToken) => {
+    set({ loading: true, error: null })
+    try {
+      const res = await apiClient.post<{
+        wallet: OsgardWallet
+        transfer: { recipientEmail: string; recipientName: string; amount: number; comment: string }
+      }>("/wallet/transfer", {
+        recipientEmail,
+        amount,
+        comment,
+        password,
+        twofa_token: twofaToken,
+      })
+
+      set({ wallet: res.wallet, loading: false, error: null })
+
+      // синхронизация с сервером после мутации
+      await Promise.all([get().fetchWallet(), get().fetchTransactions()])
+
+      return { success: true, transfer: res.transfer }
+    } catch (err) {
+      const message = extractErrorMessage(err, "Не удалось выполнить перевод TC")
       set({ loading: false, error: message })
       return { success: false, error: message }
     }

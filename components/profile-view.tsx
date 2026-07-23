@@ -29,6 +29,7 @@ import {
 } from "lucide-react"
 import { Infinity as InfinityIcon, Lock, DollarSign } from "lucide-react"
 import { Navbar } from "./navbar"
+import { ArtifactMiniCard } from "./artifact-mini-card"
 import { useOsgard, useOsgardStore } from "@/lib/store/osgard-store"
 import { formatTokens } from "@/lib/economy"
 import { UP, DAY_MS } from "@/lib/tc-market"
@@ -310,6 +311,7 @@ function OverviewTab() {
     <div className="flex flex-col gap-6">
       <TCHoldingsPanel />
       <EarningsPanel />
+      <ArtifactsPanel />
 
       <Panel title="Достижения">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -470,6 +472,41 @@ function EarningsPanel() {
           </Link>
         ))}
       </div>
+    </Panel>
+  )
+}
+
+function ArtifactsPanel() {
+  const { tcPrice } = useOsgard()
+  const artifacts = useOsgardStore((s) => s.artifacts)
+  const preview = artifacts.slice(0, 6)
+
+  return (
+    <Panel title="Мои артефакты" extra={artifacts.length > 6 ? `${artifacts.length} всего` : undefined}>
+      {preview.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {preview.map((a) => (
+            <ArtifactMiniCard key={a.id} a={a} tcUsdPrice={tcPrice} />
+          ))}
+        </div>
+      ) : (
+        <p className="py-6 text-center text-[14px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+          Пока нет артефактов — скуйте первый в кузнице
+        </p>
+      )}
+
+      {artifacts.length > 6 && (
+        <Link
+          href="/artifacts"
+          className="mt-4 flex items-center justify-between rounded-xl px-4 py-3 text-[14px] transition-colors"
+          style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E" }}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#00D4FF")}
+          onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#2A2A3E")}
+        >
+          <span>Все артефакты</span>
+          <ChevronRight size={16} strokeWidth={1.5} style={{ color: "#6A6A8A" }} aria-hidden="true" />
+        </Link>
+      )}
     </Panel>
   )
 }

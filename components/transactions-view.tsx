@@ -30,6 +30,7 @@ import {
   Receipt,
   Loader2,
   History,
+  Send,
 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useOsgardStore } from "@/lib/store/osgard-store"
@@ -38,11 +39,12 @@ import { fmtUSD, fmtTC, UP, DOWN } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
 
 /* ---- Типы транзакций (соответствуют полю `type` в таблице transactions) ---- */
-type TxType = "buy" | "sell" | "stake" | "unstake" | "convert" | "other"
+type TxType = "buy" | "sell" | "stake" | "unstake" | "convert" | "transfer" | "other"
 
 /** Приводит произвольную строку типа из БД к одному из известных TxType. */
 function normalizeType(raw: string): TxType {
   const t = raw.toLowerCase()
+  if (t.includes("transfer")) return "transfer"
   if (t.includes("unstake")) return "unstake"
   if (t.includes("stake")) return "stake"
   if (t.includes("convert")) return "convert"
@@ -96,6 +98,7 @@ export function TransactionsView() {
     stake: { label: t("transactions.typeStakeTx"), Icon: Lock, color: "#9B59B6" },
     unstake: { label: t("transactions.typeUnstake"), Icon: Unlock, color: "#9B59B6" },
     convert: { label: t("transactions.typeConvert"), Icon: Repeat, color: COLORS.accent },
+    transfer: { label: t("transactions.typeTransfer"), Icon: Send, color: "#F1C40F" },
     other: { label: t("transactions.typeOther"), Icon: Receipt, color: COLORS.label },
   }
 
@@ -112,6 +115,7 @@ export function TransactionsView() {
     { id: "stake", label: t("transactions.filterStake") },
     { id: "unstake", label: t("transactions.filterUnstake") },
     { id: "convert", label: t("transactions.filterConvert") },
+    { id: "transfer", label: t("transactions.filterTransfer") },
   ]
 
   const [filter, setFilter] = useState<TxType | "all">("all")

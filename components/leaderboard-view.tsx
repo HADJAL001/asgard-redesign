@@ -24,6 +24,7 @@
    ================================================================ */
 
 import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { Crown, Loader2, Users } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useOsgardStore } from "@/lib/store/osgard-store"
@@ -146,10 +147,13 @@ export function LeaderboardView() {
               {podium.map((u, i) => {
                 const name = u.displayName || u.username
                 return (
-                  <div
+                  <Link
                     key={u.userId}
-                    className="flex flex-col items-center rounded-xl px-4 py-6 text-center"
+                    href={`/profile/${u.userId}`}
+                    className="flex flex-col items-center rounded-xl px-4 py-6 text-center transition-colors"
                     style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = COLORS.accent)}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = COLORS.border)}
                   >
                     <span
                       className="flex size-11 items-center justify-center rounded-full"
@@ -176,7 +180,7 @@ export function LeaderboardView() {
                     <p className="text-[11px]" style={{ color: COLORS.label }}>
                       {t("leaderboard.salesAndArtifacts", { sales: u.totalSales, artifacts: u.artifactCount })}
                     </p>
-                  </div>
+                  </Link>
                 )
               })}
             </div>
@@ -200,9 +204,10 @@ export function LeaderboardView() {
               {ranked.map((u) => {
                 const name = u.displayName || u.username
                 return (
-                  <div
+                  <Link
                     key={u.userId}
-                    className="grid grid-cols-[0.5fr_2fr_1fr_1.2fr_1fr_1fr] items-center gap-4 px-6 py-3.5 text-[14px]"
+                    href={`/profile/${u.userId}`}
+                    className="grid grid-cols-[0.5fr_2fr_1fr_1.2fr_1fr_1fr] items-center gap-4 px-6 py-3.5 text-[14px] transition-colors hover:bg-white/5"
                     style={{ borderBottom: `1px solid ${COLORS.border}` }}
                   >
                     <span style={{ color: u.position <= 3 ? PODIUM[u.position - 1] : COLORS.label }}>
@@ -230,7 +235,7 @@ export function LeaderboardView() {
                     <span className="text-right" style={{ color: "rgba(255,255,255,0.75)" }}>
                       {u.artifactCount}
                     </span>
-                  </div>
+                  </Link>
                 )
               })}
             </div>

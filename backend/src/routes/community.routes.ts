@@ -1,6 +1,7 @@
 import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, optionalAuth, AuthRequest } from "../middleware/authMiddleware"
+import { createNotification } from "../lib/notifications"
 
 const router = Router()
 
@@ -152,7 +153,9 @@ router.post("/:id/comments", requireAuth, (req: AuthRequest, res) => {
     return res.status(400).json({ error: "Некорректный ID поста" })
   }
 
-  const post = db.prepare(`SELECT id FROM posts WHERE id = ?`).get(postId)
+  const post = db.prepare(`SELECT id, user_id FROM posts WHERE id = ?`).get(postId) as
+    | { id: number; user_id: number }
+    | undefined
   if (!post) {
     return res.status(404).json({ error: "Пост не найден" })
   }
@@ -173,6 +176,15 @@ router.post("/:id/comments", requireAuth, (req: AuthRequest, res) => {
   const author = db
     .prepare(`SELECT id, username, display_name, avatar_url, level FROM users WHERE id = ?`)
     .get(userId) as AuthorRow
+
+  createNotification({
+    userId: post.user_id,
+    actorId: userId,
+    type: "comment",
+    entityType: "post",
+    entityId: postId,
+    text: `${mapAuthor(author).displayName} прокомментировал(а) ваш пост`,
+  })
 
   res.status(201).json({
     success: true,
@@ -197,7 +209,9 @@ router.post("/:id/like", requireAuth, (req: AuthRequest, res) => {
     return res.status(400).json({ error: "Некорректный ID поста" })
   }
 
-  const post = db.prepare(`SELECT id FROM posts WHERE id = ?`).get(postId)
+  const post = db.prepare(`SELECT id, user_id FROM posts WHERE id = ?`).get(postId) as
+    | { id: number; user_id: number }
+    | undefined
   if (!post) {
     return res.status(404).json({ error: "Пост не найден" })
   }
@@ -214,6 +228,19 @@ router.post("/:id/like", requireAuth, (req: AuthRequest, res) => {
       userId,
       Date.now(),
     )
+
+    const liker = db
+      .prepare(`SELECT id, username, display_name, avatar_url, level FROM users WHERE id = ?`)
+      .get(userId) as AuthorRow
+
+    createNotification({
+      userId: post.user_id,
+      actorId: userId,
+      type: "like",
+      entityType: "post",
+      entityId: postId,
+      text: `${mapAuthor(liker).displayName} оценил(а) ваш пост`,
+    })
   }
 
   const likesCount = (

@@ -1,25 +1,24 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
-  Bell,
-  Folder,
-  MessageCircle,
-  Star,
   AlertTriangle,
   CheckCheck,
+  Heart,
+  MessageCircle,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useOsgard } from "@/lib/store/osgard-store"
+import { useNotificationsStore, type AppNotification } from "@/lib/store/notifications-store"
 import { formatTokens } from "@/lib/economy"
 
 /* ---- Palette ----
    bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E
    status: new #00D4FF · important #F59E0B · read #6B7280 */
 
-type NotifType = "comment" | "project" | "message" | "artifact" | "system" | "price"
+type NotifType = "comment" | "like" | "price" | "system"
 type Status = "new" | "important" | "read"
 type Bucket = "today" | "yesterday" | "week" | "earlier"
 
@@ -35,12 +34,10 @@ type Notification = {
 }
 
 const TYPE_ICON: Record<NotifType, LucideIcon> = {
-  comment: Bell,
-  project: Folder,
-  message: MessageCircle,
-  artifact: Star,
-  system: AlertTriangle,
+  comment: MessageCircle,
+  like: Heart,
   price: TrendingUp,
+  system: AlertTriangle,
 }
 
 const STATUS: Record<Status, { label: string; color: string }> = {
@@ -56,131 +53,44 @@ const BUCKETS: { id: Bucket; label: string }[] = [
   { id: "earlier", label: "Раньше" },
 ]
 
-const DATA: Notification[] = [
-  {
-    id: 1,
-    type: "comment",
-    status: "new",
-    text: "Alex Odin прокомментировал пост",
-    detail: "«Отличная идея, коллеги!»",
-    time: "12:30",
-    date: "Сегодня",
-    bucket: "today",
-  },
-  {
-    id: 2,
-    type: "project",
-    status: "important",
-    text: "Проект «Нейросеть» перешёл на этап «Тестирование»",
-    detail: "Ожидайте результатов через 3 дня.",
-    time: "10:15",
-    date: "Сегодня",
-    bucket: "today",
-  },
-  {
-    id: 3,
-    type: "system",
-    status: "new",
-    text: "Обновление ядра OSGARD до версии 4.2",
-    detail: "Улучшена производительность рендеринга и стабильность.",
-    time: "08:40",
-    date: "Сегодня",
-    bucket: "today",
-  },
-  {
-    id: 4,
-    type: "message",
-    status: "read",
-    text: "Medusa_Code отправил сообщение",
-    detail: "«Когда встреча по проекту?»",
-    time: "18:45",
-    date: "Вчера",
-    bucket: "yesterday",
-  },
-  {
-    id: 5,
-    type: "comment",
-    status: "important",
-    text: "Assardi_Valkyrie упомянула вас в обсуждении",
-    detail: "«@AlexOdin взгляни на архитектуру шлюза»",
-    time: "14:20",
-    date: "Вчера",
-    bucket: "yesterday",
-  },
-  {
-    id: 6,
-    type: "artifact",
-    status: "read",
-    text: "Вы получили новый артефакт",
-    detail: "«Кристалл Творца» (Легендарный)",
-    time: "09:20",
-    date: "2 дня назад",
-    bucket: "week",
-  },
-  {
-    id: 7,
-    type: "project",
-    status: "read",
-    text: "Проект «Orbital API» завершён",
-    detail: "Все задачи закрыты. Финальный отчёт готов.",
-    time: "16:05",
-    date: "3 дня назад",
-    bucket: "week",
-  },
-  {
-    id: 8,
-    type: "system",
-    status: "important",
-    text: "Обнаружен вход с нового устройства",
-    detail: "MacBook Pro · Москва. Если это не вы — смените пароль.",
-    time: "11:30",
-    date: "4 дня назад",
-    bucket: "week",
-  },
-  {
-    id: 9,
-    type: "message",
-    status: "read",
-    text: "Gold_Architect отправил приглашение в проект",
-    detail: "«Nebula Core» — роль: Архитектор.",
-    time: "10:00",
-    date: "12 дней назад",
-    bucket: "earlier",
-  },
-  {
-    id: 10,
-    type: "artifact",
-    status: "read",
-    text: "Артефакт «Щит Валькирии» улучшен до Lvl. 5",
-    detail: "Защита +40, Магия +15.",
-    time: "19:12",
-    date: "18 дней назад",
-    bucket: "earlier",
-  },
-  {
-    id: 11,
-    type: "comment",
-    status: "read",
-    text: "3 новых реакции на ваш пост",
-    detail: "«Полностью на палитре OSGARD, без стекла...»",
-    time: "13:45",
-    date: "21 день назад",
-    bucket: "earlier",
-  },
-  {
-    id: 12,
-    type: "important" as never,
-    status: "read",
-    text: "Начислено 340 токенов за активность",
-    detail: "Еженедельная награда сообщества.",
-    time: "09:00",
-    date: "25 дней назад",
-    bucket: "earlier",
-  },
-]
+/* SQLite CURRENT_TIMESTAMP отдаёт UTC-строку вида "YYYY-MM-DD HH:MM:SS" —
+   для корректного парсинга в браузере (в т.ч. Safari) добавляем разделитель "T" и "Z". */
+function parseServerDate(raw: string): Date {
+  return new Date(raw.includes("T") ? raw : `${raw.replace(" ", "T")}Z`)
+}
 
-// normalize the intentionally-mistyped last row
-DATA[11].type = "system"
+function bucketFor(raw: string): Bucket {
+  const diffDays = Math.floor((Date.now() - parseServerDate(raw).getTime()) / 86_400_000)
+  if (diffDays <= 0) return "today"
+  if (diffDays === 1) return "yesterday"
+  if (diffDays <= 7) return "week"
+  return "earlier"
+}
+
+function dateLabelFor(raw: string): string {
+  const diffDays = Math.floor((Date.now() - parseServerDate(raw).getTime()) / 86_400_000)
+  if (diffDays <= 0) return "Сегодня"
+  if (diffDays === 1) return "Вчера"
+  return `${diffDays} ${diffDays % 10 === 1 && diffDays % 100 !== 11 ? "день" : "дней"} назад`
+}
+
+function timeLabelFor(raw: string): string {
+  return parseServerDate(raw).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
+}
+
+function toCard(n: AppNotification): Notification {
+  const type: NotifType = n.type === "like" || n.type === "comment" ? n.type : "system"
+  return {
+    id: n.id,
+    type,
+    status: n.read ? "read" : "new",
+    text: n.text,
+    detail: n.actor ? n.actor.displayName : "",
+    time: timeLabelFor(n.createdAt),
+    date: dateLabelFor(n.createdAt),
+    bucket: bucketFor(n.createdAt),
+  }
+}
 
 function Metric({ value, label }: { value: string; label: string }) {
   return (
@@ -248,16 +158,18 @@ function NotificationCard({
             {item.text}
           </p>
           {/* detail */}
-          <p className="mt-0.5 text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
-            {item.detail}
-          </p>
+          {item.detail && (
+            <p className="mt-0.5 text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
+              {item.detail}
+            </p>
+          )}
           {/* time */}
           <p className="mt-2 text-[12px]" style={{ color: "rgba(255,255,255,0.3)" }}>
             {item.time} · {item.date}
           </p>
 
           {/* action */}
-          {unread && (
+          {unread && item.id > 0 && (
             <button
               type="button"
               onClick={() => onRead(item.id)}
@@ -275,8 +187,14 @@ function NotificationCard({
 
 export function NotificationsView() {
   const { tcPrice, change24h, tcTransactions } = useOsgard()
+  const { notifications, loading, fetchNotifications, markRead, markAllRead } = useNotificationsStore()
+
+  useEffect(() => {
+    fetchNotifications()
+  }, [fetchNotifications])
 
   // Live TC market notifications, derived from the store, shown under "today".
+  // Синтетические записи (без бэкенд-аналога) — id всегда отрицательный.
   const marketNotifs = useMemo<Notification[]>(() => {
     const up = change24h >= 0
     const list: Notification[] = [
@@ -316,16 +234,10 @@ export function NotificationsView() {
     return list
   }, [tcPrice, change24h, tcTransactions])
 
-  const [items, setItems] = useState<Notification[]>(DATA)
   const [bucket, setBucket] = useState<Bucket>("today")
 
-  const allItems = useMemo(() => [...marketNotifs, ...items], [marketNotifs, items])
-
-  const markRead = (id: number) =>
-    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, status: "read" } : n)))
-
-  const markAllRead = () =>
-    setItems((prev) => prev.map((n) => ({ ...n, status: "read" as Status })))
+  const realCards = useMemo(() => notifications.map(toCard), [notifications])
+  const allItems = useMemo(() => [...marketNotifs, ...realCards], [marketNotifs, realCards])
 
   const total = allItems.length
   const fresh = allItems.filter((n) => n.status === "new").length
@@ -408,7 +320,7 @@ export function NotificationsView() {
             ))
           ) : (
             <p className="py-10 text-center text-[14px]" style={{ color: "rgba(255,255,255,0.35)" }}>
-              Нет уведомлений в этом периоде
+              {loading ? "Загрузка…" : "Нет уведомлений в этом периоде"}
             </p>
           )}
         </div>

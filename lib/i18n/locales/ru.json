@@ -19,6 +19,7 @@
     "orchestrator": "Оркестратор",
     "integrations": "Интеграции",
     "community": "Таверна",
+    "feed": "Лента",
     "forge": "Кузница",
     "marketplace": "Маркет",
     "exchange": "Биржа",
@@ -263,6 +264,12 @@
     "buyFor": "Купить за {{amount}}",
     "buyFailed": "Не удалось купить артефакт"
   },
+  "activityFeed": {
+    "title": "Лента активности",
+    "subtitle": "Свежие события платформы: ковка артефактов, продажи, попадания в Зал Славы.",
+    "empty": "Пока нет событий",
+    "loadMore": "Показать ещё"
+  },
   "hallOfFame": {
     "title": "Зал славы OSGARD",
     "subtitle": "Легенды экосистемы OSGARD — архитекторы с наибольшим доходом, количеством продаж и рейтингом.",
@@ -306,6 +313,7 @@
     "filterStake": "Стейкинг",
     "filterUnstake": "Анстейк",
     "filterConvert": "Конвертация",
+    "filterTransfer": "Перевод",
     "loading": "Загрузка истории транзакций…",
     "noTransactions": "Транзакций пока нет",
     "noFiltered": "Нет транзакций по выбранному фильтру",
@@ -319,6 +327,7 @@
     "typeStakeTx": "Стейкинг",
     "typeUnstake": "Анстейк",
     "typeConvert": "Конвертация",
+    "typeTransfer": "Перевод",
     "typeOther": "Прочее",
     "statusDone": "Выполнено",
     "statusPending": "В обработке",

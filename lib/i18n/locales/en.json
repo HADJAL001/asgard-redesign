@@ -19,6 +19,7 @@
     "orchestrator": "Orchestrator",
     "integrations": "Integrations",
     "community": "Tavern",
+    "feed": "Feed",
     "forge": "Forge",
     "marketplace": "Market",
     "exchange": "Exchange",
@@ -255,6 +256,12 @@
     "buyFor": "Buy for {{amount}}",
     "buyFailed": "Failed to buy artifact"
   },
+  "activityFeed": {
+    "title": "Activity Feed",
+    "subtitle": "Latest platform events: artifact crafting, sales, Hall of Fame entries.",
+    "empty": "No events yet",
+    "loadMore": "Load more"
+  },
   "hallOfFame": {
     "title": "OSGARD Hall of Fame",
     "subtitle": "Legends of the OSGARD ecosystem — architects with the highest income, sales and rating.",
@@ -298,6 +305,7 @@
     "filterStake": "Stake",
     "filterUnstake": "Unstake",
     "filterConvert": "Convert",
+    "filterTransfer": "Transfer",
     "loading": "Loading transaction history…",
     "noTransactions": "No transactions yet",
     "noFiltered": "No transactions for the selected filter",
@@ -311,6 +319,7 @@
     "typeStakeTx": "Stake",
     "typeUnstake": "Unstake",
     "typeConvert": "Convert",
+    "typeTransfer": "Transfer",
     "typeOther": "Other",
     "statusDone": "Completed",
     "statusPending": "Pending",
