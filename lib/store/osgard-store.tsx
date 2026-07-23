@@ -529,8 +529,8 @@ export interface OsgardStoreState {
 
   /** GET /wallet/tc-balance — загружает tcReserveBalance и tcUserBalance. */
   fetchTcBalance: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
-  /** POST /wallet/convert-to-tc — конвертирует ∞ в TC на Solana-адрес. Проверяет баланс перед запросом. nonce — текущий nonce пользователя (защита от replay-атак). */
-  convertToTc: (amount: number, solanaAddress: string, nonce?: number) => Promise<{ success: boolean; txId?: string; error?: string }>
+  /** POST /api/tc/withdraw — конвертирует ∞ в TC на Solana-адрес. Проверяет баланс перед запросом. nonce — текущий nonce пользователя (обязателен, защита от replay-атак; получить через GET /api/tc/nonce). */
+  convertToTc: (amount: number, solanaAddress: string, nonce: number, twofaToken?: string) => Promise<{ success: boolean; txId?: string; error?: string }>
   /** POST /wallet/convert-from-tc — принимает on-chain txSignature и зачисляет ∞. */
   convertFromTc: (txSignature: string, amount: number) => Promise<{ success: boolean; error?: string }>
 
@@ -1421,23 +1421,26 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   },
 
   /* ----------------------------------------------------------------
-     convertToTc — ∞ → TC (POST /wallet/convert-to-tc)
-     Проверяет баланс ∞, затем отправляет TC на Solana-адрес.
+     convertToTc — ∞ → TC (POST /api/tc/withdraw)
+     Проверяет баланс ∞, затем отправляет TC с боевого treasury-кошелька
+     (единственная реально настроенная и захардненная интеграция —
+     TREASURY_SECRET_KEY/TC_MINT_ADDRESS; см. docs/solana-reserve-audit.md).
+     nonce обязателен — сервер отклонит запрос без него (защита от replay).
      ---------------------------------------------------------------- */
-  convertToTc: async (amount: number, solanaAddress: string, nonce?: number) => {
+  convertToTc: async (amount: number, solanaAddress: string, nonce: number, twofaToken?: string) => {
     const { wallet } = get()
     if (wallet.timecoin < amount) {
       return { success: false, error: "Недостаточно ∞ для конвертации" }
     }
     set({ loading: true, error: null })
     try {
-      const body: Record<string, unknown> = { amount, solanaAddress }
-      if (nonce !== undefined) body.nonce = nonce
-      const data = await apiClient.post<{ wallet: OsgardWallet; txId?: string }>("/wallet/convert-to-tc", body)
-      if (data.wallet) set({ wallet: { ...get().wallet, ...data.wallet } })
-      // обновляем TC-баланс после конвертации
+      const body: Record<string, unknown> = { amount, externalWalletAddress: solanaAddress, nonce }
+      if (twofaToken) body.twofa_token = twofaToken
+      const data = await apiClient.post<{ success: boolean; signature: string }>("/api/tc/withdraw", body)
+      // обновляем баланс ∞ и TC-баланс после конвертации
+      get().fetchWallet()
       get().fetchTcBalance()
-      return { success: true, txId: data.txId }
+      return { success: true, txId: data.signature }
     } catch (err: unknown) {
       const msg = extractErrorMessage(err, "Не удалось выполнить конвертацию ∞ → TC")
       set({ error: msg })

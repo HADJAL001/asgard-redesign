@@ -164,8 +164,11 @@ export function WalletView() {
   }
 
   async function doWithdraw() {
-    const n = Number(withdrawAmount)
-    if (!n || n <= 0) { setWithdrawNotice({ ok: false, text: "Введите корректную сумму" }); return }
+    // Вывод обрабатывается казначейством (POST /api/tc/withdraw), которое принимает
+    // только целое число TC от 1 до 10000 за один вывод.
+    const n = Math.trunc(Number(withdrawAmount))
+    if (!n || n <= 0) { setWithdrawNotice({ ok: false, text: "Введите корректную сумму (целое число ∞)" }); return }
+    if (n > 10000) { setWithdrawNotice({ ok: false, text: "Максимум 10000 ∞ за один вывод" }); return }
     if (!solanaAddr.trim()) { setWithdrawNotice({ ok: false, text: "Введите Solana-адрес" }); return }
     localStorage.setItem("osgard_solana_address", solanaAddr.trim())
     setWithdrawBusy(true)
@@ -566,8 +569,9 @@ export function WalletView() {
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  step="any"
+                  min="1"
+                  max="10000"
+                  step="1"
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(e.target.value)}
                   placeholder="0"
