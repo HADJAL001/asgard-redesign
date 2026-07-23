@@ -1,4 +1,5 @@
 import { ActivityIndicator, Pressable, Text, type PressableProps } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { cn } from '@/lib/utils';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -44,6 +45,7 @@ export function Button({
   loading = false,
   disabled,
   className,
+  onPress,
   ...props
 }: ButtonProps & { className?: string }) {
   const isDisabled = disabled || loading;
@@ -51,6 +53,10 @@ export function Button({
   return (
     <Pressable
       disabled={isDisabled}
+      onPress={(event) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress?.(event);
+      }}
       className={cn(
         'flex-row items-center justify-center gap-2 rounded-xl',
         SIZE_CONTAINER[size],

@@ -11,6 +11,7 @@ import 'react-native-reanimated';
 import '../global.css';
 
 import { OfflineBanner } from '@/components/OfflineBanner';
+import { ToastProvider } from '@/components/ui/Toast';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { persistOptions, queryClient } from '@/lib/queryClient';
 import { setupPushNotifications } from '@/lib/push';
@@ -19,6 +20,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { useBiometricStore } from '@/store/biometricStore';
 import { useGuestStore } from '@/store/guestStore';
+import { useArchiveStore } from '@/store/archiveStore';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -48,7 +50,11 @@ export default function RootLayout() {
   const hydrateGuest = useGuestStore((s) => s.hydrate);
   const isGuestHydrated = useGuestStore((s) => s.isHydrated);
 
-  const storesReady = isAuthHydrated && isOnboardingHydrated && isBiometricHydrated && isGuestHydrated;
+  const hydrateArchive = useArchiveStore((s) => s.hydrate);
+  const isArchiveHydrated = useArchiveStore((s) => s.isHydrated);
+
+  const storesReady =
+    isAuthHydrated && isOnboardingHydrated && isBiometricHydrated && isGuestHydrated && isArchiveHydrated;
   const appReady = loaded && storesReady;
 
   useEffect(() => {
@@ -65,8 +71,9 @@ export default function RootLayout() {
     hydrateOnboarding();
     hydrateBiometric();
     hydrateGuest();
+    hydrateArchive();
     return unsubscribe;
-  }, [hydrateAuth, hydrateOnboarding, hydrateBiometric, hydrateGuest]);
+  }, [hydrateAuth, hydrateOnboarding, hydrateBiometric, hydrateGuest, hydrateArchive]);
 
   // Регистрация push-токена возможна только после того, как известен пользователь
   // (эндпоинт /push/register требует авторизации).
@@ -139,17 +146,25 @@ export default function RootLayout() {
   return (
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <OfflineBanner />
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-          <Stack.Screen name="guest-home" options={{ title: 'Гостевой режим' }} />
-          <Stack.Screen name="biometric-lock" options={{ headerShown: false, gestureEnabled: false }} />
-          <Stack.Screen name="result/[id]" options={{ title: 'Артефакт', presentation: 'modal' }} />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        <StatusBar style="auto" />
+        <ToastProvider>
+          <OfflineBanner />
+          <Stack screenOptions={{ animation: 'slide_from_right' }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'fade' }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
+            <Stack.Screen name="guest-home" options={{ title: 'Гостевой режим' }} />
+            <Stack.Screen
+              name="biometric-lock"
+              options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }}
+            />
+            <Stack.Screen
+              name="result/[id]"
+              options={{ title: 'Артефакт', presentation: 'modal', animation: 'fade' }}
+            />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+          <StatusBar style="auto" />
+        </ToastProvider>
       </ThemeProvider>
     </PersistQueryClientProvider>
   );

@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import Svg, { Line, Polyline } from 'react-native-svg';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { historyFor, pctChange, UP, DOWN, type PricePoint, type Timeframe } from '@/lib/tc-market';
 
@@ -43,6 +44,13 @@ export function PriceChart({ history }: { history: PricePoint[] }) {
   const color = change >= 0 ? UP : DOWN;
   const polyline = useMemo(() => buildPoints(prices, width, CHART_HEIGHT), [prices, width]);
 
+  const chartOpacity = useSharedValue(1);
+  useEffect(() => {
+    chartOpacity.value = 0;
+    chartOpacity.value = withTiming(1, { duration: 280 });
+  }, [tf, polyline]);
+  const chartStyle = useAnimatedStyle(() => ({ opacity: chartOpacity.value }));
+
   return (
     <View className="gap-2">
       <View className="flex-row items-center justify-between">
@@ -57,18 +65,20 @@ export function PriceChart({ history }: { history: PricePoint[] }) {
         onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
       >
         {width > 0 && prices.length > 0 ? (
-          <Svg width={width} height={CHART_HEIGHT}>
-            <Line
-              x1={0}
-              y1={CHART_HEIGHT / 2}
-              x2={width}
-              y2={CHART_HEIGHT / 2}
-              stroke="#2A2A3A"
-              strokeWidth={1}
-              strokeDasharray="4,4"
-            />
-            <Polyline points={polyline} fill="none" stroke={color} strokeWidth={2} />
-          </Svg>
+          <Animated.View style={chartStyle}>
+            <Svg width={width} height={CHART_HEIGHT}>
+              <Line
+                x1={0}
+                y1={CHART_HEIGHT / 2}
+                x2={width}
+                y2={CHART_HEIGHT / 2}
+                stroke="#2A2A3A"
+                strokeWidth={1}
+                strokeDasharray="4,4"
+              />
+              <Polyline points={polyline} fill="none" stroke={color} strokeWidth={2} />
+            </Svg>
+          </Animated.View>
         ) : null}
       </View>
       <View className="flex-row gap-2">

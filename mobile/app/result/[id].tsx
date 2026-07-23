@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 
+import { LoadingAnimation } from '@/components/LoadingAnimation';
 import { ResultCard } from '@/components/ResultCard';
 import { ShareActions } from '@/components/ShareActions';
 import { useArtifactsQuery } from '@/hooks/useArtifactsQuery';
@@ -14,11 +15,7 @@ export default function ResultScreen() {
   const artifact = artifacts?.find((a) => String(a.id) === id);
 
   if (isLoading && !artifact) {
-    return (
-      <View className="flex-1 items-center justify-center bg-bg">
-        <Text className="text-muted">Загрузка…</Text>
-      </View>
-    );
+    return <LoadingAnimation label="Загрузка артефакта" />;
   }
 
   if (!artifact) {

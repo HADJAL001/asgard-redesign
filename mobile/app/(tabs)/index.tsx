@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { Coins, Sparkles } from 'lucide-react-native';
 
 import { ThemePicker } from '@/components/ThemePicker';
@@ -19,6 +20,7 @@ export default function CreateScreen() {
   const [themeKey, setThemeKey] = useState<ArtifactThemeKey | null>(null);
   const [phase, setPhase] = useState<ForgePhase>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [revealRarity, setRevealRarity] = useState<string | undefined>(undefined);
 
   const { data: wallet } = useWalletQuery();
   const { data: artifacts } = useArtifactsQuery();
@@ -32,6 +34,7 @@ export default function CreateScreen() {
 
   const handleGenerate = useCallback(async () => {
     if (!canSubmit) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setError(null);
     const theme = ARTIFACT_THEMES.find((t) => t.key === themeKey);
     const hint = theme ? `${theme.hint} ${description.trim()}` : description.trim();
@@ -41,14 +44,18 @@ export default function CreateScreen() {
 
     try {
       const result = await generateArtifact.mutateAsync(hint);
+      setRevealRarity(result.artifact.rarity);
       setPhase('reveal');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setTimeout(() => {
         setPhase('idle');
+        setRevealRarity(undefined);
         setDescription('');
         router.push(`/result/${result.artifact.id}`);
       }, 700);
     } catch (e) {
       setPhase('idle');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       setError(e instanceof ApiError ? e.message : 'Не удалось создать артефакт');
     }
   }, [canSubmit, themeKey, description, generateArtifact]);
@@ -118,7 +125,7 @@ export default function CreateScreen() {
         </Pressable>
       </ScrollView>
 
-      <GenerationProgress phase={phase} />
+      <GenerationProgress phase={phase} rarity={revealRarity} />
     </SafeAreaView>
   );
 }
