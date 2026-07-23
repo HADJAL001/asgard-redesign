@@ -1,0 +1,3 @@
+timestamp,endpoint,http_code,response_time_s,ok
+2026-07-23T16:07:49Z,health,000,15.002122,0
+2026-07-23T16:07:49Z,tc-market-state,000,15.001996,0
