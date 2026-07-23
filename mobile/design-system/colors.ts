@@ -2,7 +2,7 @@ export const colors = {
   navy: '#0A1128',
   gold: '#D4AF37',
   goldLight: '#F5D742',
-  cyan: '#00D4FF',
+  cyan: '#00F0FF',
   cyanLight: '#4A7FFF',
   dark: '#1A1A2E',
   darkCard: '#16213E',

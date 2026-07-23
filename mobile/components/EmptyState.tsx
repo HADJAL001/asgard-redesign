@@ -4,6 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import type { LucideIcon } from 'lucide-react-native';
 
+import { colors } from '@/design-system/colors';
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type EmptyStateProps = {
@@ -30,7 +32,7 @@ export function EmptyState({ icon: Icon, title, description, actionLabel, onActi
   return (
     <View className="items-center justify-center gap-3 px-6 py-10" style={style}>
       <LinearGradient
-        colors={['#00D4FF33', '#0A112800']}
+        colors={[`${colors.cyan}33`, `${colors.navy}00`]}
         style={{
           width: 96,
           height: 96,
@@ -39,7 +41,7 @@ export function EmptyState({ icon: Icon, title, description, actionLabel, onActi
           justifyContent: 'center',
         }}
       >
-        <Icon size={64} color="#00D4FF" strokeWidth={1.5} />
+        <Icon size={64} color={colors.cyan} strokeWidth={1.5} />
       </LinearGradient>
 
       <Text className="text-center text-base font-bold text-white">{title}</Text>
@@ -61,7 +63,7 @@ export function EmptyState({ icon: Icon, title, description, actionLabel, onActi
           onPress={onAction}
         >
           <LinearGradient
-            colors={['#00D4FF', '#D4AF37']}
+            colors={[colors.cyan, colors.gold]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{ paddingHorizontal: 20, paddingVertical: 12, opacity: pressed ? 0.9 : 1 }}

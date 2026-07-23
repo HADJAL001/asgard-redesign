@@ -11,6 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Sparkles, Check } from 'lucide-react-native';
 import { rarityMeta } from '@/lib/economy';
+import { colors } from '@/design-system/colors';
 
 export type ForgePhase = 'idle' | 'charging' | 'burst' | 'reveal';
 
@@ -40,7 +41,7 @@ export function GenerationProgress({ phase, rarity }: { phase: ForgePhase; rarit
   const shockOpacity = useSharedValue(0);
 
   const isRareReveal = phase === 'reveal' && !!rarity && RARE_REVEAL_RARITIES.has(rarity);
-  const accentColor = isRareReveal ? rarityMeta(rarity!).color : '#00D4FF';
+  const accentColor = isRareReveal ? rarityMeta(rarity!).color : colors.cyan;
 
   useEffect(() => {
     if (phase === 'idle' || reducedMotion) {
@@ -99,7 +100,7 @@ export function GenerationProgress({ phase, rarity }: { phase: ForgePhase; rarit
             {phase === 'reveal' ? (
               <Check size={40} color={accentColor} />
             ) : (
-              <Sparkles size={40} color="#00D4FF" />
+              <Sparkles size={40} color={colors.cyan} />
             )}
           </Animated.View>
         </View>

@@ -1,6 +1,8 @@
 import { Text, View } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
 
+import { colors } from '@/design-system/colors';
+
 export type StatItem = {
   icon: LucideIcon;
   value: string;
@@ -18,7 +20,7 @@ export function StatsGrid({ stats }: StatsGridProps) {
     <View className="flex-row gap-2">
       {stats.map((stat, i) => {
         const Icon = stat.icon;
-        const color = stat.color ?? '#00D4FF';
+        const color = stat.color ?? colors.cyan;
         return (
           <View
             key={i}

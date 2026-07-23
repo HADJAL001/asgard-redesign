@@ -1,5 +1,7 @@
 import { Image, Text, View } from 'react-native';
 
+import { colors } from '@/design-system/colors';
+
 type AvatarSize = 48 | 64 | 80;
 
 type AvatarProps = {
@@ -26,7 +28,7 @@ function initials(name: string): string {
 /** Аватар пользователя: фото или инициалы-заглушка, с золотым кольцом для топ-10 рейтинга. */
 export function Avatar({ uri, name, size = 64, rank }: AvatarProps) {
   const isTop10 = typeof rank === 'number' && rank <= 10;
-  const ringColor = isTop10 ? '#D4AF37' : '#22222E';
+  const ringColor = isTop10 ? colors.gold : '#22222E';
   const outerSize = size + 6;
 
   return (
@@ -50,7 +52,7 @@ export function Avatar({ uri, name, size = 64, rank }: AvatarProps) {
           className="items-center justify-center bg-card"
           style={{ width: size, height: size, borderRadius: size / 2 }}
         >
-          <Text style={{ fontSize: FONT_SIZE[size], color: '#00D4FF' }} className="font-bold">
+          <Text style={{ fontSize: FONT_SIZE[size], color: colors.cyan }} className="font-bold">
             {initials(name)}
           </Text>
         </View>
