@@ -1,0 +1,123 @@
+name: daily-status-report
+
+on:
+  schedule:
+    - cron: "0 5 * * *" # 08:00 МСК
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Fetch monitoring-data log
+        id: fetch_log
+        run: |
+          if git fetch origin monitoring-data 2>/dev/null; then
+            git show origin/monitoring-data:monitoring/status-log.csv > /tmp/status-log.csv
+            echo "found=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compute stats and render dashboard
+        if: steps.fetch_log.outputs.found == '1'
+        run: |
+          CUTOFF=$(date -u -d "7 days ago" +"%Y-%m-%dT%H:%M:%SZ")
+          NOW=$(date -u +"%Y-%m-%d %H:%M UTC")
+
+          read TOTAL OK ERR5XX AVGTIME <<< "$(awk -F, -v cutoff="$CUTOFF" '
+            NR==1 {next}
+            $1 >= cutoff {
+              total++; sumtime+=$4
+              if ($5==1) ok++
+              if ($3 ~ /^5/) err5xx++
+            }
+            END { printf "%d %d %d %.3f", total+0, ok+0, err5xx+0, (total>0? sumtime/total:0) }
+          ' /tmp/status-log.csv)"
+
+          read HTOTAL HOK HAVGTIME <<< "$(awk -F, -v cutoff="$CUTOFF" '
+            NR==1 {next}
+            $1 >= cutoff && $2=="health" {
+              total++; sumtime+=$4
+              if ($5==1) ok++
+            }
+            END { printf "%d %d %.3f", total+0, ok+0, (total>0? sumtime/total:0) }
+          ' /tmp/status-log.csv)"
+
+          read MTOTAL MOK MAVGTIME <<< "$(awk -F, -v cutoff="$CUTOFF" '
+            NR==1 {next}
+            $1 >= cutoff && $2=="tc-market-state" {
+              total++; sumtime+=$4
+              if ($5==1) ok++
+            }
+            END { printf "%d %d %.3f", total+0, ok+0, (total>0? sumtime/total:0) }
+          ' /tmp/status-log.csv)"
+
+          UPTIME=$(awk -v ok="$OK" -v total="$TOTAL" 'BEGIN { printf "%.2f", (total>0? ok/total*100 : 0) }')
+          HUPTIME=$(awk -v ok="$HOK" -v total="$HTOTAL" 'BEGIN { printf "%.2f", (total>0? ok/total*100 : 0) }')
+          MUPTIME=$(awk -v ok="$MOK" -v total="$MTOTAL" 'BEGIN { printf "%.2f", (total>0? ok/total*100 : 0) }')
+
+          mkdir -p docs
+          cat > docs/monitoring-dashboard.md <<EOF
+          # Дашборд мониторинга OSGARD backend
+
+          Автоматически обновляется workflow \`.github/workflows/daily-status-report.yml\` раз в сутки на основе лога \`monitoring/status-log.csv\` (ветка \`monitoring-data\`), который пишет \`.github/workflows/keep-alive.yml\` каждые 10 минут.
+
+          Обновлено: ${NOW}
+
+          ## Сводка за последние 7 дней
+
+          | Метрика | Значение |
+          |---|---|
+          | Uptime (общий, health + tc-market/state) | ${UPTIME}% |
+          | Проверок всего | ${TOTAL} |
+          | Успешных проверок | ${OK} |
+          | Ошибок 5xx | ${ERR5XX} |
+          | Среднее время ответа | ${AVGTIME}s |
+
+          ## По эндпоинтам
+
+          | Эндпоинт | Uptime | Проверок | Среднее время ответа |
+          |---|---|---|---|
+          | /api/health | ${HUPTIME}% | ${HTOTAL} | ${HAVGTIME}s |
+          | /api/tc-market/state | ${MUPTIME}% | ${MTOTAL} | ${MAVGTIME}s |
+
+          ## Как читать
+
+          - Порог "медленного ответа" в keep-alive — 2 секунды (см. \`SLOW_THRESHOLD_S\` в keep-alive.yml).
+          - Ошибки 5xx считаются по коду ответа, начинающемуся с "5" (500, 502, 503 и т.д.).
+          - Сырые данные: ветка \`monitoring-data\`, файл \`monitoring/status-log.csv\`.
+          - Инструкция по ручному мониторингу: [monitoring-manual.md](./monitoring-manual.md).
+          EOF
+
+      - name: Placeholder dashboard if no data yet
+        if: steps.fetch_log.outputs.found == '0'
+        run: |
+          mkdir -p docs
+          cat > docs/monitoring-dashboard.md <<'EOF'
+          # Дашборд мониторинга OSGARD backend
+
+          Данных пока нет — ветка `monitoring-data` ещё не создана. Она появится после первого успешного запуска `.github/workflows/keep-alive.yml`, а этот отчёт обновит дашборд реальными цифрами при следующем ежедневном запуске.
+
+          Инструкция по ручному мониторингу: [monitoring-manual.md](./monitoring-manual.md).
+          EOF
+
+      - name: Commit dashboard
+        run: |
+          git add docs/monitoring-dashboard.md
+          git -c user.name="monitoring-bot" -c user.email="actions@github.com" \
+            commit -m "chore(monitoring): daily status report $(date -u +%Y-%m-%d)" || echo "nothing to commit"
+          for i in 1 2 3; do
+            git push origin HEAD:main && break
+            git fetch origin main
+            git rebase origin/main
+            sleep 2
+          done
