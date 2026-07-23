@@ -5,10 +5,12 @@ import { rateLimit } from "../middleware/rateLimiter"
 import { asyncHandler } from "../utils/async-handler"
 import { AuthService } from "../services/auth.service"
 import { TwoFAService } from "../services/twofa.service"
+import { SolanaService } from "../services/solana.service"
 import { transferSchema } from "../validators/transfer.validator"
 import { logAudit } from "../lib/audit"
 
 const router = Router()
+const solanaService = new SolanaService()
 
 type CurrencyKey = "credits" | "shards" | "crystals" | "timecoin" | "cash_usd"
 const CURRENCIES: CurrencyKey[] = ["credits", "shards", "crystals", "timecoin", "cash_usd"]
@@ -36,6 +38,28 @@ router.get("/", requireAuth, (req: AuthRequest, res) => {
   if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
   res.json({ wallet })
 })
+
+/* ================================================================
+   GET /wallet/tc-balance — резерв казначейства (on-chain TC) и личный
+   баланс ∞ пользователя, для карточки «TimeCoin · Solana» на /wallet.
+   reserveBalance = null, если Solana не сконфигурирована на бэкенде
+   (фронтенд рисует «—» вместо падения запроса).
+   ================================================================ */
+router.get("/tc-balance", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+  const wallet: any = db.prepare(`SELECT timecoin FROM wallets WHERE user_id = ?`).get(req.user!.userId)
+  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
+
+  let reserveBalance: number | null = null
+  if (solanaService.isAvailable) {
+    try {
+      reserveBalance = await solanaService.getTreasuryBalance()
+    } catch {
+      reserveBalance = null
+    }
+  }
+
+  res.json({ reserveBalance, userBalance: wallet.timecoin })
+}))
 
 /* ---------------- POST /wallet/convert ---------------- */
 router.post("/convert", requireAuth, (req: AuthRequest, res) => {
