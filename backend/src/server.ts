@@ -241,6 +241,7 @@ import { runAddonCoursesMigration } from "./migrations/058_addon_courses"
 import { runSeedCoursesMigration } from "./migrations/059_seed_courses"
 import "./migrations/060_tc_price_history_index"
 import { runOrchestratorWebhookTriggersMigration } from "./migrations/061_orchestrator_webhook_triggers"
+import { runReferralsTableMigration } from "./migrations/062_referrals_table"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
@@ -252,8 +253,12 @@ import "./services/cleanup.service"
    базах, созданных до появления order book, таблица могла отсутствовать). */
 runOrderBookMigration()
 
-/* Гарантируем наличие колонок users.referral_code/referred_by/onboarding_step и таблицы referrals при старте сервера. */
+/* Гарантируем наличие колонок users.referral_code/referred_by/onboarding_step при старте сервера. */
 runReferralMigration()
+
+/* Гарантируем наличие таблицы referrals (журнал начислений по рефералке) при старте сервера —
+   раньше создавалась только вручную/устаревшей удалённой миграцией, на свежей БД отсутствовала. */
+runReferralsTableMigration()
 
 /* Гарантируем наличие колонки artifacts.visual_effect при старте сервера. */
 runPremiumUpgradeMigration()
