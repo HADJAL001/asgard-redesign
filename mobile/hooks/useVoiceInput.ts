@@ -1,9 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ExpoSpeechRecognitionModule,
-  useSpeechRecognitionEvent,
-  type ExpoSpeechRecognitionErrorCode,
-} from 'expo-speech-recognition';
+import type { ExpoSpeechRecognitionErrorCode } from 'expo-speech-recognition';
+
+// expo-speech-recognition вызывает requireNativeModule() прямо при импорте — в Expo Go
+// (без custom dev client) этого нативного модуля нет, и импорт падает синхронно, обрушивая
+// весь экран, который использует этот хук. Поэтому импортируем через require в try/catch
+// и в Expo Go подставляем no-op заглушку вместо реального модуля/хука.
+let ExpoSpeechRecognitionModule: any;
+let useSpeechRecognitionEvent: (eventName: string, listener: (...args: any[]) => void) => void;
+try {
+  const speechRecognition = require('expo-speech-recognition');
+  ExpoSpeechRecognitionModule = speechRecognition.ExpoSpeechRecognitionModule;
+  useSpeechRecognitionEvent = speechRecognition.useSpeechRecognitionEvent;
+} catch {
+  ExpoSpeechRecognitionModule = {
+    requestPermissionsAsync: async () => ({ granted: false }),
+    start: () => {},
+    stop: () => {},
+    abort: () => {},
+  };
+  useSpeechRecognitionEvent = () => {};
+}
 
 export type VoiceLanguage = 'ru-RU' | 'en-US' | 'kk-KZ';
 

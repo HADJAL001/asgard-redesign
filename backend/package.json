@@ -12,7 +12,8 @@
     "migrate:referrals": "tsx src/migrations/002_referral_system.ts",
     "migrate:premium-upgrade": "tsx src/migrations/003_premium_upgrade.ts",
     "migrate:subscriptions": "tsx src/migrations/004_subscriptions.ts",
-    "test": "tsx --test \"src/tests/**/*.test.ts\""
+    "test": "tsx --test \"src/tests/**/*.test.ts\"",
+    "loadtest": "tsx src/scripts/load-test.ts"
   },
   "dependencies": {
     "@octokit/rest": "^22.0.1",
@@ -47,6 +48,7 @@
   },
   "devDependencies": {
     "@types/archiver": "^6.0.4",
+    "@types/autocannon": "^7.12.7",
     "@types/axios": "^0.9.36",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.13",
@@ -61,6 +63,7 @@
     "@types/node": "^22.20.1",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.18.1",
+    "autocannon": "^8.0.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"

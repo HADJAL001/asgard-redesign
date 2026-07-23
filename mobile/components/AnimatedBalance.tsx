@@ -1,8 +1,6 @@
-import { useEffect } from 'react';
-import { TextInput, type TextStyle } from 'react-native';
-import Animated, { useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
-
-const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
+import { useCallback, useEffect, useState } from 'react';
+import { Text, type TextStyle } from 'react-native';
+import { runOnJS, useAnimatedReaction, useSharedValue, withTiming } from 'react-native-reanimated';
 
 type AnimatedBalanceProps = {
   value: number;
@@ -11,27 +9,31 @@ type AnimatedBalanceProps = {
   className?: string;
 };
 
-/** Плавно анимирует переход между числовыми значениями баланса (не просто дёргается на новое число). */
+/**
+ * Плавно анимирует переход между числовыми значениями баланса (не просто дёргается на новое число).
+ * `format` — обычная JS-функция (может использовать toLocaleString и т.п.), поэтому её нельзя
+ * вызывать внутри reanimated-ворклета на UI-потоке — форматирование делаем на JS-потоке через runOnJS.
+ */
 export function AnimatedBalance({ value, format, style, className }: AnimatedBalanceProps) {
   const animated = useSharedValue(value);
+  const [text, setText] = useState(() => format(value));
 
   useEffect(() => {
     animated.value = withTiming(value, { duration: 400 });
   }, [value]);
 
-  const animatedProps = useAnimatedProps(() => ({
-    text: format(animated.value),
-  }));
+  const updateText = useCallback((n: number) => setText(format(n)), [format]);
+
+  useAnimatedReaction(
+    () => animated.value,
+    (current) => {
+      runOnJS(updateText)(current);
+    },
+  );
 
   return (
-    <AnimatedTextInput
-      editable={false}
-      underlineColorAndroid="transparent"
-      className={className}
-      style={style}
-      defaultValue={format(value)}
-      // `text` is a reanimated-only escape hatch for native TextInput content and isn't in TextInputProps' types.
-      animatedProps={animatedProps as any}
-    />
+    <Text className={className} style={style}>
+      {text}
+    </Text>
   );
 }
