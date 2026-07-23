@@ -48,12 +48,14 @@ type AuthValue = {
 const AuthContext = createContext<AuthValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-
   /* Если в localStorage есть кешированный пользователь — стартуем без
      состояния загрузки (мгновенная гидрация). Иначе loading=true пока
      не придёт ответ /auth/me или не истечёт таймаут.
      Это навсегда убирает "застрявший" splash-экран. */
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window === "undefined") return null
+    return getStoredUser<User>()
+  })
   const [loading, setLoading] = useState(() => {
     if (typeof window === "undefined") return false
     return !getStoredUser<User>()
@@ -61,9 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /* Восстанавливаем сессию: cookie есть на сервере — /auth/me её примет. */
   useEffect(() => {
-    const cached = getStoredUser<User>()
-    if (cached) setUser(cached)
-
     /* Страховочный таймаут 1.5 секунды — если бэкенд не ответил,
        показываем контент немедленно. Для гостей (нет кеша) особенно важно —
        они не должны ждать ответа бэкенда для просмотра лендинга. */

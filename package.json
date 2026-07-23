@@ -41,6 +41,8 @@
     "@types/react-dom": "^19",
     "@types/three": "^0.185.1",
     "concurrently": "^10.0.3",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.2.11",
     "playwright": "^1.61.1",
     "postcss": "^8.5",
     "sharp": "^0.35.3",

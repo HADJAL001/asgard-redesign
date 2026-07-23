@@ -1170,7 +1170,6 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     const timeoutMs = opts?.timeoutMs ?? 120000
     const startedAt = Date.now()
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       await get().fetchProject(id)
       const project = get().projects.find((p) => p.id === id) ?? get().currentProject
@@ -1254,7 +1253,6 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     const timeoutMs = opts?.timeoutMs ?? 180000
     const startedAt = Date.now()
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       await get().fetchProject(id)
       const project = get().projects.find((p) => p.id === id) ?? get().currentProject

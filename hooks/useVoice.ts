@@ -8,7 +8,7 @@
    и app/walli-room/useWalliVoice.ts.
    ================================================================ */
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import * as voiceService from "@/lib/voice.service"
 import type { ListenOptions, SpeakOptions } from "@/lib/voice.service"
 import type { VoiceStyle } from "@/lib/jarvis-voice-client"
@@ -16,7 +16,7 @@ import type { VoiceStyle } from "@/lib/jarvis-voice-client"
 export function useVoice() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isListening, setIsListening] = useState(false)
-  const sttSupported = useRef(voiceService.isSttSupported()).current
+  const [sttSupported] = useState(() => voiceService.isSttSupported())
 
   useEffect(() => {
     voiceService.preloadVoices()

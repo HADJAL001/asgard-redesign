@@ -39,11 +39,11 @@ type I18nContextValue = {
 const I18nContext = createContext<I18nContextValue | null>(null)
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("ru")
+  const [locale, setLocaleState] = useState<Locale>(() =>
+    typeof window === "undefined" ? "ru" : detectLocale(),
+  )
 
   useEffect(() => {
-    setLocaleState(detectLocale())
-
     function handleChange(e: Event) {
       const detail = (e as CustomEvent<Locale>).detail
       if (detail) setLocaleState(detail)
