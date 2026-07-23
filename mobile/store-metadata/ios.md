@@ -39,3 +39,13 @@ https://osgard.example.com/privacy (заменить на реальный)
 ## Заметки для проверки (App Review notes)
 Демо-аккаунт для проверки: логин `alex_odin`, пароль `password123`
 (тестовый пользователь backend, см. `backend/README.md`).
+
+## Графика (готовится отдельно, не текстом)
+- Иконка приложения — `mobile/assets/images/icon.png` (1024×1024, брендирован,
+  см. `mobile/scripts/generate-brand-assets.js`), подхватывается EAS Build
+  автоматически из `app.json`.
+- Скриншоты App Store: обязателен набор 6.7" (iPhone 15 Pro Max, 1290×2796),
+  опционально 6.5" и iPad 12.9" — снимаются с реального билда на симуляторе/
+  устройстве. Автоматический захват через `expo start --web` в этой среде
+  заблокирован pre-existing проблемой с `react-native-worklets`
+  (см. `mobile/RELEASE.md`, раздел «Скриншоты»).
