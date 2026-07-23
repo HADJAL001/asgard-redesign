@@ -36,6 +36,7 @@ const NODE_COST_TC: Record<OrchestratorNodeType, number> = {
   deepseek: 1,
   grok: 2,
   prompt_template: 0,
+  service_call: 3,
 }
 
 export function calculateChainCost(nodes: OrchestratorGraphNode[]): number {
@@ -294,7 +295,7 @@ export function runChainForUser(userId: number, chain: OrchestratorChainRow, inp
   }
 
   // Запуск не блокирует ответ — прогресс идёт в фоне (SSE/следующий опрос).
-  executeChain(executionId, chain.nodes, chain.edges, input).catch((err) => {
+  executeChain(executionId, chain.nodes, chain.edges, input, userId).catch((err) => {
     captureError(`[orchestrator] execution ${executionId} failed:`, err)
   })
 
@@ -334,6 +335,7 @@ export async function executeChain(
   nodes: OrchestratorGraphNode[],
   edges: OrchestratorGraphEdge[],
   input: string,
+  userId: number,
 ): Promise<string> {
   const order = validateGraph(nodes, edges)
   const channel = `exec:${executionId}`
@@ -377,7 +379,7 @@ export async function executeChain(
     executionEvents.emit(channel, { type: "node_start", nodeId: node.id })
 
     try {
-      const { output, context: nextContext } = await runNode(node.data, current, context)
+      const { output, context: nextContext } = await runNode(node.data, current, context, userId)
       current = output
       context = nextContext
       entry.status = "done"

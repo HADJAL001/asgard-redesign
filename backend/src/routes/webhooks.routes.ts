@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { asyncHandler } from "../utils/async-handler"
+import { isPublicHttpUrl } from "../lib/url-safety"
 
 /* ================================================================
    OSGARD · Регистрация webhook'ов для уведомлений о генерации проекта
@@ -14,31 +15,6 @@ import { asyncHandler } from "../utils/async-handler"
 const router = Router()
 
 const MAX_WEBHOOKS_PER_USER = 5
-
-/* URL webhook'а задаёт пользователь, а сервер сам делает на него запрос —
-   классический вектор SSRF (доступ к внутренней сети/cloud metadata под
-   видом "просто уведомления"). Разрешаем только http(s) на публичные хосты
-   и блокируем очевидные внутренние/loopback/metadata адреса по имени хоста.
-   Это не полноценная защита от DNS-rebinding (для этого нужна проверка
-   резолвленного IP непосредственно перед каждым fetch), но отсекает
-   подавляющее большинство тривиальных попыток. */
-function isAllowedWebhookUrl(raw: string): boolean {
-  let url: URL
-  try {
-    url = new URL(raw)
-  } catch {
-    return false
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") return false
-
-  const host = url.hostname.toLowerCase()
-  if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "0.0.0.0") return false
-  if (host === "169.254.169.254") return false // cloud metadata (AWS/GCP/Azure)
-  if (/^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) return false
-  if (host.endsWith(".local") || host.endsWith(".internal")) return false
-
-  return true
-}
 
 /* ---------------- GET /webhooks ---------------- */
 router.get("/", requireAuth, (req: AuthRequest, res) => {
@@ -56,7 +32,7 @@ router.post(
     const userId = req.user!.userId
     const { url } = req.body || {}
 
-    if (!url || typeof url !== "string" || !isAllowedWebhookUrl(url)) {
+    if (!url || typeof url !== "string" || !isPublicHttpUrl(url)) {
       return res.status(400).json({ error: "Укажите корректный публичный http(s) URL" })
     }
 

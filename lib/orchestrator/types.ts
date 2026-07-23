@@ -14,7 +14,7 @@ import type { Edge, Node } from "@xyflow/react"
    напрямую как wire-формат — отдельного слоя UI<->wire маппинга нет.
    ================================================================ */
 
-export type OrchestratorNodeType = "claude" | "deepseek" | "grok" | "prompt_template"
+export type OrchestratorNodeType = "claude" | "deepseek" | "grok" | "prompt_template" | "service_call"
 
 /** Статус отдельного узла в рамках выполнения (node_statuses[i].status). */
 export type OrchestratorNodeRunStatus = "pending" | "running" | "done" | "error"
@@ -30,6 +30,11 @@ export interface OrchestratorNodeData extends Record<string, unknown> {
   template?: string
   temperature?: number
   maxTokens?: number
+  /** Для service_call — id подключённой интеграции (integrations.id) и действие коннектора. */
+  integrationId?: number
+  actionId?: string
+  /** Для service_call — параметры действия; значения могут содержать {{input}} и {{context.KEY}}. */
+  params?: Record<string, string>
 }
 
 export type OrchestratorFlowNode = Node<OrchestratorNodeData>
@@ -42,7 +47,7 @@ export interface OrchestratorChain {
   description: string | null
   is_public: number
   price_tc: number
-  /** 1 если цепочка сохранена как шаблон ВАЛЛИ-советника (is_jarvis_template = 1 в БД) */
+  /** 1 если цепочка сохранена как шаблон ДЖАРВИС-советника (is_jarvis_template = 1 в БД) */
   is_jarvis_template: number
   nodes: OrchestratorFlowNode[]
   edges: OrchestratorFlowEdge[]

@@ -4,7 +4,7 @@ import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 
 const router = Router()
 
-/* Награда: 5 ∞ (TimeCoin) начисляются АВТОМАТИЧЕСКИ в момент регистрации
+/* Награда: 10 ∞ (TimeCoin) начисляются АВТОМАТИЧЕСКИ в момент регистрации
    приглашённого (см. auth.controller.ts, INSERT INTO referrals + UPDATE wallets).
    Отдельного шага "забрать" в реальности нет — эндпоинты ниже читают тот же
    журнал `referrals` (referrer_id, referee_id, reward_amount, status), который

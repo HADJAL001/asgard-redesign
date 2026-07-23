@@ -11,14 +11,25 @@ import {
   Shield,
   Award,
   Star,
-  BarChart2,
-  Users,
   LogIn,
   CheckCircle,
   Sparkles,
   X,
 } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/use-translation"
+import { Reveal } from "@/components/landing/Reveal"
+import {
+  IconIdea,
+  IconCreate,
+  IconLegend,
+  IconMarket,
+  IconDialogue,
+  IconDashboard,
+  IconCommunity,
+  IconTrade,
+  IconEarn,
+  IconInvest,
+} from "@/components/icons/premium"
 
 // ─── Кастомный модальный компонент ─────────────────────────────────────
 function ArtifactSuccessModal({
@@ -419,11 +430,19 @@ export function EternityLanding() {
     }, 400)
   }
 
+  const scrollToForm = () => {
+    const el = inputRef.current
+    if (!el) return
+    el.scrollIntoView({ behavior: "smooth", block: "center" })
+    el.focus()
+  }
+
   return (
     <div className="eternity-page">
       {/* Глобус и частицы */}
       <div id="globe-bg">
         <div id="three-container" ref={containerRef} />
+        <div id="globe-vignette" aria-hidden="true" />
       </div>
       <div id="particles">
         {particles.map((p, i) => (
@@ -452,6 +471,11 @@ export function EternityLanding() {
             Преврати идею
             <br />в вечность
           </h1>
+          <div className="tc-badge">
+            <InfinityIcon size={14} strokeWidth={1.4} aria-hidden="true" />
+            Цифровое золото нового поколения
+            <span className="tc-badge-dot" aria-hidden="true" />
+          </div>
           <p className="hero-subtitle">
             Создавай артефакты, продавай за <InfinityIcon className="ico gold" size={20} aria-hidden="true" /> TimeCoin,
             становись легендой
@@ -488,6 +512,60 @@ export function EternityLanding() {
         <div className="hero-visual">
           <WalleOnGlobe />
         </div>
+
+        <section className="how-section">
+          <Reveal><h2>Как это работает</h2></Reveal>
+          <div className="how-container">
+            <Reveal delay={0} className="how-item">
+              <div className="how-step">01</div>
+              <IconIdea size={36} />
+              <div className="how-title">Задумай идею</div>
+              <div className="how-desc">Опиши концепцию будущего артефакта — от киберпанк-клинка до древнего свитка.</div>
+            </Reveal>
+            <Reveal delay={0.12} className="how-item">
+              <div className="how-step">02</div>
+              <IconCreate size={36} />
+              <div className="how-title">Создай артефакт</div>
+              <div className="how-desc">AI воплощает идею в уникальный цифровой артефакт за считаные секунды.</div>
+            </Reveal>
+            <Reveal delay={0.24} className="how-item">
+              <div className="how-step">03</div>
+              <IconLegend size={36} />
+              <div className="how-title">Стань легендой</div>
+              <div className="how-desc">Продай за TimeCoin, поднимись в Зале Славы, войди в историю OSGARD.</div>
+            </Reveal>
+          </div>
+        </section>
+
+        <section className="examples-section">
+          <Reveal><h2>Примеры проектов</h2></Reveal>
+          <div className="examples-container">
+            <Reveal delay={0} className="example-card">
+              <div className="example-preview example-preview-1" />
+              <div className="example-body">
+                <IconMarket size={28} />
+                <div className="example-title">Магазин артефактов</div>
+                <div className="example-desc">Витрина для продажи уникальных артефактов сообществу.</div>
+              </div>
+            </Reveal>
+            <Reveal delay={0.12} className="example-card">
+              <div className="example-preview example-preview-2" />
+              <div className="example-body">
+                <IconDialogue size={28} />
+                <div className="example-title">Живой диалог</div>
+                <div className="example-desc">Интерактивные истории и сюжетные миры с AI-персонажами.</div>
+              </div>
+            </Reveal>
+            <Reveal delay={0.24} className="example-card">
+              <div className="example-preview example-preview-3" />
+              <div className="example-body">
+                <IconDashboard size={28} />
+                <div className="example-title">Личный дашборд</div>
+                <div className="example-desc">Аналитика роста твоей вселенной и коллекции артефактов.</div>
+              </div>
+            </Reveal>
+          </div>
+        </section>
 
         <section className="architects-section">
           <h2>Архитекторы вселенной</h2>
@@ -551,31 +629,42 @@ export function EternityLanding() {
           </div>
         </section>
 
-        <section className="values-section">
-          <h2>Почему OSGARD?</h2>
+        <section className="economy-section">
+          <Reveal><h2>Экономика артефактов</h2></Reveal>
           <div className="values-container">
-            <div className="value-item">
-              <div className="value-icon">
-                <InfinityIcon size={32} strokeWidth={1.2} aria-hidden="true" />
-              </div>
-              <div className="value-title">Твоя вечность</div>
-              <div className="value-desc">Создай наследие, которое останется в Зале Славы навсегда.</div>
-            </div>
-            <div className="value-item">
-              <div className="value-icon">
-                <BarChart2 size={32} strokeWidth={1.2} aria-hidden="true" />
-              </div>
-              <div className="value-title">Экономика артефактов</div>
-              <div className="value-desc">Торгуй, зарабатывай, инвестируй в цифровое будущее.</div>
-            </div>
-            <div className="value-item">
-              <div className="value-icon">
-                <Users size={32} strokeWidth={1.2} aria-hidden="true" />
-              </div>
-              <div className="value-title">Сообщество</div>
-              <div className="value-desc">Присоединяйся к элите архитекторов и развивай вселенную.</div>
-            </div>
+            <Reveal delay={0} className="value-item">
+              <IconTrade size={32} />
+              <div className="value-title">Торгуй</div>
+              <div className="value-desc">Продавай и покупай артефакты на открытом рынке TimeCoin.</div>
+            </Reveal>
+            <Reveal delay={0.12} className="value-item">
+              <IconEarn size={32} />
+              <div className="value-title">Зарабатывай</div>
+              <div className="value-desc">Получай TimeCoin за каждый созданный шедевр.</div>
+            </Reveal>
+            <Reveal delay={0.24} className="value-item">
+              <IconInvest size={32} />
+              <div className="value-title">Инвестируй</div>
+              <div className="value-desc">Вкладывай накопленное в новые вселенные и расти вместе с платформой.</div>
+            </Reveal>
           </div>
+        </section>
+
+        <section className="community-section">
+          <Reveal className="community-inner">
+            <IconCommunity size={40} />
+            <h2>Сообщество</h2>
+            <p className="community-desc">Присоединяйся к элите архитекторов и развивай вселенную вместе с ними.</p>
+          </Reveal>
+        </section>
+
+        <section className="final-cta-section">
+          <Reveal className="final-cta-inner">
+            <h2>Готов оставить свой след в вечности?</h2>
+            <button type="button" className="final-cta-btn" onClick={scrollToForm}>
+              Создать артефакт <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
+            </button>
+          </Reveal>
         </section>
       </div>
 
@@ -727,7 +816,7 @@ const CSS = `
 }
 .eternity-page .hero-visual { position: relative; }
 .eternity-page h1 {
-  font-family: var(--font-playfair), 'Playfair Display', serif;
+  font-family: var(--font-space), 'Playfair Display', serif;
   font-size: 76px; font-weight: 700; color: #fff;
   letter-spacing: 4px; line-height: 1.1;
   text-shadow: 0 0 80px rgba(70, 150, 255, 0.06);
@@ -788,14 +877,18 @@ const CSS = `
 }
 
 .eternity-page .architects-section h2,
-.eternity-page .values-section h2 {
-  font-family: var(--font-playfair), 'Playfair Display', serif;
+.eternity-page .how-section h2,
+.eternity-page .examples-section h2,
+.eternity-page .economy-section h2 {
+  font-family: var(--font-space), 'Playfair Display', serif;
   font-size: 32px; text-align: center; color: #fff;
   grid-column: 1/-1; margin-bottom: 40px; letter-spacing: 6px;
   text-shadow: 0 0 40px rgba(255, 215, 0, 0.05);
 }
-.eternity-page .architects-section { grid-column: 1/-1; margin-top: 40px; }
-.eternity-page .values-section { grid-column: 1/-1; margin-top: 20px; }
+.eternity-page .architects-section { grid-column: 1/-1; margin-top: 100px; }
+.eternity-page .how-section { grid-column: 1/-1; margin-top: 60px; }
+.eternity-page .examples-section { grid-column: 1/-1; margin-top: 100px; }
+.eternity-page .economy-section { grid-column: 1/-1; margin-top: 100px; }
 
 .eternity-page .cards-container,
 .eternity-page .values-container {
@@ -804,10 +897,29 @@ const CSS = `
 
 .eternity-page .card,
 .eternity-page .value-item {
-  background: transparent; border: none; border-radius: 0; padding: 0;
+  position: relative;
+  background: var(--eg-glass-bg); border: 1px solid var(--eg-glass-border);
+  border-radius: 16px; padding: 32px 24px;
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   box-shadow: none; opacity: 0;
   display: flex; flex-direction: column; align-items: center; gap: 10px;
   letter-spacing: 0.02em; width: 100%; max-width: 280px; text-align: center;
+  transition: transform 0.35s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.eternity-page .card::before,
+.eternity-page .value-item::before {
+  content: ""; position: absolute; inset: 0; border-radius: 16px; padding: 1px;
+  background: linear-gradient(150deg, var(--eg-gold-1), var(--eg-gold-3) 60%, transparent);
+  opacity: 0.35;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  pointer-events: none;
+}
+.eternity-page .card:hover,
+.eternity-page .value-item:hover {
+  transform: translateY(-4px);
+  border-color: rgba(212, 175, 55, 0.3);
+  box-shadow: var(--eg-glow-gold);
 }
 .eternity-page .card.gold { --card-color: #FFD700; animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s forwards; }
 .eternity-page .card.silver { --card-color: #E0E0E0; animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s forwards; }
@@ -846,15 +958,8 @@ const CSS = `
 .eternity-page .card-icons svg { stroke-width: 1.2; transition: all 0.3s ease; }
 .eternity-page .card:hover .card-icons svg { filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.5)); }
 
-.eternity-page .value-item {
-  max-width: 280px; animation: eternity-rise 0.8s ease-out 0.8s forwards; gap: 16px; --card-color: #7AACFF;
-}
-.eternity-page .value-icon {
-  color: #FFD700; background: rgba(255, 215, 0, 0.05); padding: 16px; border-radius: 50%;
-  box-shadow: 0 0 30px rgba(255, 215, 0, 0.05); border: 1px solid rgba(255, 215, 0, 0.1);
-}
-.eternity-page .value-icon svg {
-  stroke-width: 1.2; color: #FFD700; filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.2));
+.eternity-page .economy-section .value-item {
+  max-width: 280px; opacity: 1; animation: none; gap: 16px; --card-color: #7AACFF;
 }
 .eternity-page .value-title { font-size: 18px; font-weight: 600; color: #fff; letter-spacing: 1px; }
 .eternity-page .value-desc { font-size: 14px; color: #A0B0C8; line-height: 1.6; letter-spacing: 0.02em; }
@@ -1038,5 +1143,144 @@ const CSS = `
   box-shadow: 0 0 50px rgba(255,215,0,0.4);
 }
 .artifact-modal-btn svg { stroke: #0A0D14; }
+
+/* ─── TimeCoin-бейдж ─── */
+.eternity-page .tc-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 600; color: var(--eg-gold-1);
+  background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.25);
+  border-radius: 20px; padding: 6px 14px; letter-spacing: 0.06em; text-transform: uppercase;
+  animation: eternity-rise 1s ease-out 0.1s forwards; opacity: 0;
+}
+.eternity-page .tc-badge svg { color: var(--eg-gold-1); filter: drop-shadow(0 0 6px rgba(212, 175, 55, 0.5)); }
+.eternity-page .tc-badge-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--eg-gold-1); box-shadow: 0 0 8px rgba(247, 224, 94, 0.8);
+  animation: eg-pulse-dot 2s ease-in-out infinite;
+}
+
+/* ─── Виньетка вокруг глобуса ─── */
+.eternity-page #globe-vignette {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(circle at center, transparent 35%, rgba(6, 6, 11, 0.85) 90%);
+}
+
+/* ─── Премиум-иконки: hover glow ─── */
+.eternity-page .eg-icon-svg {
+  filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.3));
+  transition: transform 0.3s ease;
+}
+.eternity-page .how-item:hover .eg-icon-svg,
+.eternity-page .example-body:hover .eg-icon-svg,
+.eternity-page .value-item:hover .eg-icon-svg,
+.eternity-page .community-inner:hover .eg-icon-svg {
+  animation: eg-icon-glow 1.6s ease-in-out infinite;
+  transform: scale(1.08);
+}
+
+/* ─── «Как это работает» ─── */
+.eternity-page .how-container {
+  display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;
+}
+.eternity-page .how-item {
+  position: relative;
+  background: var(--eg-glass-bg); border: 1px solid var(--eg-glass-border);
+  border-radius: 16px; padding: 32px 24px; width: 100%; max-width: 300px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  transition: transform 0.35s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.eternity-page .how-item:hover {
+  transform: translateY(-4px); border-color: rgba(212, 175, 55, 0.3); box-shadow: var(--eg-glow-gold);
+}
+.eternity-page .how-step {
+  font-family: var(--font-space), sans-serif; font-size: 13px; font-weight: 700;
+  color: var(--eg-gold-2); letter-spacing: 0.1em; opacity: 0.7;
+}
+.eternity-page .how-title { font-size: 18px; font-weight: 600; color: #fff; letter-spacing: 0.5px; margin-top: 4px; }
+.eternity-page .how-desc { font-size: 14px; color: #A0B0C8; line-height: 1.6; letter-spacing: 0.02em; }
+
+/* ─── «Примеры проектов» ─── */
+.eternity-page .examples-container {
+  display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;
+}
+.eternity-page .example-card {
+  position: relative; overflow: hidden;
+  background: var(--eg-glass-bg); border: 1px solid var(--eg-glass-border);
+  border-radius: 16px; width: 100%; max-width: 320px;
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  transition: transform 0.35s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.eternity-page .example-card:hover {
+  transform: translateY(-4px); border-color: rgba(212, 175, 55, 0.3); box-shadow: var(--eg-glow-gold);
+}
+.eternity-page .example-preview { height: 140px; width: 100%; }
+.eternity-page .example-preview-1 { background: radial-gradient(circle at 30% 30%, rgba(212,175,55,0.35), rgba(10,13,20,0.9) 70%); }
+.eternity-page .example-preview-2 { background: radial-gradient(circle at 70% 40%, rgba(106,90,205,0.35), rgba(10,13,20,0.9) 70%); }
+.eternity-page .example-preview-3 { background: radial-gradient(circle at 50% 70%, rgba(45,125,210,0.3), rgba(10,13,20,0.9) 70%); }
+.eternity-page .example-body {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+  padding: 24px;
+}
+.eternity-page .example-title { font-size: 16px; font-weight: 600; color: #fff; letter-spacing: 0.5px; }
+.eternity-page .example-desc { font-size: 13px; color: #A0B0C8; line-height: 1.6; letter-spacing: 0.02em; }
+
+/* ─── «Сообщество» ─── */
+.eternity-page .community-section { grid-column: 1/-1; margin-top: 100px; display: flex; justify-content: center; }
+.eternity-page .community-inner {
+  position: relative; text-align: center; max-width: 560px; width: 100%;
+  background: var(--eg-glass-bg); border: 1px solid var(--eg-glass-border);
+  border-radius: 20px; padding: 48px 32px;
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+}
+.eternity-page .community-inner h2 {
+  font-family: var(--font-space), 'Playfair Display', serif;
+  font-size: 28px; color: #fff; letter-spacing: 4px; margin: 0;
+}
+.eternity-page .community-desc { font-size: 15px; color: #A0B0C8; line-height: 1.6; letter-spacing: 0.02em; }
+
+/* ─── Финальный CTA ─── */
+.eternity-page .final-cta-section { grid-column: 1/-1; margin-top: 100px; margin-bottom: 40px; display: flex; justify-content: center; }
+.eternity-page .final-cta-inner {
+  text-align: center; display: flex; flex-direction: column; align-items: center; gap: 24px;
+}
+.eternity-page .final-cta-inner h2 {
+  font-family: var(--font-space), 'Playfair Display', serif;
+  font-size: 30px; color: #fff; letter-spacing: 3px; max-width: 560px; margin: 0;
+}
+.eternity-page .final-cta-btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: linear-gradient(135deg, var(--eg-gold-1), var(--eg-gold-3));
+  border: none; border-radius: 40px; padding: 14px 32px;
+  font-family: var(--font-inter), 'Inter', sans-serif;
+  font-weight: 700; font-size: 15px; color: #0A0D14; cursor: pointer;
+  transition: all 0.3s ease; letter-spacing: 0.04em;
+}
+.eternity-page .final-cta-btn:hover {
+  transform: scale(1.03); box-shadow: var(--eg-glow-gold);
+}
+
+/* ─── Float-анимация лидерборд-карточек (не пересекается с framer-motion Reveal, т.к. .card не обёрнут в Reveal) ─── */
+@media (prefers-reduced-motion: no-preference) {
+  .eternity-page .card { will-change: transform; }
+  .eternity-page .card.gold { animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s forwards, eg-float 6s ease-in-out 1.2s infinite; }
+  .eternity-page .card.silver { animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s forwards, eg-float 6.6s ease-in-out 1.4s infinite; }
+  .eternity-page .card.bronze { animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.6s forwards, eg-float 7.2s ease-in-out 1.6s infinite; }
+}
+@media (max-width: 600px) {
+  .eternity-page .card.gold,
+  .eternity-page .card.silver,
+  .eternity-page .card.bronze {
+    animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards !important;
+  }
+}
+
+@media (max-width: 1100px) {
+  .eternity-page .how-container,
+  .eternity-page .examples-container,
+  .eternity-page .values-container { flex-direction: column; align-items: center; }
+  .eternity-page .community-inner { padding: 36px 24px; }
+}
 
 `

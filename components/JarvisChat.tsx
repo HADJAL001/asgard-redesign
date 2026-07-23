@@ -1,9 +1,9 @@
 "use client"
 
 /* ================================================================
-   OSGARD · ВАЛЛИ Chat Widget
+   OSGARD · ДЖАРВИС Chat Widget
    ----------------------------------------------------------------
-   Чат с ИИ-ассистентом ВАЛЛИ.
+   Чат с ИИ-ассистентом ДЖАРВИСОМ.
 
    Режимы ответа (переключаются кнопками или выпадающим списком):
      - "text"  💬  — только текст в чате, без озвучки
@@ -101,14 +101,14 @@ function saveReplyMode(mode: ReplyMode) {
    Компонент
    ---------------------------------------------------------------- */
 
-export function ВАЛЛИChat() {
+export function JarvisChat() {
   const { t } = useTranslation()
   const router = useRouter()
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: "Привет! Я ВАЛЛИ. Спроси меня о балансе, артефактах, проектах или цепочках оркестратора — или задай любой другой вопрос.",
+      content: "Привет! Я ДЖАРВИС. Спроси меня о балансе, артефактах, проектах или цепочках оркестратора — или задай любой другой вопрос.",
     },
   ])
   const [input, setInput] = useState("")
@@ -116,14 +116,14 @@ export function ВАЛЛИChat() {
   const [replyMode, setReplyMode] = useState<ReplyMode>("both")
   const { isSpeaking: speaking, speakPremium, stopSpeaking, isListening, startListening, stopListening, sttSupported } = useVoice()
   const [modeMenuOpen, setModeMenuOpen] = useState(false)
-  /* Режим личности ВАЛЛИ (обычный/цитаты/вредный/поэт/новости) — влияет на стиль ответов. */
+  /* Режим личности ДЖАРВИСА (обычный/цитаты/вредный/поэт/новости) — влияет на стиль ответов. */
   const [personalityMode, setPersonalityMode] = useState<JarvisMode>("default")
   const [personalityMenuOpen, setPersonalityMenuOpen] = useState(false)
   /* Голосовой стиль ElevenLabs (диктор/кино/реп/спокойный/энергичный) — отдельно от JarvisMode. */
   const [voiceStyle, setVoiceStyle] = useState<VoiceStyle>("calm")
   const [voiceStyleMenuOpen, setVoiceStyleMenuOpen] = useState(false)
   const [premiumVoiceConfigured, setPremiumVoiceConfigured] = useState(false)
-  /* Текущая экипировка ВАЛЛИА (skin/voice/accessory) — влияет на 3D-аватар и голос TTS. */
+  /* Текущая экипировка ДЖАРВИСА (skin/voice/accessory) — влияет на 3D-аватар и голос TTS. */
   const [equipment, setEquipment] = useState<JarvisEquipment>(EMPTY_EQUIPMENT)
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -153,7 +153,7 @@ export function ВАЛЛИChat() {
   }, [])
 
   /* ----------------------------------------------------------------
-     Экипировка ВАЛЛИА:
+     Экипировка ДЖАРВИСА:
      1. Мгновенно показываем то, что уже лежит в localStorage-кэше
         (без ожидания сети) — чтобы аватар не "мигал" пустым при заходе.
      2. Параллельно синхронизируемся с бэкендом (GET /jarvis/my-accessories),
@@ -295,7 +295,7 @@ export function ВАЛЛИChat() {
         speakPremium(res.answer, voiceStyle, { rate: profile.rate, pitch: profile.pitch, langHint: profile.langHint })
       }
 
-      // Если ВАЛЛИ рекомендует запустить цепочку — автоматически переходим через 1.5 сек
+      // Если ДЖАРВИС рекомендует запустить цепочку — автоматически переходим через 1.5 сек
       if (res.orchestratorChainId) {
         setTimeout(() => {
           router.push(`/orchestrator/${res.orchestratorChainId}?run=1`)
@@ -306,7 +306,7 @@ export function ВАЛЛИChat() {
       const errorMsg: ChatMessage = {
         id: `e-${Date.now()}`,
         role: "assistant",
-        content: err?.message || "Не удалось получить ответ от ВАЛЛИА. Попробуйте позже.",
+        content: err?.message || "Не удалось получить ответ от ДЖАРВИСА. Попробуйте позже.",
       }
       setMessages((prev) => [...prev, errorMsg])
     } finally {
@@ -329,9 +329,9 @@ export function ВАЛЛИChat() {
       <div className="jarvis-header">
         <div className="jarvis-title">
           <Bot size={18} aria-hidden="true" />
-          <span>{t("walli.advisorLabel")}</span>
+          <span>{t("jarvis.advisorLabel")}</span>
           {(equipment.skin || equipment.accessory || equipment.voice) && (
-            <span className="jarvis-equip-badge" title="Аксессуары ВАЛЛИ активны">
+            <span className="jarvis-equip-badge" title="Аксессуары ДЖАРВИСА активны">
               ✨
             </span>
           )}
@@ -390,13 +390,13 @@ export function ВАЛЛИChat() {
             )}
           </div>
 
-          {/* Выпадающий список личности ВАЛЛИ (обычный/цитаты/вредный/поэт/новости) */}
+          {/* Выпадающий список личности ДЖАРВИСА (обычный/цитаты/вредный/поэт/новости) */}
           <div className="jarvis-mode-select" ref={personalityMenuRef}>
             <button
               type="button"
               className="jarvis-mode-btn"
               onClick={() => setPersonalityMenuOpen((v) => !v)}
-              title="Личность ВАЛЛИ"
+              title="Личность ДЖАРВИСА"
             >
               <span className="jarvis-mode-icon">{MODE_ICONS[personalityMode]}</span>
               <span className="jarvis-mode-label">{MODE_LABELS[personalityMode]}</span>
@@ -425,7 +425,7 @@ export function ВАЛЛИChat() {
               type="button"
               className="jarvis-mode-btn"
               onClick={() => setVoiceStyleMenuOpen((v) => !v)}
-              title={premiumVoiceConfigured ? "Голос ВАЛЛИ" : "Голос ВАЛЛИ (браузерный TTS — премиум-голос не настроен)"}
+              title={premiumVoiceConfigured ? "Голос ДЖАРВИСА" : "Голос ДЖАРВИСА (браузерный TTS — премиум-голос не настроен)"}
             >
               <span className="jarvis-mode-icon">{VOICE_STYLE_ICONS[voiceStyle]}</span>
               <span className="jarvis-mode-label">{VOICE_STYLE_LABELS[voiceStyle]}</span>
@@ -512,7 +512,7 @@ export function ВАЛЛИChat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isListening ? "Слушаю…" : "Спросите ВАЛЛИА..."}
+          placeholder={isListening ? "Слушаю…" : "Спросите ДЖАРВИСА..."}
           disabled={loading}
         />
         {sttSupported && (
@@ -541,7 +541,7 @@ export function ВАЛЛИChat() {
   )
 }
 
-export default ВАЛЛИChat
+export default JarvisChat
 
 /* ================================================================
    Стили

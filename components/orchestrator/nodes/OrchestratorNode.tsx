@@ -119,10 +119,14 @@ export const OrchestratorNode = memo(function OrchestratorNode({
           </span>
         </div>
 
-        {/* Подпись (температура или шаблон) */}
+        {/* Подпись (температура, шаблон или сервис) */}
         {data.type === "prompt_template" ? (
           <p className="mt-1 truncate text-[11px]" style={{ color: COLORS.label }}>
             {data.template || "{{input}}"}
+          </p>
+        ) : data.type === "service_call" ? (
+          <p className="mt-1 truncate text-[11px]" style={{ color: COLORS.label }}>
+            {data.actionId || t("orchestrator.serviceCallNotConfigured")}
           </p>
         ) : (
           <p className="mt-1 truncate text-[11px]" style={{ color: COLORS.label }}>

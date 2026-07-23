@@ -23,6 +23,7 @@ import {
   Map,
   GitBranch,
   CreditCard,
+  Plug,
   type LucideIcon,
 } from "lucide-react"
 
@@ -47,6 +48,7 @@ export const NAV: NavItem[] = [
   { key: "nav.home", href: "/", Icon: Home },
   { key: "nav.projects", href: "/projects", Icon: FolderKanban },
   { key: "nav.orchestrator", href: "/orchestrator", Icon: GitBranch },
+  { key: "nav.integrations", href: "/integrations", Icon: Plug },
   { key: "nav.community", href: "/community", Icon: Beer },
   { key: "nav.forge", href: "/forge", Icon: Hammer },
   { key: "nav.marketplace", href: "/marketplace", Icon: ShoppingBag },

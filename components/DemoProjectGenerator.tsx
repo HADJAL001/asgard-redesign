@@ -37,16 +37,16 @@ export function DemoProjectGenerator() {
     <>
       {/* ── Виджет на лендинге ── */}
       <section
-        className="relative w-full py-20 px-4 flex flex-col items-center"
+        className="relative w-full py-20 px-4 flex flex-col items-center overflow-hidden"
         style={{
-          background: "radial-gradient(ellipse at 50% 0%, rgba(6,182,212,0.07), transparent 60%)",
+          background: "#020408",
         }}
       >
         {/* Ambient декор */}
         <div
           className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px] pointer-events-none"
           style={{
-            background: "radial-gradient(ellipse at center, rgba(168,85,247,0.08), transparent 70%)",
+            background: "radial-gradient(ellipse at center, rgba(212,175,55,0.1), transparent 70%)",
             filter: "blur(40px)",
           }}
           aria-hidden="true"
@@ -56,9 +56,9 @@ export function DemoProjectGenerator() {
         <div
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-medium mb-6 tracking-wide"
           style={{
-            background: "rgba(6,182,212,0.08)",
-            border: "1px solid rgba(6,182,212,0.2)",
-            color: "#06B6D4",
+            background: "rgba(212,175,55,0.08)",
+            border: "1px solid rgba(212,175,55,0.2)",
+            color: "var(--eg-gold-1)",
           }}
         >
           <Sparkles size={13} />
@@ -74,7 +74,7 @@ export function DemoProjectGenerator() {
           <span
             className="block"
             style={{
-              background: "linear-gradient(90deg, #06B6D4, #A855F7)",
+              background: "linear-gradient(90deg, var(--eg-gold-1), var(--eg-gold-3))",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
             }}
@@ -95,9 +95,9 @@ export function DemoProjectGenerator() {
           <div
             className="flex items-center gap-2 mb-5 px-4 py-2 rounded-full text-[12px]"
             style={{
-              background: "rgba(251,191,36,0.06)",
-              border: "1px solid rgba(251,191,36,0.15)",
-              color: "#FBBF24",
+              background: "rgba(212,175,55,0.06)",
+              border: "1px solid rgba(212,175,55,0.15)",
+              color: "var(--eg-gold-1)",
             }}
           >
             🌌 Ты уже создал {sessionSummary.used} {sessionSummary.used === 1 ? "вселенную" : "вселенных"} · сохрани их!
@@ -110,23 +110,24 @@ export function DemoProjectGenerator() {
           onClick={() => setDemoOpen(true)}
           className="group relative inline-flex items-center gap-3 rounded-2xl px-8 py-4 text-[16px] font-bold text-white transition-all duration-300"
           style={{
-            background: "linear-gradient(135deg, #06B6D4 0%, #7C3AED 100%)",
-            boxShadow: "0 0 40px rgba(6,182,212,0.3), 0 8px 32px rgba(0,0,0,0.4)",
+            background: "linear-gradient(135deg, var(--eg-gold-1) 0%, var(--eg-gold-3) 100%)",
+            color: "#0A0D14",
+            boxShadow: "0 0 40px rgba(212,175,55,0.3), 0 8px 32px rgba(0,0,0,0.4)",
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = "translateY(-2px) scale(1.02)"
-            e.currentTarget.style.boxShadow = "0 0 60px rgba(6,182,212,0.4), 0 12px 40px rgba(0,0,0,0.5)"
+            e.currentTarget.style.boxShadow = "0 0 60px rgba(212,175,55,0.4), 0 12px 40px rgba(0,0,0,0.5)"
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = "translateY(0) scale(1)"
-            e.currentTarget.style.boxShadow = "0 0 40px rgba(6,182,212,0.3), 0 8px 32px rgba(0,0,0,0.4)"
+            e.currentTarget.style.boxShadow = "0 0 40px rgba(212,175,55,0.3), 0 8px 32px rgba(0,0,0,0.4)"
           }}
         >
           <Rocket size={20} className="transition-transform duration-300 group-hover:rotate-12" />
           Сгенерировать AI-проект
           <span
             className="absolute -top-1 -right-1 w-3 h-3 rounded-full"
-            style={{ background: "#34D399", boxShadow: "0 0 8px #34D399", animation: "pg-pulse 2s ease-in-out infinite" }}
+            style={{ background: "var(--eg-gold-1)", boxShadow: "0 0 8px var(--eg-gold-1)", animation: "pg-pulse 2s ease-in-out infinite" }}
             aria-hidden="true"
           />
         </button>
@@ -157,7 +158,7 @@ export function DemoProjectGenerator() {
                 color: "rgba(255,255,255,0.4)",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "rgba(6,182,212,0.3)"
+                e.currentTarget.style.borderColor = "rgba(212,175,55,0.3)"
                 e.currentTarget.style.color = "rgba(255,255,255,0.7)"
               }}
               onMouseLeave={(e) => {

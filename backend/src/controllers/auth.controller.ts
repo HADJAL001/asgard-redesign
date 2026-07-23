@@ -84,11 +84,11 @@ export class AuthController {
       // Начисляем бонус рефереру
       if (referredBy) {
         try {
-          db.prepare(`UPDATE wallets SET timecoin = timecoin + 5 WHERE user_id = ?`).run(referredBy);
+          db.prepare(`UPDATE wallets SET timecoin = timecoin + 10 WHERE user_id = ?`).run(referredBy);
           db.prepare(`
             INSERT OR IGNORE INTO referrals (referrer_id, referee_id, reward_amount, status)
             VALUES (?, ?, ?, 'active')
-          `).run(referredBy, userId, 5);
+          `).run(referredBy, userId, 10);
         } catch (e) {
           // referrals таблица может не существовать
         }

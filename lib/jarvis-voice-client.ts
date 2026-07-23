@@ -1,5 +1,5 @@
 /* ================================================================
-   OSGARD · ВАЛЛИ Voice Style (фронтенд-зеркало backend/src/services/elevenlabs.ts)
+   OSGARD · ДЖАРВИС Voice Style (фронтенд-зеркало backend/src/services/elevenlabs.ts)
    ----------------------------------------------------------------
    Отдельная настройка от JarvisMode (личность) — выбор голосового
    стиля ElevenLabs для премиум-озвучки (см. lib/voice.service.ts

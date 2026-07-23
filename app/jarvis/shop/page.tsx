@@ -1,7 +1,7 @@
 "use client"
 
 /* ================================================================
-   Страница /jarvis/shop — Магазин аксессуаров ВАЛЛИА
+   Страница /jarvis/shop — Магазин аксессуаров ДЖАРВИСА
    ----------------------------------------------------------------
    GET  /jarvis/shop  → список аксессуаров (skin/voice/accessory) + owned/equipped
    POST /jarvis/buy   → { accessoryId } — купить (списывает ∞)
@@ -62,7 +62,7 @@ export default function JarvisShopPage() {
   const [busyId, setBusyId] = useState<number | null>(null)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [filter, setFilter] = useState<AccessoryType | "all">("all")
-  /* Текущая экипировка ВАЛЛИА — для мгновенного превью 3D-аватара прямо в магазине. */
+  /* Текущая экипировка ДЖАРВИСА — для мгновенного превью 3D-аватара прямо в магазине. */
   const [equipment, setEquipment] = useState<JarvisEquipment>(EMPTY_EQUIPMENT)
 
   async function loadShop() {
@@ -161,7 +161,7 @@ export default function JarvisShopPage() {
 
       <main className="mx-auto max-w-6xl px-4 py-8">
         <header className="mb-6">
-          <h1 className="text-2xl font-semibold">Магазин ВАЛЛИА</h1>
+          <h1 className="text-2xl font-semibold">Магазин ДЖАРВИСА</h1>
           <p className="mt-1 text-sm" style={{ color: "#6A6A8A" }}>
             Скины, голоса и аксессуары для вашего ИИ-ассистента. Оплата в ∞ (TimeCoin).
           </p>
@@ -174,7 +174,7 @@ export default function JarvisShopPage() {
         >
           <JarvisAvatar equipment={equipment} height={200} />
           <span className="mt-1 text-xs" style={{ color: "#6A6A8A" }}>
-            Предпросмотр ВАЛЛИА — обновляется мгновенно при покупке/надевании
+            Предпросмотр ДЖАРВИСА — обновляется мгновенно при покупке/надевании
           </span>
         </div>
 

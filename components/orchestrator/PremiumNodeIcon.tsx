@@ -11,13 +11,14 @@ export interface NodeIconProps {
   "aria-hidden"?: boolean | "true" | "false"
 }
 
-type Variant = "claude" | "deepseek" | "grok" | "prompt_template"
+type Variant = "claude" | "deepseek" | "grok" | "prompt_template" | "service_call"
 
 const GRADIENT_STOPS: Record<Variant, [string, string, string]> = {
   claude: ["#67E8F9", "#00D4FF", "#0369A1"],
   deepseek: ["#86EFAC", "#4ADE80", "#047857"],
   grok: ["#FDE68A", "#FBBF24", "#B45309"],
   prompt_template: ["#E2E8F0", "#94A3B8", "#334155"],
+  service_call: ["#FCA5A5", "#F87171", "#7F1D1D"],
 }
 
 function Glyph({ variant }: { variant: Variant }) {
@@ -44,6 +45,17 @@ function Glyph({ variant }: { variant: Variant }) {
       return <path d="M13.5 4.7 L7.7 13.3 H11.1 L9.8 19.3 L16.9 9.7 H13.1 Z" fill="#fff" />
     case "prompt_template":
       return <path d="M7.3 7.8h9.4M7.3 12h9.4M7.3 16.2h5.7" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" />
+    case "service_call":
+      return (
+        <path
+          d="M9.2 7.2 L5.6 12 L9.2 16.8 M14.8 7.2 L18.4 12 L14.8 16.8"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )
   }
 }
 
@@ -83,3 +95,4 @@ export const PremiumClaudeIcon: ComponentType<NodeIconProps> = (props) => <NodeI
 export const PremiumDeepseekIcon: ComponentType<NodeIconProps> = (props) => <NodeIconBadge variant="deepseek" {...props} />
 export const PremiumGrokIcon: ComponentType<NodeIconProps> = (props) => <NodeIconBadge variant="grok" {...props} />
 export const PremiumTemplateIcon: ComponentType<NodeIconProps> = (props) => <NodeIconBadge variant="prompt_template" {...props} />
+export const PremiumServiceCallIcon: ComponentType<NodeIconProps> = (props) => <NodeIconBadge variant="service_call" {...props} />

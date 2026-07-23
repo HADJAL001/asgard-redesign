@@ -1,4 +1,9 @@
+import db from "../lib/db"
 import { callClaudeApi, callDeepSeek, callGrok } from "./ai-router"
+import { getConnector, getConnectorAction } from "./service-bridge/connector-registry"
+import { runIntegrationAction, type IntegrationRow } from "./service-bridge/service-bridge-engine"
+import { isServiceBridgeLimitExceeded, incrementServiceBridgeUsage } from "../lib/integrationsQuota"
+import type { PlanKey } from "../lib/stripe"
 
 /* ================================================================
    OSGARD · Оркестратор — адаптеры узлов
@@ -8,9 +13,14 @@ import { callClaudeApi, callDeepSeek, callGrok } from "./ai-router"
    возвращает текст выхода + (опционально обогащённый) контекст —
    контракт { context, input } → { output, context } из ТЗ.
    Поверх уже существующего ai-router.ts (никаких новых провайдеров).
+
+   service_call — узел вызывает действие подключённой Service Bridge
+   интеграции пользователя вместо AI-модели; использует тот же
+   универсальный HTTP-движок и дневную квоту, что и REST-эндпоинт
+   POST /integrations/:id/execute (см. service-bridge.routes.ts).
    ================================================================ */
 
-export type OrchestratorNodeType = "claude" | "deepseek" | "grok" | "prompt_template"
+export type OrchestratorNodeType = "claude" | "deepseek" | "grok" | "prompt_template" | "service_call"
 
 export interface OrchestratorNodeConfig {
   type: OrchestratorNodeType
@@ -19,6 +29,11 @@ export interface OrchestratorNodeConfig {
   template?: string
   temperature?: number
   maxTokens?: number
+  /** Для service_call — id подключённой интеграции (integrations.id) и действие коннектора. */
+  integrationId?: number
+  actionId?: string
+  /** Для service_call — параметры действия; значения могут содержать {{input}} и {{context.KEY}}. */
+  params?: Record<string, string>
 }
 
 export type ChainContext = Record<string, any>
@@ -67,16 +82,62 @@ function renderTemplate(template: string | undefined, input: string): string {
   return template.replace(/\{\{\s*input\s*\}\}/gi, input)
 }
 
+/** Подставляет {{input}} и {{context.KEY}} в шаблон параметра узла service_call. */
+function fillNodePlaceholders(template: string, input: string, context: ChainContext): string {
+  return template.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_match, key: string) => {
+    if (key === "input") return input
+    if (key.startsWith("context.")) {
+      const value = context[key.slice("context.".length)]
+      return value === undefined ? "" : String(value)
+    }
+    return ""
+  })
+}
+
+async function runServiceCallNode(config: OrchestratorNodeConfig, input: string, context: ChainContext, userId: number): Promise<NodeResult> {
+  if (!config.integrationId || !config.actionId) throw new NodeExecutionError("service_call")
+
+  const integration = db
+    .prepare(`SELECT * FROM integrations WHERE id = ? AND user_id = ?`)
+    .get(config.integrationId, userId) as IntegrationRow | undefined
+  if (!integration) throw new NodeExecutionError("service_call")
+
+  const connector = getConnector(integration.connector_id)
+  const action = connector ? getConnectorAction(connector, config.actionId) : undefined
+  if (!connector || !action) throw new NodeExecutionError("service_call")
+
+  const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
+  const plan: PlanKey = userRow?.plan ?? "free"
+  if (await isServiceBridgeLimitExceeded(userId, plan)) throw new NodeExecutionError("service_call")
+
+  const actionParams: Record<string, unknown> = {}
+  for (const [key, template] of Object.entries(config.params ?? {})) {
+    actionParams[key] = fillNodePlaceholders(template, input, context)
+  }
+
+  const result = await withTimeout(runIntegrationAction(integration, action.id, actionParams), NODE_TIMEOUT_MS, "service_call")
+  await incrementServiceBridgeUsage(userId)
+
+  if (!result.success) throw new NodeExecutionError("service_call")
+
+  const output = typeof result.data === "string" ? result.data : JSON.stringify(result.data ?? {})
+  return { output, context: { ...context, lastServiceCallResult: result.data } }
+}
+
 /**
  * Выполняет один узел цепочки: { context, input } → { output, context }.
  * Бросает NodeTimeoutError/NodeExecutionError — вызывающий код (orchestrator.service.ts)
  * должен остановить цепочку при любой ошибке узла.
  */
-export async function runNode(config: OrchestratorNodeConfig, input: string, context: ChainContext): Promise<NodeResult> {
+export async function runNode(config: OrchestratorNodeConfig, input: string, context: ChainContext, userId: number): Promise<NodeResult> {
   const maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS
 
   if (config.type === "prompt_template") {
     return { output: renderTemplate(config.template, input), context }
+  }
+
+  if (config.type === "service_call") {
+    return runServiceCallNode(config, input, context, userId)
   }
 
   const call = (async (): Promise<string | null> => {

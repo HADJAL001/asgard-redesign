@@ -4,14 +4,14 @@
    OSGARD · ДЖАРВИС — глобальная плавающая кнопка
    ----------------------------------------------------------------
    Монтируется в AppShell, доступна на всех страницах. Клик по FAB
-   открывает панель чата (ВАЛЛИChat из JarvisChat.tsx). Для гостей —
+   открывает панель чата (JarvisChat из JarvisChat.tsx). Для гостей —
    вместо чата показывается paywall (все /jarvis/* роуты бэкенда
    требуют авторизации).
    ================================================================ */
 
 import { useState } from "react"
 import { X } from "lucide-react"
-import ВАЛЛИChat from "@/components/JarvisChat"
+import JarvisChat from "@/components/JarvisChat"
 import { useAuth } from "@/lib/auth-store"
 import { useReadonlyMode } from "@/lib/readonly-mode"
 import { AvatarOrb } from "@/components/ui/AvatarOrb"
@@ -43,7 +43,7 @@ export function JarvisFloatingWidget() {
             overflow: "hidden",
           }}
         >
-          <ВАЛЛИChat />
+          <JarvisChat />
         </div>
       )}
 

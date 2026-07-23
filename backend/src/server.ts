@@ -115,6 +115,15 @@ app.use(
   express.raw({ type: "application/json" }),
 )
 
+/* Аналогично — отдельный Stripe webhook для addon-подписок ДЖАРВИС/ВАЛЛИ Premium. */
+import addonsRoutes from "./routes/addons.routes"
+import customizationRoutes from "./routes/customization.routes"
+import coursesRoutes from "./routes/courses.routes"
+app.use(
+  "/addons/webhook",
+  express.raw({ type: "application/json" }),
+)
+
 app.use(express.json())
 
 import { writeBackpressure, getWriteQueueStats } from "./middleware/write-backpressure"
@@ -207,11 +216,19 @@ import promoRoutes from "./routes/promo.routes"
 import orchestratorRoutes, { getActiveSseConnections } from "./routes/orchestrator.routes"
 import generateProjectRoutes, { getGenerationSseConnections } from "./routes/generate-project.routes"
 import webhooksRoutes from "./routes/webhooks.routes"
+import serviceBridgeRoutes from "./routes/service-bridge.routes"
 import { runGenerationTasksMigration } from "./migrations/044_generation_tasks"
 import { runGenerationMetricsMigration } from "./migrations/045_generation_metrics"
 import { runWebhooksMigration } from "./migrations/046_webhooks"
 import { runAgentExecutionsMigration } from "./migrations/047_agent_executions"
 import { runCacheMetricsMigration } from "./migrations/048_cache_metrics"
+import { runServiceBridgeMigration } from "./migrations/049_service_bridge"
+import { runPerfIndexesMigration } from "./migrations/051_perf_indexes"
+import { runAddonSubscriptionsMigration } from "./migrations/055_addon_subscriptions"
+import { runAddonProgressionMigration } from "./migrations/056_addon_progression"
+import { runAddonCustomizationMigration } from "./migrations/057_addon_customization"
+import { runAddonCoursesMigration } from "./migrations/058_addon_courses"
+import { runSeedCoursesMigration } from "./migrations/059_seed_courses"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
@@ -239,6 +256,14 @@ runWebhooksMigration()
 runAgentExecutionsMigration()
 runCacheMetricsMigration()
 
+/* Индексы под горячие пути (artifacts.owner_id, tc_trades(ts,id), marketplace_listings(status,listed_at)).
+   Вызывается явно здесь, а не самовызовом при импорте — tc_trades создаётся только внутри
+   runOrderBookMigration() выше, и на свежей БД самовызов при импорте упал бы раньше её создания. */
+runPerfIndexesMigration()
+
+/* Гарантируем наличие таблиц integrations/integration_logs (Service Bridge / Интеграции). */
+runServiceBridgeMigration()
+
 /* Гарантируем наличие таблицы tc_convert_log (лог конвертаций ∞ ↔ TC) при старте сервера. */
 runTcConvertMigration()
 
@@ -265,6 +290,21 @@ runSocialLoginMigration()
 
 /* Ослабляем NOT NULL на users.email/password_hash — нужно для чисто соц-аккаунтов без пароля/email. */
 runRelaxRequiredFieldsMigration()
+
+/* Гарантируем наличие таблицы addon_subscriptions (параллельные подписки ДЖАРВИС/ВАЛЛИ Premium) при старте сервера. */
+runAddonSubscriptionsMigration()
+
+/* Гарантируем наличие таблиц addon_xp_events/addon_progress/addon_achievements (прогрессия по активности). */
+runAddonProgressionMigration()
+
+/* Гарантируем наличие таблиц addon_customizations/addon_customization_unlocks (кастомные преображения). */
+runAddonCustomizationMigration()
+
+/* Гарантируем наличие таблиц courses/course_progress (обучение по продуктам ДЖАРВИС/ВАЛЛИ Premium). */
+runAddonCoursesMigration()
+
+/* Наполняем каталог courses стартовым набором модулей, если он ещё пуст. */
+runSeedCoursesMigration()
 
 /* Самолечение: если процесс перезапустился во время генерации приложения (in-memory
    состояние джоба теряется), зависшие в "generating" проекты переводим в "failed" —
@@ -295,6 +335,9 @@ app.use("/transactions", transactionsRoutes)
 app.use("/onboarding", onboardingRoutes)
 app.use("/referral", referralRoutes)
 app.use("/subscription", subscriptionRoutes)
+app.use("/addons", addonsRoutes)
+app.use("/addons/customization", customizationRoutes)
+app.use("/addons/courses", coursesRoutes)
 app.use("/jarvis", jarvisRoutes)
 app.use("/jarvis", jarvisShopRoutes)
 app.use("/twin", twinRoutes)
@@ -308,6 +351,7 @@ app.use("/orchestrator", orchestratorRoutes)
 app.use("/promo", promoRoutes)
 app.use("/", generateProjectRoutes)
 app.use("/webhooks", webhooksRoutes)
+app.use("/integrations", serviceBridgeRoutes)
 
 
 

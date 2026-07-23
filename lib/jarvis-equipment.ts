@@ -1,7 +1,7 @@
 /* ================================================================
    OSGARD · JARVIS Equipment store
    ----------------------------------------------------------------
-   Единый источник правды об экипировке ВАЛЛИА (скин / голос /
+   Единый источник правды об экипировке ДЖАРВИСА (скин / голос /
    аксессуар), надетой текущим пользователем.
 
    - Кэшируется в localStorage (ключ "jarvis_equipment") для
@@ -28,7 +28,7 @@ export type EquippedAccessory = {
   purchasedAt?: number
 }
 
-/** Текущая экипировка ВАЛЛИА — по одному предмету на каждый слот (skin/voice/accessory). */
+/** Текущая экипировка ДЖАРВИСА — по одному предмету на каждый слот (skin/voice/accessory). */
 export type JarvisEquipment = {
   skin: EquippedAccessory | null
   voice: EquippedAccessory | null

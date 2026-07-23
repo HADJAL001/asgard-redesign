@@ -27,6 +27,8 @@ import { ORCHESTRATOR_PALETTE, DRAG_DATA_FORMAT } from "./node-types"
 import { OrchestratorNode } from "./nodes/OrchestratorNode"
 import { SnakeEdge } from "./edges/SnakeEdge"
 import { PremiumModal } from "@/components/PremiumModal"
+import { integrationsApi } from "@/lib/integrations/api"
+import type { ConnectorPublic, Integration } from "@/lib/integrations/types"
 import type {
   OrchestratorChain,
   OrchestratorFlowEdge,
@@ -95,6 +97,10 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
   const [quota, setQuota] = useState<{ remaining: number; total: number } | null>(null)
   const [quotaLoading, setQuotaLoading] = useState(false)
 
+  // Интеграции для узла Service Call (инспектор)
+  const [integrations, setIntegrations] = useState<Integration[]>([])
+  const [connectors, setConnectors] = useState<ConnectorPublic[]>([])
+
   // Шаблон ДЖАРВИСА
   const [isJarvisTemplate, setIsJarvisTemplate] = useState<boolean>(
     initialChain?.is_jarvis_template === 1,
@@ -119,6 +125,12 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
       })
       .finally(() => setQuotaLoading(false))
   }, [currentChainId, executionId])
+
+  // Интеграции/коннекторы для инспектора узла Service Call — грузим один раз при монтировании.
+  useEffect(() => {
+    integrationsApi.getIntegrations().then(setIntegrations).catch(() => {})
+    integrationsApi.getConnectors().then(setConnectors).catch(() => {})
+  }, [])
 
   const onConnect = useCallback(
     (connection: Connection) => setEdges((eds) => addEdge({ ...connection, type: "snake" }, eds)),
@@ -462,6 +474,95 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
                   style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text }}
                 />
               </label>
+            ) : selectedNode.data.type === "service_call" ? (
+              (() => {
+                const selectedIntegration = integrations.find((i) => i.id === selectedNode.data.integrationId)
+                const connector = selectedIntegration ? connectors.find((c) => c.id === selectedIntegration.connectorId) : undefined
+                const action = connector?.actions.find((a) => a.id === selectedNode.data.actionId)
+
+                return (
+                  <>
+                    {integrations.length === 0 ? (
+                      <p className="rounded-lg px-2.5 py-2 text-[12px]" style={{ backgroundColor: COLORS.bg, color: COLORS.label }}>
+                        {t("orchestrator.noIntegrations")}{" "}
+                        <button
+                          type="button"
+                          onClick={() => router.push("/integrations")}
+                          className="underline"
+                          style={{ color: COLORS.accent }}
+                        >
+                          {t("orchestrator.noIntegrationsLink")}
+                        </button>
+                      </p>
+                    ) : (
+                      <label className="block text-[12px]" style={{ color: COLORS.label }}>
+                        {t("orchestrator.paramIntegration")}
+                        <select
+                          value={selectedNode.data.integrationId ?? ""}
+                          onChange={(e) =>
+                            updateSelectedNodeData({
+                              integrationId: e.target.value ? Number(e.target.value) : undefined,
+                              actionId: undefined,
+                              params: {},
+                            })
+                          }
+                          className="mt-1 w-full rounded-lg px-2.5 py-1.5 text-[13px] outline-none"
+                          style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+                        >
+                          <option value="">{t("orchestrator.selectIntegration")}</option>
+                          {integrations.map((i) => (
+                            <option key={i.id} value={i.id}>
+                              {i.name} ({i.connectorName})
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+
+                    {connector && (
+                      <label className="block text-[12px]" style={{ color: COLORS.label }}>
+                        {t("orchestrator.paramAction")}
+                        <select
+                          value={selectedNode.data.actionId ?? ""}
+                          onChange={(e) => updateSelectedNodeData({ actionId: e.target.value || undefined, params: {} })}
+                          className="mt-1 w-full rounded-lg px-2.5 py-1.5 text-[13px] outline-none"
+                          style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+                        >
+                          <option value="">{t("orchestrator.selectAction")}</option>
+                          {connector.actions.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+
+                    {action && action.params.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[11px]" style={{ color: COLORS.label }}>
+                          {t("orchestrator.paramMappingHint")}
+                        </p>
+                        {action.params.map((p) => (
+                          <label key={p.key} className="block text-[12px]" style={{ color: COLORS.label }}>
+                            {p.label}
+                            {p.required && <span style={{ color: COLORS.red }}> *</span>}
+                            <input
+                              value={selectedNode.data.params?.[p.key] ?? ""}
+                              onChange={(e) =>
+                                updateSelectedNodeData({ params: { ...selectedNode.data.params, [p.key]: e.target.value } })
+                              }
+                              placeholder="{{input}}"
+                              className="mt-1 w-full rounded-lg px-2.5 py-1.5 text-[13px] outline-none"
+                              style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )
+              })()
             ) : (
               <>
                 <label className="block text-[12px]" style={{ color: COLORS.label }}>

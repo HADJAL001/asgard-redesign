@@ -68,7 +68,7 @@ async function testThreeNodeChain() {
   const onEvent = (payload: any) => observedEvents.push(payload.type)
   executionEvents.on(channel, onEvent)
 
-  const output = await executeChain(executionId, nodes, edges, "World")
+  const output = await executeChain(executionId, nodes, edges, "World", userId)
   executionEvents.off(channel, onEvent)
 
   assert(output === "<<[[Hello World!]]>>", `executeChain выполнил узлы последовательно, итог: "${output}"`)

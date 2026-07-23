@@ -38,7 +38,7 @@ export const PLAN_PRICES_USD: Record<PlanKey, number> = {
   free: 0,
   architect: 19,
   master: 49,
-  legend: 199,
+  legend: 99,
 }
 
 /* Иерархия планов — используется в requirePlan для сравнения уровней доступа */

@@ -197,7 +197,7 @@ router.post(
     await incrementOrchestratorUsage(userId)
 
     // Запуск не блокирует ответ — клиент подключается к SSE для отслеживания прогресса.
-    executeChain(executionId, chain.nodes, chain.edges, input).catch((err) => {
+    executeChain(executionId, chain.nodes, chain.edges, input, userId).catch((err) => {
       captureError(`[orchestrator] execution ${executionId} failed:`, err)
     })
 

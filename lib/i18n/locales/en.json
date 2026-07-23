@@ -17,6 +17,7 @@
     "home": "Home",
     "projects": "Projects",
     "orchestrator": "Orchestrator",
+    "integrations": "Integrations",
     "community": "Tavern",
     "forge": "Forge",
     "marketplace": "Market",
@@ -414,7 +415,9 @@
       "grok": "OS 3.3",
       "grokDesc": "Processed by OSGARD's own neural network OS 3.3 with a system prompt",
       "promptTemplate": "Template",
-      "promptTemplateDesc": "Substitute the input into a text template without calling a model"
+      "promptTemplateDesc": "Substitute the input into a text template without calling a model",
+      "serviceCall": "Service Call",
+      "serviceCallDesc": "Call an action of a connected integration (Service Bridge)"
     },
     "untitled": "New Chain",
     "saveBtn": "Save",
@@ -427,6 +430,14 @@
     "paramTemperature": "Temperature",
     "paramMaxTokens": "Max Tokens",
     "paramTemplate": "Template ({{input}} — input)",
+    "paramIntegration": "Integration",
+    "paramAction": "Action",
+    "paramMappingHint": "You can use {{input}} (chain input) and {{context.KEY}} (a value from context)",
+    "selectIntegration": "Select an integration…",
+    "selectAction": "Select an action…",
+    "noIntegrations": "You have no connected integrations.",
+    "noIntegrationsLink": "Connect one",
+    "serviceCallNotConfigured": "Not configured",
     "chainInputLabel": "Chain input",
     "chainInputRequired": "Provide chain input before running",
     "runCost": "Charged {{cost}} TC",
@@ -436,10 +447,10 @@
     "closeBtn": "Close",
     "quotaLabel": "{{remaining}} / {{total}} requests",
     "quotaTooltip": "{{remaining}} of {{total}} requests remaining today",
-    "jarvisTemplateBtn": "WALLI Template",
-    "jarvisTemplateActive": "WALLI Template ✓",
-    "saveAsJarvisTemplate": "Save as WALLI advisor template",
-    "removeJarvisTemplate": "Remove from WALLI templates",
+    "jarvisTemplateBtn": "JARVIS Template",
+    "jarvisTemplateActive": "JARVIS Template ✓",
+    "saveAsJarvisTemplate": "Save as JARVIS advisor template",
+    "removeJarvisTemplate": "Remove from JARVIS templates",
     "saveBeforeTemplate": "Save the chain first",
     "templateError": "Failed to save template",
     "editorNodeCount": "{{count}}/{{max}} nodes",
@@ -562,7 +573,7 @@
     "badgeGeneric": "\"{{badge}}\" badge",
     "stepFailed": "Failed to complete onboarding step",
     "prologue": {
-      "greeting": "Welcome to OSGARD, {{name}}. 12,847 artifacts have already taken shape here. Yours hasn't — yet. In a minute you'll get access to the Forge, WALLI, and your first credit of trust from the world. Ready to begin?",
+      "greeting": "Welcome to OSGARD, {{name}}. 12,847 artifacts have already taken shape here. Yours hasn't — yet. In a minute you'll get access to the Forge, JARVIS, and your first credit of trust from the world. Ready to begin?",
       "cta": "Enter the world →"
     },
     "steps": {
@@ -581,7 +592,7 @@
       },
       "step4": {
         "title": "Explorer",
-        "description": "WALLI has three forms. The Advisor in chat answers in words — always nearby on any page. WALLI in the Room is its embodiment in 3D space, one you can train and upgrade. The glow on the globe is just an echo of its presence in the world. Open the WALLI Room and examine one of the artifacts."
+        "description": "The JARVIS advisor answers in words — always nearby on any page. WALLI lives in the Room — its embodiment in 3D space, one you can train and upgrade. The glow on the globe is just an echo of its presence in the world. Open the WALLI Room and examine one of the artifacts."
       },
       "step5": {
         "title": "Voice",
@@ -608,9 +619,11 @@
       "continueBtn": "Begin the journey"
     }
   },
+  "jarvis": {
+    "advisorLabel": "JARVIS Advisor",
+    "advisorTooltip": "Answers in words on any page — your AI advisor"
+  },
   "walli": {
-    "advisorLabel": "WALLI Advisor",
-    "advisorTooltip": "Answers in words on any page — your AI advisor",
     "roomLabel": "WALLI in the Room",
     "roomTooltip": "WALLI's embodiment in 3D space — can be trained and upgraded",
     "echoAriaLabel": "Echo of WALLI's presence on the globe",

@@ -4,6 +4,7 @@ import {
   PremiumDeepseekIcon,
   PremiumGrokIcon,
   PremiumTemplateIcon,
+  PremiumServiceCallIcon,
   type NodeIconProps,
 } from "./PremiumNodeIcon"
 import type { OrchestratorNodeData, OrchestratorNodeType } from "@/lib/orchestrator/types"
@@ -70,6 +71,18 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
       label: "Шаблон",
       type: "prompt_template",
       template: "{{input}}",
+    },
+  },
+  {
+    type: "service_call",
+    labelKey: "orchestrator.nodeType.serviceCall",
+    descriptionKey: "orchestrator.nodeType.serviceCallDesc",
+    Icon: PremiumServiceCallIcon,
+    color: "#F87171",
+    defaultData: {
+      label: "Service Call",
+      type: "service_call",
+      params: {},
     },
   },
 ]
