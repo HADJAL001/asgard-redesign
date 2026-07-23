@@ -11,3 +11,19 @@ jobs:
     steps:
       - name: Ping /api/health
         run: curl -fsS --max-time 15 https://osgardnewworld.com/api/health
+      - name: Alert in Telegram on failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "::warning::TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID secrets are not set — skipping alert"
+            exit 0
+          fi
+          TEXT="🔴 OSGARD backend недоступен: https://osgardnewworld.com/api/health не отвечает.
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          curl -fsS --max-time 15 \
+            -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            --data-urlencode text="${TEXT}"
