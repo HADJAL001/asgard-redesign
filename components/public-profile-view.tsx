@@ -5,6 +5,7 @@
    на карточку в Зале Славы / Рейтинге (hall-of-fame-view.tsx, leaderboard-view.tsx). */
 
 import { useEffect, useState } from "react"
+import Image from "next/image"
 import { FolderKanban, Trophy, TrendingUp, Coins, Loader2 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { apiClient } from "@/lib/api-client"
@@ -114,9 +115,11 @@ export function PublicProfileView({ userId }: { userId: number }) {
             className="flex shrink-0 items-center justify-center rounded-2xl p-6"
             style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
           >
-            <img
+            <Image
               src={user.avatarUrl || AVATAR || "/placeholder.svg"}
               alt={displayName}
+              width={128}
+              height={128}
               className="size-32 rounded-full object-cover"
               style={{ border: "2px solid #2A2A3E" }}
             />

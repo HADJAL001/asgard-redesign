@@ -22,7 +22,7 @@
      обычное локализованное число).
    ================================================================ */
 
-import { useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Search, Store, Boxes, TrendingUp, Coins, Loader2, Check, X } from "lucide-react"
 import { Navbar } from "./navbar"
@@ -87,6 +87,8 @@ export function MarketplaceView() {
   }, [marketplaceListings, query, typeFilter, rarityFilter, priceMin, priceMax])
 
   const volume = marketplaceListings.reduce((s, l) => s + l.price, 0)
+
+  const handleBuy = useCallback((l: MarketListing) => setBuying(l), [])
 
   return (
     <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #160B24 100%)", color: COLORS.text }}>
@@ -209,7 +211,7 @@ export function MarketplaceView() {
         ) : (
           <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {shown.map((l) => (
-              <MarketCard key={l.id} l={l} onBuy={() => setBuying(l)} t={t} />
+              <MarketCard key={l.id} l={l} onBuy={handleBuy} t={t} />
             ))}
           </div>
         )}
@@ -243,7 +245,15 @@ function Chip({ active, onClick, children, color }: { active: boolean; onClick: 
   )
 }
 
-function MarketCard({ l, onBuy, t }: { l: MarketListing; onBuy: () => void; t: (key: string, vars?: Record<string, string | number>) => string }) {
+const MarketCard = memo(function MarketCard({
+  l,
+  onBuy,
+  t,
+}: {
+  l: MarketListing
+  onBuy: (l: MarketListing) => void
+  t: (key: string, vars?: Record<string, string | number>) => string
+}) {
   const TypeIcon = ARTIFACT_TYPES[safeType(l.artifactType)].Icon
   const rarity = RARITY[safeRarity(l.rarity)]
   const stats = { power: l.power, defense: l.defense, magic: l.magic, speed: l.speed }
@@ -301,7 +311,7 @@ function MarketCard({ l, onBuy, t }: { l: MarketListing; onBuy: () => void; t: (
         </span>
         <button
           type="button"
-          onClick={onBuy}
+          onClick={() => onBuy(l)}
           className="rounded-lg px-5 py-2 text-[14px] font-medium transition-colors"
           style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
           onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
@@ -312,7 +322,7 @@ function MarketCard({ l, onBuy, t }: { l: MarketListing; onBuy: () => void; t: (
       </div>
     </article>
   )
-}
+})
 
 /* ---------------- Buy modal ---------------- */
 function BuyModal({

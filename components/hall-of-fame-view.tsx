@@ -20,6 +20,7 @@
    ================================================================ */
 
 import { useEffect, useMemo, useState } from "react"
+import Image from "next/image"
 import { Navbar } from "./navbar"
 import { useOsgardStore, type LeaderboardEntry } from "@/lib/store/osgard-store"
 import { HOF_TIERS, HOF_TIER_ORDER, hofTier, type HofTier } from "@/lib/economy"
@@ -341,9 +342,11 @@ export function HallOfFameView() {
                   </div>
 
                   {/* Avatar */}
-                  <img
+                  <Image
                     src={u.avatarUrl || DEFAULT_AVATAR}
                     alt={name}
+                    width={48}
+                    height={48}
                     className="size-12 shrink-0 rounded-full object-cover"
                     style={{ border: `1px solid ${accent}55` }}
                     onError={(e) => {

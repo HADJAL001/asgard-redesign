@@ -1,4 +1,5 @@
 import { Router } from "express"
+import { EventEmitter } from "node:events"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import {
@@ -14,6 +15,52 @@ import { fetchTreasuryTcForEmission, canEmitUnbackedSync } from "../lib/emission
 const router = Router()
 
 const EPS = 1e-9
+
+/* ================================================================
+   SSE — обновления рынка TimeCoin (state/orderbook/trades) в реальном
+   времени, взамен 4-секундного polling'а во фронтенде. Паттерн
+   повторяет routes/generate-project.routes.ts (GET /task/:taskId/stream).
+   ================================================================ */
+const tcMarketEvents = new EventEmitter()
+
+let activeTcMarketSseConnections = 0
+export function getTcMarketSseConnections(): number {
+  return activeTcMarketSseConnections
+}
+
+function buildSnapshot() {
+  const state: any = getMarketState()
+  const circulating = state.minted - state.burned - state.staked
+  const marketCap = circulating * state.price
+  const history = db.prepare(`SELECT ts, price FROM tc_price_history ORDER BY ts DESC LIMIT 100`).all()
+  const volume24h: any = db
+    .prepare(`SELECT COALESCE(SUM(amount), 0) as volume FROM tc_trades WHERE ts >= ?`)
+    .get(Date.now() - 24 * 60 * 60 * 1000)
+
+  const book = getOrderBook(20)
+  const bestBid = book.bids[0]?.price ?? null
+  const bestAsk = book.asks[0]?.price ?? null
+  const spread = bestBid !== null && bestAsk !== null ? Math.round((bestAsk - bestBid) * 100) / 100 : 0
+
+  const trades = db
+    .prepare(`SELECT id, ts, price, amount, side, origin FROM tc_trades ORDER BY ts DESC, id DESC LIMIT 50`)
+    .all()
+
+  return {
+    state: {
+      price: state.price,
+      minted: state.minted,
+      burned: state.burned,
+      staked: state.staked,
+      circulating,
+      marketCap,
+      volume24h: volume24h.volume,
+      history: (history as any[]).reverse(),
+    },
+    orderbook: { bids: book.bids, asks: book.asks, spread, mid: state.price },
+    trades,
+  }
+}
 
 /* Верхний предел суммарной эмиссии ∞ через tc-market (state.minted), синхронизирован
    с фронтендовой константой TC_TOTAL_CAP в lib/tc-market.ts. Ограничивает совокупный
@@ -111,6 +158,38 @@ router.get("/trades", (req, res) => {
 })
 
 /* ================================================================
+   GET /tc-market/stream — SSE-поток обновлений рынка (state/orderbook/
+   trades), эмитится при изменениях после order/buy/sell.
+   ================================================================ */
+router.get("/stream", (req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  })
+
+  const send = (event: unknown) => {
+    res.write(`data: ${JSON.stringify(event)}\n\n`)
+  }
+
+  send({ type: "snapshot", ...buildSnapshot() })
+
+  const onUpdate = () => send({ type: "snapshot", ...buildSnapshot() })
+
+  const heartbeat = setInterval(() => res.write(": ping\n\n"), 15_000)
+  const cleanup = () => {
+    clearInterval(heartbeat)
+    tcMarketEvents.off("update", onUpdate)
+    activeTcMarketSseConnections--
+  }
+
+  activeTcMarketSseConnections++
+  tcMarketEvents.on("update", onUpdate)
+  req.on("close", cleanup)
+})
+
+/* ================================================================
    GET /tc-market/orders — заявки текущего пользователя
    ================================================================ */
 router.get("/orders", requireAuth, (req: AuthRequest, res) => {
@@ -149,6 +228,7 @@ router.post("/order", requireAuth, (req: AuthRequest, res) => {
     }
 
     const book = getOrderBook(20)
+    tcMarketEvents.emit("update")
 
     res.status(201).json({
       order: serializeOrder(result.order),
@@ -176,6 +256,7 @@ router.delete("/order/:id", requireAuth, (req: AuthRequest, res) => {
   try {
     const order = cancelOrder(req.user!.userId, id)
     const book = getOrderBook(20)
+    tcMarketEvents.emit("update")
     res.json({
       order: serializeOrder(order),
       wallet: getWallet(req.user!.userId),
@@ -322,6 +403,7 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
      VALUES (?, 'tc_buy', 'TimeCoin', 'TC Market', ?, 'timecoin', 'done')`,
   ).run(req.user!.userId, totalTc)
   logAudit(req.user!.userId, "debit", totalUsd, "tc_market_buy", { tcAmount: totalTc, avgPrice, orderbookAmount: orderbookExecutedTc, emissionAmount: mintTc })
+  tcMarketEvents.emit("update")
 
   const finalState: any = getMarketState()
 
@@ -439,6 +521,7 @@ router.post("/sell", requireAuth, (req: AuthRequest, res) => {
      VALUES (?, 'tc_sell', 'TimeCoin', 'TC Market', ?, 'cash_usd', 'done')`,
   ).run(req.user!.userId, totalUsd)
   logAudit(req.user!.userId, "credit", totalUsd, "tc_market_sell", { tcAmount: totalTc, avgPrice, orderbookAmount: orderbookExecutedTc, burnAmount: burnTc })
+  tcMarketEvents.emit("update")
 
   const finalState: any = getMarketState()
 

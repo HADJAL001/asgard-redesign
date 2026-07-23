@@ -417,6 +417,12 @@ export interface OsgardStoreState {
   fetchTcState: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   fetchOrderBook: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   fetchTrades: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
+  /** Применить снимок рынка (state/orderbook/trades), полученный через SSE GET /tc-market/stream. */
+  applyTcMarketSnapshot: (snapshot: {
+    state: TcPriceState & { history?: PricePoint[] }
+    orderbook: OrderBookState
+    trades: TcTrade[]
+  }) => void
 
   /* ---- работа с заявками (ШАГ 2) ---- */
   /** GET /tc-market/orders — заявки текущего пользователя. */
@@ -663,6 +669,18 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить историю сделок") })
     }
+  },
+
+  /* ---- SSE GET /tc-market/stream: применить снимок рынка целиком ---- */
+  applyTcMarketSnapshot: (snapshot) => {
+    const { history, ...tcPrice } = snapshot.state
+    set({
+      tcPrice,
+      priceHistory: Array.isArray(history) ? history : [],
+      orderBook: snapshot.orderbook,
+      trades: snapshot.trades,
+      error: null,
+    })
   },
 
   /* ---- fetch: GET /tc-market/orders — заявки текущего пользователя ---- */

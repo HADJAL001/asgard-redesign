@@ -190,24 +190,36 @@ async function handleGithubPublishConnect(req: NextRequest) {
 
 const ORCHESTRATOR_STREAM_RE = /^orchestrator\/stream\/[^/]+$/
 const GENERATION_STREAM_RE = /^task\/[^/]+\/stream$/
+const TC_MARKET_STREAM_RE = /^tc-market\/stream$/
 
 /**
  * SSE-эндпоинт выполнения цепочки нельзя пропускать через forwardToBackend —
  * та функция буферизует тело через .text(), из-за чего клиент получил бы
  * событие только после закрытия соединения бэкендом. Здесь пробрасываем
  * upstream.body как есть, без ожидания.
+ *
+ * requireAuth=false — для публичных SSE-роутов бэкенда (без requireAuth),
+ * например tc-market/stream: токен пробрасывается, если есть, но его
+ * отсутствие не блокирует подключение.
  */
-async function handleOrchestratorStream(pathStr: string, req: NextRequest, accessToken?: string) {
-  if (!accessToken) {
+async function handleOrchestratorStream(
+  pathStr: string,
+  req: NextRequest,
+  accessToken?: string,
+  opts: { requireAuth?: boolean } = {},
+) {
+  const requireAuth = opts.requireAuth ?? true
+  if (requireAuth && !accessToken) {
     return NextResponse.json({ error: "Требуется авторизация" }, { status: 401 })
   }
 
   const targetUrl = new URL(`${BACKEND_URL}/${pathStr}`)
   req.nextUrl.searchParams.forEach((v, k) => targetUrl.searchParams.set(k, v))
 
-  const upstream = await fetch(targetUrl.toString(), {
-    headers: { authorization: `Bearer ${accessToken}`, accept: "text/event-stream" },
-  })
+  const headers: Record<string, string> = { accept: "text/event-stream" }
+  if (accessToken) headers.authorization = `Bearer ${accessToken}`
+
+  const upstream = await fetch(targetUrl.toString(), { headers })
 
   return new NextResponse(upstream.body, {
     status: upstream.status,
@@ -291,6 +303,9 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
   }
   if (req.method === "GET" && GENERATION_STREAM_RE.test(pathStr)) {
     return handleOrchestratorStream(pathStr, req, accessToken)
+  }
+  if (req.method === "GET" && TC_MARKET_STREAM_RE.test(pathStr)) {
+    return handleOrchestratorStream(pathStr, req, accessToken, { requireAuth: false })
   }
 
   try {

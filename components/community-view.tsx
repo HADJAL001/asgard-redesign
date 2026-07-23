@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import Image from "next/image"
 import { Heart, MessageCircle, Share2, Pin, Plus, X, Send, Loader2 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { apiClient, ApiError } from "@/lib/api-client"
@@ -97,6 +98,7 @@ export function CommunityView() {
   const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({})
   const [likingPostIds, setLikingPostIds] = useState<Set<number>>(new Set())
   const [commentSubmitting, setCommentSubmitting] = useState<Record<number, boolean>>({})
+  const likingPostIdsRef = useRef<Set<number>>(new Set())
 
   const { isAuthenticated } = useAuth()
   const { triggerPaywall } = useReadonlyMode()
@@ -133,87 +135,114 @@ export function CommunityView() {
     setCreating(false)
   }
 
-  const toggleComments = async (postId: number) => {
-    if (expandedPostId === postId) {
-      setExpandedPostId(null)
-      return
-    }
-    setExpandedPostId(postId)
-    if (comments[postId]) return
+  const toggleComments = useCallback(
+    async (postId: number) => {
+      if (expandedPostId === postId) {
+        setExpandedPostId(null)
+        return
+      }
+      setExpandedPostId(postId)
+      if (comments[postId]) return
 
-    setCommentsLoading((prev) => ({ ...prev, [postId]: true }))
-    try {
-      const data = await apiClient.get<{ comments: Comment[] }>(`/posts/${postId}/comments`, { skipAuthRedirect: true })
-      setComments((prev) => ({ ...prev, [postId]: data.comments }))
-    } catch {
-      setComments((prev) => ({ ...prev, [postId]: [] }))
-    } finally {
-      setCommentsLoading((prev) => ({ ...prev, [postId]: false }))
-    }
-  }
+      setCommentsLoading((prev) => ({ ...prev, [postId]: true }))
+      try {
+        const data = await apiClient.get<{ comments: Comment[] }>(`/posts/${postId}/comments`, { skipAuthRedirect: true })
+        setComments((prev) => ({ ...prev, [postId]: data.comments }))
+      } catch {
+        setComments((prev) => ({ ...prev, [postId]: [] }))
+      } finally {
+        setCommentsLoading((prev) => ({ ...prev, [postId]: false }))
+      }
+    },
+    [expandedPostId, comments],
+  )
 
-  const toggleLike = async (postId: number) => {
-    if (!isAuthenticated) {
-      triggerPaywall("Оценить пост")
-      return
-    }
-    if (likingPostIds.has(postId)) return
-    const post = posts.find((p) => p.id === postId)
-    if (!post) return
+  const toggleLike = useCallback(
+    async (postId: number) => {
+      if (!isAuthenticated) {
+        triggerPaywall("Оценить пост")
+        return
+      }
+      if (likingPostIdsRef.current.has(postId)) return
+      likingPostIdsRef.current.add(postId)
+      setLikingPostIds((prev) => new Set(prev).add(postId))
 
-    setLikingPostIds((prev) => new Set(prev).add(postId))
-
-    const prevLiked = post.likedByMe
-    const prevCount = post.likesCount
-    const nextLiked = !prevLiked
-    const nextCount = prevCount + (nextLiked ? 1 : -1)
-    setPosts((prev) =>
-      prev.map((p) => (p.id === postId ? { ...p, likedByMe: nextLiked, likesCount: nextCount } : p)),
-    )
-
-    try {
-      const data = await apiClient.post<{ likesCount: number; likedByMe: boolean }>(`/posts/${postId}/like`)
+      let prevLiked = false
+      let prevCount = 0
       setPosts((prev) =>
-        prev.map((p) =>
-          p.id === postId ? { ...p, likesCount: data.likesCount, likedByMe: data.likedByMe } : p,
-        ),
+        prev.map((p) => {
+          if (p.id !== postId) return p
+          prevLiked = p.likedByMe
+          prevCount = p.likesCount
+          const nextLiked = !prevLiked
+          return { ...p, likedByMe: nextLiked, likesCount: prevCount + (nextLiked ? 1 : -1) }
+        }),
       )
-    } catch {
-      // откатываем оптимистичное обновление при ошибке
-      setPosts((prev) =>
-        prev.map((p) => (p.id === postId ? { ...p, likedByMe: prevLiked, likesCount: prevCount } : p)),
-      )
-    } finally {
-      setLikingPostIds((prev) => {
-        const next = new Set(prev)
-        next.delete(postId)
-        return next
-      })
-    }
-  }
 
-  const submitComment = async (postId: number) => {
-    if (!isAuthenticated) {
-      triggerPaywall("Комментировать пост")
-      return
-    }
-    const text = (commentDrafts[postId] || "").trim()
-    if (!text) return
+      try {
+        const data = await apiClient.post<{ likesCount: number; likedByMe: boolean }>(`/posts/${postId}/like`)
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === postId ? { ...p, likesCount: data.likesCount, likedByMe: data.likedByMe } : p,
+          ),
+        )
+      } catch {
+        // откатываем оптимистичное обновление при ошибке
+        setPosts((prev) =>
+          prev.map((p) => (p.id === postId ? { ...p, likedByMe: prevLiked, likesCount: prevCount } : p)),
+        )
+      } finally {
+        likingPostIdsRef.current.delete(postId)
+        setLikingPostIds((prev) => {
+          const next = new Set(prev)
+          next.delete(postId)
+          return next
+        })
+      }
+    },
+    [isAuthenticated, triggerPaywall],
+  )
 
-    setCommentSubmitting((prev) => ({ ...prev, [postId]: true }))
-    try {
-      const data = await apiClient.post<{ comment: Comment }>(`/posts/${postId}/comments`, { text })
-      setComments((prev) => ({ ...prev, [postId]: [...(prev[postId] || []), data.comment] }))
-      setCommentDrafts((prev) => ({ ...prev, [postId]: "" }))
-      setPosts((prev) =>
-        prev.map((p) => (p.id === postId ? { ...p, commentsCount: p.commentsCount + 1 } : p)),
-      )
-    } catch (err: any) {
-      // ошибка отправки — оставляем черновик, чтобы пользователь не потерял текст
-    } finally {
-      setCommentSubmitting((prev) => ({ ...prev, [postId]: false }))
-    }
-  }
+  const submitComment = useCallback(
+    async (postId: number, rawText: string) => {
+      if (!isAuthenticated) {
+        triggerPaywall("Комментировать пост")
+        return
+      }
+      const text = rawText.trim()
+      if (!text) return
+
+      setCommentSubmitting((prev) => ({ ...prev, [postId]: true }))
+      try {
+        const data = await apiClient.post<{ comment: Comment }>(`/posts/${postId}/comments`, { text })
+        setComments((prev) => ({ ...prev, [postId]: [...(prev[postId] || []), data.comment] }))
+        setCommentDrafts((prev) => ({ ...prev, [postId]: "" }))
+        setPosts((prev) =>
+          prev.map((p) => (p.id === postId ? { ...p, commentsCount: p.commentsCount + 1 } : p)),
+        )
+      } catch {
+        // ошибка отправки — оставляем черновик, чтобы пользователь не потерял текст
+      } finally {
+        setCommentSubmitting((prev) => ({ ...prev, [postId]: false }))
+      }
+    },
+    [isAuthenticated, triggerPaywall],
+  )
+
+  const handleDraftChange = useCallback((postId: number, value: string) => {
+    setCommentDrafts((prev) => ({ ...prev, [postId]: value }))
+  }, [])
+
+  const metrics = useMemo(() => {
+    const authorsCount = new Set(posts.map((p) => p.author.id)).size
+    const commentsTotal = posts.reduce((sum, p) => sum + p.commentsCount, 0)
+    return [
+      { n: authorsCount, l: "Авторов" },
+      { n: posts.length, l: "Постов" },
+      { n: commentsTotal, l: "Комментариев" },
+      { n: commentsTotal + posts.length, l: "Активность" },
+    ]
+  }, [posts])
 
   return (
     <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0D0D1A 100%)", color: "#FFFFFF" }}>
@@ -254,12 +283,7 @@ export function CommunityView() {
 
         {/* Metrics */}
         <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {[
-            { n: new Set(posts.map((p) => p.author.id)).size, l: "Авторов" },
-            { n: posts.length, l: "Постов" },
-            { n: posts.reduce((sum, p) => sum + p.commentsCount, 0), l: "Комментариев" },
-            { n: posts.reduce((sum, p) => sum + p.commentsCount, 0) + posts.length, l: "Активность" },
-          ].map((m) => (
+          {metrics.map((m) => (
             <div key={m.l} className="rounded-xl p-5" style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}>
               <p className="text-[24px] font-medium">{m.n}</p>
               <p className="mt-1 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>{m.l}</p>
@@ -289,111 +313,20 @@ export function CommunityView() {
 
         <div className="mt-8 flex flex-col gap-5">
           {posts.map((p) => (
-            <article
+            <PostCard
               key={p.id}
-              className="rounded-xl p-6 transition-all duration-200"
-              style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
-            >
-              <div className="flex items-center gap-3">
-                <img
-                  src={p.author.avatarUrl || AVATAR_FALLBACK}
-                  alt={p.author.displayName}
-                  className="size-8 rounded-full object-cover"
-                  style={{ border: "1px solid #2A2A3E" }}
-                />
-                <div className="min-w-0">
-                  <p className="text-[16px] font-medium leading-tight">{p.author.displayName}</p>
-                  <p className="text-[12px]" style={{ color: "#6A6A8A" }}>Lvl.{p.author.level}</p>
-                </div>
-                <span className="ml-auto text-[12px]" style={{ color: "rgba(255,255,255,0.3)" }}>{formatTime(p.createdAt)}</span>
-              </div>
-
-              {p.title && (
-                <p className="mt-4 text-[16px] font-semibold leading-tight">{p.title}</p>
-              )}
-              <p className="mt-2 text-[14px] leading-relaxed" style={{ color: "rgba(255,255,255,0.8)" }}>
-                {p.text}
-              </p>
-
-              <div className="mt-5 flex items-center gap-6">
-                <LikeButton
-                  value={p.likesCount}
-                  active={p.likedByMe}
-                  disabled={likingPostIds.has(p.id)}
-                  onClick={() => toggleLike(p.id)}
-                />
-                <button
-                  type="button"
-                  onClick={() => toggleComments(p.id)}
-                  className="inline-flex items-center gap-1.5 text-[14px] transition-colors"
-                  style={{ color: expandedPostId === p.id ? "#00D4FF" : "#6A6A8A" }}
-                >
-                  <MessageCircle size={16} strokeWidth={1.5} />
-                  {p.commentsCount}
-                </button>
-                <Reaction Icon={Share2} value={0} />
-                <button
-                  type="button"
-                  className="ml-auto inline-flex items-center gap-1.5 text-[13px] transition-colors"
-                  style={{ color: "#6A6A8A" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#00D4FF")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#6A6A8A")}
-                >
-                  <Pin size={15} strokeWidth={1.5} />
-                  Закрепить
-                </button>
-              </div>
-
-              {expandedPostId === p.id && (
-                <div className="mt-5 flex flex-col gap-3 pt-5" style={{ borderTop: "1px solid #2A2A3E" }}>
-                  {commentsLoading[p.id] && (
-                    <p className="text-[13px]" style={{ color: "#6A6A8A" }}>Загрузка комментариев…</p>
-                  )}
-                  {!commentsLoading[p.id] && (comments[p.id] || []).length === 0 && (
-                    <p className="text-[13px]" style={{ color: "#6A6A8A" }}>Комментариев пока нет.</p>
-                  )}
-                  {(comments[p.id] || []).map((c) => (
-                    <div key={c.id} className="flex items-start gap-2.5">
-                      <img
-                        src={c.author.avatarUrl || AVATAR_FALLBACK}
-                        alt={c.author.displayName}
-                        className="size-6 shrink-0 rounded-full object-cover"
-                        style={{ border: "1px solid #2A2A3E" }}
-                      />
-                      <div className="min-w-0 flex-1 rounded-lg px-3 py-2" style={{ backgroundColor: "#0A0A0F" }}>
-                        <p className="text-[12px] font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>{c.author.displayName}</p>
-                        <p className="mt-0.5 text-[13px] leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>{c.text}</p>
-                      </div>
-                    </div>
-                  ))}
-
-                  <ReadonlyGate action="Комментировать пост">
-                    <div className="flex items-center gap-2 pt-1">
-                      <input
-                        type="text"
-                        value={commentDrafts[p.id] || ""}
-                        onChange={(e) => setCommentDrafts((prev) => ({ ...prev, [p.id]: e.target.value }))}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") submitComment(p.id)
-                        }}
-                        placeholder="Написать комментарий…"
-                        className="w-full rounded-lg px-3 py-2 text-[13px] outline-none placeholder:text-white/25"
-                        style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E", color: "#FFFFFF" }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => submitComment(p.id)}
-                        disabled={commentSubmitting[p.id] || !(commentDrafts[p.id] || "").trim()}
-                        className="flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-40"
-                        style={{ backgroundColor: "#00D4FF", color: "#0A0A0F" }}
-                      >
-                        {commentSubmitting[p.id] ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} strokeWidth={1.75} />}
-                      </button>
-                    </div>
-                  </ReadonlyGate>
-                </div>
-              )}
-            </article>
+              post={p}
+              expanded={expandedPostId === p.id}
+              liking={likingPostIds.has(p.id)}
+              draft={commentDrafts[p.id] || ""}
+              postComments={comments[p.id]}
+              commentsLoading={!!commentsLoading[p.id]}
+              commentSubmitting={!!commentSubmitting[p.id]}
+              onToggleLike={toggleLike}
+              onToggleComments={toggleComments}
+              onDraftChange={handleDraftChange}
+              onSubmitComment={submitComment}
+            />
           ))}
         </div>
       </main>
@@ -402,6 +335,144 @@ export function CommunityView() {
     </div>
   )
 }
+
+/* ---------------- Post card (memoized — не перерендеривается при вводе в чужих карточках) ---------------- */
+const PostCard = memo(function PostCard({
+  post: p,
+  expanded,
+  liking,
+  draft,
+  postComments,
+  commentsLoading,
+  commentSubmitting,
+  onToggleLike,
+  onToggleComments,
+  onDraftChange,
+  onSubmitComment,
+}: {
+  post: Post
+  expanded: boolean
+  liking: boolean
+  draft: string
+  postComments: Comment[] | undefined
+  commentsLoading: boolean
+  commentSubmitting: boolean
+  onToggleLike: (postId: number) => void
+  onToggleComments: (postId: number) => void
+  onDraftChange: (postId: number, value: string) => void
+  onSubmitComment: (postId: number, text: string) => void
+}) {
+  return (
+    <article
+      className="rounded-xl p-6 transition-all duration-200"
+      style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+    >
+      <div className="flex items-center gap-3">
+        <Image
+          src={p.author.avatarUrl || AVATAR_FALLBACK}
+          alt={p.author.displayName}
+          width={32}
+          height={32}
+          className="size-8 rounded-full object-cover"
+          style={{ border: "1px solid #2A2A3E" }}
+        />
+        <div className="min-w-0">
+          <p className="text-[16px] font-medium leading-tight">{p.author.displayName}</p>
+          <p className="text-[12px]" style={{ color: "#6A6A8A" }}>Lvl.{p.author.level}</p>
+        </div>
+        <span className="ml-auto text-[12px]" style={{ color: "rgba(255,255,255,0.3)" }}>{formatTime(p.createdAt)}</span>
+      </div>
+
+      {p.title && (
+        <p className="mt-4 text-[16px] font-semibold leading-tight">{p.title}</p>
+      )}
+      <p className="mt-2 text-[14px] leading-relaxed" style={{ color: "rgba(255,255,255,0.8)" }}>
+        {p.text}
+      </p>
+
+      <div className="mt-5 flex items-center gap-6">
+        <LikeButton
+          value={p.likesCount}
+          active={p.likedByMe}
+          disabled={liking}
+          onClick={() => onToggleLike(p.id)}
+        />
+        <button
+          type="button"
+          onClick={() => onToggleComments(p.id)}
+          className="inline-flex items-center gap-1.5 text-[14px] transition-colors"
+          style={{ color: expanded ? "#00D4FF" : "#6A6A8A" }}
+        >
+          <MessageCircle size={16} strokeWidth={1.5} />
+          {p.commentsCount}
+        </button>
+        <Reaction Icon={Share2} value={0} />
+        <button
+          type="button"
+          className="ml-auto inline-flex items-center gap-1.5 text-[13px] transition-colors"
+          style={{ color: "#6A6A8A" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#00D4FF")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "#6A6A8A")}
+        >
+          <Pin size={15} strokeWidth={1.5} />
+          Закрепить
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="mt-5 flex flex-col gap-3 pt-5" style={{ borderTop: "1px solid #2A2A3E" }}>
+          {commentsLoading && (
+            <p className="text-[13px]" style={{ color: "#6A6A8A" }}>Загрузка комментариев…</p>
+          )}
+          {!commentsLoading && (postComments || []).length === 0 && (
+            <p className="text-[13px]" style={{ color: "#6A6A8A" }}>Комментариев пока нет.</p>
+          )}
+          {(postComments || []).map((c) => (
+            <div key={c.id} className="flex items-start gap-2.5">
+              <Image
+                src={c.author.avatarUrl || AVATAR_FALLBACK}
+                alt={c.author.displayName}
+                width={24}
+                height={24}
+                className="size-6 shrink-0 rounded-full object-cover"
+                style={{ border: "1px solid #2A2A3E" }}
+              />
+              <div className="min-w-0 flex-1 rounded-lg px-3 py-2" style={{ backgroundColor: "#0A0A0F" }}>
+                <p className="text-[12px] font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>{c.author.displayName}</p>
+                <p className="mt-0.5 text-[13px] leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>{c.text}</p>
+              </div>
+            </div>
+          ))}
+
+          <ReadonlyGate action="Комментировать пост">
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="text"
+                value={draft}
+                onChange={(e) => onDraftChange(p.id, e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") onSubmitComment(p.id, draft)
+                }}
+                placeholder="Написать комментарий…"
+                className="w-full rounded-lg px-3 py-2 text-[13px] outline-none placeholder:text-white/25"
+                style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E", color: "#FFFFFF" }}
+              />
+              <button
+                type="button"
+                onClick={() => onSubmitComment(p.id, draft)}
+                disabled={commentSubmitting || !draft.trim()}
+                className="flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-40"
+                style={{ backgroundColor: "#00D4FF", color: "#0A0A0F" }}
+              >
+                {commentSubmitting ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} strokeWidth={1.75} />}
+              </button>
+            </div>
+          </ReadonlyGate>
+        </div>
+      )}
+    </article>
+  )
+})
 
 /* ---------------- Create post modal (40% x 60%) ---------------- */
 function CreatePostModal({ onClose, onCreated }: { onClose: () => void; onCreated: (post: Post) => void }) {

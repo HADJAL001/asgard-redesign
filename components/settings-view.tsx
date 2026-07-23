@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import {
   Settings as SettingsIcon,
   Bell,
@@ -270,9 +271,11 @@ function ProfileSection() {
       </Field>
       <Field label="Аватар:">
         <div className="flex items-center gap-4">
-          <img
+          <Image
             src={AVATAR || "/placeholder.svg"}
             alt="Текущий аватар"
+            width={64}
+            height={64}
             className="size-16 rounded-full object-cover"
             style={{ border: `1px solid ${BORDER}` }}
           />

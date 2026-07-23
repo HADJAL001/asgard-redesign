@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Hammer, Coins, Trophy, Loader2, Sparkles, type LucideIcon } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useActivityStore, type ActivityEvent } from "@/lib/store/activity-store"
@@ -59,9 +60,11 @@ function EventCard({ item }: { item: ActivityEvent }) {
     >
       <div className="flex items-start gap-3">
         <Link href={`/profile/${item.actor.id}`} className="shrink-0">
-          <img
+          <Image
             src={item.actor.avatarUrl || DEFAULT_AVATAR}
             alt={name}
+            width={36}
+            height={36}
             className="size-9 rounded-full object-cover"
             style={{ border: `1px solid ${color}55` }}
             onError={(e) => {

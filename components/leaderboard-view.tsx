@@ -25,6 +25,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Crown, Loader2, Users } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useOsgardStore } from "@/lib/store/osgard-store"
@@ -72,8 +73,8 @@ export function LeaderboardView() {
     return arr.map((u, i) => ({ ...u, position: i + 1 }))
   }, [leaderboard, sort])
 
-  const podium = ranked.slice(0, 3)
-  const rest = ranked.slice(3)
+  const podium = useMemo(() => ranked.slice(0, 3), [ranked])
+  const rest = useMemo(() => ranked.slice(3), [ranked])
 
   return (
     <div
@@ -161,9 +162,11 @@ export function LeaderboardView() {
                     >
                       <Crown size={20} strokeWidth={1.5} style={{ color: PODIUM[i] }} />
                     </span>
-                    <img
+                    <Image
                       src={u.avatarUrl || DEFAULT_AVATAR}
                       alt={name}
+                      width={40}
+                      height={40}
                       className="mt-3 size-10 rounded-full object-cover"
                       style={{ border: `1px solid ${COLORS.border}` }}
                       onError={(e) => {
@@ -186,6 +189,7 @@ export function LeaderboardView() {
             </div>
 
             {/* Table */}
+            {rest.length > 0 && (
             <div
               className="mt-6 overflow-hidden rounded-xl"
               style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
@@ -201,7 +205,7 @@ export function LeaderboardView() {
                 <span className="text-right">{t("leaderboard.colSales")}</span>
                 <span className="text-right">{t("leaderboard.colArtifacts")}</span>
               </div>
-              {ranked.map((u) => {
+              {rest.map((u) => {
                 const name = u.displayName || u.username
                 return (
                   <Link
@@ -214,9 +218,11 @@ export function LeaderboardView() {
                       {u.position}
                     </span>
                     <div className="flex items-center gap-3">
-                      <img
+                      <Image
                         src={u.avatarUrl || DEFAULT_AVATAR}
                         alt={name}
+                        width={32}
+                        height={32}
                         className="size-8 shrink-0 rounded-full object-cover"
                         style={{ border: `1px solid ${COLORS.border}` }}
                         onError={(e) => {
@@ -239,6 +245,7 @@ export function LeaderboardView() {
                 )
               })}
             </div>
+            )}
           </>
         )}
       </main>

@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import {
   Home,
@@ -153,9 +154,11 @@ function ProfileMenu({
   if (!isAuthenticated) {
     return (
       <Link href="/login" className="flex items-center gap-2 transition-opacity hover:opacity-90">
-        <img
+        <Image
           src={avatarUrl || "/placeholder.svg"}
           alt="Гость"
+          width={32}
+          height={32}
           className="size-8 rounded-full object-cover"
           style={{ border: "1px solid #2A2A3E" }}
         />
@@ -175,9 +178,11 @@ function ProfileMenu({
         aria-expanded={open}
         className="flex items-center gap-2 transition-opacity hover:opacity-90"
       >
-        <img
+        <Image
           src={avatarUrl || "/placeholder.svg"}
           alt={displayName}
+          width={32}
+          height={32}
           className="size-8 rounded-full object-cover"
           style={{ border: `1px solid ${isProfileActive || open ? "#00D4FF" : "#2A2A3E"}` }}
         />

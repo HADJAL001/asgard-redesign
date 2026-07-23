@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useAuth } from "@/lib/auth-store"
 import { apiClient } from "@/lib/api-client"
 import {
@@ -143,9 +144,11 @@ export function ProfileView() {
             className="flex shrink-0 items-center justify-center rounded-2xl p-6"
             style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
           >
-            <img
+            <Image
               src={user?.avatarUrl || AVATAR || "/placeholder.svg"}
               alt={displayName}
+              width={128}
+              height={128}
               className="size-32 rounded-full object-cover"
               style={{ border: "2px solid #2A2A3E" }}
             />
@@ -653,9 +656,11 @@ function SettingsTab() {
         <div className="flex flex-col gap-6">
           {/* Avatar change */}
           <div className="flex items-center gap-4">
-            <img
+            <Image
               src={user?.avatarUrl || AVATAR || "/placeholder.svg"}
               alt={displayName || "Аватар"}
+              width={64}
+              height={64}
               className="size-16 rounded-full object-cover"
               style={{ border: "1px solid #2A2A3E" }}
             />

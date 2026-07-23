@@ -8,8 +8,9 @@
 
    Что делает компонент:
    - Подтягивает состояние рынка (цена/история/капитализация),
-     стакан заявок, ленту сделок и заявки текущего пользователя
-     из стора при монтировании и обновляет их по таймеру (polling).
+     стакан заявок и ленту сделок через SSE-подписку GET /api/tc-market/stream
+     (см. applyTcMarketSnapshot в lib/store/osgard-store.tsx), заявки
+     текущего пользователя и кошелёк — разово при монтировании.
    - Строит график цены через candlesFor() (lib/tc-market.ts) на
      основе priceHistory из стора.
    - Отображает реальный стакан (orderBook.bids/asks) и реальные
@@ -65,9 +66,6 @@ const BORDER = "#2A2A3E"
 const LABEL = "#6A6A8A"
 const BG_INNER = "#0A0A0F"
 
-/** Интервал опроса бэкенда для «живого» обновления цены/стакана/сделок (мс). */
-const POLL_MS = 4000
-
 function fmtTime(ts: number) {
   const d = new Date(ts)
   return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}`
@@ -84,9 +82,7 @@ export function TCMarketPanel() {
     wallet,
     loading,
     error,
-    fetchTcState,
-    fetchOrderBook,
-    fetchTrades,
+    applyTcMarketSnapshot,
     fetchUserOrders,
     fetchWallet,
     createMarketBuy,
@@ -121,25 +117,58 @@ export function TCMarketPanel() {
      ниже), вместо прямого Date.now() в рендере/useMemo (react-hooks/purity). */
   const [now, setNow] = useState(() => Date.now())
 
-  /* ---- начальная загрузка + polling ----
-     skipAuthRedirect: транзитная ошибка (сеть/холодный старт) во время фонового
-     опроса не должна кидать пользователя на /login — он же не нажимал "Выйти". */
+  /* ---- заявки/кошелёк — разово при монтировании; рынок — через SSE ниже ----
+     skipAuthRedirect: транзитная ошибка (сеть/холодный старт) во время фоновой
+     загрузки не должна кидать пользователя на /login — он же не нажимал "Выйти". */
   useEffect(() => {
     const opts = { skipAuthRedirect: true }
-    fetchTcState(opts)
-    fetchOrderBook(opts)
-    fetchTrades(opts)
     fetchUserOrders(opts)
     fetchWallet(opts)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-    const id = setInterval(() => {
-      fetchTcState(opts)
-      fetchOrderBook(opts)
-      fetchTrades(opts)
-      setNow(Date.now())
-    }, POLL_MS)
+  /* ---- живое обновление рынка (state/orderbook/trades) через SSE ----
+     Реконнект с линейным бэкоффом (как useTaskStatus.ts), но без предела
+     попыток — это фоновая панель котировок, а не одноразовая задача, и должна
+     переподключаться, пока смонтирована. */
+  useEffect(() => {
+    let source: EventSource | null = null
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined
+    let attempts = 0
 
-    return () => clearInterval(id)
+    const connect = () => {
+      source = new EventSource("/api/tc-market/stream", { withCredentials: true })
+
+      source.onopen = () => {
+        attempts = 0
+      }
+
+      source.onmessage = (event) => {
+        let payload: any
+        try {
+          payload = JSON.parse(event.data)
+        } catch {
+          return
+        }
+        if (payload?.type === "snapshot") {
+          applyTcMarketSnapshot({ state: payload.state, orderbook: payload.orderbook, trades: payload.trades })
+          setNow(Date.now())
+        }
+      }
+
+      source.onerror = () => {
+        source?.close()
+        attempts += 1
+        reconnectTimer = setTimeout(connect, Math.min(1000 * attempts, 5000))
+      }
+    }
+
+    connect()
+
+    return () => {
+      clearTimeout(reconnectTimer)
+      source?.close()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

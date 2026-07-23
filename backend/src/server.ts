@@ -105,7 +105,20 @@ app.use(cors({
   credentials: true
 }))
 app.use(morgan("dev"))
-app.use(compression({ level: 6, threshold: 1024 })) // сжимаем ответы > 1KB
+app.use(
+  compression({
+    level: 6,
+    threshold: 1024,
+    // SSE (text/event-stream) нельзя гзипить: zlib буферизует чанки для сборки
+    // блока сжатия и не отдаёт их клиенту сразу же по res.write(), из-за чего
+    // "живой" поток фактически замирает до закрытия соединения. Content-Type
+    // уже выставлен через res.writeHead() к моменту первого res.write().
+    filter: (req, res) => {
+      if (res.getHeader("Content-Type") === "text/event-stream") return false
+      return compression.filter(req, res)
+    },
+  }),
+) // сжимаем ответы > 1KB
 
 /* Stripe webhook требует "сырое" (raw) тело запроса для проверки подписи,
    поэтому монтируем его ДО express.json(), с express.raw() именно для этого пути. */
@@ -151,7 +164,11 @@ app.get("/health", (_req, res) => {
     service: "osgard-backend",
     time: Date.now(),
     db: { ok: dbOk, latencyMs: Date.now() - dbStart },
-    sse: { activeConnections: getActiveSseConnections(), activeGenerationConnections: getGenerationSseConnections() },
+    sse: {
+      activeConnections: getActiveSseConnections(),
+      activeGenerationConnections: getGenerationSseConnections(),
+      activeTcMarketConnections: getTcMarketSseConnections(),
+    },
     writeQueue: getWriteQueueStats(),
   })
 })
@@ -160,7 +177,7 @@ app.get("/health", (_req, res) => {
 import authRoutes from "./routes/auth.routes"
 import oauthRoutes from "./routes/oauth.routes"
 import walletRoutes from "./routes/wallet.routes"
-import tcMarketRoutes from "./routes/tcmarket.routes"
+import tcMarketRoutes, { getTcMarketSseConnections } from "./routes/tcmarket.routes"
 import stakesRoutes from "./routes/stakes.routes"
 import artifactsRoutes from "./routes/artifacts.routes"
 import marketplaceRoutes from "./routes/marketplace.routes"

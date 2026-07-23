@@ -2,8 +2,12 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { useAuth } from "@/lib/auth-store"
 import Globe3D from "./globe-3d"
+import ideaGrowthImg from "@/public/images/idea-growth.jpg"
+import keyUprightImg from "@/public/key-upright.png"
+import analyticsCleanImg from "@/public/images/analytics-clean.png"
 import {
   ArrowLeft,
   ArrowRight,
@@ -426,8 +430,8 @@ function AuthScreen({ prompt, setPrompt, onEnter }: { prompt: string; setPrompt:
               <div className="flex h-56 flex-col items-start justify-start bg-transparent p-4 pl-2">
                 {/* Enlarged lamp (pulsing glow) with a rising arrow overlay */}
                 <div className="relative">
-                  <img
-                    src="/images/idea-growth.jpg"
+                  <Image
+                    src={ideaGrowthImg}
                     alt="Glowing lightbulb rising above a growth chart"
                     className="lamp-flicker h-32 w-auto object-contain mix-blend-screen"
                     draggable={false}
@@ -467,8 +471,8 @@ function AuthScreen({ prompt, setPrompt, onEnter }: { prompt: string; setPrompt:
           </div>
 
           {/* HUGE ornate golden key piercing the search bar into the center card */}
-          <img
-            src="/key-upright.png"
+          <Image
+            src={keyUprightImg}
             alt="Golden Key"
             className="pointer-events-none absolute left-1/2 top-[-16%] z-50 h-[102%] w-auto -translate-x-1/2 object-contain drop-shadow-[0_30px_60px_rgba(0,0,0,0.7)] drop-shadow-[0_0_50px_rgba(212,175,55,0.35)]"
           />
@@ -507,7 +511,7 @@ function Dashboard({ prompt, setPrompt, mode, setMode, activeNav, onNav, avatar,
           </div>
           <button className="icon-button" aria-label="Уведомления"><Bell /></button>
           <button className="profile-pill" onClick={() => setProfileOpen(!profileOpen)} aria-expanded={profileOpen}>
-            <img src={avatar} alt="Alex Odin" className="size-9 rounded-full border border-primary/30 object-cover" />
+            <Image src={avatar} alt="Alex Odin" width={36} height={36} className="size-9 rounded-full border border-primary/30 object-cover" />
             <span className="hidden text-sm font-medium sm:block">Alex Odin</span><ChevronDown className="hidden sm:block" />
           </button>
           {profileOpen && <div className="glass-panel absolute right-0 top-14 w-48 p-2"><button className="nav-item w-full" onClick={onLogout}><LogOut /> Выйти</button></div>}
@@ -998,11 +1002,13 @@ function DeveloperDashboard() {
         style={{ background: "transparent", border: "1px solid #2A2A3E", borderRadius: 8, perspective: "1200px" }}
       >
         {/* Interactive full-bleed photo */}
-        <img
+        <Image
           ref={imgRef}
-          src="/images/analytics-clean.png"
+          src={analyticsCleanImg}
           alt="3D analytics dashboard with rising charts"
-          className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover transition-transform duration-300 ease-out will-change-transform"
+          fill
+          sizes="60vw"
+          className="pointer-events-none z-0 object-cover transition-transform duration-300 ease-out will-change-transform"
           style={{ transform: "scale(1.05)" }}
           draggable={false}
         />

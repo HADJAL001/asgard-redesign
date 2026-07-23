@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { Search, Settings, Send, Bell, X } from "lucide-react"
 import { Navbar } from "./navbar"
 
@@ -145,7 +146,7 @@ export function MessagesView() {
                     }}
                   >
                     <div className="relative shrink-0">
-                      <img src={d.avatar || "/placeholder.svg"} alt={d.name} className="size-7 rounded-full object-cover" style={{ border: "1px solid #2A2A3E" }} />
+                      <Image src={d.avatar || "/placeholder.svg"} alt={d.name} width={28} height={28} className="size-7 rounded-full object-cover" style={{ border: "1px solid #2A2A3E" }} />
                       {d.online && (
                         <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full" style={{ backgroundColor: "#4ADE80", border: "2px solid #14141E" }} aria-hidden="true" />
                       )}
@@ -172,7 +173,7 @@ export function MessagesView() {
           <section className="flex min-h-[520px] flex-col overflow-hidden rounded-xl" style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}>
             {/* Chat header */}
             <div className="flex items-center gap-3 px-6 py-4" style={{ borderBottom: "1px solid #2A2A3E" }}>
-              <img src={active.avatar || "/placeholder.svg"} alt={active.name} className="size-9 rounded-full object-cover" style={{ border: "1px solid #2A2A3E" }} />
+              <Image src={active.avatar || "/placeholder.svg"} alt={active.name} width={36} height={36} className="size-9 rounded-full object-cover" style={{ border: "1px solid #2A2A3E" }} />
               <div>
                 <p className="text-[15px] font-medium leading-tight">{active.name}</p>
                 <p className="text-[12px]" style={{ color: active.online ? "#4ADE80" : "#6A6A8A" }}>
