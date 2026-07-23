@@ -12,10 +12,12 @@ import { cn } from '@/lib/utils';
 
 export type ToastVariant = 'default' | 'success' | 'error';
 
-type ToastState = { id: number; message: string; variant: ToastVariant };
+type ToastAction = { label: string; onPress: () => void };
+
+type ToastState = { id: number; message: string; variant: ToastVariant; action?: ToastAction };
 
 type ToastContextValue = {
-  show: (message: string, variant?: ToastVariant) => void;
+  show: (message: string, variant?: ToastVariant, action?: ToastAction) => void;
 };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -33,10 +35,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const idRef = useRef(0);
 
-  const show = useCallback((message: string, variant: ToastVariant = 'default') => {
+  const show = useCallback((message: string, variant: ToastVariant = 'default', action?: ToastAction) => {
     idRef.current += 1;
     const id = idRef.current;
-    setToast({ id, message, variant });
+    setToast({ id, message, variant, action });
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
       setToast((current) => (current?.id === id ? null : current));
@@ -49,9 +51,25 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       {toast ? (
-        <SafeAreaView pointerEvents="none" className="absolute inset-x-0 bottom-0 items-center px-6 pb-4">
-          <View className={cn('w-full rounded-xl border px-4 py-3', VARIANT_STYLE[toast.variant])}>
-            <Text className="text-center text-sm font-semibold text-white">{toast.message}</Text>
+        <SafeAreaView className="absolute inset-x-0 bottom-0 items-center px-6 pb-4" pointerEvents="box-none">
+          <View
+            className={cn(
+              'w-full flex-row items-center justify-between gap-3 rounded-xl border px-4 py-3',
+              VARIANT_STYLE[toast.variant]
+            )}
+          >
+            <Text className="flex-1 text-sm font-semibold text-white">{toast.message}</Text>
+            {toast.action ? (
+              <Text
+                onPress={() => {
+                  toast.action?.onPress();
+                  setToast(null);
+                }}
+                className="text-sm font-bold text-accent"
+              >
+                {toast.action.label}
+              </Text>
+            ) : null}
           </View>
         </SafeAreaView>
       ) : null}

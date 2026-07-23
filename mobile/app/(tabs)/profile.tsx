@@ -1,21 +1,33 @@
 import { useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, Text, View } from 'react-native';
+import { RefreshControl, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Crown, Receipt } from 'lucide-react-native';
+import { Crown, Receipt, Sparkles, Star, Coins } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedRef,
+  useAnimatedStyle,
+  useScrollViewOffset,
+} from 'react-native-reanimated';
 
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { useToast } from '@/components/ui/Toast';
+import { Avatar } from '@/components/Avatar';
+import { StatsGrid } from '@/components/StatsGrid';
+import { EmptyState } from '@/components/EmptyState';
 
 import { useAuthStore } from '@/store/authStore';
 import { useLeaderboardQuery } from '@/hooks/useLeaderboardQuery';
 import { useTransactionsQuery } from '@/hooks/useTransactionsQuery';
+import { useArtifactsQuery } from '@/hooks/useArtifactsQuery';
 import { groupByDate } from '@/lib/date-groups';
 
 const TOP_N = 5;
+const HEADER_SHRINK_RANGE = 100;
 
 export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
@@ -23,9 +35,26 @@ export default function ProfileScreen() {
   const toast = useToast();
   const [loggingOut, setLoggingOut] = useState(false);
 
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollY = useScrollViewOffset(scrollRef);
+
+  const headerStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: interpolate(scrollY.value, [0, HEADER_SHRINK_RANGE], [1, 0.92], Extrapolation.CLAMP) },
+    ],
+    opacity: interpolate(scrollY.value, [0, HEADER_SHRINK_RANGE], [1, 0.9], Extrapolation.CLAMP),
+  }));
+
+  const avatarStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: interpolate(scrollY.value, [0, HEADER_SHRINK_RANGE], [1, 0.72], Extrapolation.CLAMP) },
+    ],
+  }));
+
   const { data: leaderboard, isLoading: leaderboardLoading, isFetching: leaderboardFetching, refetch: refetchLeaderboard } =
     useLeaderboardQuery();
   const { data: transactions, isFetching: txFetching, refetch: refetchTransactions } = useTransactionsQuery();
+  const { data: artifacts } = useArtifactsQuery();
 
   const topArchitects = useMemo(() => (leaderboard ?? []).slice(0, TOP_N), [leaderboard]);
   const myRank = useMemo(() => {
@@ -33,11 +62,25 @@ export default function ProfileScreen() {
     const idx = leaderboard.findIndex((e) => e.userId === user.id);
     return idx >= 0 ? idx + 1 : null;
   }, [leaderboard, user]);
+  const myEntry = useMemo(
+    () => leaderboard?.find((e) => e.userId === user?.id) ?? null,
+    [leaderboard, user],
+  );
 
   const recentTransactions = useMemo(() => (transactions ?? []).slice(0, 15), [transactions]);
   const transactionGroups = useMemo(
     () => groupByDate(recentTransactions, (tx) => tx.createdAt),
     [recentTransactions],
+  );
+
+  // "TC заработано" считаем как сумму положительных транзакций в timecoin —
+  // отдельного агрегированного поля на бэкенде нет.
+  const tcEarned = useMemo(
+    () =>
+      (transactions ?? [])
+        .filter((tx) => tx.currency === 'timecoin' && tx.amount > 0)
+        .reduce((sum, tx) => sum + tx.amount, 0),
+    [transactions],
   );
 
   const handleShareReferral = async () => {
@@ -58,7 +101,9 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      <ScrollView
+      <Animated.ScrollView
+        ref={scrollRef}
+        scrollEventThrottle={16}
         contentContainerStyle={{ padding: 16, gap: 12 }}
         refreshControl={
           <RefreshControl
@@ -72,16 +117,31 @@ export default function ProfileScreen() {
       >
         <Text className="text-2xl font-bold text-white">Профиль</Text>
 
-        <Card className="gap-2">
-          <Text className="text-lg font-bold text-white">{user?.username ?? 'Гость'}</Text>
-          {user?.email ? <Text className="text-muted">{user.email}</Text> : null}
-          {myRank ? (
-            <View className="mt-1 flex-row items-center gap-1.5">
-              <Crown size={16} color="#F1C40F" />
-              <Text className="text-sm text-muted">Место в рейтинге: #{myRank}</Text>
+        <Animated.View style={headerStyle}>
+          <Card className="flex-row items-center gap-3">
+            <Animated.View style={avatarStyle}>
+              <Avatar name={user?.username ?? 'Гость'} size={64} rank={myRank} />
+            </Animated.View>
+            <View className="flex-1 gap-1">
+              <Text className="text-lg font-bold text-white">{user?.username ?? 'Гость'}</Text>
+              {user?.email ? <Text className="text-muted">{user.email}</Text> : null}
+              {myRank ? (
+                <View className="mt-1 flex-row items-center gap-1.5">
+                  <Crown size={16} color="#F1C40F" />
+                  <Text className="text-sm text-muted">Место в рейтинге: #{myRank}</Text>
+                </View>
+              ) : null}
             </View>
-          ) : null}
-        </Card>
+          </Card>
+        </Animated.View>
+
+        <StatsGrid
+          stats={[
+            { icon: Sparkles, value: String(artifacts?.length ?? 0), label: 'Артефактов' },
+            { icon: Star, value: String(myEntry?.level ?? 1), label: 'Уровень', color: '#D4AF37' },
+            { icon: Coins, value: String(tcEarned), label: 'TC заработано', color: '#00D4FF' },
+          ]}
+        />
 
         {user?.referralCode ? (
           <Card className="gap-2">
@@ -115,10 +175,7 @@ export default function ProfileScreen() {
         <Card className="gap-3">
           <Text className="text-lg font-bold text-white">Последние операции</Text>
           {recentTransactions.length === 0 ? (
-            <View className="items-center gap-2 py-6">
-              <Receipt size={28} color="#6A6A8A" />
-              <Text className="text-muted">Операций пока нет</Text>
-            </View>
+            <EmptyState icon={Receipt} title="Операций пока нет" style={{ paddingVertical: 8 }} />
           ) : (
             transactionGroups.map((group) => (
               <View key={group.label} className="gap-2">
@@ -140,7 +197,7 @@ export default function ProfileScreen() {
         <Button variant="danger" loading={loggingOut} onPress={handleLogout}>
           Выйти
         </Button>
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }

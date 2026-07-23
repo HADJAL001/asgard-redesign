@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PiggyBank } from 'lucide-react-native';
 
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { Spinner } from '@/components/ui/Spinner';
 import { useToast } from '@/components/ui/Toast';
 import { PriceChart } from '@/components/PriceChart';
 import { AnimatedBalance } from '@/components/AnimatedBalance';
 import { CurrencyIcon } from '@/components/CurrencyIcon';
+import { LoadingAnimation } from '@/components/LoadingAnimation';
+import { EmptyState } from '@/components/EmptyState';
 
 import { useWalletQuery } from '@/hooks/useWalletQuery';
 import { useTcMarketQuery } from '@/hooks/useTcMarketQuery';
@@ -94,7 +96,11 @@ export default function WalletScreen() {
   };
 
   if (walletLoading) {
-    return <Spinner fullscreen />;
+    return (
+      <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
+        <LoadingAnimation label="Загрузка кошелька" />
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -161,7 +167,14 @@ export default function WalletScreen() {
             </Button>
           </View>
           {activeStakes.length === 0 ? (
-            <Text className="text-muted">Нет активных стейков</Text>
+            <EmptyState
+              icon={PiggyBank}
+              title="Нет активных стейков"
+              description="Застейкайте TimeCoin, чтобы получать пассивный доход"
+              actionLabel="Открыть стейк"
+              onAction={() => setActiveModal('stake')}
+              style={{ paddingVertical: 8 }}
+            />
           ) : (
             activeStakes.map((stake) => (
               <View

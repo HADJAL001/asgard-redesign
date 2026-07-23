@@ -12,6 +12,8 @@ module.exports = {
         up: '#10B981',
         down: '#EF4444',
         muted: '#8A8A9A',
+        navy: '#0A1128',
+        gold: '#D4AF37',
       },
     },
   },
