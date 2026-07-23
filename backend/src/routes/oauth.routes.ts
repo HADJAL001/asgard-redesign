@@ -30,6 +30,12 @@ interface OAuthStateEntry {
   purpose?: 'login' | 'publish';
   /** Путь на фронтенде, куда вернуть пользователя после успешного подключения (только 'publish'). */
   returnTo?: string;
+  /** 'mobile' — запрос пришёл из Expo-приложения, финальный редирект должен уйти в deep link
+   *  (mobileRedirectUri), а не на веб-фронтенд. Отсутствие поля означает обычный веб-флоу. */
+  platform?: 'web' | 'mobile';
+  /** Deep link мобильного приложения (например exp://... или osgard://...), куда редиректить
+   *  после успешного/неуспешного OAuth. Провалидирован sanitizeMobileRedirectUri при приёме. */
+  mobileRedirectUri?: string;
 }
 
 /** Разрешает только относительные пути ("/projects/5"), чтобы state.returnTo нельзя было
@@ -37,6 +43,21 @@ interface OAuthStateEntry {
 function sanitizeReturnTo(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   if (!value.startsWith('/') || value.startsWith('//')) return undefined;
+  return value;
+}
+
+/** Разрешает только кастомные схемы (exp://, osgard://, myapp://...) для мобильного deep-link
+ *  редиректа. Явно отклоняет http(s), иначе state.mobileRedirectUri стал бы open-redirect'ом
+ *  на произвольный веб-домен с токенами доступа в query. */
+function sanitizeMobileRedirectUri(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !value) return undefined;
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return undefined;
+  }
+  if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return undefined;
   return value;
 }
 
@@ -101,9 +122,20 @@ router.get('/:provider', (req: Request, res: Response) => {
     }
   }
 
+  const platform = req.query.platform === 'mobile' ? 'mobile' as const : undefined;
+  const mobileRedirectUri = platform === 'mobile' ? sanitizeMobileRedirectUri(req.query.redirectUri) : undefined;
+
   const state = generateState();
   const { codeVerifier, codeChallenge } = generatePkcePair();
-  stateStore.set(state, { provider, codeVerifier, createdAt: Date.now(), linkUserId, purpose: 'login' });
+  stateStore.set(state, {
+    provider,
+    codeVerifier,
+    createdAt: Date.now(),
+    linkUserId,
+    purpose: 'login',
+    platform,
+    mobileRedirectUri,
+  });
 
   res.redirect(buildAuthUrl(provider, state, codeChallenge));
 });
@@ -140,19 +172,32 @@ router.get('/:provider/callback', async (req: Request, res: Response) => {
 
   const { code, state, error: providerError } = req.query as Record<string, string | undefined>;
 
+  // Ищем entry по state ещё до валидации (провайдер эхом возвращает исходный state даже
+  // при ошибке/отказе пользователя) — это единственный способ узнать platform/mobileRedirectUri
+  // для редиректа ошибки обратно в мобильное приложение, а не на веб-фронтенд.
+  const pendingEntry = state ? stateStore.get(state) : undefined;
+  const isMobile = pendingEntry?.platform === 'mobile' && !!pendingEntry.mobileRedirectUri;
+
+  const redirectError = (errCode: string) => {
+    if (isMobile) {
+      return res.redirect(`${pendingEntry!.mobileRedirectUri}?error=${encodeURIComponent(errCode)}`);
+    }
+    return res.redirect(`${FRONTEND_URL}/login?oauthError=${encodeURIComponent(errCode)}`);
+  };
+
   if (providerError) {
-    return res.redirect(`${FRONTEND_URL}/login?oauthError=${encodeURIComponent(providerError)}`);
+    return redirectError(providerError);
   }
 
   if (!code || !state || !stateStore.has(state)) {
-    return res.redirect(`${FRONTEND_URL}/login?oauthError=invalid_state`);
+    return redirectError('invalid_state');
   }
 
   const entry = stateStore.get(state)!;
   stateStore.delete(state);
 
   if (entry.provider !== provider) {
-    return res.redirect(`${FRONTEND_URL}/login?oauthError=provider_mismatch`);
+    return redirectError('provider_mismatch');
   }
 
   try {
@@ -216,12 +261,18 @@ router.get('/:provider/callback', async (req: Request, res: Response) => {
     const token = AuthService.generateAccessToken(user.id);
     const refreshToken = AuthService.generateRefreshToken(user.id);
 
+    if (isMobile) {
+      return res.redirect(
+        `${pendingEntry!.mobileRedirectUri}?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}`
+      );
+    }
+
     res.redirect(
       `${FRONTEND_URL}/auth/callback?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}`
     );
   } catch (e: any) {
     captureError(`OAuth callback error (${provider}):`, e);
-    res.redirect(`${FRONTEND_URL}/login?oauthError=${encodeURIComponent('oauth_failed')}`);
+    redirectError('oauth_failed');
   }
 });
 

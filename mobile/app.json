@@ -1,0 +1,78 @@
+{
+  "expo": {
+    "name": "OSGARD",
+    "slug": "mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.osgard.mobile"
+    },
+    "android": {
+      "package": "com.osgard.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "OSGARD использует Face ID для быстрого и безопасного входа."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "OSGARD сохраняет созданные артефакты в вашу галерею.",
+          "savePhotosPermission": "OSGARD сохраняет созданные артефакты в вашу галерею.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "OSGARD использует микрофон для голосового ввода описания артефакта.",
+          "speechRecognitionPermission": "OSGARD распознаёт вашу речь, чтобы заполнить описание артефакта."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/adaptive-icon.png",
+          "color": "#0a7ea4",
+          "sounds": []
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
+    }
+  }
+}
