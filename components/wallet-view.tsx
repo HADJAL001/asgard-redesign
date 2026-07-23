@@ -194,8 +194,11 @@ export function WalletView() {
   }
 
   async function doDeposit() {
-    const n = Number(depositAmount)
-    if (!n || n <= 0) { setDepositNotice({ ok: false, text: "Введите сумму TC" }); return }
+    // Депозит обрабатывается казначейством (POST /api/tc/deposit), которое принимает
+    // только целое число TC от 1 до 10000 за один депозит.
+    const n = Math.trunc(Number(depositAmount))
+    if (!n || n <= 0) { setDepositNotice({ ok: false, text: "Введите корректную сумму (целое число TC)" }); return }
+    if (n > 10000) { setDepositNotice({ ok: false, text: "Максимум 10000 TC за один депозит" }); return }
     if (!txSignature.trim()) { setDepositNotice({ ok: false, text: "Введите txSignature" }); return }
     setDepositBusy(true)
     try {
@@ -648,8 +651,9 @@ export function WalletView() {
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  step="any"
+                  min="1"
+                  max="10000"
+                  step="1"
                   value={depositAmount}
                   onChange={(e) => setDepositAmount(e.target.value)}
                   placeholder="0"

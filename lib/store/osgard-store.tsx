@@ -1451,15 +1451,18 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   },
 
   /* ----------------------------------------------------------------
-     convertFromTc — TC → ∞ (POST /wallet/convert-from-tc)
-     Принимает txSignature on-chain перевода TC в резерв и зачисляет ∞.
+     convertFromTc — TC → ∞ (POST /api/tc/deposit)
+     Принимает txSignature on-chain перевода TC в казначейство и зачисляет ∞.
      ---------------------------------------------------------------- */
   convertFromTc: async (txSignature: string, amount: number) => {
     set({ loading: true, error: null })
     try {
-      const data = await apiClient.post<{ wallet: OsgardWallet }>("/wallet/convert-from-tc", { txSignature, amount })
-      if (data.wallet) set({ wallet: { ...get().wallet, ...data.wallet } })
-      // обновляем TC-баланс после конвертации
+      await apiClient.post<{ success: boolean; amountCreditedInfinity: number }>("/api/tc/deposit", {
+        txSignature,
+        amount,
+      })
+      // обновляем баланс ∞ и TC-баланс после конвертации
+      get().fetchWallet()
       get().fetchTcBalance()
       return { success: true }
     } catch (err: unknown) {
