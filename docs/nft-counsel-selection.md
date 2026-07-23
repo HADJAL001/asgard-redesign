@@ -34,6 +34,28 @@
   вопросам — спросить у них рекомендацию профильного crypto-counsel
   (часто быстрее и надёжнее холодного поиска).
 
+## Найденные кандидаты (веб-поиск, 2026-07-23)
+
+> ⚠️ Не проверено вручную — контакты, цены, реальная загрузка и текущая
+> специализация не подтверждены напрямую (только по публичным описаниям из
+> поиска). Координатор должен сам связаться и проверить актуальность перед
+> вовлечением. Порядок — не рейтинг.
+
+| Фирма | Профиль (по публичным данным) | Источник |
+|---|---|---|
+| The Crypto Lawyers | Специализация именно на запуске NFT-проектов, анализ по Howey Test, рекомендации по структуре для снижения риска securities-квалификации | [thecryptolawyers.com](https://thecryptolawyers.com/services/nft-services/) |
+| Heitner Legal (Fort Lauderdale) | Sports/IP/entertainment + NFT, опыт с крупными делами (FTX/Binance-смежные), помощь с Howey Test и федеральным/штатным комплаенсом | [heitnerlegal.com](https://heitnerlegal.com/nft-law/) |
+| Cea Legal P.C. (Нью-Йорк) | Классификация токенов (security vs utility) через Howey Test, DeFi-консалтинг, NFT licensing | [cealegal.com](https://www.cealegal.com/blockchain-and-cryptocurrency-law/) |
+| Traverse Legal | Применение федеральных/штатных securities законов к NFT, риски незарегистрированного размещения | [traverselegal.com](https://www.traverselegal.com/nft-lawyer/) |
+| Richt Law Firm | Практика NFT-права, отслеживают прецеденты (например, дело против Yuga Labs/BAYC — NFT признаны коллекционными предметами, не securities) | [richtfirm.com](https://richtfirm.com/nft-lawyer/) |
+| Law Offices of Carolina Nunez, P.A. (Флорида) | Blockchain/crypto, двуязычная фирма, работа с Howey Test и CFTC-аспектами | [cnunezlaw.com](https://www.cnunezlaw.com/blockchain-lawyer) |
+
+Из списка **The Crypto Lawyers** и **Cea Legal** выглядят наиболее прицельно
+попадающими в наш профиль (именно NFT-launch + токен-классификация), но это
+вывод по описаниям с их сайтов, не по реальному опыту работы с ними —
+проверить самостоятельно (отзывы, состав команды, реальные расценки) перед
+первым звонком.
+
 ## Что подготовить перед первой встречей с юристом
 
 Чтобы не тратить оплачиваемые часы юриста на объяснение продукта:
