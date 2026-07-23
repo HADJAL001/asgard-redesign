@@ -17,7 +17,10 @@
   },
   "jest": {
     "preset": "jest-expo",
-    "testPathIgnorePatterns": ["/node_modules/", "<rootDir>/e2e/"]
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/e2e/"
+    ]
   },
   "dependencies": {
     "@expo/vector-icons": "~14.0.4",
@@ -41,6 +44,7 @@
     "expo-device": "~7.0.3",
     "expo-font": "~13.0.4",
     "expo-haptics": "~14.0.1",
+    "expo-linear-gradient": "~14.0.2",
     "expo-linking": "~7.0.5",
     "expo-local-authentication": "~15.0.2",
     "expo-media-library": "~17.0.6",
