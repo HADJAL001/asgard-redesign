@@ -229,6 +229,7 @@ import { runAddonProgressionMigration } from "./migrations/056_addon_progression
 import { runAddonCustomizationMigration } from "./migrations/057_addon_customization"
 import { runAddonCoursesMigration } from "./migrations/058_addon_courses"
 import { runSeedCoursesMigration } from "./migrations/059_seed_courses"
+import "./migrations/060_tc_price_history_index"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
