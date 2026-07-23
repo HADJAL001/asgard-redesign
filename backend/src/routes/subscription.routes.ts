@@ -23,6 +23,29 @@ const MOCK_PERIOD_MS  = 30 * 24 * 60 * 60 * 1000 // 30 дней
 const TRIAL_PERIOD_MS =  7 * 24 * 60 * 60 * 1000 //  7 дней
 const TRIAL_DAYS      = 7
 
+/* Логирует pricing_conversion в analytics_events (paywall-воронка, см.
+   AdminController.paywallFunnel). session_id приходит с pricing-страницы через
+   body/create-checkout, либо через Stripe session.metadata.session_id из
+   webhook — если его нет (старый клиент, прямой вызов API), используем
+   синтетический id, т.к. колонка session_id NOT NULL, а событие всё равно
+   ценно для общих счётчиков конверсии. */
+function logPricingConversionEvent(
+  userId: number,
+  plan: string,
+  sessionId: string | null | undefined,
+  extraMeta?: Record<string, any>,
+) {
+  try {
+    const finalSessionId = sessionId && sessionId.trim() ? sessionId.trim() : `no_session_${userId}_${Date.now()}`
+    db.prepare(
+      `INSERT INTO analytics_events (user_id, session_id, event_name, meta, created_at)
+       VALUES (?, ?, 'pricing_conversion', ?, ?)`,
+    ).run(userId, finalSessionId, JSON.stringify({ plan, ...extraMeta }), Date.now())
+  } catch (err) {
+    captureError("[subscription] pricing_conversion log error:", err)
+  }
+}
+
 /* ================================================================
    Докупаемые пакеты запросов (одноразовая оплата, mode: "payment").
    Не сгорают в конце месяца — переносятся на след. месяцы (extra_credits,
@@ -227,7 +250,8 @@ export function requirePlan(requiredPlan: PlanKey) {
    возвращает { mock: true, subscription } без реального url Stripe.
    ================================================================ */
 router.post("/create-checkout", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
-  const { plan } = req.body || {}
+  const { plan, session_id } = req.body || {}
+  const analyticsSessionId = typeof session_id === "string" ? session_id : undefined
 
   if (!PAID_PLANS.includes(plan)) {
     return res.status(400).json({
@@ -263,6 +287,7 @@ router.post("/create-checkout", requireAuth, asyncHandler(async (req: AuthReques
        VALUES (?, 'subscription', ?, 'Stripe (mock)', ?, 'cash_usd', 'done')`,
     ).run(userId, `Подписка ${plan}`, 0)
     logAudit(userId, "credit", 0, "subscription_mock_activated", { plan })
+    logPricingConversionEvent(userId, plan, analyticsSessionId, { mock: true })
 
     return res.status(200).json({
       mock: true,
@@ -308,7 +333,7 @@ router.post("/create-checkout", requireAuth, asyncHandler(async (req: AuthReques
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${FRONTEND_URL}/wallet?checkout=success&plan=${plan}`,
       cancel_url: `${FRONTEND_URL}/wallet?checkout=cancel`,
-      metadata: { userId: String(userId), plan },
+      metadata: { userId: String(userId), plan, session_id: analyticsSessionId || "" },
       subscription_data: {
         metadata: { userId: String(userId), plan },
         ...(trialEligible ? { trial_period_days: TRIAL_DAYS } : {}),
@@ -419,6 +444,105 @@ router.post("/extra-package", requireAuth, asyncHandler(async (req: AuthRequest,
 }))
 
 /* ================================================================
+   POST /subscription/change-plan
+   Меняет тариф на уже активной платной подписке (upgrade/downgrade)
+   с пропорциональным пересчётом (Stripe proration) — в отличие от
+   /create-checkout, не создаёт новую подписку и не запускает новый триал.
+
+   body: { plan: 'pro' | 'supreme' | 'duo' | 'elite' }
+   ================================================================ */
+router.post("/change-plan", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+  const { plan } = req.body || {}
+
+  if (!PAID_PLANS.includes(plan)) {
+    return res.status(400).json({
+      error: `Некорректный план. Допустимые платные планы: ${PAID_PLANS.join(", ")}`,
+    })
+  }
+
+  const userId = req.user!.userId
+  const sub = getSubscription(userId)
+
+  if (!sub || sub.plan === "free" || !(sub.status === "active" || sub.status === "trialing")) {
+    return res.status(400).json({
+      error: "Нет активной подписки для смены тарифа. Оформите подписку через /subscription/create-checkout.",
+    })
+  }
+
+  if (sub.plan === plan) {
+    return res.status(409).json({ error: `Вы уже на плане «${plan}».` })
+  }
+
+  /* ---------------- Mock-режим (Stripe не настроен или подписка была активирована локально) ---------------- */
+  if (!isStripeConfigured || !stripe || !sub.stripe_subscription_id) {
+    upsertSubscription(userId, { plan })
+
+    db.prepare(
+      `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+       VALUES (?, 'subscription', ?, 'Stripe (mock)', ?, 'cash_usd', 'done')`,
+    ).run(userId, `Смена тарифа: ${sub.plan} → ${plan}`, 0)
+    logAudit(userId, "credit", 0, "subscription_plan_changed_mock", { from: sub.plan, to: plan })
+
+    return res.json({
+      mock: true,
+      subscription: serializeSubscription(getSubscription(userId)),
+      message: `Тариф изменён на «${plan}» (dev-режим).`,
+    })
+  }
+
+  /* ---------------- Реальный режим Stripe ---------------- */
+  const priceId = PLAN_PRICE_IDS[plan as Exclude<PlanKey, "free">]
+  if (!priceId) {
+    return res.status(500).json({
+      error: `Stripe Price ID для плана '${plan}' не настроен (STRIPE_PRICE_${plan.toUpperCase()})`,
+    })
+  }
+
+  try {
+    const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id)
+    const itemId = stripeSub.items.data[0]?.id
+    if (!itemId) {
+      return res.status(500).json({ error: "Не удалось найти позицию (item) подписки в Stripe." })
+    }
+
+    const updated = await stripe.subscriptions.update(sub.stripe_subscription_id, {
+      items: [{ id: itemId, price: priceId }],
+      proration_behavior: "create_prorations",
+      metadata: { userId: String(userId), plan },
+    })
+
+    /* Основное обновление БД придёт через webhook customer.subscription.updated,
+       но применяем сразу, чтобы UI не ждал доставки вебхука. */
+    upsertSubscription(userId, {
+      plan,
+      status: mapStripeStatus(updated.status),
+      stripe_price_id: priceId,
+      current_period_start: (updated as any).current_period_start
+        ? (updated as any).current_period_start * 1000
+        : sub.current_period_start,
+      current_period_end: (updated as any).current_period_end
+        ? (updated as any).current_period_end * 1000
+        : sub.current_period_end,
+    })
+
+    logAudit(userId, "credit", 0, "subscription_plan_changed", {
+      from: sub.plan,
+      to: plan,
+      stripe_subscription_id: sub.stripe_subscription_id,
+    })
+
+    res.json({
+      mock: false,
+      subscription: serializeSubscription(getSubscription(userId)),
+      message: `Тариф изменён на «${plan}». Пропорциональный пересчёт (proration) появится в следующем счёте Stripe.`,
+    })
+  } catch (err: any) {
+    captureError("[subscription/change-plan] Stripe error:", err)
+    res.status(500).json({ error: err.message || "Не удалось изменить тариф" })
+  }
+}))
+
+/* ================================================================
    POST /subscription/webhook
    Обрабатывает события Stripe:
    - checkout.session.completed
@@ -502,17 +626,32 @@ router.post("/webhook", async (req, res) => {
           let periodStart: number | null = null
           let periodEnd: number | null = null
           let priceId: string | null = null
+          /* По умолчанию (напр. разовый downgrade без триала) считаем активной сразу;
+             если у сессии реально есть триал (create-checkout с trialEligible или
+             start-trial), ниже переопределим по факту статуса Stripe-подписки. */
+          let status = "active"
 
           if (subscriptionId) {
             const stripeSub = await stripe.subscriptions.retrieve(subscriptionId)
             periodStart = (stripeSub as any).current_period_start * 1000
             periodEnd = (stripeSub as any).current_period_end * 1000
             priceId = stripeSub.items.data[0]?.price?.id || null
+            status = mapStripeStatus(stripeSub.status)
+
+            /* trial_period_days на subscription_data приводит к status: "trialing" —
+               фиксируем использование триала здесь же, аналогично mock-ветке
+               /start-trial, иначе в реальном Stripe-режиме триал можно взять
+               повторно (hasUsedTrial всегда возвращал бы false). */
+            if (status === "trialing") {
+              db.prepare(
+                `INSERT OR IGNORE INTO trial_history (user_id, plan, started_at, ends_at) VALUES (?, ?, ?, ?)`,
+              ).run(userId, plan, periodStart, periodEnd)
+            }
           }
 
           upsertSubscription(userId, {
             plan,
-            status: "active",
+            status,
             stripe_customer_id:
               typeof session.customer === "string" ? session.customer : session.customer?.id,
             stripe_subscription_id: subscriptionId || null,
@@ -521,6 +660,7 @@ router.post("/webhook", async (req, res) => {
             current_period_end: periodEnd,
             cancel_at_period_end: 0,
             canceled_at: null,
+            trial_used: status === "trialing" ? 1 : undefined,
           })
 
           db.prepare(
@@ -528,6 +668,7 @@ router.post("/webhook", async (req, res) => {
              VALUES (?, 'subscription', ?, 'Stripe', ?, 'cash_usd', 'done')`,
           ).run(userId, `Подписка ${plan}`, (session.amount_total ?? 0) / 100)
           logAudit(userId, "credit", (session.amount_total ?? 0) / 100, "subscription_stripe_checkout", { plan, stripe_event_id: event.id })
+          logPricingConversionEvent(userId, plan, session.metadata?.session_id, { stripe_event_id: event.id })
         }
         break
       }
@@ -566,6 +707,49 @@ router.post("/webhook", async (req, res) => {
             status: "canceled",
             cancel_at_period_end: 0,
             canceled_at: Date.now(),
+          })
+        }
+        break
+      }
+
+      /* Списание рекуррентного платежа не прошло (карта отклонена/недостаточно средств).
+         Доступ к платным функциям сам по себе уже блокируется requirePlan() как только
+         customer.subscription.updated принесёт status='past_due'/'unpaid' (проверка
+         status IN ('active','trialing')) — здесь только уведомляем пользователя и
+         фиксируем факт неудачи в transactions/audit для дашборда и саппорта. */
+      case "invoice.payment_failed": {
+        const invoice = event.data.object
+        const subscriptionId =
+          typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id
+        const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id
+
+        const subRow = subscriptionId
+          ? (db
+              .prepare(`SELECT user_id, plan FROM subscriptions WHERE stripe_subscription_id = ?`)
+              .get(subscriptionId) as { user_id: number; plan: string } | undefined)
+          : customerId
+            ? (db
+                .prepare(`SELECT user_id, plan FROM subscriptions WHERE stripe_customer_id = ?`)
+                .get(customerId) as { user_id: number; plan: string } | undefined)
+            : undefined
+
+        if (subRow) {
+          db.prepare(
+            `INSERT INTO notifications (user_id, actor_id, type, entity_type, entity_id, text)
+             VALUES (?, NULL, 'billing', 'subscription', NULL, ?)`,
+          ).run(
+            subRow.user_id,
+            `Не удалось списать оплату за подписку «${subRow.plan}». Обновите способ оплаты — иначе доступ к платным функциям будет ограничен.`,
+          )
+
+          db.prepare(
+            `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+             VALUES (?, 'subscription', ?, 'Stripe', ?, 'cash_usd', 'failed')`,
+          ).run(subRow.user_id, `Подписка ${subRow.plan} — платёж отклонён`, (invoice.amount_due ?? 0) / 100)
+
+          logAudit(subRow.user_id, "debit", 0, "subscription_payment_failed", {
+            plan: subRow.plan,
+            stripe_event_id: event.id,
           })
         }
         break

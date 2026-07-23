@@ -22,7 +22,14 @@ export const stripe: Stripe | null = STRIPE_SECRET_KEY
 
 export const isStripeConfigured = !!stripe
 
+/* Два разных Stripe webhook endpoint-а (/subscription/webhook и /addons/webhook)
+   регистрируются в Stripe Dashboard как отдельные URL — у каждого свой уникальный
+   signing secret. STRIPE_WEBHOOK_SECRET_ADDONS опционален и с фолбэком на общий
+   STRIPE_WEBHOOK_SECRET (для совместимости, если исторически был настроен только
+   один endpoint), но в боевом режиме должен быть задан отдельно — см.
+   docs/stripe-live-checklist.md. */
 export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ""
+export const STRIPE_WEBHOOK_SECRET_ADDONS = process.env.STRIPE_WEBHOOK_SECRET_ADDONS || STRIPE_WEBHOOK_SECRET
 
 export type PlanKey = "free" | "pro" | "supreme" | "duo" | "elite"
 

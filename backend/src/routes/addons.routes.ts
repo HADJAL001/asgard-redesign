@@ -1,7 +1,7 @@
 import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
-import stripe, { isStripeConfigured, STRIPE_WEBHOOK_SECRET, FRONTEND_URL } from "../lib/stripe"
+import stripe, { isStripeConfigured, STRIPE_WEBHOOK_SECRET_ADDONS, FRONTEND_URL } from "../lib/stripe"
 import {
   AddonKey,
   ADDON_KEYS,
@@ -155,8 +155,8 @@ router.post("/webhook", async (req, res) => {
   if (!isStripeConfigured || !stripe) {
     return res.status(503).json({ error: "Stripe не настроен на сервере" })
   }
-  if (!STRIPE_WEBHOOK_SECRET) {
-    console.error("[addons/webhook] STRIPE_WEBHOOK_SECRET не задан — вебхук отклонён")
+  if (!STRIPE_WEBHOOK_SECRET_ADDONS) {
+    console.error("[addons/webhook] STRIPE_WEBHOOK_SECRET_ADDONS не задан — вебхук отклонён")
     return res.status(503).json({ error: "Webhook secret не настроен на сервере" })
   }
 
@@ -167,7 +167,7 @@ router.post("/webhook", async (req, res) => {
 
   let event: any
   try {
-    event = stripe.webhooks.constructEvent(req.body, signature, STRIPE_WEBHOOK_SECRET)
+    event = stripe.webhooks.constructEvent(req.body, signature, STRIPE_WEBHOOK_SECRET_ADDONS)
   } catch (err: any) {
     captureError("[addons/webhook] Signature verification failed:", err)
     return res.status(400).json({ error: `Webhook Error: ${err.message}` })
@@ -256,6 +256,45 @@ router.post("/webhook", async (req, res) => {
             status: "canceled",
             cancel_at_period_end: 0,
             canceled_at: Date.now(),
+          })
+        }
+        break
+      }
+
+      /* См. аналогичный обработчик в subscription.routes.ts — та же логика для addon-подписок. */
+      case "invoice.payment_failed": {
+        const invoice = event.data.object
+        const subscriptionId =
+          typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id
+        const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id
+
+        const subRow = subscriptionId
+          ? (db
+              .prepare(`SELECT user_id, addon_key FROM addon_subscriptions WHERE stripe_subscription_id = ?`)
+              .get(subscriptionId) as { user_id: number; addon_key: AddonKey } | undefined)
+          : customerId
+            ? (db
+                .prepare(`SELECT user_id, addon_key FROM addon_subscriptions WHERE stripe_customer_id = ?`)
+                .get(customerId) as { user_id: number; addon_key: AddonKey } | undefined)
+            : undefined
+
+        if (subRow) {
+          db.prepare(
+            `INSERT INTO notifications (user_id, actor_id, type, entity_type, entity_id, text)
+             VALUES (?, NULL, 'billing', 'addon_subscription', NULL, ?)`,
+          ).run(
+            subRow.user_id,
+            `Не удалось списать оплату за addon «${subRow.addon_key}». Обновите способ оплаты — иначе доступ будет ограничен.`,
+          )
+
+          db.prepare(
+            `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+             VALUES (?, 'subscription', ?, 'Stripe', ?, 'cash_usd', 'failed')`,
+          ).run(subRow.user_id, `Addon: ${subRow.addon_key} — платёж отклонён`, (invoice.amount_due ?? 0) / 100)
+
+          logAudit(subRow.user_id, "debit", 0, "addon_payment_failed", {
+            addonKey: subRow.addon_key,
+            stripe_event_id: event.id,
           })
         }
         break

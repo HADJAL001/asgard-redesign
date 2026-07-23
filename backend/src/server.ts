@@ -225,6 +225,7 @@ import "./migrations/040_orchestrator_jarvis_templates"
 import walliRoutes from "./routes/walli.routes"
 import demoRoutes from "./routes/demo.routes"
 import adminRoutes from "./routes/admin.routes"
+import billingDashboardRoutes from "./routes/billing-dashboard.routes"
 import promoRoutes from "./routes/promo.routes"
 import orchestratorRoutes, { getActiveSseConnections } from "./routes/orchestrator.routes"
 import generateProjectRoutes, { getGenerationSseConnections } from "./routes/generate-project.routes"
@@ -392,6 +393,7 @@ app.use("/api/tc", tcRoutes)
 app.use("/walli", walliRoutes)
 app.use("/demo", demoRoutes)
 app.use("/admin", adminRoutes)
+app.use("/billing-dashboard", billingDashboardRoutes)
 app.use("/orchestrator", orchestratorRoutes)
 app.use("/promo", promoRoutes)
 app.use("/", generateProjectRoutes)
