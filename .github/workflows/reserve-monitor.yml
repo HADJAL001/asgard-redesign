@@ -1,0 +1,138 @@
+name: reserve-monitor
+
+# Мониторинг резервного пула TC (казначейство должно покрывать весь ∞ 1:1).
+#
+# ВАЖНО: этот workflow ТОЛЬКО читает состояние и алертит в Telegram.
+# Он НИКОГДА не двигает средства автоматически — движение реальной крипты
+# на mainnet без подтверждения человека необратимо, поэтому при критическом
+# отклонении резерва требуется ручное пополнение/изъятие после алерта.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+env:
+  BASE_URL: https://osgardnewworld.com
+  LOW_RATIO: "0.10"
+  HIGH_RATIO: "0.90"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Switch to monitoring-data branch
+        run: |
+          git fetch origin monitoring-data 2>/dev/null && git checkout monitoring-data || {
+            git checkout --orphan monitoring-data
+            git rm -rf . >/dev/null 2>&1 || true
+          }
+          mkdir -p monitoring
+          if [ ! -f monitoring/reserve-log.csv ]; then
+            echo "timestamp,treasury_tc,total_infinity,ratio,status" > monitoring/reserve-log.csv
+          fi
+
+      - name: Fetch reserve status
+        id: reserve
+        continue-on-error: true
+        run: |
+          set +e
+          OUT=$(curl -s -o /tmp/reserve_body.json -w "%{http_code}" --max-time 15 "$BASE_URL/api/tc/reserve-status")
+          CODE="$OUT"
+          echo "code=${CODE:-000}" >> "$GITHUB_OUTPUT"
+          if echo "$CODE" | grep -qE '^[23][0-9]{2}$'; then
+            TREASURY=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/reserve_body.json','utf8')).treasuryTc ?? '')")
+            TOTAL=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/reserve_body.json','utf8')).totalInfinity ?? '')")
+            RATIO=$(node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/reserve_body.json','utf8')).ratio ?? '')")
+            echo "ok=1" >> "$GITHUB_OUTPUT"
+            echo "treasury=$TREASURY" >> "$GITHUB_OUTPUT"
+            echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+            echo "ratio=$RATIO" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Evaluate ratio
+        id: eval
+        run: |
+          RATIO="${{ steps.reserve.outputs.ratio }}"
+          STATUS="unknown"
+          if [ -n "$RATIO" ]; then
+            IS_LOW=$(awk -v r="$RATIO" -v th="$LOW_RATIO" 'BEGIN { print (r+0 < th+0) ? 1 : 0 }')
+            IS_HIGH=$(awk -v r="$RATIO" -v th="$HIGH_RATIO" 'BEGIN { print (r+0 > th+0) ? 1 : 0 }')
+            if [ "$IS_LOW" = "1" ]; then
+              STATUS="critical_low"
+            elif [ "$IS_HIGH" = "1" ]; then
+              STATUS="high_excess"
+            else
+              STATUS="ok"
+            fi
+          fi
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+
+      - name: Log to monitoring-data
+        run: |
+          TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          echo "$TS,${{ steps.reserve.outputs.treasury }},${{ steps.reserve.outputs.total }},${{ steps.reserve.outputs.ratio }},${{ steps.eval.outputs.status }}" >> monitoring/reserve-log.csv
+          git add monitoring/reserve-log.csv
+          git -c user.name="reserve-monitor-bot" -c user.email="actions@github.com" commit -m "chore(monitoring): reserve check $TS [skip ci]" || echo "nothing to commit"
+          for i in 1 2 3; do
+            git push origin HEAD:monitoring-data && break
+            git fetch origin monitoring-data
+            git rebase origin/monitoring-data
+            sleep 2
+          done
+
+      - name: Alert in Telegram on critical drop or fetch failure
+        if: steps.eval.outputs.status == 'critical_low' || steps.reserve.outputs.ok != '1'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "::warning::TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID secrets are not set — skipping alert"
+            exit 0
+          fi
+          if [ "${{ steps.reserve.outputs.ok }}" != "1" ]; then
+            TEXT="🔴 Не удалось проверить резерв TC (код ${{ steps.reserve.outputs.code }}).
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          else
+            TEXT="🔴 КРИТИЧЕСКОЕ ПАДЕНИЕ РЕЗЕРВА TC
+          Казначейство: ${{ steps.reserve.outputs.treasury }} TC
+          Всего ∞ в обороте: ${{ steps.reserve.outputs.total }}
+          Покрытие: ${{ steps.reserve.outputs.ratio }} (порог ${LOW_RATIO})
+
+          Требуется РУЧНОЕ пополнение казначейства — авто-трансфер отключён намеренно (движение реальной крипты на mainnet необратимо).
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          fi
+          curl -fsS --max-time 15 \
+            -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            --data-urlencode text="${TEXT}"
+
+      - name: Alert in Telegram on excess reserve
+        if: steps.eval.outputs.status == 'high_excess'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            exit 0
+          fi
+          TEXT="🟡 Избыток резерва TC (информационно, действие не требуется)
+          Казначейство: ${{ steps.reserve.outputs.treasury }} TC
+          Всего ∞ в обороте: ${{ steps.reserve.outputs.total }}
+          Покрытие: ${{ steps.reserve.outputs.ratio }} (порог ${HIGH_RATIO})
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          curl -fsS --max-time 15 \
+            -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            --data-urlencode text="${TEXT}"

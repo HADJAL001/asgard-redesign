@@ -337,6 +337,31 @@ router.post('/withdraw', rateLimit(60_000, 10), requireAuth, async (req: Request
 
 // ========== ДОПОЛНИТЕЛЬНЫЕ РОУТЫ ==========
 
+/**
+ * GET /api/tc/reserve-status
+ * Публичный эндпоинт для мониторинга: сколько TC лежит в казначействе
+ * относительно всего ∞ в обращении (которое казначейство обязано покрывать
+ * 1:1). Используется внешним cron-скриптом мониторинга резерва.
+ */
+router.get('/reserve-status', async (req: Request, res: Response) => {
+  try {
+    const treasuryTc = await solanaService.getTreasuryBalance();
+    const row = db.prepare(`SELECT COALESCE(SUM(timecoin), 0) as total FROM wallets`).get() as { total: number };
+    const totalInfinity = row.total;
+    const ratio = totalInfinity > 0 ? treasuryTc / totalInfinity : null;
+
+    res.json({
+      treasuryTc,
+      totalInfinity,
+      ratio,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ error: msg });
+  }
+});
+
 // Роут для проверки баланса казны
 router.get('/treasury-balance', async (req: Request, res: Response) => {
   try {
