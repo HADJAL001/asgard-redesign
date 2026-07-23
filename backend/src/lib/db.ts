@@ -15,5 +15,10 @@ if (!fs.existsSync(dbDir)) {
 export const db = new DatabaseSync(dbPath)
 db.exec("PRAGMA journal_mode = WAL;")
 db.exec("PRAGMA foreign_keys = ON;")
+/* Безопасно для single-writer Node-процесса поверх WAL: при отказе ОС теряются
+   только последние несинхронизированные транзакции WAL-файла, при падении
+   самого процесса данные не теряются. Заметно снижает fsync-нагрузку на
+   горячих путях (ордербук, кошельки). */
+db.exec("PRAGMA synchronous = NORMAL;")
 
 export default db
