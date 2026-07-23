@@ -531,7 +531,7 @@ export interface OsgardStoreState {
   fetchTcBalance: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   /** POST /api/tc/withdraw — конвертирует ∞ в TC на Solana-адрес. Проверяет баланс перед запросом. nonce — текущий nonce пользователя (обязателен, защита от replay-атак; получить через GET /api/tc/nonce). */
   convertToTc: (amount: number, solanaAddress: string, nonce: number, twofaToken?: string) => Promise<{ success: boolean; txId?: string; error?: string }>
-  /** POST /wallet/convert-from-tc — принимает on-chain txSignature и зачисляет ∞. */
+  /** POST /api/tc/deposit — принимает on-chain txSignature и зачисляет ∞. */
   convertFromTc: (txSignature: string, amount: number) => Promise<{ success: boolean; error?: string }>
 
   /* ---- ШАГ 5: агрегированные и локальные хелперы ---- */

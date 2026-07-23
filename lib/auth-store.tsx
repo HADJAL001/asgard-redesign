@@ -25,6 +25,7 @@ export type User = {
   createdAt?: string | number
   role?: string
   banned?: boolean
+  twofaEnabled?: boolean
   githubPublishConnected?: boolean
   githubPublishUsername?: string | null
 }

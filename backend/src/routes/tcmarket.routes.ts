@@ -15,6 +15,12 @@ const router = Router()
 
 const EPS = 1e-9
 
+/* Верхний предел суммарной эмиссии ∞ через tc-market (state.minted), синхронизирован
+   с фронтендовой константой TC_TOTAL_CAP в lib/tc-market.ts. Ограничивает совокупный
+   объём когда-либо наминченного ∞ независимо от резерва казначейства (canEmitUnbacked
+   проверяет обеспеченность резервом, этот предел — отдельный продуктовый потолок эмиссии). */
+const TC_TOTAL_CAP = 2_100_000
+
 /* Насколько сильно рыночная (market) сделка двигает цену TC при отсутствии
    (или нехватке) встречных лимитных заявок — fallback-режим эмиссии/сжигания. */
 const PRICE_IMPACT_FACTOR = 0.00002
@@ -251,9 +257,15 @@ router.post("/buy", requireAuth, async (req: AuthRequest, res) => {
     const fallbackPrice = currentState.price
     const candidateMintTc = remainingUsd / fallbackPrice
 
-    if (await canEmitUnbacked(candidateMintTc)) {
-      mintTc = candidateMintTc
-      mintUsd = remainingUsd
+    // Частичное исполнение под потолком TC_TOTAL_CAP: если оставшегося "места" до
+    // потолка меньше, чем кандидат на минт, минтим только оставшееся место (и
+    // списываем/зачисляем пропорционально меньшую сумму), а не всё remainingUsd.
+    const capRemaining = Math.max(0, TC_TOTAL_CAP - currentState.minted)
+    const cappedMintTc = Math.min(candidateMintTc, capRemaining)
+
+    if (cappedMintTc > EPS && (await canEmitUnbacked(cappedMintTc))) {
+      mintTc = cappedMintTc
+      mintUsd = mintTc * fallbackPrice
       newPrice = Math.round(fallbackPrice * (1 + PRICE_IMPACT_FACTOR * mintTc) * 1e6) / 1e6
 
       const now = Date.now()

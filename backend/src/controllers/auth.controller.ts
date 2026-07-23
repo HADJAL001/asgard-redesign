@@ -10,6 +10,12 @@ import { canEmitUnbacked } from '../lib/emission-guard';
 
 const SOCIAL_PROVIDERS: SocialProvider[] = ['google', 'github'];
 
+/* Максимум вознаграждаемых рефералов на одного реферера — защита от фарма
+   ∞ через массовую регистрацию подставных аккаунтов по своей же реф-ссылке.
+   Сверх лимита реферал всё равно засчитывается (видим в статистике), но
+   без начисления +10 ∞. */
+const MAX_REFERRAL_REWARDS_PER_USER = 20;
+
 const changePasswordSchema = Joi.object({
   oldPassword: Joi.string().required(),
   newPassword: Joi.string().min(6).required()
@@ -88,14 +94,27 @@ export class AuthController {
       // будущее начисление.
       if (referredBy) {
         try {
-          const canEmit = await canEmitUnbacked(10);
-          if (canEmit) {
+          const { count: activeReferrals } = db.prepare(`
+            SELECT COUNT(*) as count FROM referrals WHERE referrer_id = ? AND status = 'active'
+          `).get(referredBy) as { count: number };
+
+          let status: 'active' | 'reserve_capped' | 'referral_cap_reached';
+          let rewardAmount = 0;
+
+          if (activeReferrals >= MAX_REFERRAL_REWARDS_PER_USER) {
+            status = 'referral_cap_reached';
+          } else if (await canEmitUnbacked(10)) {
             db.prepare(`UPDATE wallets SET timecoin = timecoin + 10 WHERE user_id = ?`).run(referredBy);
+            status = 'active';
+            rewardAmount = 10;
+          } else {
+            status = 'reserve_capped';
           }
+
           db.prepare(`
             INSERT OR IGNORE INTO referrals (referrer_id, referee_id, reward_amount, status)
             VALUES (?, ?, ?, ?)
-          `).run(referredBy, userId, canEmit ? 10 : 0, canEmit ? 'active' : 'reserve_capped');
+          `).run(referredBy, userId, rewardAmount, status);
         } catch (e) {
           // referrals таблица может не существовать
         }
@@ -260,7 +279,7 @@ export class AuthController {
       }
 
       const {
-        password_hash, twofa_secret, display_name, avatar_url,
+        password_hash, twofa_secret, twofa_enabled, display_name, avatar_url,
         github_publish_token_encrypted, github_publish_username, github_publish_connected_at,
         ...safeUser
       } = user;
@@ -270,6 +289,7 @@ export class AuthController {
           ...safeUser,
           displayName: display_name ?? null,
           avatarUrl: avatar_url ?? null,
+          twofaEnabled: Boolean(twofa_enabled),
           githubPublishConnected: Boolean(github_publish_token_encrypted),
           githubPublishUsername: github_publish_username ?? null,
         },

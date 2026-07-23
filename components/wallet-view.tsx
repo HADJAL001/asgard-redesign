@@ -96,6 +96,7 @@ export function WalletView() {
   })
   const [withdrawNotice, setWithdrawNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [withdrawBusy, setWithdrawBusy] = useState(false)
+  const [twofaToken, setTwofaToken] = useState("")
 
   // — модалка "Пополнить из TC" —
   const [depositOpen, setDepositOpen] = useState(false)
@@ -178,10 +179,11 @@ export function WalletView() {
       const nonceRes = await apiClient.get<{ nonce: number }>("/api/tc/nonce")
       const nonce: number = nonceRes.nonce
 
-      const res = await convertToTc(n, solanaAddr.trim(), nonce)
+      const res = await convertToTc(n, solanaAddr.trim(), nonce, twofaToken.trim() || undefined)
       if (res.success) {
         setWithdrawNotice({ ok: true, text: res.txId ? `Отправлено. tx: ${res.txId.slice(0, 12)}…` : "Запрос на вывод отправлен" })
         setWithdrawAmount("")
+        setTwofaToken("")
       } else {
         setWithdrawNotice({ ok: false, text: res.error ?? "Ошибка вывода" })
       }
@@ -591,6 +593,20 @@ export function WalletView() {
                   value={solanaAddr}
                   onChange={(e) => setSolanaAddr(e.target.value)}
                   placeholder="Адрес кошелька Solana"
+                  className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none"
+                  style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[13px]" style={{ color: COLORS.label }}>
+                  Код 2FA (если включена)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={twofaToken}
+                  onChange={(e) => setTwofaToken(e.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder="123456"
                   className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none"
                   style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
                 />

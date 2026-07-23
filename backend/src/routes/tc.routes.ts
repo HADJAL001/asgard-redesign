@@ -83,6 +83,32 @@ function checkWithdrawalLimits(userId: number, amount: number): { valid: boolean
   return { valid: true };
 }
 
+// Не более GLOBAL_DAILY_WITHDRAWAL_RATIO (20%) текущего баланса казны за сутки
+// суммарно по всем пользователям — защита от массового одновременного оттока
+// (в т.ч. если несколько аккаунтов скомпрометированы одновременно).
+const GLOBAL_DAILY_WITHDRAWAL_RATIO = 0.2;
+
+function checkGlobalDailyWithdrawalLimit(
+  amount: number,
+  treasuryBalance: number
+): { valid: boolean; error?: string } {
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const row = db.prepare(`
+    SELECT COALESCE(SUM(amount), 0) as totalAmount
+    FROM withdrawals
+    WHERE createdAt > ?
+  `).get(oneDayAgo.toISOString()) as unknown as DailyStats;
+
+  const cap = treasuryBalance * GLOBAL_DAILY_WITHDRAWAL_RATIO;
+  if (row.totalAmount + amount > cap) {
+    return {
+      valid: false,
+      error: `Global daily withdrawal cap reached (${GLOBAL_DAILY_WITHDRAWAL_RATIO * 100}% of treasury per day). Try again later.`,
+    };
+  }
+  return { valid: true };
+}
+
 // ========== ЭНДПОИНТ ПОЛУЧЕНИЯ NONCE ==========
 
 /**
@@ -276,6 +302,15 @@ router.post('/withdraw', rateLimit(60_000, 10), requireAuth, async (req: Request
       return res.status(400).json({
         error: 'Treasury temporarily low. Please try again later.'
       });
+    }
+
+    // 5b. Общесистемный дневной лимит оттока — не более X% текущего баланса
+    //     казны в сутки суммарно по всем пользователям.
+    const globalLimit = checkGlobalDailyWithdrawalLimit(amount, treasuryBalance);
+    if (!globalLimit.valid) {
+      refundDebit('global_daily_limit_exceeded');
+      logAudit(userId, 'rejected', amount, 'global_daily_limit_exceeded', { detail: globalLimit.error });
+      return res.status(429).json({ error: globalLimit.error });
     }
 
     // 6. Проверка баланса SOL на казне (для газа)
