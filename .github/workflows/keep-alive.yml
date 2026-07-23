@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping /api/health
-        run: curl -fsS --max-time 15 https://osgardnewworld.com/api/health
+        run: curl -fsS --max-time 15 https://osgardnewworld.com/api/health-telegram-alert-test
       - name: Alert in Telegram on failure
         if: failure()
         env:
