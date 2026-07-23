@@ -60,6 +60,10 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
   const [data, setData] = useState<AiUsageResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  /* Снимок "текущего времени" для расчёта resetLabel — обновляется раз в минуту,
+     этого достаточно для минутной/часовой/дневной гранулярности лейбла, вместо
+     прямого Date.now() в рендере (react-hooks/purity). */
+  const [now, setNow] = useState(() => Date.now())
 
   async function load(silent = false) {
     if (!silent) setLoading(true)
@@ -75,7 +79,12 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { Promise.resolve().then(() => load()) }, [])
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [])
 
   if (loading) {
     return (
@@ -93,7 +102,7 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
   const planLabel = PLAN_LABELS[data.plan] ?? data.plan
 
   /* Время сброса */
-  const minutesLeft = Math.max(0, Math.round((data.resetsAt - Date.now()) / 60_000))
+  const minutesLeft = Math.max(0, Math.round((data.resetsAt - now) / 60_000))
   const resetLabel =
     minutesLeft < 60
       ? `через ${minutesLeft} мин.`

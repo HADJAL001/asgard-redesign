@@ -46,19 +46,21 @@ export function ProjectFileEditor({ projectId }: Props) {
   const [saveFailure, setSaveFailure] = useState<string | null>(null)
 
   useEffect(() => {
-    setLoadingFiles(true)
+    Promise.resolve().then(() => setLoadingFiles(true))
     fetchProjectFiles(projectId, { skipAuthRedirect: true }).finally(() => setLoadingFiles(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
 
   useEffect(() => {
-    if (currentProjectFiles.length === 0) {
-      setSelectedPath(null)
-      return
-    }
-    if (!selectedPath || !currentProjectFiles.some((f) => f.path === selectedPath)) {
-      setSelectedPath(currentProjectFiles[0].path)
-    }
+    Promise.resolve().then(() => {
+      if (currentProjectFiles.length === 0) {
+        setSelectedPath(null)
+        return
+      }
+      if (!selectedPath || !currentProjectFiles.some((f) => f.path === selectedPath)) {
+        setSelectedPath(currentProjectFiles[0].path)
+      }
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProjectFiles])
 
@@ -68,10 +70,16 @@ export function ProjectFileEditor({ projectId }: Props) {
   )
 
   useEffect(() => {
-    setDraft(selectedFile?.content ?? "")
-    setSaveErrors([])
-    setSavedAt(null)
-    setSaveFailure(null)
+    Promise.resolve().then(() => {
+      setDraft(selectedFile?.content ?? "")
+      setSaveErrors([])
+      setSavedAt(null)
+      setSaveFailure(null)
+    })
+    // Намеренно только .path: сброс черновика нужен при переключении на другой файл,
+    // а не при любом обновлении .content (иначе фоновый рефетч мог бы затереть
+    // несохранённые правки пользователя).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFile?.path])
 
   const dirty = selectedFile !== null && draft !== selectedFile.content

@@ -49,7 +49,7 @@
 
 
 
-import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import { create } from "zustand"
 import { useAuth } from "@/lib/auth-store"
 import { apiClient, ApiError } from "@/lib/api-client"
@@ -1707,22 +1707,31 @@ export function OsgardStoreProvider({ children }: { children: ReactNode }) {
   const circulatingTC = real.tcPrice.circulating
   const marketCapUSD = circulatingTC * tcPriceNum
 
+  /* "Текущее время" для окон 24ч/30д — синхронизируется ровно с теми же
+     зависимостями, от которых и раньше пересчитывались эти useMemo (priceHistory/
+     trades/tcPriceNum), поэтому каданс пересчёта не меняется — только Date.now()
+     вынесен из тела мемо в эффект (react-hooks/purity). */
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    Promise.resolve().then(() => setNow(Date.now()))
+  }, [real.priceHistory, real.trades, tcPriceNum])
+
   const volume24hTC = useMemo(() => {
-    const from = Date.now() - DAY_MS
+    const from = now - DAY_MS
     return real.trades.filter((t) => t.ts >= from).reduce((s, t) => s + t.amount, 0)
-  }, [real.trades])
+  }, [real.trades, now])
 
   const change24h = useMemo(() => {
-    const from = Date.now() - DAY_MS
+    const from = now - DAY_MS
     const past = [...real.priceHistory].reverse().find((p) => p.ts <= from)
     return past ? pctChange(past.price, tcPriceNum) : 0
-  }, [real.priceHistory, tcPriceNum])
+  }, [real.priceHistory, tcPriceNum, now])
 
   const changeMonth = useMemo(() => {
-    const from = Date.now() - 30 * DAY_MS
+    const from = now - 30 * DAY_MS
     const past = [...real.priceHistory].reverse().find((p) => p.ts <= from)
     return past ? pctChange(past.price, tcPriceNum) : 0
-  }, [real.priceHistory, tcPriceNum])
+  }, [real.priceHistory, tcPriceNum, now])
 
   const orderBook = useMemo<OrderBook>(() => {
     const withTotal = (levels: { price: number; amount: number }[]): OrderRow[] => {

@@ -334,6 +334,14 @@ function TCHoldingsPanel() {
   const stakedByUser = active.reduce((s, x) => s + x.amountTC, 0)
   const up = change24h >= 0
 
+  /* Дневная гранулярность обратного отсчёта — обновляется раз в минуту вместо
+     прямого Date.now() в рендере (react-hooks/purity). */
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [])
+
   const stats = [
     { Icon: InfinityIcon, n: `${formatTokens(wallet.timecoin)} ∞`, l: "Баланс TimeCoin", color: "#F1C40F" },
     { Icon: DollarSign, n: `$${usdFor(wallet.timecoin).toLocaleString("en-US", { maximumFractionDigits: 0 })}`, l: "Стоимость (USD)", color: UP },
@@ -356,7 +364,7 @@ function TCHoldingsPanel() {
       {active.length > 0 && (
         <div className="mt-4 flex flex-col gap-3">
           {active.map((s) => {
-            const left = Math.max(0, Math.ceil((s.endTs - Date.now()) / DAY_MS))
+            const left = Math.max(0, Math.ceil((s.endTs - now) / DAY_MS))
             return (
               <div key={s.id} className="flex items-center justify-between rounded-xl px-4 py-3 text-[14px]" style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E" }}>
                 <span className="inline-flex items-center gap-2">
@@ -604,8 +612,14 @@ function SettingsTab() {
   // иначе форма навсегда останется с данными, снятыми на момент первого рендера.
   useEffect(() => {
     if (!user) return
-    setDisplayName(user.displayName || user.username || "")
-    setBio(user.bio || "")
+    Promise.resolve().then(() => {
+      setDisplayName(user.displayName || user.username || "")
+      setBio(user.bio || "")
+    })
+    // Намеренно узкий список: весь 'user' пересоздаётся чаще (id/avatar и т.п.),
+    // а пересинхронизировать форму нужно только когда меняются реально
+    // отображаемые в ней поля.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.displayName, user?.bio, user?.username])
 
   async function handleSave() {

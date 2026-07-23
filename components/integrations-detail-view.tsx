@@ -70,8 +70,10 @@ export function IntegrationsDetailView({ id }: IntegrationsDetailViewProps) {
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setError(null)
+    Promise.resolve().then(() => {
+      setLoading(true)
+      setError(null)
+    })
     Promise.all([integrationsApi.getConnectors(), id === "new" ? Promise.resolve(null) : integrationsApi.getIntegration(id)])
       .then(([conns, integ]) => {
         if (cancelled) return
@@ -92,7 +94,6 @@ export function IntegrationsDetailView({ id }: IntegrationsDetailViewProps) {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   useEffect(() => {

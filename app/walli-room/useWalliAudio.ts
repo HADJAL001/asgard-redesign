@@ -4,7 +4,6 @@ import { useRef, useCallback } from 'react'
 
 // ─── Web Audio API хук для ВАЛЛИ ─────────────────────────────────────────────
 export function useWalliAudio() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ctxRef = useRef<any>(null)
 
   // Ленивая инициализация AudioContext (требует пользовательского жеста)
@@ -12,7 +11,6 @@ export function useWalliAudio() {
     if (typeof window === 'undefined') return null
     if (!ctxRef.current) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const AC = (window as any).AudioContext || (window as any).webkitAudioContext
         if (AC) ctxRef.current = new AC()
       } catch {

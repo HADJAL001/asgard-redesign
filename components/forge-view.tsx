@@ -15,7 +15,7 @@ function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false)
   useEffect(() => {
     const mql = window.matchMedia("(prefers-reduced-motion: reduce)")
-    setReduced(mql.matches)
+    Promise.resolve().then(() => setReduced(mql.matches))
     const onChange = (e: MediaQueryListEvent) => setReduced(e.matches)
     mql.addEventListener("change", onChange)
     return () => mql.removeEventListener("change", onChange)
@@ -136,8 +136,9 @@ export function ForgeView() {
   }
 
   useEffect(() => {
+    const timers = flashTimers.current
     return () => {
-      Object.values(flashTimers.current).forEach((id) => clearTimeout(id))
+      Object.values(timers).forEach((id) => clearTimeout(id))
     }
   }, [])
 

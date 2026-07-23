@@ -417,7 +417,7 @@ router.post('/withdraw', rateLimit(60_000, 10), requireAuth, async (req: Request
  * относительно всего ∞ в обращении (которое казначейство обязано покрывать
  * 1:1). Используется внешним cron-скриптом мониторинга резерва.
  */
-router.get('/reserve-status', async (req: Request, res: Response) => {
+router.get('/reserve-status', rateLimit(60_000, 20), async (req: Request, res: Response) => {
   try {
     const treasuryTc = await solanaService.getTreasuryBalance();
     const row = db.prepare(`SELECT COALESCE(SUM(timecoin), 0) as total FROM wallets`).get() as { total: number };
@@ -437,7 +437,7 @@ router.get('/reserve-status', async (req: Request, res: Response) => {
 });
 
 // Роут для проверки баланса казны
-router.get('/treasury-balance', async (req: Request, res: Response) => {
+router.get('/treasury-balance', rateLimit(60_000, 20), async (req: Request, res: Response) => {
   try {
     const balance = await solanaService.getTreasuryBalance();
     const solConnection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');

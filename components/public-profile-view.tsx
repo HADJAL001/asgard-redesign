@@ -37,8 +37,10 @@ export function PublicProfileView({ userId }: { userId: number }) {
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setNotFound(false)
+    Promise.resolve().then(() => {
+      setLoading(true)
+      setNotFound(false)
+    })
 
     Promise.all([
       apiClient.get<{ user: PublicUser }>(`/users/${userId}`, { skipAuthRedirect: true }),

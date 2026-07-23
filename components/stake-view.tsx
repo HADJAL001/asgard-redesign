@@ -31,8 +31,8 @@ import { useTranslation } from "@/lib/i18n/use-translation"
 
 const PURPLE = "#9B59B6"
 
-function daysLeft(endTs: number): number {
-  return Math.max(0, Math.ceil((endTs - Date.now()) / DAY_MS))
+function daysLeft(endTs: number, now: number): number {
+  return Math.max(0, Math.ceil((endTs - now) / DAY_MS))
 }
 
 export function StakeView() {
@@ -45,6 +45,13 @@ export function StakeView() {
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [unstakingId, setUnstakingId] = useState<number | string | null>(null)
+  /* Дневная гранулярность прогресс-бара/обратного отсчёта — обновляется раз в
+     минуту вместо прямого Date.now() в рендере (react-hooks/purity). */
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [])
 
   useEffect(() => {
     fetchStakes({ skipAuthRedirect: true })
@@ -276,9 +283,9 @@ export function StakeView() {
               ) : (
                 <ul className="mt-4 space-y-3">
                   {active.map((s) => {
-                    const left = daysLeft(s.endTs)
+                    const left = daysLeft(s.endTs, now)
                     const totalMs = Math.max(1, s.endTs - s.startTs)
-                    const progress = Math.min(100, Math.max(0, ((totalMs - (s.endTs - Date.now())) / totalMs) * 100))
+                    const progress = Math.min(100, Math.max(0, ((totalMs - (s.endTs - now)) / totalMs) * 100))
                     const isUnstaking = unstakingId === s.id
                     return (
                       <li key={s.id} className="rounded-lg p-4" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}` }}>

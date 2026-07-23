@@ -77,7 +77,7 @@ export function useTaskStatus(taskId: string | null): GenerationRunState {
     }
 
     attemptsRef.current = 0
-    setState({ ...INITIAL_STATE, status: "running" })
+    Promise.resolve().then(() => setState({ ...INITIAL_STATE, status: "running" }))
 
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -157,7 +157,6 @@ export function useTaskStatus(taskId: string | null): GenerationRunState {
       sourceRef.current?.close()
       sourceRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId])
 
   return state

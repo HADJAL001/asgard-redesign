@@ -133,12 +133,12 @@ export function JarvisChat() {
 
   /* Восстановление режима ответа из localStorage при монтировании */
   useEffect(() => {
-    setReplyMode(loadReplyMode())
+    Promise.resolve().then(() => setReplyMode(loadReplyMode()))
   }, [])
 
   /* Режим личности: мгновенно из кэша, затем сверяемся с сервером (GET /jarvis/personality). */
   useEffect(() => {
-    setPersonalityMode(loadPersonalityModeFromCache())
+    Promise.resolve().then(() => setPersonalityMode(loadPersonalityModeFromCache()))
     fetchPersonalityFromServer().then((mode) => {
       if (mode) setPersonalityMode(mode)
     })
@@ -146,7 +146,7 @@ export function JarvisChat() {
 
   /* Голосовой стиль: локальный кэш + проверка, настроен ли ElevenLabs на бэкенде (GET /jarvis/voice-styles). */
   useEffect(() => {
-    setVoiceStyle(loadVoiceStyleFromCache())
+    Promise.resolve().then(() => setVoiceStyle(loadVoiceStyleFromCache()))
     fetchVoiceStylesFromServer().then((res) => {
       if (res) setPremiumVoiceConfigured(res.configured)
     })
@@ -164,7 +164,7 @@ export function JarvisChat() {
         соседней вкладке), аватар в чате перерисуется без перезагрузки.
      ---------------------------------------------------------------- */
   useEffect(() => {
-    setEquipment(loadEquipmentFromCache())
+    Promise.resolve().then(() => setEquipment(loadEquipmentFromCache()))
     fetchEquipmentFromServer().then(setEquipment)
 
     const unsubscribe = subscribeToEquipmentChanges((next) => setEquipment(next))

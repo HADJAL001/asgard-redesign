@@ -12,6 +12,11 @@
 import { API_BASE_URL } from "./api-client"
 
 const SESSION_KEY = "osgard_analytics_session"
+/* 30 дней — совпадает с дефолтным окном ?days= в paywall-воронке админки
+   (AdminController.paywallFunnel). Без TTL один и тот же session_id мог жить
+   в localStorage годами, склеивая в один "визит" события, разделённые
+   месяцами, и искажая funnel/decision-time метрики. */
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
 function generateId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID()
@@ -21,11 +26,15 @@ function generateId(): string {
 export function getAnalyticsSessionId(): string {
   if (typeof window === "undefined") return "server"
   try {
-    let id = localStorage.getItem(SESSION_KEY)
-    if (!id) {
-      id = generateId()
-      localStorage.setItem(SESSION_KEY, id)
+    const raw = localStorage.getItem(SESSION_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as { id?: string; createdAt?: number }
+      if (parsed?.id && typeof parsed.createdAt === "number" && Date.now() - parsed.createdAt < SESSION_TTL_MS) {
+        return parsed.id
+      }
     }
+    const id = generateId()
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ id, createdAt: Date.now() }))
     return id
   } catch {
     return generateId()

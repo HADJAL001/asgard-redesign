@@ -173,22 +173,26 @@ function WristProjectorAccessory() {
   )
 }
 
+/** Генерирует случайные позиции точек на сфере — вынесено из компонента,
+ *  чтобы Math.random() не считался вызовом impure-функции прямо в рендере
+ *  (react-hooks/purity); результат всё равно мемоизируется один раз на монтирование. */
+function generateParticlePositions(count: number): Float32Array {
+  const arr = new Float32Array(count * 3)
+  for (let i = 0; i < count; i++) {
+    const r = 1.6 + Math.random() * 0.6
+    const theta = Math.random() * Math.PI * 2
+    const phi = Math.acos(2 * Math.random() - 1)
+    arr[i * 3] = r * Math.sin(phi) * Math.cos(theta)
+    arr[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
+    arr[i * 3 + 2] = r * Math.cos(phi)
+  }
+  return arr
+}
+
 /** Частицы данных — облако мелких точек вокруг ядра. */
 function DataParticlesAccessory() {
   const ref = useRef<THREE.Points>(null)
-  const positions = useMemo(() => {
-    const count = 120
-    const arr = new Float32Array(count * 3)
-    for (let i = 0; i < count; i++) {
-      const r = 1.6 + Math.random() * 0.6
-      const theta = Math.random() * Math.PI * 2
-      const phi = Math.acos(2 * Math.random() - 1)
-      arr[i * 3] = r * Math.sin(phi) * Math.cos(theta)
-      arr[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
-      arr[i * 3 + 2] = r * Math.cos(phi)
-    }
-    return arr
-  }, [])
+  const positions = useMemo(() => generateParticlePositions(120), [])
 
   useFrame((_, delta) => {
     if (ref.current) ref.current.rotation.y += delta * 0.12

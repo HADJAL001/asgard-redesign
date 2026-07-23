@@ -63,7 +63,9 @@ export default function JarvisShopPage() {
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [filter, setFilter] = useState<AccessoryType | "all">("all")
   /* Текущая экипировка ДЖАРВИСА — для мгновенного превью 3D-аватара прямо в магазине. */
-  const [equipment, setEquipment] = useState<JarvisEquipment>(EMPTY_EQUIPMENT)
+  const [equipment, setEquipment] = useState<JarvisEquipment>(() =>
+    typeof window === "undefined" ? EMPTY_EQUIPMENT : loadEquipmentFromCache(),
+  )
 
   async function loadShop() {
     setLoading(true)
@@ -78,8 +80,7 @@ export default function JarvisShopPage() {
   }
 
   useEffect(() => {
-    setEquipment(loadEquipmentFromCache())
-    loadShop()
+    Promise.resolve().then(loadShop)
   }, [])
 
 

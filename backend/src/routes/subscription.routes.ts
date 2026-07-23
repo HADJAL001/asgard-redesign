@@ -10,6 +10,7 @@ import stripe, {
   PlanKey,
 } from "../lib/stripe"
 import { asyncHandler } from "../utils/async-handler"
+import { rateLimit } from "../middleware/rateLimiter"
 import { captureError } from "../lib/sentry"
 import { logAudit } from "../lib/audit"
 import { getGenerationLimit, getGenerationUsage } from "../lib/generationsQuota"
@@ -204,6 +205,39 @@ function planFromPriceId(priceId: string | null | undefined): PlanKey | null {
   return null
 }
 
+/* Создание Stripe Customer сериализовано на пользователя: без этого два
+   параллельных запроса (напр. двойной клик по "Оформить" или create-checkout +
+   extra-package одновременно) оба видят stripe_customer_id === null, оба создают
+   отдельного Stripe Customer, и upsertSubscription одного из них перезаписывает
+   другой — второй клиент остаётся в Stripe осиротевшим. Цепочка промисов на
+   userId гарантирует, что вторая попытка дождётся первой и увидит уже
+   записанный customerId, не создавая лишнего. */
+const customerCreationLocks = new Map<number, Promise<unknown>>()
+
+async function getOrCreateStripeCustomer(
+  userId: number,
+  user: { email?: string | null; username: string },
+): Promise<string> {
+  const existing = getSubscription(userId)?.stripe_customer_id
+  if (existing) return existing
+
+  const prior = customerCreationLocks.get(userId) ?? Promise.resolve()
+  const task = prior.catch(() => {}).then(async () => {
+    const fresh = getSubscription(userId)?.stripe_customer_id
+    if (fresh) return fresh
+
+    const customer = await stripe!.customers.create({
+      email: user.email || undefined,
+      name: user.username,
+      metadata: { userId: String(userId) },
+    })
+    upsertSubscription(userId, { stripe_customer_id: customer.id })
+    return customer.id
+  })
+  customerCreationLocks.set(userId, task)
+  return task as Promise<string>
+}
+
 /* ================================================================
    requirePlan(plan) — middleware проверки доступа по плану подписки.
 
@@ -249,7 +283,7 @@ export function requirePlan(requiredPlan: PlanKey) {
    mock-режиме: сразу активирует подписку локально на 30 дней и
    возвращает { mock: true, subscription } без реального url Stripe.
    ================================================================ */
-router.post("/create-checkout", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+router.post("/create-checkout", rateLimit(60_000, 10), requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const { plan, session_id } = req.body || {}
   const analyticsSessionId = typeof session_id === "string" ? session_id : undefined
 
@@ -311,18 +345,7 @@ router.post("/create-checkout", requireAuth, asyncHandler(async (req: AuthReques
       .get(userId)
     if (!user) return res.status(404).json({ error: "Пользователь не найден", code: "USER_NOT_FOUND" })
 
-    let existingSub = getSubscription(userId)
-    let customerId = existingSub?.stripe_customer_id || undefined
-
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email || undefined,
-        name: user.username,
-        metadata: { userId: String(userId) },
-      })
-      customerId = customer.id
-      upsertSubscription(userId, { stripe_customer_id: customerId })
-    }
+    const customerId = await getOrCreateStripeCustomer(userId, user)
 
     /* Предлагаем триал только если пользователь ещё не использовал его на этот план */
     const trialEligible = !hasUsedTrial(userId, plan)
@@ -338,6 +361,10 @@ router.post("/create-checkout", requireAuth, asyncHandler(async (req: AuthReques
         metadata: { userId: String(userId), plan },
         ...(trialEligible ? { trial_period_days: TRIAL_DAYS } : {}),
       },
+      /* Подписка сразу приходит развёрнутым объектом в session.subscription внутри
+         webhook checkout.session.completed — без этого пришлось бы отдельным
+         синхронным вызовом stripe.subscriptions.retrieve() внутри обработчика. */
+      expand: ["subscription"],
     })
 
     res.status(200).json({
@@ -363,7 +390,7 @@ router.post("/create-checkout", requireAuth, asyncHandler(async (req: AuthReques
    Если Stripe не настроен — работает в mock-режиме: сразу зачисляет
    пакет в extra_credits и возвращает { mock: true }.
    ================================================================ */
-router.post("/extra-package", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+router.post("/extra-package", rateLimit(60_000, 10), requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const provider = req.body?.provider as AiProvider | undefined
 
   if (!provider || !EXTRA_PACKAGES[provider]) {
@@ -401,18 +428,7 @@ router.post("/extra-package", requireAuth, asyncHandler(async (req: AuthRequest,
     const user: any = db.prepare(`SELECT id, username, email FROM users WHERE id = ?`).get(userId)
     if (!user) return res.status(404).json({ error: "Пользователь не найден", code: "USER_NOT_FOUND" })
 
-    let existingSub = getSubscription(userId)
-    let customerId = existingSub?.stripe_customer_id || undefined
-
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email || undefined,
-        name: user.username,
-        metadata: { userId: String(userId) },
-      })
-      customerId = customer.id
-      upsertSubscription(userId, { stripe_customer_id: customerId })
-    }
+    const customerId = await getOrCreateStripeCustomer(userId, user)
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -451,7 +467,7 @@ router.post("/extra-package", requireAuth, asyncHandler(async (req: AuthRequest,
 
    body: { plan: 'pro' | 'supreme' | 'duo' | 'elite' }
    ================================================================ */
-router.post("/change-plan", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+router.post("/change-plan", rateLimit(60_000, 10), requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const { plan } = req.body || {}
 
   if (!PAID_PLANS.includes(plan)) {
@@ -620,8 +636,8 @@ router.post("/webhook", async (req, res) => {
         const plan = session.metadata?.plan as PlanKey | undefined
 
         if (userId && plan) {
-          const subscriptionId =
-            typeof session.subscription === "string" ? session.subscription : session.subscription?.id
+          const expandedSub = typeof session.subscription === "string" ? null : session.subscription
+          const subscriptionId = expandedSub?.id ?? (typeof session.subscription === "string" ? session.subscription : null)
 
           let periodStart: number | null = null
           let periodEnd: number | null = null
@@ -632,7 +648,11 @@ router.post("/webhook", async (req, res) => {
           let status = "active"
 
           if (subscriptionId) {
-            const stripeSub = await stripe.subscriptions.retrieve(subscriptionId)
+            /* create-checkout/start-trial создают сессию с expand: ['subscription'],
+               поэтому session.subscription — уже полный объект, без отдельного
+               синхронного вызова stripe.subscriptions.retrieve() внутри вебхука.
+               Фолбэк на retrieve() — только для сессий, созданных до этого изменения. */
+            const stripeSub = expandedSub ?? (await stripe.subscriptions.retrieve(subscriptionId))
             periodStart = (stripeSub as any).current_period_start * 1000
             periodEnd = (stripeSub as any).current_period_end * 1000
             priceId = stripeSub.items.data[0]?.price?.id || null
@@ -712,6 +732,44 @@ router.post("/webhook", async (req, res) => {
         break
       }
 
+      /* Успешное списание рекуррентного платежа (продление подписки). Первый инвойс
+         подписки (billing_reason === 'subscription_create') пропускаем — он уже
+         записан в transactions внутри checkout.session.completed, иначе задвоили бы
+         запись. Без этого обработчика продления вообще не попадали в transactions/
+         audit — только первоначальная покупка. */
+      case "invoice.paid":
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object
+        if (invoice.billing_reason === "subscription_create") break
+
+        const subscriptionId =
+          typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id
+        const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id
+
+        const subRow = subscriptionId
+          ? (db
+              .prepare(`SELECT user_id, plan FROM subscriptions WHERE stripe_subscription_id = ?`)
+              .get(subscriptionId) as { user_id: number; plan: string } | undefined)
+          : customerId
+            ? (db
+                .prepare(`SELECT user_id, plan FROM subscriptions WHERE stripe_customer_id = ?`)
+                .get(customerId) as { user_id: number; plan: string } | undefined)
+            : undefined
+
+        if (subRow) {
+          db.prepare(
+            `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+             VALUES (?, 'subscription', ?, 'Stripe', ?, 'cash_usd', 'done')`,
+          ).run(subRow.user_id, `Продление подписки «${subRow.plan}»`, (invoice.amount_paid ?? 0) / 100)
+
+          logAudit(subRow.user_id, "credit", (invoice.amount_paid ?? 0) / 100, "subscription_renewed", {
+            plan: subRow.plan,
+            stripe_event_id: event.id,
+          })
+        }
+        break
+      }
+
       /* Списание рекуррентного платежа не прошло (карта отклонена/недостаточно средств).
          Доступ к платным функциям сам по себе уже блокируется requirePlan() как только
          customer.subscription.updated принесёт status='past_due'/'unpaid' (проверка
@@ -762,6 +820,11 @@ router.post("/webhook", async (req, res) => {
 
     res.json({ received: true })
   } catch (err: any) {
+    /* Обработка упала уже ПОСЛЕ того, как claim пометил event.id обработанным —
+       без отката этой отметки Stripe повторит доставку, но мы тут же ответим
+       { duplicate: true } и бизнес-логика никогда не выполнится. Удаляем claim,
+       чтобы ретрай от Stripe реально переобработал событие. */
+    db.prepare(`DELETE FROM stripe_events WHERE id = ?`).run(event.id)
     captureError("[subscription/webhook] Handler error:", err)
     res.status(500).json({ error: err.message || "Ошибка обработки webhook" })
   }
@@ -859,7 +922,7 @@ router.get("/ai-usage", requireAuth, asyncHandler(async (req: AuthRequest, res) 
    Если Stripe не настроен или stripe_subscription_id отсутствует —
    помечаем cancel_at_period_end локально в БД (mock-режим).
    ================================================================ */
-router.post("/cancel", requireAuth, async (req: AuthRequest, res) => {
+router.post("/cancel", rateLimit(60_000, 10), requireAuth, async (req: AuthRequest, res) => {
   const userId = req.user!.userId
   const sub = getSubscription(userId)
 
@@ -932,7 +995,7 @@ router.get("/trial-status", requireAuth, (req: AuthRequest, res) => {
    Каждый пользователь может использовать триал только 1 раз
    на каждый платный план.
    ================================================================ */
-router.post("/start-trial", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+router.post("/start-trial", rateLimit(60_000, 10), requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const { plan } = req.body || {}
 
   if (!PAID_PLANS.includes(plan)) {
@@ -1003,18 +1066,7 @@ router.post("/start-trial", requireAuth, asyncHandler(async (req: AuthRequest, r
     const user: any = db.prepare(`SELECT id, username, email FROM users WHERE id = ?`).get(userId)
     if (!user) return res.status(404).json({ error: "Пользователь не найден", code: "USER_NOT_FOUND" })
 
-    let existingSub = getSubscription(userId)
-    let customerId = existingSub?.stripe_customer_id || undefined
-
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email || undefined,
-        name: user.username,
-        metadata: { userId: String(userId) },
-      })
-      customerId = customer.id
-      upsertSubscription(userId, { stripe_customer_id: customerId })
-    }
+    const customerId = await getOrCreateStripeCustomer(userId, user)
 
     /* Checkout с привязкой карты + триал. Оплата спишется после 7 дней.
        trial_history заполняется в webhook checkout.session.completed. */
@@ -1031,6 +1083,7 @@ router.post("/start-trial", requireAuth, asyncHandler(async (req: AuthRequest, r
       },
       /* Обязательная привязка карты при триале */
       payment_method_collection: "always",
+      expand: ["subscription"],
     })
 
     res.status(200).json({

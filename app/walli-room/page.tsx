@@ -21,10 +21,14 @@ export default function WalliRoom() {
   const audio = useWalliAudio()
   const econ  = useWalliEconomy()
 
+  // econ — новый объект на каждый рендер (не мемоизирован в useWalliEconomy),
+  // а эффекты ниже должны выполняться/создаваться ровно один раз на монтирование.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { econ.loadEconomy() }, [])
   useEffect(() => {
     const id = setInterval(() => econ.flushToServer(), 30000)
     return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const showMsg = useCallback((t: string, ms = 2000) => {
@@ -66,6 +70,7 @@ export default function WalliRoom() {
   // Three.js сцена
   useEffect(() => {
     if (!containerRef.current) return
+    const container = containerRef.current
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 4))
     renderer.shadowMap.enabled = true
@@ -228,8 +233,11 @@ export default function WalliRoom() {
       renderer.domElement.removeEventListener("pointerdown", onPointerDown)
       renderer.domElement.removeEventListener("pointerup", onPointerUp)
       audio.dispose(); renderer.dispose()
-      if (containerRef.current?.contains(renderer.domElement)) containerRef.current.removeChild(renderer.domElement)
+      if (container?.contains(renderer.domElement)) container.removeChild(renderer.domElement)
     }
+    // audio — новый объект на каждый рендер (не мемоизирован в useWalliAudio); вся
+    // тяжёлая инициализация Three.js-сцены должна выполняться один раз на монтирование.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showMsg])
 
   return (

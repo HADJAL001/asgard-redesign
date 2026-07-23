@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useRef } from "react"
+import { Suspense, useMemo, useRef } from "react"
 import { Canvas, useFrame, useLoader } from "@react-three/fiber"
 import { Environment, Lightformer, OrbitControls, Stars } from "@react-three/drei"
 import { TextureLoader, Mesh, SRGBColorSpace } from "three"
@@ -12,8 +12,16 @@ const GLOBE_RADIUS = 1.2
 
 /** Тот же премиальный стеклянный материал/подсветка, что и в globe-3d.tsx. */
 function PlatformGlobe({ globeRef }: { globeRef: React.RefObject<Mesh | null> }) {
-  const texture = useLoader(TextureLoader, "/images/globe-premium-4k.png")
-  texture.colorSpace = SRGBColorSpace
+  const rawTexture = useLoader(TextureLoader, "/images/globe-premium-4k.png")
+  // Клонируем текстуру и настраиваем colorSpace на клоне (свой объект, а не
+  // возвращённый хуком) — react-hooks/immutability запрещает мутировать значение
+  // из useLoader даже в эффекте. clone() не перезагружает изображение повторно.
+  const texture = useMemo(() => {
+    const t = rawTexture.clone()
+    t.colorSpace = SRGBColorSpace
+    t.needsUpdate = true
+    return t
+  }, [rawTexture])
 
   useFrame(() => {
     if (globeRef.current) {

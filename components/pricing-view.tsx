@@ -334,18 +334,28 @@ export function PricingView() {
      pricing_abandon) — см. lib/analytics.ts и AdminController.paywallFunnel.
      pricing_abandon шлём только если за визит не было ни одного клика по тарифу —
      иначе страница "отваливается" из воронки уже после того, как пользователь
-     ушёл оформлять оплату (это не abandon, а нормальный переход на Stripe). */
+     ушёл оформлять оплату (это не abandon, а нормальный переход на Stripe).
+
+     beforeunload одного не хватает: он не срабатывает при обычной SPA-навигации
+     через <Link> (страница не выгружается, компонент просто размонтируется) —
+     самый частый путь ухода — и ненадёжен в Safari на iOS (bfcache). Поэтому
+     дублируем через pagehide (переживает bfcache/закрытие вкладки) и через
+     cleanup самого эффекта (срабатывает при размонтировании на SPA-переходе). */
   useEffect(() => {
     track("pricing_view")
+    let abandonSent = false
 
-    function handleBeforeUnload() {
-      if (!clickedAnyPlanRef.current) {
-        track("pricing_abandon")
-      }
+    function sendAbandonOnce() {
+      if (abandonSent || clickedAnyPlanRef.current) return
+      abandonSent = true
+      track("pricing_abandon")
     }
 
-    window.addEventListener("beforeunload", handleBeforeUnload)
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+    window.addEventListener("pagehide", sendAbandonOnce)
+    return () => {
+      window.removeEventListener("pagehide", sendAbandonOnce)
+      sendAbandonOnce()
+    }
   }, [])
 
   async function handleSubscribe(plan: PlanDef) {
@@ -372,7 +382,7 @@ export function PricingView() {
         setCurrentPlan(plan.stripePlan)
         setNotice({ ok: true, text: `✅ Подписка «${plan.name}» активирована (dev-режим)` })
       } else if (res.url) {
-        window.location.href = res.url
+        window.location.assign(res.url)
       }
     } catch (err: any) {
       setNotice({ ok: false, text: err?.message || "Ошибка оформления подписки" })
@@ -426,7 +436,7 @@ export function PricingView() {
         await refreshAddonStatus()
         setAddonNotice({ ok: true, text: "✅ Premium-подписка активирована (dev-режим)" })
       } else if (res.url) {
-        window.location.href = res.url
+        window.location.assign(res.url)
       }
     } catch (err: any) {
       setAddonNotice({ ok: false, text: err?.message || "Ошибка оформления подписки" })

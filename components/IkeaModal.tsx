@@ -8,6 +8,7 @@
    Неоновое золотое свечение — ощущение "потери ценного".
    ================================================================ */
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Gift, Crown, Sparkles, Zap, Shield, ArrowRight, Clock } from "lucide-react"
 import { PremiumModal } from "./PremiumModal"
@@ -56,9 +57,17 @@ export function IkeaModal({ open, onClose, session, onContinueDemo }: IkeaModalP
   const totalArtifacts = session?.projects.reduce((s, p) => s + p.artifactCount, 0) ?? 0
   const projectCount = session?.projects.length ?? 0
 
-  /* Таймер до истечения сессии */
+  /* Таймер до истечения сессии — "текущее время" снимается на монтировании и
+     обновляется раз в минуту (часовая гранулярность лейбла), вместо прямого
+     Date.now() в рендере (react-hooks/purity). */
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [])
+
   const expiresAt = session?.expiresAt ?? 0
-  const hoursLeft = Math.max(0, Math.ceil((expiresAt - Date.now()) / 3600_000))
+  const hoursLeft = Math.max(0, Math.ceil((expiresAt - now) / 3600_000))
 
   return (
     <PremiumModal

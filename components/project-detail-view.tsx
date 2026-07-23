@@ -18,7 +18,7 @@
      отфильтровано по currentProjectArtifacts)
    ================================================================ */
 
-import { useEffect, useState } from "react"
+import { createElement, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   ArrowLeft, Hammer, Boxes, TrendingUp, Coins, Loader2, Trash2, Store, Archive, CheckCircle2,
@@ -79,6 +79,8 @@ export function ProjectDetailView({ projectId }: Props) {
   const [deploying, setDeploying] = useState(false)
   const [deployRequestError, setDeployRequestError] = useState<string | null>(null)
 
+  const badgeIconComponent = useMemo(() => badgeIcon(currentProject?.badge ?? ""), [currentProject?.badge])
+
   const STATUS_META: Record<ArtifactStatus, { label: string; color: string; Icon: typeof Store }> = {
     listed: { label: t("artifacts.statusListed"), color: "#00D4FF", Icon: Store },
     kept: { label: t("artifacts.statusKept"), color: "#6A6A8A", Icon: Archive },
@@ -96,9 +98,9 @@ export function ProjectDetailView({ projectId }: Props) {
     if (connected === null) return
     if (connected === "1") {
       refreshMe()
-      setPublishResult({ ok: true, message: t("projectDetail.githubConnected") })
+      Promise.resolve().then(() => setPublishResult({ ok: true, message: t("projectDetail.githubConnected") }))
     } else {
-      setPublishResult({ ok: false, message: t("projectDetail.githubConnectFailed") })
+      Promise.resolve().then(() => setPublishResult({ ok: false, message: t("projectDetail.githubConnectFailed") }))
     }
     router.replace(`/projects/${projectId}`)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -181,8 +183,6 @@ export function ProjectDetailView({ projectId }: Props) {
     )
   }
 
-  const BadgeIcon = badgeIcon(currentProject.badge)
-
   return (
     <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
       <Navbar />
@@ -205,7 +205,7 @@ export function ProjectDetailView({ projectId }: Props) {
         <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-4">
             <span className="flex size-14 items-center justify-center rounded-xl" style={{ border: `1px solid ${COLORS.accent}` }}>
-              <BadgeIcon size={26} strokeWidth={1.25} style={{ color: COLORS.accent }} />
+              {createElement(badgeIconComponent, { size: 26, strokeWidth: 1.25, style: { color: COLORS.accent } })}
             </span>
             <div>
               <h1 className="text-[28px] font-semibold leading-tight">{currentProject.name}</h1>

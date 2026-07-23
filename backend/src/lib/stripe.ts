@@ -16,6 +16,15 @@ dotenv.config()
 
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ""
 
+/* В проде боевой трафик не должен случайно уйти в Stripe test-mode (sk_test_...) —
+   ошибка в .env иначе тихо создавала бы реальным пользователям тестовые платежи,
+   которые никогда не спишутся. Падаем при старте, а не молча продолжаем. */
+if (process.env.NODE_ENV === "production" && STRIPE_SECRET_KEY && !STRIPE_SECRET_KEY.startsWith("sk_live_")) {
+  throw new Error(
+    "STRIPE_SECRET_KEY в production должен быть боевым ключом (sk_live_...), получен тестовый/невалидный ключ. См. docs/stripe-live-checklist.md"
+  )
+}
+
 export const stripe: Stripe | null = STRIPE_SECRET_KEY
   ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" as any })
   : null

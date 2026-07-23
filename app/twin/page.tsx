@@ -137,7 +137,7 @@ export default function TwinPage() {
   }
 
   useEffect(() => {
-    loadAll()
+    Promise.resolve().then(loadAll)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

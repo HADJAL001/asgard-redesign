@@ -155,14 +155,16 @@ export function EternityLanding() {
     { left: string; top: string; duration: string; delay: string }[]
   >([])
   useEffect(() => {
-    setParticles(
-      Array.from({ length: 40 }).map(() => ({
-        left: `${Math.random() * 100}vw`,
-        top: `${Math.random() * 100}vh`,
-        duration: `${Math.random() * 20 + 15}s`,
-        delay: `${Math.random() * 10}s`,
-      })),
-    )
+    Promise.resolve().then(() => {
+      setParticles(
+        Array.from({ length: 40 }).map(() => ({
+          left: `${Math.random() * 100}vw`,
+          top: `${Math.random() * 100}vh`,
+          duration: `${Math.random() * 20 + 15}s`,
+          delay: `${Math.random() * 10}s`,
+        })),
+      )
+    })
   }, [])
 
   // Animated counter → 12 847

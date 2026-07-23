@@ -38,6 +38,7 @@ export class SolanaService {
   async sendTokens(toAddress: string, amount: number): Promise<string> {
     const { wallet, mint } = this.requireWallet();
     const toPublicKey = new PublicKey(toAddress);
+    const mintInfo = await getMint(this.connection, mint);
 
     const fromTokenAccount = await getOrCreateAssociatedTokenAccount(
       this.connection,
@@ -60,7 +61,7 @@ export class SolanaService {
       fromTokenAccount.address,
       toTokenAccount.address,
       wallet.publicKey,
-      amount * 10 ** 9
+      amount * 10 ** mintInfo.decimals
     );
 
     await this.connection.confirmTransaction(signature, 'confirmed');

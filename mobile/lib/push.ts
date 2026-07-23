@@ -40,10 +40,16 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   }
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-  const tokenResponse = await Notifications.getExpoPushTokenAsync(
-    projectId ? { projectId } : undefined,
-  );
-  return tokenResponse.data;
+  try {
+    const tokenResponse = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined,
+    );
+    return tokenResponse.data;
+  } catch {
+    // Нет EAS project id / нет сети до push-сервиса — считаем, что пуши недоступны,
+    // а не роняем весь вызов (setupPushNotifications вызывается fire-and-forget).
+    return null;
+  }
 }
 
 export async function registerPushTokenWithBackend(token: string) {

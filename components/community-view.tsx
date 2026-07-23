@@ -115,7 +115,7 @@ export function CommunityView() {
   }, [])
 
   useEffect(() => {
-    loadPosts()
+    Promise.resolve().then(() => loadPosts())
   }, [loadPosts])
 
   /* Ctrl+N (см. хук хоткеев) редиректит сюда с ?new=1 — сразу открываем модалку */
@@ -123,7 +123,7 @@ export function CommunityView() {
     if (typeof window === "undefined") return
     const params = new URLSearchParams(window.location.search)
     if (params.get("new") === "1") {
-      if (isAuthenticated) setCreating(true)
+      if (isAuthenticated) Promise.resolve().then(() => setCreating(true))
       window.history.replaceState(null, "", window.location.pathname)
     }
   }, [isAuthenticated])

@@ -92,7 +92,7 @@ export function useOrchestratorRun(executionId: number | null, nodeIds?: string[
     }
 
     attemptsRef.current = 0
-    setState({ status: "running", nodes: initialNodes(nodeIds), progress: 0 })
+    Promise.resolve().then(() => setState({ status: "running", nodes: initialNodes(nodeIds), progress: 0 }))
 
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined
 

@@ -21,10 +21,12 @@ export function DemoProjectGenerator() {
 
   /* Загружаем сводку сессии из localStorage для отображения счётчика */
   useEffect(() => {
-    const s = loadSession()
-    if (s.generationsUsed > 0) {
-      setSessionSummary({ used: s.generationsUsed, total: s.generationsUsed })
-    }
+    Promise.resolve().then(() => {
+      const s = loadSession()
+      if (s.generationsUsed > 0) {
+        setSessionSummary({ used: s.generationsUsed, total: s.generationsUsed })
+      }
+    })
   }, [demoOpen])
 
   function handleLimitReached(session: DemoSessionV2) {

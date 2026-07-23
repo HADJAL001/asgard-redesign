@@ -122,7 +122,7 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
   // Загружаем квоту при монтировании и после каждого запуска
   useEffect(() => {
     if (currentChainId === "new") return
-    setQuotaLoading(true)
+    Promise.resolve().then(() => setQuotaLoading(true))
     orchestratorApi
       .getRemainingQuota()
       .then(setQuota)
@@ -141,15 +141,19 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
   // Триггер для выбранного узла webhook_trigger — грузим при смене выделения (цепочка должна быть уже сохранена).
   useEffect(() => {
     if (!selectedNode || selectedNode.data.type !== "webhook_trigger" || currentChainId === "new") {
-      setWebhookTrigger(null)
+      Promise.resolve().then(() => setWebhookTrigger(null))
       return
     }
-    setWebhookLoading(true)
+    Promise.resolve().then(() => setWebhookLoading(true))
     orchestratorApi
       .getWebhookTrigger(currentChainId, selectedNode.id)
       .then(setWebhookTrigger)
       .catch(() => setWebhookTrigger(null))
       .finally(() => setWebhookLoading(false))
+    // Намеренно узкий список: selectedNode — нестабильная ссылка (пересоздаётся на
+    // каждом рендере через .find()), полная зависимость дёргала бы запрос на каждый
+    // ре-рендер, а не только при смене узла.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNode?.id, selectedNode?.data.type, currentChainId])
 
   const onConnect = useCallback(
@@ -329,13 +333,14 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
   }
 
   const handleRunRef = useRef(handleRun)
-  handleRunRef.current = handleRun
+  useEffect(() => {
+    handleRunRef.current = handleRun
+  })
 
   useEffect(() => {
     if (autoRun && currentChainId !== "new") {
       handleRunRef.current()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRun, currentChainId])
 
   const displayNodes = nodes.map((n) => {

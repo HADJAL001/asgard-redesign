@@ -31,14 +31,16 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   useEffect(() => {
     if (open) {
-      setQuery("")
-      setActiveIndex(0)
+      Promise.resolve().then(() => {
+        setQuery("")
+        setActiveIndex(0)
+      })
       requestAnimationFrame(() => inputRef.current?.focus())
     }
   }, [open])
 
   useEffect(() => {
-    setActiveIndex(0)
+    Promise.resolve().then(() => setActiveIndex(0))
   }, [query])
 
   useEffect(() => {

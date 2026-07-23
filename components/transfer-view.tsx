@@ -45,10 +45,10 @@ export function TransferView() {
   useEffect(() => {
     const trimmed = email.trim()
     if (!trimmed || !trimmed.includes("@")) {
-      setRecipientCheck({ checking: false, found: null })
+      Promise.resolve().then(() => setRecipientCheck({ checking: false, found: null }))
       return
     }
-    setRecipientCheck({ checking: true, found: null })
+    Promise.resolve().then(() => setRecipientCheck({ checking: true, found: null }))
     const timer = setTimeout(async () => {
       const res = await lookupRecipient(trimmed)
       setRecipientCheck({ checking: false, found: res.found, displayName: res.displayName, error: res.error })

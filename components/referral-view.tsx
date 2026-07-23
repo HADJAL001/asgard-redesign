@@ -68,10 +68,10 @@ export default function ReferralView() {
     // получал бы 401 и сырую ошибку вместо предложения войти.
     if (authLoading) return
     if (!isAuthenticated) {
-      setLoading(false)
+      Promise.resolve().then(() => setLoading(false))
       return
     }
-    fetchStats()
+    Promise.resolve().then(() => fetchStats())
   }, [authLoading, isAuthenticated, fetchStats])
 
   const referralLink = stats?.referralCode

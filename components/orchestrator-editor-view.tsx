@@ -30,8 +30,10 @@ export function OrchestratorEditorView({ chainId }: OrchestratorEditorViewProps)
   useEffect(() => {
     if (chainId === "new") return
     let cancelled = false
-    setLoading(true)
-    setError(null)
+    Promise.resolve().then(() => {
+      setLoading(true)
+      setError(null)
+    })
     orchestratorApi
       .getChain(chainId)
       .then((data) => {

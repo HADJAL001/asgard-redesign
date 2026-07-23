@@ -42,7 +42,7 @@ export function ExtraPackagePurchase() {
 
   useEffect(() => {
     if (!user) {
-      setLoadingPlan(false)
+      Promise.resolve().then(() => setLoadingPlan(false))
       return
     }
     apiClient
@@ -60,12 +60,14 @@ export function ExtraPackagePurchase() {
     if (!status) return
 
     const provider = params.get("provider") as AiProvider | null
-    setNotice({
-      ok: status === "success",
-      text:
-        status === "success"
-          ? `✅ Пакет «${provider ? PACKAGE_LABELS[provider] ?? provider : ""}» успешно куплен`
-          : "Покупка пакета отменена",
+    Promise.resolve().then(() => {
+      setNotice({
+        ok: status === "success",
+        text:
+          status === "success"
+            ? `✅ Пакет «${provider ? PACKAGE_LABELS[provider] ?? provider : ""}» успешно куплен`
+            : "Покупка пакета отменена",
+      })
     })
 
     params.delete("extra_package")
@@ -82,7 +84,7 @@ export function ExtraPackagePurchase() {
       if (res.mock) {
         setNotice({ ok: true, text: `✅ Пакет «${PACKAGE_LABELS[provider]}» зачислен (dev-режим)` })
       } else if (res.url) {
-        window.location.href = res.url
+        window.location.assign(res.url)
       }
     } catch (err: any) {
       setNotice({ ok: false, text: err?.message || "Ошибка покупки пакета" })

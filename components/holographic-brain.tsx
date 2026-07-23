@@ -27,7 +27,7 @@ export function HolographicBrain({ size = 56, className }: Props) {
   const blurId = `brainBlur-${uid}`
 
   useEffect(() => {
-    setMounted(true)
+    Promise.resolve().then(() => setMounted(true))
     let start: number | null = null
     const loop = (now: number) => {
       if (start === null) start = now

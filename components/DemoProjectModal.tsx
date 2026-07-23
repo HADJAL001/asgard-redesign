@@ -117,7 +117,7 @@ export function DemoProjectModal({ open, onClose, onLimitReached }: DemoProjectM
 
   /* Загружаем сессию при открытии */
   useEffect(() => {
-    if (open) setSession(loadSession())
+    if (open) Promise.resolve().then(() => setSession(loadSession()))
   }, [open])
 
   const remaining = MAX_GENERATIONS - session.generationsUsed

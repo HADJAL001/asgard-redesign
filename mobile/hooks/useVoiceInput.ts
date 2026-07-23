@@ -109,7 +109,13 @@ export function useVoiceInput(onResult: (transcript: string) => void) {
 
   const start = useCallback(async () => {
     setError(null);
-    const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    let granted = false;
+    try {
+      ({ granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync());
+    } catch {
+      setError('Не удалось запросить доступ к микрофону.');
+      return;
+    }
     if (!granted) {
       setError('Нет доступа к микрофону. Разрешите доступ в настройках устройства.');
       return;

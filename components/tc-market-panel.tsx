@@ -116,6 +116,10 @@ export function TCMarketPanel() {
   const [limitPrice, setLimitPrice] = useState<string>("")
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null)
+  /* "Текущее время" для окон 24ч/30д — снимается на монтировании и обновляется
+     тем же интервалом, что и остальные рыночные данные (см. эффект polling'а
+     ниже), вместо прямого Date.now() в рендере/useMemo (react-hooks/purity). */
+  const [now, setNow] = useState(() => Date.now())
 
   /* ---- начальная загрузка + polling ----
      skipAuthRedirect: транзитная ошибка (сеть/холодный старт) во время фонового
@@ -132,6 +136,7 @@ export function TCMarketPanel() {
       fetchTcState(opts)
       fetchOrderBook(opts)
       fetchTrades(opts)
+      setNow(Date.now())
     }, POLL_MS)
 
     return () => clearInterval(id)
@@ -143,49 +148,55 @@ export function TCMarketPanel() {
   const chartData = candles.map((c) => ({ label: c.label, price: c.c }))
 
   const change24h = useMemo(() => {
-    const from = Date.now() - DAY_MS
+    const from = now - DAY_MS
     const past = [...priceHistory].reverse().find((p) => p.ts <= from)
     return past ? pctChange(past.price, price) : 0
-  }, [priceHistory, price])
+  }, [priceHistory, price, now])
   const up24 = change24h >= 0
 
   const changeMonth = useMemo(() => {
-    const from = Date.now() - 30 * DAY_MS
+    const from = now - 30 * DAY_MS
     const past = [...priceHistory].reverse().find((p) => p.ts <= from)
     return past ? pctChange(past.price, price) : 0
-  }, [priceHistory, price])
+  }, [priceHistory, price, now])
 
   const volume24hTC = useMemo(() => {
-    const from = Date.now() - DAY_MS
+    const from = now - DAY_MS
     return trades.filter((t) => t.ts >= from).reduce((s, t) => s + t.amount, 0)
-  }, [trades])
+  }, [trades, now])
 
   const marketCapUSD = tcPrice.circulating * price
 
   const maxTotal = useMemo(() => {
-    let bidTotal = 0
-    let askTotal = 0
-    const bidTotals = orderBook.bids.map((b) => (bidTotal += b.amount))
-    const askTotals = orderBook.asks.map((a) => (askTotal += a.amount))
+    const bidTotals = orderBook.bids.reduce<number[]>((acc, b) => {
+      const prev = acc.length > 0 ? acc[acc.length - 1] : 0
+      return [...acc, prev + b.amount]
+    }, [])
+    const askTotals = orderBook.asks.reduce<number[]>((acc, a) => {
+      const prev = acc.length > 0 ? acc[acc.length - 1] : 0
+      return [...acc, prev + a.amount]
+    }, [])
     return Math.max(...bidTotals, ...askTotals, 1)
   }, [orderBook])
 
   // накопленные total для стакана (бэкенд отдаёт только price/amount на уровень)
-  const bidRows = useMemo(() => {
-    let total = 0
-    return orderBook.bids.map((b) => {
-      total += b.amount
-      return { ...b, total }
-    })
-  }, [orderBook.bids])
+  const bidRows = useMemo(
+    () =>
+      orderBook.bids.reduce<Array<(typeof orderBook.bids)[number] & { total: number }>>((acc, b) => {
+        const prevTotal = acc.length > 0 ? acc[acc.length - 1].total : 0
+        return [...acc, { ...b, total: prevTotal + b.amount }]
+      }, []),
+    [orderBook],
+  )
 
-  const askRows = useMemo(() => {
-    let total = 0
-    return orderBook.asks.map((a) => {
-      total += a.amount
-      return { ...a, total }
-    })
-  }, [orderBook.asks])
+  const askRows = useMemo(
+    () =>
+      orderBook.asks.reduce<Array<(typeof orderBook.asks)[number] & { total: number }>>((acc, a) => {
+        const prevTotal = acc.length > 0 ? acc[acc.length - 1].total : 0
+        return [...acc, { ...a, total: prevTotal + a.amount }]
+      }, []),
+    [orderBook],
+  )
 
   const amountNum = Number(amount) || 0
   const limitPriceNum = Number(limitPrice) || 0

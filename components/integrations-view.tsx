@@ -9,7 +9,7 @@
    DELETE /integrations/:id        — удалить подключение
    ================================================================ */
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Plug, Plus, Trash2, Loader2, CheckCircle2, XCircle, MinusCircle } from "lucide-react"
 import { Navbar } from "./navbar"
@@ -29,11 +29,7 @@ export function IntegrationsView() {
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
-  useEffect(() => {
-    load()
-  }, [])
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -50,7 +46,11 @@ export function IntegrationsView() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    Promise.resolve().then(() => load())
+  }, [load])
 
   async function handleDelete(id: number, e: React.MouseEvent) {
     e.stopPropagation()

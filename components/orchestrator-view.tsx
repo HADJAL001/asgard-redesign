@@ -9,7 +9,7 @@
    не плодить пустые записи, если пользователь передумает).
    ================================================================ */
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, GitBranch, Play, Pencil, Trash2, Loader2 } from "lucide-react"
 import { Navbar } from "./navbar"
@@ -28,11 +28,7 @@ export function OrchestratorView() {
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
-  useEffect(() => {
-    loadChains()
-  }, [])
-
-  async function loadChains() {
+  const loadChains = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -43,7 +39,11 @@ export function OrchestratorView() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [t])
+
+  useEffect(() => {
+    Promise.resolve().then(() => loadChains())
+  }, [loadChains])
 
   async function handleDelete(id: number, e: React.MouseEvent) {
     e.stopPropagation()

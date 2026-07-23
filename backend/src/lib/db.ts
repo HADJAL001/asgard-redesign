@@ -20,5 +20,10 @@ db.exec("PRAGMA foreign_keys = ON;")
    самого процесса данные не теряются. Заметно снижает fsync-нагрузку на
    горячих путях (ордербук, кошельки). */
 db.exec("PRAGMA synchronous = NORMAL;")
+/* Сколько ждать снятия блокировки от другой записывающей транзакции (BEGIN
+   IMMEDIATE), прежде чем бросить SQLITE_BUSY — актуально при параллельных
+   emission/withdrawal путях на одной SQLite-БД. Без этого таймаут = 0, т.е.
+   немедленный отказ при малейшей конкуренции. */
+db.exec("PRAGMA busy_timeout = 5000;")
 
 export default db

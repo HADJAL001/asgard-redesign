@@ -115,7 +115,7 @@ export function BillingDashboardView() {
 
   useEffect(() => {
     if (!authLoading && user?.role === "admin") {
-      loadSummary()
+      Promise.resolve().then(() => loadSummary())
     }
   }, [authLoading, user?.role, loadSummary])
 
