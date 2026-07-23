@@ -89,7 +89,14 @@ export default function CreateScreen() {
             />
           </View>
           <View className="items-end">
-            <VoiceInputButton isListening={voice.isListening} onPress={voice.isListening ? voice.stop : voice.start} error={voice.error} />
+            <VoiceInputButton
+              isListening={voice.isListening}
+              onPress={voice.isListening ? voice.stop : voice.start}
+              error={voice.error}
+              volume={voice.volume}
+              language={voice.language}
+              onCycleLanguage={voice.cycleLanguage}
+            />
           </View>
         </View>
 
