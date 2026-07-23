@@ -12,15 +12,54 @@ import stripe, {
 import { asyncHandler } from "../utils/async-handler"
 import { captureError } from "../lib/sentry"
 import { logAudit } from "../lib/audit"
-import { getAiUsage, AI_LIMITS_BY_PLAN } from "../lib/aiDailyUsage"
+import { getGenerationLimit, getGenerationUsage } from "../lib/generationsQuota"
+import { getProviderUsageStatus, type AiProvider } from "../lib/orchestratorProviderQuota"
 
 
 const router = Router()
 
-const PAID_PLANS: Exclude<PlanKey, "free">[] = ["architect", "master", "legend"]
+const PAID_PLANS: Exclude<PlanKey, "free">[] = ["pro", "supreme", "duo", "elite"]
 const MOCK_PERIOD_MS  = 30 * 24 * 60 * 60 * 1000 // 30 дней
 const TRIAL_PERIOD_MS =  7 * 24 * 60 * 60 * 1000 //  7 дней
 const TRIAL_DAYS      = 7
+
+/* ================================================================
+   Докупаемые пакеты запросов (одноразовая оплата, mode: "payment").
+   Не сгорают в конце месяца — переносятся на след. месяцы (extra_credits,
+   см. migration 050 и orchestratorProviderQuota.ts).
+   ================================================================ */
+const EXTRA_PACKAGES: Record<AiProvider, { amount: number; priceCents: number; label: string }> = {
+  claude: { amount: 5, priceCents: 1900, label: "Claude +5" },
+  grok: { amount: 10, priceCents: 1500, label: "Grok +10" },
+  deepseek: { amount: 10, priceCents: 1000, label: "DeepSeek +10" },
+}
+
+/**
+ * Зачисляет докупленный пакет в extra_credits (rolling balance).
+ * Если передан stripeSessionId — идемпотентно: повторная попытка зачислить
+ * тот же session_id (напр. при ретрае webhook) не задвоит баланс.
+ * Возвращает false, если этот session_id уже был обработан ранее.
+ */
+function grantExtraCredits(userId: number, provider: AiProvider, amount: number, stripeSessionId: string | null): boolean {
+  const now = Date.now()
+
+  try {
+    db.prepare(
+      `INSERT INTO extra_package_purchases (user_id, provider, amount, stripe_session_id, created_at) VALUES (?, ?, ?, ?, ?)`,
+    ).run(userId, provider, amount, stripeSessionId, now)
+  } catch (err: any) {
+    if (err?.code === "SQLITE_CONSTRAINT_UNIQUE" || err?.code === "SQLITE_CONSTRAINT") return false
+    throw err
+  }
+
+  db.prepare(
+    `INSERT INTO extra_credits (user_id, provider, balance, updated_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(user_id, provider) DO UPDATE SET balance = balance + excluded.balance, updated_at = excluded.updated_at`,
+  ).run(userId, provider, amount, now)
+
+  return true
+}
 
 /* ================================================================
    Вспомогательные функции работы с таблицей subscriptions
@@ -181,7 +220,7 @@ export function requirePlan(requiredPlan: PlanKey) {
    POST /subscription/create-checkout
    Создаёт Stripe Checkout Session для оформления платной подписки.
 
-   body: { plan: 'architect' | 'master' | 'legend' }
+   body: { plan: 'pro' | 'supreme' | 'duo' | 'elite' }
 
    Если Stripe не настроен (нет STRIPE_SECRET_KEY) — работает в
    mock-режиме: сразу активирует подписку локально на 30 дней и
@@ -288,6 +327,98 @@ router.post("/create-checkout", requireAuth, asyncHandler(async (req: AuthReques
 }))
 
 /* ================================================================
+   POST /subscription/extra-package
+   Создаёт Stripe Checkout Session (mode: "payment") для разовой покупки
+   докупаемого пакета запросов к конкретному AI-провайдеру. Доступно на
+   любом платном тарифе; списывается только после исчерпания месячной
+   базовой квоты оркестратора (см. orchestratorProviderQuota.ts).
+
+   body: { provider: 'claude' | 'grok' | 'deepseek' }
+
+   Если Stripe не настроен — работает в mock-режиме: сразу зачисляет
+   пакет в extra_credits и возвращает { mock: true }.
+   ================================================================ */
+router.post("/extra-package", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+  const provider = req.body?.provider as AiProvider | undefined
+
+  if (!provider || !EXTRA_PACKAGES[provider]) {
+    return res.status(400).json({
+      error: `Некорректный провайдер. Допустимые значения: ${Object.keys(EXTRA_PACKAGES).join(", ")}`,
+    })
+  }
+
+  const userId = req.user!.userId
+  const pkg = EXTRA_PACKAGES[provider]
+
+  /* ---------------- Mock-режим (Stripe не настроен) ---------------- */
+  if (!isStripeConfigured || !stripe) {
+    if (process.env.NODE_ENV === "production") {
+      return res.status(503).json({ error: "Оплата временно недоступна. Попробуйте позже." })
+    }
+
+    grantExtraCredits(userId, provider, pkg.amount, null)
+
+    db.prepare(
+      `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+       VALUES (?, 'purchase', ?, 'Stripe (mock)', ?, 'cash_usd', 'done')`,
+    ).run(userId, pkg.label, pkg.priceCents / 100)
+    logAudit(userId, "credit", pkg.priceCents / 100, "extra_package_mock_purchased", { provider, amount: pkg.amount })
+
+    return res.status(200).json({
+      mock: true,
+      url: null,
+      message: `Пакет «${pkg.label}» зачислен локально (dev-режим).`,
+    })
+  }
+
+  /* ---------------- Реальный режим Stripe ---------------- */
+  try {
+    const user: any = db.prepare(`SELECT id, username, email FROM users WHERE id = ?`).get(userId)
+    if (!user) return res.status(404).json({ error: "Пользователь не найден", code: "USER_NOT_FOUND" })
+
+    let existingSub = getSubscription(userId)
+    let customerId = existingSub?.stripe_customer_id || undefined
+
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email || undefined,
+        name: user.username,
+        metadata: { userId: String(userId) },
+      })
+      customerId = customer.id
+      upsertSubscription(userId, { stripe_customer_id: customerId })
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      customer: customerId,
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: { name: pkg.label },
+            unit_amount: pkg.priceCents,
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: `${FRONTEND_URL}/wallet?extra_package=success&provider=${provider}`,
+      cancel_url: `${FRONTEND_URL}/wallet?extra_package=cancel`,
+      metadata: { userId: String(userId), provider, amount: String(pkg.amount) },
+    })
+
+    res.status(200).json({
+      mock: false,
+      url: session.url,
+      sessionId: session.id,
+    })
+  } catch (err: any) {
+    captureError("[subscription/extra-package] Stripe error:", err)
+    res.status(500).json({ error: err.message || "Не удалось создать Stripe Checkout Session" })
+  }
+}))
+
+/* ================================================================
    POST /subscription/webhook
    Обрабатывает события Stripe:
    - checkout.session.completed
@@ -336,6 +467,31 @@ router.post("/webhook", async (req, res) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object
+
+        /* Разовая покупка докупаемого пакета (mode: "payment") — отдельная ветка,
+           не пересекается с оформлением/продлением подписки (mode: "subscription"). */
+        if (session.mode === "payment") {
+          const userId = Number(session.metadata?.userId)
+          const provider = session.metadata?.provider as AiProvider | undefined
+          const amount = Number(session.metadata?.amount)
+
+          if (userId && provider && amount > 0) {
+            const granted = grantExtraCredits(userId, provider, amount, session.id)
+            if (granted) {
+              db.prepare(
+                `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+                 VALUES (?, 'purchase', ?, 'Stripe', ?, 'cash_usd', 'done')`,
+              ).run(userId, EXTRA_PACKAGES[provider]?.label ?? `${provider} +${amount}`, (session.amount_total ?? 0) / 100)
+              logAudit(userId, "credit", (session.amount_total ?? 0) / 100, "extra_package_stripe_purchased", {
+                provider,
+                amount,
+                stripe_event_id: event.id,
+              })
+            }
+          }
+          break
+        }
+
         const userId = Number(session.metadata?.userId)
         const plan = session.metadata?.plan as PlanKey | undefined
 
@@ -456,43 +612,57 @@ router.get("/status", requireAuth, (req: AuthRequest, res) => {
 
 /* ================================================================
    GET /subscription/ai-usage
-   Возвращает дневное использование AI по провайдерам и лимиты
-   для текущего пользователя в зависимости от его тарифного плана.
+   Возвращает использование AI для текущего пользователя, форма ответа
+   зависит от тарифа:
 
-   Структура ответа:
-   {
-     plan: "free" | "architect" | "master" | "legend",
-     limits: { claude: number, grok: number, deepseek: number, total: number },
-     used:   { claude: number, grok: number, deepseek: number, total: number },
-     remaining: { claude: number, grok: number, deepseek: number, total: number },
-     resetsAt: number  // timestamp начала следующего UTC-дня
-   }
+   - Free/Pro (mode: "generations") — общий дневной счётчик генераций
+     проекта (см. generationsQuota.ts), сбрасывается в полночь UTC:
+     { plan, mode: "generations", generations: { used, limit, remaining }, resetsAt }
 
-   Использование считается через таблицу ai_daily_usage (создаётся
-   миграцией 041_ai_daily_usage).
+   - Supreme/Duo/Elite (mode: "orchestrator") — месячная квота
+     оркестратора по каждому AI-провайдеру + остаток докупленных
+     пакетов (см. orchestratorProviderQuota.ts), сбрасывается в начале
+     следующего UTC-месяца:
+     { plan, mode: "orchestrator", providers: { claude, grok, deepseek }, resetsAt }
    ================================================================ */
 router.get("/ai-usage", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const userId = req.user!.userId
   const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
-  const plan = (userRow?.plan ?? "free") as string
+  const plan = (userRow?.plan ?? "free") as PlanKey
 
-  const limits = AI_LIMITS_BY_PLAN[plan] ?? AI_LIMITS_BY_PLAN.free
-  const used = await getAiUsage(userId)
+  if (plan === "free" || plan === "pro") {
+    const limit = getGenerationLimit(plan)
+    const used = await getGenerationUsage(userId)
+
+    const now = new Date()
+    const nextMidnightUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+
+    return res.json({
+      plan,
+      mode: "generations",
+      generations: {
+        used,
+        limit,
+        remaining: limit === null ? null : Math.max(0, limit - used),
+      },
+      resetsAt: nextMidnightUtc,
+    })
+  }
+
+  const providerEntries = await Promise.all(
+    (["claude", "grok", "deepseek"] as AiProvider[]).map(
+      async (provider) => [provider, await getProviderUsageStatus(userId, plan, provider)] as const,
+    ),
+  )
 
   const now = new Date()
-  const nextMidnightUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+  const nextMonthUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
 
   res.json({
     plan,
-    limits,
-    used,
-    remaining: {
-      claude:   limits.claude   === null ? null : Math.max(0, limits.claude   - used.claude),
-      grok:     limits.grok     === null ? null : Math.max(0, limits.grok     - used.grok),
-      deepseek: limits.deepseek === null ? null : Math.max(0, limits.deepseek - used.deepseek),
-      total:    limits.total    === null ? null : Math.max(0, limits.total    - used.total),
-    },
-    resetsAt: nextMidnightUtc,
+    mode: "orchestrator",
+    providers: Object.fromEntries(providerEntries),
+    resetsAt: nextMonthUtc,
   })
 }))
 
@@ -544,14 +714,14 @@ router.post("/cancel", requireAuth, async (req: AuthRequest, res) => {
 /* ================================================================
    GET /subscription/trial-status
    Возвращает, может ли пользователь воспользоваться триалом на план.
-   body query: ?plan=architect|master|legend
+   body query: ?plan=pro|supreme|duo|elite
    ================================================================ */
 router.get("/trial-status", requireAuth, (req: AuthRequest, res) => {
   const userId = req.user!.userId
   const plan = req.query.plan as string | undefined
 
   if (!plan || !PAID_PLANS.includes(plan as any)) {
-    return res.status(400).json({ error: "Укажите корректный план: architect, master или legend" })
+    return res.status(400).json({ error: "Укажите корректный план: pro, supreme, duo или elite" })
   }
 
   const used = hasUsedTrial(userId, plan)

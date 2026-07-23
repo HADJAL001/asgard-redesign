@@ -6,15 +6,16 @@ import type { PlanKey } from "./stripe"
    ----------------------------------------------------------------
    Та же схема, что и orchestratorQuota.ts: ключ датируется по UTC
    (sbridge:req:{userId}:{YYYY-MM-DD}), Redis best-effort с откатом
-   на in-memory Map. Лимит зависит от тарифа пользователя; legend —
+   на in-memory Map. Лимит зависит от тарифа пользователя; elite —
    безлимитный (null).
    ================================================================ */
 
 export const SERVICE_BRIDGE_LIMITS: Record<PlanKey, number | null> = {
   free: 20,
-  architect: 100,
-  master: 400,
-  legend: null,
+  pro: 100,
+  supreme: 400,
+  duo: 400,
+  elite: null,
 }
 
 interface UsageRecord {

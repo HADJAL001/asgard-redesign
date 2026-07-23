@@ -86,7 +86,7 @@ router.get(
     res.json({
       remaining: limit === null ? null : Math.max(0, limit - usage),
       total: limit,
-      isPaid: planLevel(plan) >= planLevel("architect"),
+      isPaid: planLevel(plan) >= planLevel("pro"),
     })
   }),
 )
@@ -116,7 +116,7 @@ router.post(
 
     const { plan } = getUserRow(userId)
     const countRow: any = db.prepare(`SELECT COUNT(*) as c FROM integrations WHERE user_id = ?`).get(userId)
-    const maxIntegrations = plan === "free" ? 3 : plan === "architect" ? 10 : 50
+    const maxIntegrations = plan === "free" ? 3 : plan === "pro" ? 10 : 50
     if (countRow.c >= maxIntegrations) {
       return res.status(403).json({
         error: `Достигнут лимит интеграций для вашего тарифа (${maxIntegrations})`,
@@ -262,7 +262,7 @@ router.post(
       return res.status(429).json({
         error: `Вы использовали все ${limit} вызовов интеграций на сегодня`,
         code: "QUOTA_EXCEEDED",
-        upgradeRequired: plan !== "legend",
+        upgradeRequired: plan !== "elite",
       })
     }
 

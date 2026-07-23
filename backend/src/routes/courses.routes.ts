@@ -2,7 +2,7 @@ import { Router, Response, NextFunction } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { AddonProduct, hasActiveAddon } from "../lib/addons"
-import { getAddonProgress } from "../lib/addonProgression"
+import { getAddonProgress, awardAddonXp } from "../lib/addonProgression"
 import { asyncHandler } from "../utils/async-handler"
 
 /* ================================================================
@@ -134,6 +134,8 @@ router.post("/:product/:courseKey/progress", requireAuth, requireProductAddon, a
     .prepare(`SELECT * FROM course_progress WHERE user_id = ? AND course_id = ?`)
     .get(userId, course.id) as CourseProgressRow | undefined
 
+  const justCompleted = resolvedStatus === "completed" && existing?.status !== "completed"
+
   if (!existing) {
     db.prepare(
       `INSERT INTO course_progress (user_id, course_id, status, progress_pct, started_at, completed_at) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -150,10 +152,20 @@ router.post("/:product/:courseKey/progress", requireAuth, requireProductAddon, a
     )
   }
 
+  /* XP за курс начисляется один раз — при первом переходе в 'completed'.
+     Повторные PATCH-запросы (например с тем же progressPct=100) не должны
+     накручивать опыт бесконечно, т.к. awardAddonXp сам по себе не идемпотентен. */
+  let progressResult = null
+  if (justCompleted && course.xp_reward > 0) {
+    progressResult = awardAddonXp(userId, product, `course_completed:${courseKey}`, course.xp_reward)
+  }
+
   res.json({
     courseKey,
     status: resolvedStatus,
     progressPct,
+    xpAwarded: justCompleted ? course.xp_reward : 0,
+    progress: progressResult,
   })
 }))
 

@@ -135,8 +135,8 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
     <UpgradeNudgeModal
       open={nudgeOpen}
       onClose={closeNudge}
-      generationsToday={usageData?.used?.total ?? 0}
-      limit={usageData?.limits?.total ?? 5}
+      generationsToday={usageData?.generations?.used ?? 0}
+      limit={usageData?.generations?.limit ?? 5}
     />
 
     <div

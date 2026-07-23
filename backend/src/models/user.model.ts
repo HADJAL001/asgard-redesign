@@ -274,6 +274,16 @@ export const UserModel = {
     }
   },
 
+  // Проверить, заблокирован ли пользователь (актуальный статус из БД)
+  isBanned(userId: number): boolean {
+    try {
+      const result = db.prepare('SELECT banned FROM users WHERE id = ?').get(userId) as { banned: number | boolean } | undefined;
+      return !!result?.banned;
+    } catch (e) {
+      return false;
+    }
+  },
+
   // Получить топ пользователей по балансу
   getTopByBalance(limit: number = 10): User[] {
     try {

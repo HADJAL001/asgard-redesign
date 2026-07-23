@@ -22,7 +22,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
-import { Crown, Zap, Sparkles, GitBranch, ArrowRight, X } from "lucide-react"
+import { Crown, Zap, Sparkles, GitBranch, ArrowRight } from "lucide-react"
 import { PremiumModal } from "./PremiumModal"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-store"
@@ -36,15 +36,15 @@ const PERKS = [
     Icon: Zap,
     color: "#A855F7",
     glow: "rgba(168,85,247,0.15)",
-    title: "Pro — $19/мес",
-    desc: "15 генераций/день · OS 5.0 + OS 3.3 + OS 3.0",
+    title: "Pro — $29/мес",
+    desc: "20 генераций проектов/день",
   },
   {
     Icon: Crown,
     color: "#F59E0B",
     glow: "rgba(245,158,11,0.15)",
     title: "Supreme — $99/мес",
-    desc: "Безлимит генераций + оркестратор цепочек",
+    desc: "Оркестратор: 10 OS 5.0 + 10 OS 3.3 + 10 OS 3.0/мес",
   },
   {
     Icon: Sparkles,
@@ -213,8 +213,8 @@ export function UpgradeNudgeModal({
    ================================================================ */
 interface UsageData {
   plan: string
-  used: { total: number }
-  limits: { total: number | null }
+  mode: "generations" | "orchestrator"
+  generations?: { used: number; limit: number | null }
 }
 
 export function useUpgradeNudge() {
@@ -248,9 +248,11 @@ export function useUpgradeNudge() {
          и только когда используется >= THRESHOLD генераций */
       if (
         !shownRef.current &&
-        (fresh.plan === "free" || fresh.plan === "guest") &&
-        fresh.used.total >= UPGRADE_NUDGE_THRESHOLD &&
-        fresh.limits.total !== null
+        fresh.plan === "free" &&
+        fresh.mode === "generations" &&
+        fresh.generations &&
+        fresh.generations.used >= UPGRADE_NUDGE_THRESHOLD &&
+        fresh.generations.limit !== null
       ) {
         shownRef.current = true
         setNudgeOpen(true)

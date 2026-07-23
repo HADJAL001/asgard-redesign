@@ -36,8 +36,13 @@ function LoginPageInner() {
   const [loading, setLoading] = useState(false)
   const nextPath = searchParams.get("next") || "/"
   const oauthError = searchParams.get("oauthError")
+  const reason = searchParams.get("reason")
   const [error, setError] = useState<string | null>(
-    oauthError ? "Не удалось выполнить вход через соцсеть. Попробуйте ещё раз." : null,
+    oauthError
+      ? "Не удалось выполнить вход через соцсеть. Попробуйте ещё раз."
+      : reason === "banned"
+        ? "Ваш аккаунт заблокирован. Обратитесь в поддержку, если считаете это ошибкой."
+        : null,
   )
 
   async function handleSubmit(e: FormEvent) {

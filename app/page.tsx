@@ -1,9 +1,11 @@
 "use client"
 
 import dynamic from "next/dynamic"
+import { useEffect } from "react"
 import { Infinity as InfinityIcon } from "lucide-react"
 
 import { useAuth } from "@/lib/auth-store"
+import { captureReferralCode } from "@/lib/referral"
 
 const EternityLanding = dynamic(
   () => import("@/components/eternity-landing").then((m) => m.EternityLanding),
@@ -39,6 +41,10 @@ function NeutralSplash() {
 
 export default function Page() {
   const { isAuthenticated, loading } = useAuth()
+
+  useEffect(() => {
+    captureReferralCode()
+  }, [])
 
   /* Авторизованный пользователь: показываем платформу.
      Если loading=true (нет кеша — значит гость или первый визит),

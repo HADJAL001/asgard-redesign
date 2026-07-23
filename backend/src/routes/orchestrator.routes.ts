@@ -1,4 +1,4 @@
-import { Router } from "express"
+import { Router, type Response, type NextFunction } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import {
@@ -21,21 +21,53 @@ import {
 import { captureError } from "../lib/sentry"
 import { logAudit } from "../lib/audit"
 import { asyncHandler } from "../utils/async-handler"
-import { ORCHESTRATOR_DAILY_LIMIT, FREE_ORCHESTRATOR_LIMIT, getOrchestratorUsage, incrementOrchestratorUsage } from "../lib/orchestratorQuota"
+import { rateLimit } from "../middleware/rateLimiter"
+import { getProviderUsageStatus, type AiProvider } from "../lib/orchestratorProviderQuota"
 import { planLevel } from "../lib/stripe"
 import type { PlanKey } from "../lib/stripe"
+import {
+  getWebhookTrigger,
+  createOrRegenerateWebhookTrigger,
+  deleteWebhookTrigger,
+} from "../services/orchestrator-webhook.service"
 
-/* Оркестратор:
-   - free-пользователи получают FREE_ORCHESTRATOR_LIMIT (5) запусков/день
-   - master/legend подписчики получают ORCHESTRATOR_DAILY_LIMIT (10) запусков/день
-   Никаких hard-gate по плану — просто разные квоты. */
-const ORCHESTRATOR_PAID_PLAN: PlanKey = "master"
+function toPublicWebhookTrigger(row: { node_id: string; token: string; enabled: number; last_triggered_at: number | null; trigger_count: number }) {
+  return {
+    nodeId: row.node_id,
+    url: `/wh/${row.token}`,
+    enabled: row.enabled === 1,
+    lastTriggeredAt: row.last_triggered_at,
+    triggerCount: row.trigger_count,
+  }
+}
+
+/* Оркестратор доступен только на Supreme/Duo/Elite (жёсткий гейт по тарифу) — Free/Pro
+   не имеют доступа вовсе (они работают через обычную генерацию проекта с дневной квотой,
+   см. generationsQuota.ts). Квота на вызовы AI-провайдеров внутри оркестратора — месячная,
+   по провайдерам, см. orchestratorProviderQuota.ts (проверяется/списывается на уровне
+   каждого узла в orchestrator-nodes.ts, а не на уровне запуска цепочки целиком). */
+const ORCHESTRATOR_MIN_PLAN: PlanKey = "supreme"
+const PROVIDERS: AiProvider[] = ["claude", "grok", "deepseek"]
 
 const router = Router()
 
 let activeSseConnections = 0
 export function getActiveSseConnections(): number {
   return activeSseConnections
+}
+
+/** Жёсткий гейт доступа к оркестратору: только Supreme и выше. */
+function requireOrchestratorAccess(req: AuthRequest, res: Response, next: NextFunction) {
+  const userId = req.user!.userId
+  const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
+  const plan: PlanKey = userRow?.plan ?? "free"
+  if (planLevel(plan) < planLevel(ORCHESTRATOR_MIN_PLAN)) {
+    return res.status(403).json({
+      error: "Оркестратор доступен на тарифах Supreme, Duo и Elite",
+      upgradeRequired: true,
+    })
+  }
+  next()
 }
 
 /* ================================================================
@@ -83,7 +115,7 @@ function parseChainInput(body: any): { input?: CreateChainInput; error?: string 
 }
 
 /* ---------------- POST /orchestrator/chains ---------------- */
-router.post("/chains", requireAuth, (req: AuthRequest, res) => {
+router.post("/chains", requireAuth, requireOrchestratorAccess, (req: AuthRequest, res) => {
   const { input, error } = parseChainInput(req.body)
   if (error || !input) return res.status(400).json({ error })
 
@@ -99,20 +131,20 @@ router.post("/chains", requireAuth, (req: AuthRequest, res) => {
 })
 
 /* ---------------- GET /orchestrator/chains ---------------- */
-router.get("/chains", requireAuth, (req: AuthRequest, res) => {
+router.get("/chains", requireAuth, requireOrchestratorAccess, (req: AuthRequest, res) => {
   const chains = listChains(req.user!.userId)
   res.json({ chains })
 })
 
 /* ---------------- GET /orchestrator/chains/:id ---------------- */
-router.get("/chains/:id", requireAuth, (req: AuthRequest, res) => {
+router.get("/chains/:id", requireAuth, requireOrchestratorAccess, (req: AuthRequest, res) => {
   const chain = getChain(req.user!.userId, Number(req.params.id))
   if (!chain) return res.status(404).json({ error: "Цепочка не найдена" })
   res.json({ chain })
 })
 
 /* ---------------- PUT /orchestrator/chains/:id ---------------- */
-router.put("/chains/:id", requireAuth, (req: AuthRequest, res) => {
+router.put("/chains/:id", requireAuth, requireOrchestratorAccess, (req: AuthRequest, res) => {
   const { input, error } = parseChainInput(req.body)
   if (error || !input) return res.status(400).json({ error })
 
@@ -129,24 +161,17 @@ router.put("/chains/:id", requireAuth, (req: AuthRequest, res) => {
 })
 
 /* ---------------- DELETE /orchestrator/chains/:id ---------------- */
-router.delete("/chains/:id", requireAuth, (req: AuthRequest, res) => {
+router.delete("/chains/:id", requireAuth, requireOrchestratorAccess, (req: AuthRequest, res) => {
   const ok = deleteChain(req.user!.userId, Number(req.params.id))
   if (!ok) return res.status(404).json({ error: "Цепочка не найдена" })
   res.json({ success: true })
 })
 
-/* ── Хелпер: возвращает дневной лимит оркестратора для пользователя ── */
-function getUserOrchestratorLimit(userId: number): { limit: number; isPaid: boolean } {
-  const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
-  const plan: PlanKey = userRow?.plan ?? "free"
-  const isPaid = planLevel(plan) >= planLevel(ORCHESTRATOR_PAID_PLAN)
-  return { limit: isPaid ? ORCHESTRATOR_DAILY_LIMIT : FREE_ORCHESTRATOR_LIMIT, isPaid }
-}
-
 /* ---------------- POST /orchestrator/chains/:id/run ---------------- */
 router.post(
   "/chains/:id/run",
   requireAuth,
+  requireOrchestratorAccess,
   asyncHandler(async (req: AuthRequest, res) => {
     const userId = req.user!.userId
     const chain = getChain(userId, Number(req.params.id))
@@ -157,17 +182,9 @@ router.post(
       return res.status(400).json({ error: "Укажите вход цепочки (поле input)" })
     }
 
-    const { limit, isPaid } = getUserOrchestratorLimit(userId)
-    const usage = await getOrchestratorUsage(userId)
-    if (usage >= limit) {
-      return res.status(429).json({
-        error: `Вы использовали все ${limit} запросов на сегодня`,
-        limit,
-        isPaid,
-        upgradeRequired: !isPaid,
-      })
-    }
-
+    // Квота на вызовы провайдеров проверяется/списывается на уровне каждого узла
+    // (orchestrator-nodes.ts: runNode(), см. orchestratorProviderQuota.ts) — здесь
+    // только списание TimeCoin за запуск цепочки.
     const cost = calculateChainCost(chain.nodes)
     let executionId: number
 
@@ -194,8 +211,6 @@ router.post(
       throw err
     }
 
-    await incrementOrchestratorUsage(userId)
-
     // Запуск не блокирует ответ — клиент подключается к SSE для отслеживания прогресса.
     executeChain(executionId, chain.nodes, chain.edges, input, userId).catch((err) => {
       captureError(`[orchestrator] execution ${executionId} failed:`, err)
@@ -209,20 +224,49 @@ router.post(
 router.get(
   "/remaining",
   requireAuth,
+  requireOrchestratorAccess,
   asyncHandler(async (req: AuthRequest, res) => {
     const userId = req.user!.userId
-    const { limit, isPaid } = getUserOrchestratorLimit(userId)
-    const usage = await getOrchestratorUsage(userId)
-    res.json({
-      remaining: Math.max(0, limit - usage),
-      total: limit,
-      isPaid,
-    })
+    const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
+    const plan: PlanKey = userRow?.plan ?? "free"
+
+    let remaining = 0
+    let total = 0
+    for (const provider of PROVIDERS) {
+      const status = await getProviderUsageStatus(userId, plan, provider)
+      const limit = status.limit ?? 0
+      total += limit
+      remaining += Math.max(0, limit - status.used) + status.extraCredits
+    }
+
+    // Этот роут доступен только Supreme+ (см. requireOrchestratorAccess), поэтому
+    // isPaid здесь всегда true — поле сохранено ради обратной совместимости контракта
+    // с lib/orchestrator/api.ts::getRemainingQuota() → OrchestratorEditor.tsx.
+    res.json({ remaining, total, isPaid: true })
+  }),
+)
+
+/* ---------------- GET /orchestrator/usage-status ---------------- */
+router.get(
+  "/usage-status",
+  requireAuth,
+  requireOrchestratorAccess,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.userId
+    const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
+    const plan: PlanKey = userRow?.plan ?? "free"
+
+    const status: Record<AiProvider, Awaited<ReturnType<typeof getProviderUsageStatus>>> = {} as any
+    for (const provider of PROVIDERS) {
+      status[provider] = await getProviderUsageStatus(userId, plan, provider)
+    }
+
+    res.json(status)
   }),
 )
 
 /* ---------------- GET /orchestrator/stream/:executionId (SSE) ---------------- */
-router.get("/stream/:executionId", requireAuth, (req: AuthRequest, res) => {
+router.get("/stream/:executionId", requireAuth, requireOrchestratorAccess, (req: AuthRequest, res) => {
   const userId = req.user!.userId
   const executionId = Number(req.params.executionId)
   const execution = getExecution(userId, executionId)
@@ -273,6 +317,7 @@ router.get("/stream/:executionId", requireAuth, (req: AuthRequest, res) => {
 router.post(
   "/chains/:id/jarvis-template",
   requireAuth,
+  requireOrchestratorAccess,
   asyncHandler(async (req: AuthRequest, res) => {
     const userId = req.user!.userId
     const chainId = Number(req.params.id)
@@ -294,6 +339,7 @@ router.post(
 router.delete(
   "/chains/:id/jarvis-template",
   requireAuth,
+  requireOrchestratorAccess,
   asyncHandler(async (req: AuthRequest, res) => {
     const userId = req.user!.userId
     const chainId = Number(req.params.id)
@@ -310,8 +356,59 @@ router.delete(
   }),
 )
 
+/* ---------------- GET /orchestrator/chains/:id/webhook-trigger/:nodeId ---------------- */
+router.get(
+  "/chains/:id/webhook-trigger/:nodeId",
+  requireAuth,
+  requireOrchestratorAccess,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.userId
+    const chainId = Number(req.params.id)
+    const chain = getChain(userId, chainId)
+    if (!chain) return res.status(404).json({ error: "Цепочка не найдена" })
+
+    const trigger = getWebhookTrigger(userId, chainId, req.params.nodeId)
+    res.json({ trigger: trigger ? toPublicWebhookTrigger(trigger) : null })
+  }),
+)
+
+/* ---------------- POST /orchestrator/chains/:id/webhook-trigger/:nodeId ---------------- */
+/* Создаёт триггер (если ещё нет) либо перевыпускает token (если уже есть) — единая ручка для обоих случаев. */
+router.post(
+  "/chains/:id/webhook-trigger/:nodeId",
+  requireAuth,
+  requireOrchestratorAccess,
+  rateLimit(60_000, 10),
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.userId
+    const chainId = Number(req.params.id)
+    const chain = getChain(userId, chainId)
+    if (!chain) return res.status(404).json({ error: "Цепочка не найдена" })
+
+    const trigger = createOrRegenerateWebhookTrigger(userId, chainId, req.params.nodeId)
+    logAudit(userId, "credit", 0, "webhook_trigger_created", { chainId, nodeId: req.params.nodeId })
+    res.json({ trigger: toPublicWebhookTrigger(trigger) })
+  }),
+)
+
+/* ---------------- DELETE /orchestrator/chains/:id/webhook-trigger/:nodeId ---------------- */
+router.delete(
+  "/chains/:id/webhook-trigger/:nodeId",
+  requireAuth,
+  requireOrchestratorAccess,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const userId = req.user!.userId
+    const chainId = Number(req.params.id)
+    const chain = getChain(userId, chainId)
+    if (!chain) return res.status(404).json({ error: "Цепочка не найдена" })
+
+    deleteWebhookTrigger(userId, chainId, req.params.nodeId)
+    res.json({ success: true })
+  }),
+)
+
 /* ---------------- GET /orchestrator/executions/:id ---------------- */
-router.get("/executions/:id", requireAuth, (req: AuthRequest, res) => {
+router.get("/executions/:id", requireAuth, requireOrchestratorAccess, (req: AuthRequest, res) => {
   const execution = getExecution(req.user!.userId, Number(req.params.id))
   if (!execution) return res.status(404).json({ error: "Запуск не найден" })
   res.json({ execution })

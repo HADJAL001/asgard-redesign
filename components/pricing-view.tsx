@@ -3,16 +3,16 @@
 /* ================================================================
    PricingView — страница тарифных планов OSGARD
    ----------------------------------------------------------------
-   Отображает 4 тарифа: Гость / Пользователь / Pro (Architect) /
-   Supreme (Legend) с детализацией AI-лимитов и кнопками подписки
-   через Stripe Checkout.
+   Отображает 6 карточек: Гость / Free / Pro / Supreme / Duo / Elite.
 
-   Логика:
-   - Гость и Пользователь (free) — без оплаты
-   - Pro ($19/мес) → plan = "architect"
-   - Supreme ($99/мес) → план = "legend" (включает оркестратор)
-   - Если Stripe не настроен — mock-режим (dev), подписка активируется
-     локально через POST /subscription/create-checkout
+   Free и Pro — общий дневной счётчик генераций проектов (без разбивки
+   по провайдерам). Supreme/Duo/Elite — доступ к Оркестратору с квотой
+   10 OS 5.0 + 10 OS 3.3 + 10 OS 3.0 в месяц (одинаковая квота для всех
+   трёх — Duo/Elite лишь более дорогие тарифы). Докупаемые пакеты
+   запросов — не сгорают, см. ExtraPackagePurchase.
+
+   Если Stripe не настроен — mock-режим (dev), подписка активируется
+   локально через POST /subscription/create-checkout.
    ================================================================ */
 
 import { useState, useEffect } from "react"
@@ -47,26 +47,42 @@ const BORDER = "#2A2A3E"
 const LABEL  = "#6A6A8A"
 
 /* ── Типы ──────────────────────────────────────────────────────── */
-type PlanId = "guest" | "free" | "architect" | "legend"
+type PlanId = "guest" | "free" | "pro" | "supreme" | "duo" | "elite"
 
 interface PlanDef {
-  id:          PlanId
-  name:        string
-  subtitle:    string
-  price:       number | null   // null = бесплатно / гость
-  priceLabel:  string
-  color:       string
-  glow:        string
-  Icon:        React.FC<{ size?: number; style?: React.CSSProperties }>
-  badge?:      string
-  features:    { text: string; highlight?: boolean }[]
-  aiLimits?:   { claude: string; grok: string; deepseek: string; total: string }
-  cta:         string
-  ctaHref?:    string          // если не требует API-вызова
-  stripePlan?: "architect" | "master" | "legend"
+  id:            PlanId
+  name:          string
+  subtitle:      string
+  price:         number | null   // null = бесплатно / гость
+  priceLabel:    string
+  color:         string
+  glow:          string
+  Icon:          React.FC<{ size?: number; style?: React.CSSProperties }>
+  badge?:        string
+  features:      { text: string; highlight?: boolean }[]
+  aiLimitsTitle?: string
+  aiLimits?:     { label: string; value: string; color: string }[]
+  cta:           string
+  ctaHref?:      string          // если не требует API-вызова
+  stripePlan?:   "pro" | "supreme" | "duo" | "elite"
 }
 
 /* ── Планы ─────────────────────────────────────────────────────── */
+const ORCHESTRATOR_LIMITS: PlanDef["aiLimits"] = [
+  { label: "OS 5.0 (Claude)",   value: "10/мес", color: "#F59E0B" },
+  { label: "OS 3.3 (Grok)",     value: "10/мес", color: "#A855F7" },
+  { label: "OS 3.0 (DeepSeek)", value: "10/мес", color: "#06B6D4" },
+]
+
+const ORCHESTRATOR_FEATURES: PlanDef["features"] = [
+  { text: "Доступ к Оркестратору AI-цепочек",           highlight: true },
+  { text: "10 OS 5.0 + 10 OS 3.3 + 10 OS 3.0 в месяц",   highlight: true },
+  { text: "ДЖАРВИС + ВАЛЛИ + БЛИЗНЕЦ — всё" },
+  { text: "Докупка пакетов провайдеров — не сгорают" },
+  { text: "Деплой + GitHub + Netlify" },
+  { text: "Ранний доступ к новым фичам" },
+]
+
 const PLANS: PlanDef[] = [
   {
     id:         "guest",
@@ -82,7 +98,6 @@ const PLANS: PlanDef[] = [
       { text: "Просмотр маркетплейса" },
       { text: "Просмотр лендинга и документации" },
     ],
-    aiLimits: { claude: "—", grok: "—", deepseek: "—", total: "3 демо" },
     cta:     "Попробовать",
     ctaHref: "/",
   },
@@ -103,55 +118,79 @@ const PLANS: PlanDef[] = [
       { text: "Маркетплейс и торговля" },
       { text: "Кошелёк и TimeCoin" },
     ],
-    aiLimits: { claude: "1/день", grok: "2/день", deepseek: "2/день", total: "5/день" },
+    aiLimitsTitle: "AI-лимиты / день",
+    aiLimits:      [{ label: "Генераций проектов", value: "5/день", color: "#06B6D4" }],
     cta:     "Зарегистрироваться",
     ctaHref: "/register",
   },
   {
-    id:         "architect",
+    id:         "pro",
     name:       "Pro",
     subtitle:   "Для активных создателей",
-    price:      19,
-    priceLabel: "$19 / мес",
+    price:      29,
+    priceLabel: "$29 / мес",
     color:      "#A855F7",
     glow:       "rgba(168,85,247,0.2)",
     Icon:       Crown,
     badge:      "Популярный",
     features: [
-      { text: "15 AI-генераций проектов/день",      highlight: true },
-      { text: "2 OS 5.0 + 4 OS 3.3 + 9 OS 3.0/день", highlight: true },
+      { text: "20 AI-генераций проектов/день", highlight: true },
       { text: "ДЖАРВИС — безлимит" },
       { text: "ВАЛЛИ + БЛИЗНЕЦ — полный доступ" },
       { text: "Деплой на Netlify" },
       { text: "GitHub-публикация проектов" },
       { text: "Приоритетная генерация" },
     ],
-    aiLimits: { claude: "2/день", grok: "4/день", deepseek: "9/день", total: "15/день" },
+    aiLimitsTitle: "AI-лимиты / день",
+    aiLimits:      [{ label: "Генераций проектов", value: "20/день", color: "#A855F7" }],
     cta:        "Подключить Pro",
-    stripePlan: "architect",
+    stripePlan: "pro",
   },
   {
-    id:         "legend",
+    id:         "supreme",
     name:       "Supreme",
-    subtitle:   "Без ограничений",
+    subtitle:   "Оркестратор AI-цепочек",
     price:      99,
     priceLabel: "$99 / мес",
     color:      "#F59E0B",
     glow:       "rgba(245,158,11,0.2)",
     Icon:       Star,
-    badge:      "Максимум",
-    features: [
-      { text: "Безлимит AI-генераций",              highlight: true },
-      { text: "OS 5.0 / OS 3.3 / OS 3.0 — безлимит", highlight: true },
-      { text: "Оркестратор — 10 цепочек/день",       highlight: true },
-      { text: "ДЖАРВИС + ВАЛЛИ + БЛИЗНЕЦ — всё" },
-      { text: "2 OS 5.0 + 4 OS 3.3 + 4 OS 3.0 в оркестраторе" },
-      { text: "Деплой + GitHub + Netlify" },
-      { text: "Ранний доступ к новым фичам" },
-    ],
-    aiLimits: { claude: "∞", grok: "∞", deepseek: "∞", total: "∞" },
+    features:      ORCHESTRATOR_FEATURES,
+    aiLimitsTitle: "Оркестратор — квота / месяц",
+    aiLimits:      ORCHESTRATOR_LIMITS,
     cta:        "Подключить Supreme",
-    stripePlan: "legend",
+    stripePlan: "supreme",
+  },
+  {
+    id:         "duo",
+    name:       "Duo",
+    subtitle:   "Те же квоты, что Supreme",
+    price:      149,
+    priceLabel: "$149 / мес",
+    color:      "#EC4899",
+    glow:       "rgba(236,72,153,0.2)",
+    Icon:       Sparkles,
+    features:      ORCHESTRATOR_FEATURES,
+    aiLimitsTitle: "Оркестратор — квота / месяц",
+    aiLimits:      ORCHESTRATOR_LIMITS,
+    cta:        "Подключить Duo",
+    stripePlan: "duo",
+  },
+  {
+    id:         "elite",
+    name:       "Elite",
+    subtitle:   "Те же квоты, что Supreme",
+    price:      199,
+    priceLabel: "$199 / мес",
+    color:      "#34D399",
+    glow:       "rgba(52,211,153,0.2)",
+    Icon:       Infinity,
+    badge:      "Максимум",
+    features:      ORCHESTRATOR_FEATURES,
+    aiLimitsTitle: "Оркестратор — квота / месяц",
+    aiLimits:      ORCHESTRATOR_LIMITS,
+    cta:        "Подключить Elite",
+    stripePlan: "elite",
   },
 ]
 
@@ -268,7 +307,7 @@ const AI_AGENTS = [
     name:  "Оркестратор",
     Icon:  GitBranch,
     color: "#F59E0B",
-    desc:  "Цепочки нейросетей OSGARD (OS 5.0 → OS 3.3 → OS 3.0). Доступен на тарифах Master и Supreme.",
+    desc:  "Цепочки нейросетей OSGARD (OS 5.0 → OS 3.3 → OS 3.0). Доступен на тарифах Supreme, Duo и Elite.",
   },
 ]
 
@@ -494,7 +533,7 @@ export function PricingView() {
         )}
 
         {/* ── Карточки тарифов ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-16">
           {PLANS.map((plan) => {
             const isActive = currentPlan === plan.id || (plan.id === "free" && currentPlan === "free" && !!user)
             const isBusy   = loading && checkoutPlan === plan.stripePlan
@@ -569,13 +608,8 @@ export function PricingView() {
                       className="mb-5 rounded-xl p-3 text-[11px] space-y-1.5"
                       style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${BORDER}` }}
                     >
-                      <p className="text-[10px] uppercase tracking-[0.1em] mb-2" style={{ color: LABEL }}>AI-лимиты / день</p>
-                      {[
-                        { label: "OS 5.0",   value: plan.aiLimits.claude,   color: "#F59E0B" },
-                        { label: "OS 3.3",     value: plan.aiLimits.grok,     color: "#A855F7" },
-                        { label: "OS 3.0", value: plan.aiLimits.deepseek, color: "#06B6D4" },
-                        { label: "Итого",    value: plan.aiLimits.total,    color: "#34D399" },
-                      ].map(({ label, value, color }) => (
+                      <p className="text-[10px] uppercase tracking-[0.1em] mb-2" style={{ color: LABEL }}>{plan.aiLimitsTitle}</p>
+                      {plan.aiLimits.map(({ label, value, color }) => (
                         <div key={label} className="flex items-center justify-between">
                           <span style={{ color: LABEL }}>{label}</span>
                           <span className="font-medium" style={{ color }}>{value}</span>
@@ -944,7 +978,7 @@ export function PricingView() {
           <h2 className="text-[24px] font-bold mb-2 text-center">AI-ассистенты на каждом тарифе</h2>
           <p className="text-[14px] text-center mb-8" style={{ color: LABEL }}>
             ДЖАРВИС, ВАЛЛИ и БЛИЗНЕЦ доступны всем зарегистрированным пользователям без лимитов.
-            Оркестратор — для Pro и Supreme.
+            Оркестратор — для Supreme, Duo и Elite.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {AI_AGENTS.map((a) => (
@@ -980,13 +1014,13 @@ export function PricingView() {
             </div>
             <div>
               <h3 className="text-[18px] font-bold">AI-Оркестратор</h3>
-              <p className="text-[13px]" style={{ color: LABEL }}>Цепочки нейросетей — Pro и Supreme</p>
+              <p className="text-[13px]" style={{ color: LABEL }}>Цепочки нейросетей — Supreme, Duo и Elite</p>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { plan: "Master ($49/мес)", color: "#06B6D4", items: ["10 запусков/день", "2 OS 5.0 в цепочке", "4 OS 3.3 в цепочке", "4 OS 3.0 в цепочке", "До 20 узлов в цепочке"] },
-              { plan: "Supreme ($99/мес)", color: "#F59E0B", items: ["10 запусков/день", "4 OS 5.0 в цепочке", "6 OS 3.3 в цепочке", "4 OS 3.0 в цепочке", "Безлимит узлов (20 max)", "Ранний доступ"] },
+              { plan: "Supreme / Duo / Elite", color: "#F59E0B", items: ["10 OS 5.0 (Claude) в месяц", "10 OS 3.3 (Grok) в месяц", "10 OS 3.0 (DeepSeek) в месяц", "До 20 узлов в цепочке", "Ранний доступ к новым фичам"] },
+              { plan: "Докупаемые пакеты", color: "#06B6D4", items: ["+5 OS 5.0 — $19", "+10 OS 3.3 — $15", "+10 OS 3.0 — $10", "Не сгорают, переносятся на след. месяцы"] },
               { plan: "Что это даёт?", color: "#A855F7", items: ["Автоматизация задач", "Последовательная обработка текста", "Мульти-провайдерная генерация", "Сохранение как шаблоны ДЖАРВИСА", "SSE-поток прогресса в реальном времени"] },
             ].map(({ plan, color, items }) => (
               <div key={plan}>
@@ -1011,11 +1045,11 @@ export function PricingView() {
             {[
               {
                 q: "Что такое AI-лимиты?",
-                a: "Каждый день лимиты обнуляются в полночь UTC. Лимит — количество обращений к конкретной нейросети OSGARD (OS 5.0, OS 3.3, OS 3.0) при генерации проектов, артефактов и чате.",
+                a: "На Free и Pro это один общий счётчик генераций проектов в день (5 и 20 соответственно), обнуляется в полночь UTC. На Supreme, Duo и Elite — квота Оркестратора: 10 OS 5.0 + 10 OS 3.3 + 10 OS 3.0 в месяц, отдельно по каждому провайдеру.",
               },
               {
                 q: "Входит ли ДЖАРВИС, ВАЛЛИ, БЛИЗНЕЦ в бесплатный план?",
-                a: "Да — все три ассистента доступны всем зарегистрированным пользователям без лимитов. Оркестратор (цепочки нейросетей) — только для Pro/Supreme.",
+                a: "Да — все три ассистента доступны всем зарегистрированным пользователям без лимитов. Оркестратор (цепочки нейросетей) — только для Supreme, Duo и Elite.",
               },
               {
                 q: "Можно ли отменить подписку?",

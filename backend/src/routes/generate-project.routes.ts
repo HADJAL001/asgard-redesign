@@ -4,6 +4,8 @@ import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { asyncHandler } from "../utils/async-handler"
 import { ChainManager, pipelineEvents, getTaskStatus } from "../services/chain-manager"
 import { DEFAULT_PIPELINE } from "../services/pipeline-agents"
+import { getGenerationLimit, isGenerationLimitExceeded, incrementGenerationUsage } from "../lib/generationsQuota"
+import type { PlanKey } from "../lib/stripe"
 
 /* ================================================================
    OSGARD · Генерация проекта — REST API + SSE-статус
@@ -45,10 +47,24 @@ router.post(
       return res.status(429).json({ error: "У вас уже есть активная генерация проекта. Дождитесь её завершения." })
     }
 
+    const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
+    const plan: PlanKey = userRow?.plan ?? "free"
+
+    if (await isGenerationLimitExceeded(userId, plan)) {
+      const limit = getGenerationLimit(plan)
+      return res.status(429).json({
+        error: `Вы использовали все ${limit} генераций на сегодня`,
+        code: "GENERATIONS_LIMIT",
+        limit,
+        upgradeRequired: true,
+      })
+    }
+
     const taskId = chainManager.start(userId, {
       name: name.trim(),
       description: typeof description === "string" ? description : undefined,
     })
+    await incrementGenerationUsage(userId)
 
     res.status(202).json({ taskId })
   }),

@@ -417,7 +417,9 @@
       "promptTemplate": "Template",
       "promptTemplateDesc": "Substitute the input into a text template without calling a model",
       "serviceCall": "Service Call",
-      "serviceCallDesc": "Call an action of a connected integration (Service Bridge)"
+      "serviceCallDesc": "Call an action of a connected integration (Service Bridge)",
+      "webhookTrigger": "Webhook Trigger",
+      "webhookTriggerDesc": "Trigger the chain from an incoming request from an external service"
     },
     "untitled": "New Chain",
     "saveBtn": "Save",
@@ -456,7 +458,16 @@
     "editorNodeCount": "{{count}}/{{max}} nodes",
     "maxNodesReached": "Maximum chain size reached: {{max}} nodes",
     "heroTitle": "OS AI Python",
-    "heroSubtitle": "OSGARD's own AI pipeline — chain neural networks together"
+    "heroSubtitle": "OSGARD's own AI pipeline — chain neural networks together",
+    "webhookSaveFirst": "Save the chain first to create a webhook",
+    "webhookUrl": "URL for the external service",
+    "webhookCopy": "Copy",
+    "webhookRegenerate": "Regenerate token",
+    "webhookDelete": "Delete",
+    "webhookGenerate": "Create webhook",
+    "webhookError": "Failed to perform the webhook operation",
+    "webhookLastTriggered": "Triggered {{count}} times, last on {{date}}",
+    "webhookNeverTriggered": "Not triggered yet"
   },
   "projectWizard": {
     "title": "Create Project",

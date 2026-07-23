@@ -124,6 +124,15 @@ app.use(
   express.raw({ type: "application/json" }),
 )
 
+/* Публичный inbound Webhook Trigger оркестратора (Phase 2 Service Bridge) —
+   тело тоже нужно как Buffer, т.к. внешние сервисы не всегда шлют корректный
+   application/json, а раут парсит JSON вручную с fallback на сырую строку. */
+import webhookTriggerPublicRoutes from "./routes/webhook-trigger-public.routes"
+app.use(
+  "/wh",
+  express.raw({ type: "application/json" }),
+)
+
 app.use(express.json())
 
 import { writeBackpressure, getWriteQueueStats } from "./middleware/write-backpressure"
@@ -223,6 +232,7 @@ import { runWebhooksMigration } from "./migrations/046_webhooks"
 import { runAgentExecutionsMigration } from "./migrations/047_agent_executions"
 import { runCacheMetricsMigration } from "./migrations/048_cache_metrics"
 import { runServiceBridgeMigration } from "./migrations/049_service_bridge"
+import { runPlanTiersMigration } from "./migrations/050_plan_tiers"
 import { runPerfIndexesMigration } from "./migrations/051_perf_indexes"
 import { runAddonSubscriptionsMigration } from "./migrations/055_addon_subscriptions"
 import { runAddonProgressionMigration } from "./migrations/056_addon_progression"
@@ -230,6 +240,7 @@ import { runAddonCustomizationMigration } from "./migrations/057_addon_customiza
 import { runAddonCoursesMigration } from "./migrations/058_addon_courses"
 import { runSeedCoursesMigration } from "./migrations/059_seed_courses"
 import "./migrations/060_tc_price_history_index"
+import { runOrchestratorWebhookTriggersMigration } from "./migrations/061_orchestrator_webhook_triggers"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
@@ -264,6 +275,11 @@ runPerfIndexesMigration()
 
 /* Гарантируем наличие таблиц integrations/integration_logs (Service Bridge / Интеграции). */
 runServiceBridgeMigration()
+
+/* Ремап planKey (architect/master/legend → free/pro/supreme/duo/elite) + таблицы квот
+   оркестратора по провайдерам (orchestrator_monthly_usage) и докупаемых пакетов (extra_credits,
+   extra_package_purchases) при старте сервера. */
+runPlanTiersMigration()
 
 /* Гарантируем наличие таблицы tc_convert_log (лог конвертаций ∞ ↔ TC) при старте сервера. */
 runTcConvertMigration()
@@ -306,6 +322,9 @@ runAddonCoursesMigration()
 
 /* Наполняем каталог courses стартовым набором модулей, если он ещё пуст. */
 runSeedCoursesMigration()
+
+/* Гарантируем наличие таблицы orchestrator_webhook_triggers (Phase 2: входящий Webhook Trigger). */
+runOrchestratorWebhookTriggersMigration()
 
 /* Самолечение: если процесс перезапустился во время генерации приложения (in-memory
    состояние джоба теряется), зависшие в "generating" проекты переводим в "failed" —
@@ -353,6 +372,7 @@ app.use("/promo", promoRoutes)
 app.use("/", generateProjectRoutes)
 app.use("/webhooks", webhooksRoutes)
 app.use("/integrations", serviceBridgeRoutes)
+app.use("/wh", webhookTriggerPublicRoutes)
 
 
 

@@ -425,7 +425,9 @@
       "promptTemplate": "Шаблон",
       "promptTemplateDesc": "Подстановка входа в текстовый шаблон без вызова модели",
       "serviceCall": "Service Call",
-      "serviceCallDesc": "Вызов действия подключённой интеграции (Service Bridge)"
+      "serviceCallDesc": "Вызов действия подключённой интеграции (Service Bridge)",
+      "webhookTrigger": "Webhook Trigger",
+      "webhookTriggerDesc": "Запуск цепочки по входящему запросу от внешнего сервиса"
     },
     "untitled": "Новая цепочка",
     "saveBtn": "Сохранить",
@@ -464,7 +466,16 @@
     "editorNodeCount": "{{count}}/{{max}} узлов",
     "maxNodesReached": "Достигнут максимум узлов в цепочке: {{max}}",
     "heroTitle": "OS AI Python",
-    "heroSubtitle": "Собственный ИИ-конвейер OSGARD — соединяйте нейросети в единую цепочку"
+    "heroSubtitle": "Собственный ИИ-конвейер OSGARD — соединяйте нейросети в единую цепочку",
+    "webhookSaveFirst": "Сначала сохраните цепочку, чтобы создать webhook",
+    "webhookUrl": "URL для внешнего сервиса",
+    "webhookCopy": "Копировать",
+    "webhookRegenerate": "Обновить токен",
+    "webhookDelete": "Удалить",
+    "webhookGenerate": "Создать webhook",
+    "webhookError": "Не удалось выполнить операцию с webhook",
+    "webhookLastTriggered": "Сработал {{count}} раз, последний — {{date}}",
+    "webhookNeverTriggered": "Ещё ни разу не срабатывал"
   },
   "projectWizard": {
     "title": "Создание проекта",

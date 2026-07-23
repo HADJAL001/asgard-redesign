@@ -50,11 +50,11 @@ export function setStoredUser(user: any | null) {
   }
 }
 
-function redirectToLogin() {
+function redirectToLogin(reason?: string) {
   if (typeof window === "undefined") return
   setStoredUser(null)
   if (window.location.pathname !== "/login") {
-    window.location.href = "/login"
+    window.location.href = reason ? `/login?reason=${reason}` : "/login"
   }
 }
 
@@ -100,6 +100,12 @@ async function request<T = any>(path: string, options: RequestOptions = {}): Pro
     // без явного skipAuthRedirect ведём себя так же, как при 401.
     if (data?.code === "USER_NOT_FOUND" && !skipAuthRedirect) {
       redirectToLogin()
+    }
+    // Аккаунт заблокирован администратором уже после выдачи токена — middleware
+    // проверяет актуальный статус на каждый запрос, так что разлогиниваем сразу
+    // на любом эндпоинте, где это всплыло (не только /auth/me).
+    if (data?.code === "ACCOUNT_BANNED" && !skipAuthRedirect) {
+      redirectToLogin("banned")
     }
     throw new ApiError(res.status, message, data)
   }

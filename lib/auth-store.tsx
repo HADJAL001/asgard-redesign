@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { apiClient, ApiError, getStoredUser, setStoredUser } from "./api-client"
+import { clearReferralCode, getReferralCode } from "./referral"
 
 /* ================================================================
    OSGARD · Auth store (React Context)
@@ -110,11 +111,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback<AuthValue["register"]>(async (username, email, password) => {
     try {
+      const referralCode = getReferralCode()
       const data = await apiClient.post<{ user: User }>(
         "/auth/register",
-        { username, email, password },
+        { username, email, password, ...(referralCode ? { referralCode } : {}) },
         { skipAuthRedirect: true },
       )
+      clearReferralCode()
       setStoredUser(data.user)
       setUser(data.user)
       return { ok: true }

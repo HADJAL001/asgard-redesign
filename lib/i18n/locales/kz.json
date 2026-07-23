@@ -417,7 +417,9 @@
       "promptTemplate": "Шаблон",
       "promptTemplateDesc": "Модельді шақырмай кірісті мәтіндік шаблонға қою",
       "serviceCall": "Service Call",
-      "serviceCallDesc": "Қосылған интеграцияның әрекетін шақыру (Service Bridge)"
+      "serviceCallDesc": "Қосылған интеграцияның әрекетін шақыру (Service Bridge)",
+      "webhookTrigger": "Webhook Trigger",
+      "webhookTriggerDesc": "Сыртқы қызметтен келген сұраныс бойынша тізбекті іске қосу"
     },
     "untitled": "Жаңа тізбек",
     "saveBtn": "Сақтау",
@@ -456,7 +458,16 @@
     "editorNodeCount": "{{count}}/{{max}} түйін",
     "maxNodesReached": "Тізбектегі түйіндердің максимумына жетті: {{max}}",
     "heroTitle": "OS AI Python",
-    "heroSubtitle": "OSGARD-тың жеке ЖИ-конвейері — нейрожелілерді бір тізбекке біріктіріңіз"
+    "heroSubtitle": "OSGARD-тың жеке ЖИ-конвейері — нейрожелілерді бір тізбекке біріктіріңіз",
+    "webhookSaveFirst": "Webhook жасау үшін алдымен тізбекті сақтаңыз",
+    "webhookUrl": "Сыртқы қызметке арналған URL",
+    "webhookCopy": "Көшіру",
+    "webhookRegenerate": "Токенді жаңарту",
+    "webhookDelete": "Жою",
+    "webhookGenerate": "Webhook жасау",
+    "webhookError": "Webhook операциясын орындау мүмкін болмады",
+    "webhookLastTriggered": "{{count}} рет іске қосылды, соңғысы — {{date}}",
+    "webhookNeverTriggered": "Әлі бір рет те іске қосылған жоқ"
   },
   "projectWizard": {
     "title": "Жоба құру",

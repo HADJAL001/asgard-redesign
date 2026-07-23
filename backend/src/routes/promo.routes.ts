@@ -118,7 +118,7 @@ router.post(
 
         case "trial_days": {
           /* Активируем/продлеваем план */
-          const plan = promo.plan ?? "architect"
+          const plan = promo.plan ?? "pro"
           const existingSub: any = db
             .prepare(`SELECT * FROM subscriptions WHERE user_id = ?`)
             .get(userId)

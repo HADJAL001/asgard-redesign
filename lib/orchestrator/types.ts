@@ -14,7 +14,7 @@ import type { Edge, Node } from "@xyflow/react"
    напрямую как wire-формат — отдельного слоя UI<->wire маппинга нет.
    ================================================================ */
 
-export type OrchestratorNodeType = "claude" | "deepseek" | "grok" | "prompt_template" | "service_call"
+export type OrchestratorNodeType = "claude" | "deepseek" | "grok" | "prompt_template" | "service_call" | "webhook_trigger"
 
 /** Статус отдельного узла в рамках выполнения (node_statuses[i].status). */
 export type OrchestratorNodeRunStatus = "pending" | "running" | "done" | "error"
@@ -39,6 +39,15 @@ export interface OrchestratorNodeData extends Record<string, unknown> {
 
 export type OrchestratorFlowNode = Node<OrchestratorNodeData>
 export type OrchestratorFlowEdge = Edge
+
+/** Состояние webhook-триггера конкретного узла webhook_trigger в цепочке. */
+export interface OrchestratorWebhookTrigger {
+  nodeId: string
+  url: string
+  enabled: boolean
+  lastTriggeredAt: number | null
+  triggerCount: number
+}
 
 export interface OrchestratorChain {
   id: number

@@ -28,7 +28,7 @@ function memoryRateLimit(key: string, windowMs: number, max: number): boolean {
   return true;
 }
 
-export function rateLimit(windowMs: number = 60000, max: number = 100) {
+export function rateLimit(windowMs: number = 60000, max: number = 100, keyFn?: (req: Request) => string) {
   return async (req: Request, res: Response, next: NextFunction) => {
     /* Тестовые файлы (src/tests/*.test.ts) поднимают настоящий сервер с NODE_ENV=test
        и бьют по одним и тем же ручкам (/register и т.д.) много раз подряд — без этого
@@ -38,9 +38,11 @@ export function rateLimit(windowMs: number = 60000, max: number = 100) {
        одном репозитории делят один Redis). Прод/дев-режимы это не затрагивает. */
     if (process.env.NODE_ENV === 'test') return next();
 
-    // Ключ включает путь роута, чтобы лимиты разных ручек на одном IP не смешивались.
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    const key = `ratelimit:${req.baseUrl}${req.path}:${ip}`;
+    /* По умолчанию ключ включает путь роута и IP, чтобы лимиты разных ручек на одном
+       IP не смешивались. keyFn позволяет переопределить это — например, для публичного
+       webhook-триггера лимит должен быть привязан к самому token, а не к IP вызывающего
+       сервиса (он может звонить с разных/ротирующихся IP). */
+    const key = keyFn ? `ratelimit:${keyFn(req)}` : `ratelimit:${req.baseUrl}${req.path}:${req.ip || req.socket.remoteAddress || 'unknown'}`;
 
     if (await ensureRedisConnected()) {
       try {

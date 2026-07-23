@@ -33,6 +33,7 @@ import { COLORS, CURRENCIES, CURRENCY_ORDER, formatTokens } from "@/lib/economy"
 import { UP } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { apiClient } from "@/lib/api-client"
+import { ExtraPackagePurchase } from "./ExtraPackagePurchase"
 
 /* Приблизительные курсы к cash_usd — используются ТОЛЬКО для предпросмотра
    суммы конвертации на клиенте. Совпадают с RATE_TO_USD в
@@ -357,6 +358,11 @@ export function WalletView() {
               </div>
             )
           })}
+        </div>
+
+        {/* Докупка пакетов AI-провайдеров (Pro/Supreme/Duo/Elite) */}
+        <div className="mt-8">
+          <ExtraPackagePurchase />
         </div>
 
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_0.8fr]">

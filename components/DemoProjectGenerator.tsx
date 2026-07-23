@@ -79,7 +79,7 @@ export function DemoProjectGenerator() {
               WebkitTextFillColor: "transparent",
             }}
           >
-            за 3 секунды
+            за 7 секунд
           </span>
         </h2>
 

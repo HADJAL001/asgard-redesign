@@ -34,6 +34,7 @@ import type {
   OrchestratorFlowEdge,
   OrchestratorFlowNode,
   OrchestratorNodeType,
+  OrchestratorWebhookTrigger,
 } from "@/lib/orchestrator/types"
 
 const NODE_TYPES = { orchestratorNode: OrchestratorNode }
@@ -101,6 +102,11 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [connectors, setConnectors] = useState<ConnectorPublic[]>([])
 
+  // Webhook Trigger (инспектор узла webhook_trigger)
+  const [webhookTrigger, setWebhookTrigger] = useState<OrchestratorWebhookTrigger | null>(null)
+  const [webhookLoading, setWebhookLoading] = useState(false)
+  const [webhookCopied, setWebhookCopied] = useState(false)
+
   // Шаблон ДЖАРВИСА
   const [isJarvisTemplate, setIsJarvisTemplate] = useState<boolean>(
     initialChain?.is_jarvis_template === 1,
@@ -131,6 +137,20 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
     integrationsApi.getIntegrations().then(setIntegrations).catch(() => {})
     integrationsApi.getConnectors().then(setConnectors).catch(() => {})
   }, [])
+
+  // Триггер для выбранного узла webhook_trigger — грузим при смене выделения (цепочка должна быть уже сохранена).
+  useEffect(() => {
+    if (!selectedNode || selectedNode.data.type !== "webhook_trigger" || currentChainId === "new") {
+      setWebhookTrigger(null)
+      return
+    }
+    setWebhookLoading(true)
+    orchestratorApi
+      .getWebhookTrigger(currentChainId, selectedNode.id)
+      .then(setWebhookTrigger)
+      .catch(() => setWebhookTrigger(null))
+      .finally(() => setWebhookLoading(false))
+  }, [selectedNode?.id, selectedNode?.data.type, currentChainId])
 
   const onConnect = useCallback(
     (connection: Connection) => setEdges((eds) => addEdge({ ...connection, type: "snake" }, eds)),
@@ -270,6 +290,42 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
     } finally {
       setSavingTemplate(false)
     }
+  }
+
+  async function handleGenerateWebhook() {
+    if (!selectedNode || currentChainId === "new") return
+    setWebhookLoading(true)
+    setSaveError(null)
+    try {
+      const trigger = await orchestratorApi.createOrRegenerateWebhookTrigger(currentChainId, selectedNode.id)
+      setWebhookTrigger(trigger)
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : t("orchestrator.webhookError"))
+    } finally {
+      setWebhookLoading(false)
+    }
+  }
+
+  async function handleDeleteWebhook() {
+    if (!selectedNode || currentChainId === "new") return
+    setWebhookLoading(true)
+    setSaveError(null)
+    try {
+      await orchestratorApi.deleteWebhookTrigger(currentChainId, selectedNode.id)
+      setWebhookTrigger(null)
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : t("orchestrator.webhookError"))
+    } finally {
+      setWebhookLoading(false)
+    }
+  }
+
+  function handleCopyWebhookUrl() {
+    if (!webhookTrigger) return
+    navigator.clipboard.writeText(`${window.location.origin}/api${webhookTrigger.url}`).then(() => {
+      setWebhookCopied(true)
+      setTimeout(() => setWebhookCopied(false), 2000)
+    })
   }
 
   const handleRunRef = useRef(handleRun)
@@ -563,6 +619,78 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
                   </>
                 )
               })()
+            ) : selectedNode.data.type === "webhook_trigger" ? (
+              <div className="space-y-2">
+                {currentChainId === "new" ? (
+                  <p className="rounded-lg px-2.5 py-2 text-[12px]" style={{ backgroundColor: COLORS.bg, color: COLORS.label }}>
+                    {t("orchestrator.webhookSaveFirst")}
+                  </p>
+                ) : webhookLoading ? (
+                  <div className="flex items-center justify-center py-3">
+                    <Loader2 className="animate-spin" size={16} style={{ color: COLORS.label }} />
+                  </div>
+                ) : webhookTrigger ? (
+                  <>
+                    <label className="block text-[12px]" style={{ color: COLORS.label }}>
+                      {t("orchestrator.webhookUrl")}
+                      <div className="mt-1 flex gap-1.5">
+                        <input
+                          readOnly
+                          value={`${typeof window !== "undefined" ? window.location.origin : ""}/api${webhookTrigger.url}`}
+                          onFocus={(e) => e.currentTarget.select()}
+                          className="w-full rounded-lg px-2.5 py-1.5 text-[12px] outline-none"
+                          style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCopyWebhookUrl}
+                          className="shrink-0 rounded-lg px-2.5 text-[12px] font-medium"
+                          style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+                        >
+                          {webhookCopied ? <CheckCircle2 size={14} style={{ color: COLORS.accent }} /> : t("orchestrator.webhookCopy")}
+                        </button>
+                      </div>
+                    </label>
+
+                    <p className="text-[11px]" style={{ color: COLORS.label }}>
+                      {webhookTrigger.triggerCount > 0
+                        ? t("orchestrator.webhookLastTriggered", {
+                            count: webhookTrigger.triggerCount,
+                            date: webhookTrigger.lastTriggeredAt ? new Date(webhookTrigger.lastTriggeredAt).toLocaleString() : "—",
+                          })
+                        : t("orchestrator.webhookNeverTriggered")}
+                    </p>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleGenerateWebhook}
+                        className="flex-1 rounded-lg py-1.5 text-[12px] font-medium"
+                        style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+                      >
+                        {t("orchestrator.webhookRegenerate")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteWebhook}
+                        className="flex-1 rounded-lg py-1.5 text-[12px] font-medium"
+                        style={{ border: `1px solid ${COLORS.border}`, color: COLORS.red }}
+                      >
+                        {t("orchestrator.webhookDelete")}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleGenerateWebhook}
+                    className="w-full rounded-lg py-1.5 text-[12px] font-medium"
+                    style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
+                  >
+                    {t("orchestrator.webhookGenerate")}
+                  </button>
+                )}
+              </div>
             ) : (
               <>
                 <label className="block text-[12px]" style={{ color: COLORS.label }}>

@@ -13,10 +13,13 @@
    GET    /orchestrator/executions/:id          → { execution: OrchestratorExecution }
    GET    /orchestrator/stream/:executionId     → text/event-stream (см. hooks/useOrchestratorRun.ts)
    GET    /orchestrator/remaining               → { remaining: number, total: number }
+   GET    /orchestrator/chains/:id/webhook-trigger/:nodeId    → { trigger: OrchestratorWebhookTrigger | null }
+   POST   /orchestrator/chains/:id/webhook-trigger/:nodeId    → { trigger: OrchestratorWebhookTrigger }
+   DELETE /orchestrator/chains/:id/webhook-trigger/:nodeId    → { success: true }
    ================================================================ */
 
 import { apiClient } from "@/lib/api-client"
-import type { CreateOrUpdateChainInput, OrchestratorChain, OrchestratorExecution, RunChainResult } from "./types"
+import type { CreateOrUpdateChainInput, OrchestratorChain, OrchestratorExecution, OrchestratorWebhookTrigger, RunChainResult } from "./types"
 
 export const orchestratorApi = {
   getChains: async () => {
@@ -62,4 +65,22 @@ export const orchestratorApi = {
   removeJarvisTemplate: async (id: number) => {
     await apiClient.delete<{ success: boolean }>(`/orchestrator/chains/${id}/jarvis-template`)
   },
+
+  getWebhookTrigger: async (chainId: number, nodeId: string) => {
+    const { trigger } = await apiClient.get<{ trigger: OrchestratorWebhookTrigger | null }>(
+      `/orchestrator/chains/${chainId}/webhook-trigger/${nodeId}`,
+    )
+    return trigger
+  },
+
+  createOrRegenerateWebhookTrigger: async (chainId: number, nodeId: string) => {
+    const { trigger } = await apiClient.post<{ trigger: OrchestratorWebhookTrigger }>(
+      `/orchestrator/chains/${chainId}/webhook-trigger/${nodeId}`,
+      {},
+    )
+    return trigger
+  },
+
+  deleteWebhookTrigger: (chainId: number, nodeId: string) =>
+    apiClient.delete<{ success: boolean }>(`/orchestrator/chains/${chainId}/webhook-trigger/${nodeId}`),
 }

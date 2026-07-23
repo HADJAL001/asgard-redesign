@@ -5,6 +5,7 @@ import {
   PremiumGrokIcon,
   PremiumTemplateIcon,
   PremiumServiceCallIcon,
+  PremiumWebhookTriggerIcon,
   type NodeIconProps,
 } from "./PremiumNodeIcon"
 import type { OrchestratorNodeData, OrchestratorNodeType } from "@/lib/orchestrator/types"
@@ -83,6 +84,17 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
       label: "Service Call",
       type: "service_call",
       params: {},
+    },
+  },
+  {
+    type: "webhook_trigger",
+    labelKey: "orchestrator.nodeType.webhookTrigger",
+    descriptionKey: "orchestrator.nodeType.webhookTriggerDesc",
+    Icon: PremiumWebhookTriggerIcon,
+    color: "#A855F7",
+    defaultData: {
+      label: "Webhook Trigger",
+      type: "webhook_trigger",
     },
   },
 ]

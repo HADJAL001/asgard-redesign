@@ -17,6 +17,9 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
     if (!payload || !payload.userId) {
       return res.status(401).json({ error: "Недействительный токен", code: "INVALID_TOKEN" })
     }
+    if (UserModel.isBanned(payload.userId)) {
+      return res.status(403).json({ error: "Аккаунт заблокирован", code: "ACCOUNT_BANNED" })
+    }
     req.user = { userId: payload.userId }
     req.userId = payload.userId
     next()

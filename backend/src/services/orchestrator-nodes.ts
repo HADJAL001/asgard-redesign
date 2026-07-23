@@ -3,6 +3,7 @@ import { callClaudeApi, callDeepSeek, callGrok } from "./ai-router"
 import { getConnector, getConnectorAction } from "./service-bridge/connector-registry"
 import { runIntegrationAction, type IntegrationRow } from "./service-bridge/service-bridge-engine"
 import { isServiceBridgeLimitExceeded, incrementServiceBridgeUsage } from "../lib/integrationsQuota"
+import { isProviderLimitExceeded, incrementProviderUsage } from "../lib/orchestratorProviderQuota"
 import type { PlanKey } from "../lib/stripe"
 
 /* ================================================================
@@ -20,7 +21,7 @@ import type { PlanKey } from "../lib/stripe"
    POST /integrations/:id/execute (см. service-bridge.routes.ts).
    ================================================================ */
 
-export type OrchestratorNodeType = "claude" | "deepseek" | "grok" | "prompt_template" | "service_call"
+export type OrchestratorNodeType = "claude" | "deepseek" | "grok" | "prompt_template" | "service_call" | "webhook_trigger"
 
 export interface OrchestratorNodeConfig {
   type: OrchestratorNodeType
@@ -136,9 +137,22 @@ export async function runNode(config: OrchestratorNodeConfig, input: string, con
     return { output: renderTemplate(config.template, input), context }
   }
 
+  if (config.type === "webhook_trigger") {
+    // Точка входа: просто пропускает тело входящего webhook-запроса дальше по цепочке.
+    return { output: input, context }
+  }
+
   if (config.type === "service_call") {
     return runServiceCallNode(config, input, context, userId)
   }
+
+  if (config.type !== "claude" && config.type !== "deepseek" && config.type !== "grok") {
+    throw new NodeExecutionError(config.type)
+  }
+
+  const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
+  const plan: PlanKey = userRow?.plan ?? "free"
+  if (await isProviderLimitExceeded(userId, plan, config.type)) throw new NodeExecutionError(config.type)
 
   const call = (async (): Promise<string | null> => {
     if (config.type === "claude") {
@@ -147,10 +161,7 @@ export async function runNode(config: OrchestratorNodeConfig, input: string, con
     if (config.type === "deepseek") {
       return callDeepSeek(input, (t) => t, "orchestrator-deepseek", maxTokens, config.systemPrompt, config.temperature)
     }
-    if (config.type === "grok") {
-      return callGrok(input, (t) => t, "orchestrator-grok", maxTokens, config.systemPrompt, config.temperature)
-    }
-    throw new NodeExecutionError(config.type)
+    return callGrok(input, (t) => t, "orchestrator-grok", maxTokens, config.systemPrompt, config.temperature)
   })()
 
   let text: string | null
@@ -162,5 +173,6 @@ export async function runNode(config: OrchestratorNodeConfig, input: string, con
   }
 
   if (text === null) throw new NodeExecutionError(config.type)
+  await incrementProviderUsage(userId, plan, config.type)
   return { output: text, context }
 }

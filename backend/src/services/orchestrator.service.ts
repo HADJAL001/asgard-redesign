@@ -37,6 +37,7 @@ const NODE_COST_TC: Record<OrchestratorNodeType, number> = {
   grok: 2,
   prompt_template: 0,
   service_call: 3,
+  webhook_trigger: 0,
 }
 
 export function calculateChainCost(nodes: OrchestratorGraphNode[]): number {
