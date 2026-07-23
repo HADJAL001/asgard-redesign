@@ -87,7 +87,7 @@ type AdminPaywallFunnel = {
   overallConversionRate: number
   mostPopularTier: string | null
   avgDecisionTimeSec: number
-  byTier: { tier: string; clicks: number; conversions: number; abandoned: number }[]
+  byTier: { tier: string; clicks: number; conversions: number; notConverted: number }[]
 }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -185,8 +185,10 @@ export function AdminView() {
 
   useEffect(() => {
     if (!authLoading && user?.role === "admin") {
-      loadStats()
-      loadUsers(search, page)
+      Promise.resolve().then(() => {
+        loadStats()
+        loadUsers(search, page)
+      })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.role, page])
@@ -210,7 +212,7 @@ export function AdminView() {
 
   useEffect(() => {
     if (!authLoading && user?.role === "admin" && tab === "logs") {
-      loadLogs(logsPage)
+      Promise.resolve().then(() => loadLogs(logsPage))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.role, tab, logsPage])
@@ -241,7 +243,7 @@ export function AdminView() {
 
   useEffect(() => {
     if (!authLoading && user?.role === "admin" && tab === "analytics") {
-      loadAnalytics()
+      Promise.resolve().then(() => loadAnalytics())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.role, tab])
@@ -873,7 +875,7 @@ export function AdminView() {
                           <th className="pb-3 pr-4 font-medium">Тариф</th>
                           <th className="pb-3 pr-4 font-medium">Клики</th>
                           <th className="pb-3 pr-4 font-medium">Оплатили</th>
-                          <th className="pb-3 pr-4 font-medium">Отвалились</th>
+                          <th className="pb-3 pr-4 font-medium">Не оплатили</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y" style={{ borderColor: BORDER }}>
@@ -889,7 +891,7 @@ export function AdminView() {
                               <td className="py-3 pr-4" style={{ color: LABEL }}>{t.tier}</td>
                               <td className="py-3 pr-4">{t.clicks}</td>
                               <td className="py-3 pr-4">{t.conversions}</td>
-                              <td className="py-3 pr-4">{t.abandoned}</td>
+                              <td className="py-3 pr-4">{t.notConverted}</td>
                             </tr>
                           ))
                         )}

@@ -330,29 +330,38 @@ export class AdminController {
             SELECT * FROM analytics_events
             WHERE created_at >= ? AND event_name IN ('pricing_click','pricing_conversion')
           ),
-          clicks AS (
-            SELECT session_id, COALESCE(json_extract(meta, '$.plan'), 'unknown') as tier
+          -- Бывает, что одна session_id кликает по нескольким разным тарифам подряд
+          -- (передумал/сравнивает) — group by session_id с "голым" tier без агрегатной
+          -- функции даёт SQLite право выбрать значение из произвольной строки группы.
+          -- Явно берём тариф последнего по времени события в сессии через ROW_NUMBER().
+          clicks_ranked AS (
+            SELECT session_id, COALESCE(json_extract(meta, '$.plan'), 'unknown') as tier,
+                   ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY created_at DESC) as rn
             FROM window_events WHERE event_name = 'pricing_click'
-            GROUP BY session_id
           ),
-          conversions AS (
-            SELECT session_id, COALESCE(json_extract(meta, '$.plan'), 'unknown') as tier
+          conversions_ranked AS (
+            SELECT session_id, COALESCE(json_extract(meta, '$.plan'), 'unknown') as tier,
+                   ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY created_at DESC) as rn
             FROM window_events WHERE event_name = 'pricing_conversion'
-            GROUP BY session_id
           ),
+          clicks AS (SELECT session_id, tier FROM clicks_ranked WHERE rn = 1),
+          conversions AS (SELECT session_id, tier FROM conversions_ranked WHERE rn = 1),
           click_counts AS (SELECT tier, COUNT(*) as clicks FROM clicks GROUP BY tier),
           conversion_counts AS (SELECT tier, COUNT(*) as conversions FROM conversions GROUP BY tier)
+          -- notConverted = клики по тарифу минус оплаты по тому же тарифу — это НЕ то же
+          -- самое, что overview.totalAbandons (реальное событие pricing_abandon, "ушёл
+          -- без выбора тарифа"). Здесь считаются те, кто выбрал тариф, но не заплатил.
           SELECT
             c.tier as tier,
             c.clicks as clicks,
             COALESCE(v.conversions, 0) as conversions,
-            MAX(c.clicks - COALESCE(v.conversions, 0), 0) as abandoned
+            MAX(c.clicks - COALESCE(v.conversions, 0), 0) as notConverted
           FROM click_counts c
           LEFT JOIN conversion_counts v ON v.tier = c.tier
           ORDER BY c.clicks DESC
         `,
         )
-        .all(sinceMs) as { tier: string; clicks: number; conversions: number; abandoned: number }[]
+        .all(sinceMs) as { tier: string; clicks: number; conversions: number; notConverted: number }[]
 
       const decisionTime = db
         .prepare(
