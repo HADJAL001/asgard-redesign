@@ -37,7 +37,8 @@ jobs:
         continue-on-error: true
         run: |
           set +e
-          OUT=$(curl -s -o /tmp/health_body.json -w "%{http_code} %{time_total}" --max-time 15 "$BASE_URL/api/health")
+          OUT=$(curl -s -o /tmp/health_body.json -w "%{http_code} %{time_total}" --max-time 15 \
+            --retry 2 --retry-delay 3 --retry-all-errors "$BASE_URL/api/health")
           CODE=$(echo "$OUT" | awk '{print $1}')
           TIME=$(echo "$OUT" | awk '{print $2}')
           echo "code=${CODE:-000}" >> "$GITHUB_OUTPUT"
@@ -53,7 +54,8 @@ jobs:
         continue-on-error: true
         run: |
           set +e
-          OUT=$(curl -s -o /tmp/market_body.json -w "%{http_code} %{time_total}" --max-time 15 "$BASE_URL/api/tc-market/state")
+          OUT=$(curl -s -o /tmp/market_body.json -w "%{http_code} %{time_total}" --max-time 15 \
+            --retry 2 --retry-delay 3 --retry-all-errors "$BASE_URL/api/tc-market/state")
           CODE=$(echo "$OUT" | awk '{print $1}')
           TIME=$(echo "$OUT" | awk '{print $2}')
           echo "code=${CODE:-000}" >> "$GITHUB_OUTPUT"
