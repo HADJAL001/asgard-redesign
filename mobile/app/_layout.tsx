@@ -25,6 +25,7 @@ import { useOnboardingStore } from '@/store/onboardingStore';
 import { useBiometricStore } from '@/store/biometricStore';
 import { useGuestStore } from '@/store/guestStore';
 import { useArchiveStore } from '@/store/archiveStore';
+import { usePrefsStore } from '@/store/prefsStore';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -59,6 +60,8 @@ export default function RootLayout() {
   const hydrateArchive = useArchiveStore((s) => s.hydrate);
   const isArchiveHydrated = useArchiveStore((s) => s.isHydrated);
 
+  const hydratePrefs = usePrefsStore((s) => s.hydrate);
+
   const storesReady =
     isAuthHydrated && isOnboardingHydrated && isBiometricHydrated && isGuestHydrated && isArchiveHydrated;
   const appReady = loaded && storesReady;
@@ -78,8 +81,9 @@ export default function RootLayout() {
     hydrateBiometric();
     hydrateGuest();
     hydrateArchive();
+    hydratePrefs();
     return unsubscribe;
-  }, [hydrateAuth, hydrateOnboarding, hydrateBiometric, hydrateGuest, hydrateArchive]);
+  }, [hydrateAuth, hydrateOnboarding, hydrateBiometric, hydrateGuest, hydrateArchive, hydratePrefs]);
 
   // Регистрация push-токена возможна только после того, как известен пользователь
   // (эндпоинт /push/register требует авторизации).
@@ -167,6 +171,7 @@ export default function RootLayout() {
             <Stack.Screen name="marketplace/sell" options={{ title: 'Продать артефакт' }} />
             <Stack.Screen name="wallet/transfer" options={{ title: 'Перевод TimeCoin' }} />
             <Stack.Screen name="wallet/convert" options={{ title: 'Конвертация валют' }} />
+            <Stack.Screen name="settings" options={{ title: 'Настройки' }} />
             <Stack.Screen name="+not-found" />
           </Stack>
           <StatusBar style="auto" />

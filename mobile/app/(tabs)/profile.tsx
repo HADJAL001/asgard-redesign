@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { RefreshControl, Text, View } from 'react-native';
+import { Pressable, RefreshControl, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Crown, Receipt, Sparkles, Star, Coins } from 'lucide-react-native';
+import { Crown, Receipt, Settings, Sparkles, Star, Coins } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import Animated, {
   Extrapolation,
@@ -116,7 +116,12 @@ export default function ProfileScreen() {
           />
         }
       >
-        <Text className="text-2xl font-bold text-white">Профиль</Text>
+        <View className="flex-row items-center justify-between">
+          <Text className="text-2xl font-bold text-white">Профиль</Text>
+          <Pressable onPress={() => router.push('/settings')} hitSlop={8}>
+            <Settings size={24} color="#8A8A9A" />
+          </Pressable>
+        </View>
 
         <Animated.View style={headerStyle}>
           <Card className="flex-row items-center gap-3">
