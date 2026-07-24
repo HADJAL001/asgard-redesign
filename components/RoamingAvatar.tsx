@@ -22,7 +22,8 @@ import { useVoice } from "@/hooks/useVoice"
 import apiClient from "@/lib/api-client"
 import { loadVoiceStyleFromCache } from "@/lib/jarvis-voice-client"
 
-const AVATAR_SIZE = 64
+const AVATAR_SIZE = 72
+const AVATAR_HEIGHT = AVATAR_SIZE * 1.34
 const NAVBAR_SAFE_TOP = 84
 /** Зона FAB ДЖАРВИС + возможной открытой чат-панели (снизу-справа) — туда аватар не встаёт. */
 const FAB_SAFE_ZONE = { right: 320, bottom: 200 }
@@ -123,8 +124,9 @@ export function RoamingAvatar() {
           <span
             style={{
               position: "absolute",
-              right: -2,
-              bottom: -2,
+              left: "66%",
+              top: "40%",
+              transform: "translate(-50%, -50%)",
               width: 22,
               height: 22,
               borderRadius: "50%",
@@ -144,7 +146,7 @@ export function RoamingAvatar() {
           <div
             style={{
               position: "absolute",
-              top: AVATAR_SIZE + 10,
+              top: AVATAR_HEIGHT + 10,
               left: "50%",
               transform: "translateX(-50%)",
               width: 220,

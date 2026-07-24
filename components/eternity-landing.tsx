@@ -432,7 +432,7 @@ export function EternityLanding() {
   )
 }
 
-const WM_CSS = `.wm-scene{position:absolute;bottom:32px;right:6%;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center;opacity:0;animation:wm-rise 0.9s cubic-bezier(0.2,0.8,0.2,1) 0.3s forwards}.wm-svg{width:180px;height:252px;image-rendering:crisp-edges;shape-rendering:geometricPrecision;filter:drop-shadow(0 12px 32px rgba(120,70,20,0.55)) drop-shadow(0 3px 8px rgba(0,0,0,0.9))}.wm-echo-badge{margin-top:8px;font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.14em;color:#8A7050;opacity:0.75;font-family:monospace}.wm-bubble{margin-top:6px;background:rgba(4,5,10,0.97);border:1px solid rgba(180,140,80,0.3);border-radius:6px;padding:7px 16px;font-size:11px;font-weight:400;color:#A08A60;white-space:nowrap;letter-spacing:0.06em;font-family:monospace}@keyframes wm-rise{0%{opacity:0;transform:translateY(24px)}100%{opacity:1;transform:translateY(0)}}@media(max-width:600px){.wm-scene{right:4%;bottom:16px}.wm-svg{width:140px;height:196px}.wm-bubble{font-size:10px;padding:6px 12px}.wm-echo-badge{font-size:8px}}`
+const WM_CSS = `.wm-scene{position:absolute;bottom:32px;right:6%;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center;opacity:0;animation:wm-rise 0.9s cubic-bezier(0.2,0.8,0.2,1) 0.3s forwards}.wm-svg{width:180px;height:252px;shape-rendering:geometricPrecision;filter:drop-shadow(0 18px 30px rgba(0,0,0,0.55)) drop-shadow(0 2px 6px rgba(0,0,0,0.5))}.wm-echo-badge{margin-top:10px;font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.14em;color:#8A8578;opacity:0.7;font-family:monospace}.wm-bubble{margin-top:6px;background:rgba(6,7,12,0.96);border:1px solid rgba(180,170,150,0.16);border-radius:6px;padding:7px 16px;font-size:11px;font-weight:400;color:#B5AD98;white-space:nowrap;letter-spacing:0.04em;font-family:monospace}@keyframes wm-rise{0%{opacity:0;transform:translateY(24px)}100%{opacity:1;transform:translateY(0)}}@media(max-width:600px){.wm-scene{right:4%;bottom:16px}.wm-svg{width:140px;height:196px}.wm-bubble{font-size:10px;padding:6px 12px}.wm-echo-badge{font-size:8px}}`
 
 // ─── ВАЛЛИ минималистичный ──────────────────────────────────────────
 function WalleOnGlobe() {
@@ -440,78 +440,95 @@ function WalleOnGlobe() {
   return (
     <div className="wm-scene" aria-label={t("walli.echoAriaLabel")}>
       <svg className="wm-svg" viewBox="-10 0 120 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="wallHead" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#5A4A34"/>
+            <stop offset="45%" stopColor="#3A2E20"/>
+            <stop offset="100%" stopColor="#221808"/>
+          </linearGradient>
+          <linearGradient id="wallBody" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#54432E"/>
+            <stop offset="50%" stopColor="#362A1C"/>
+            <stop offset="100%" stopColor="#1C1409"/>
+          </linearGradient>
+          <linearGradient id="wallLimb" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#4A3B28"/>
+            <stop offset="100%" stopColor="#241A0E"/>
+          </linearGradient>
+          <radialGradient id="wallEye" cx="36%" cy="30%" r="75%">
+            <stop offset="0%" stopColor="#E9CE9C"/>
+            <stop offset="30%" stopColor="#A87A3E"/>
+            <stop offset="70%" stopColor="#432E16"/>
+            <stop offset="100%" stopColor="#100B05"/>
+          </radialGradient>
+        </defs>
+
         {/* Антенна */}
-        <line x1="50" y1="10" x2="50" y2="2" stroke="#8A7050" strokeWidth="1.5" strokeLinecap="round"/>
-        <circle cx="50" cy="1.5" r="2.5" fill="#6A5030"/>
-        <circle cx="50" cy="1.5" r="1" fill="#C8A870" opacity="0.7"/>
+        <line x1="50" y1="10" x2="50" y2="2" stroke="#7A6A54" strokeWidth="1.5" strokeLinecap="round"/>
+        <circle cx="50" cy="1.5" r="2.5" fill="#5A4A34"/>
+        <circle cx="49.3" cy="0.8" r="0.9" fill="#C8B890" opacity="0.6"/>
 
-        {/* Голова — тёмная бронза */}
-        <rect x="20" y="10" width="60" height="30" rx="3" fill="#3C2E1E"/>
-        <rect x="21" y="11" width="58" height="5" rx="2" fill="#5A4530" opacity="0.7"/>
-        <rect x="20" y="36" width="60" height="4" rx="0" fill="#2A1E10" opacity="0.6"/>
+        {/* Голова — гранёный металл */}
+        <rect x="20" y="10" width="60" height="30" rx="3" fill="url(#wallHead)" stroke="#6B5A3E" strokeWidth="0.5" strokeOpacity="0.4"/>
+        <rect x="21" y="11" width="58" height="4" rx="2" fill="#7A6A4E" opacity="0.35"/>
+        <rect x="20" y="37" width="60" height="3" rx="0" fill="#100B05" opacity="0.55"/>
 
-        {/* Глаз левый — тёплый янтарь */}
-        <circle cx="34" cy="25" r="10" fill="#1C140A"/>
-        <circle cx="34" cy="25" r="7.5" fill="#2C1E10"/>
-        <circle cx="34" cy="25" r="5" fill="#6B4820"/>
-        <circle cx="34" cy="25" r="2.8" fill="#C09050"/>
-        <circle cx="35.5" cy="23" r="1.5" fill="#E8C880" opacity="0.6"/>
-        <circle cx="34" cy="25" r="1" fill="#0A0806"/>
+        {/* Глаз левый — стеклянная линза */}
+        <circle cx="34" cy="25" r="10" fill="#100B05"/>
+        <circle cx="34" cy="25" r="8.2" fill="url(#wallEye)"/>
+        <ellipse cx="35.9" cy="22.2" rx="1.7" ry="1.1" fill="#F6E7C4" opacity="0.7"/>
 
         {/* Глаз правый */}
-        <circle cx="66" cy="25" r="10" fill="#1C140A"/>
-        <circle cx="66" cy="25" r="7.5" fill="#2C1E10"/>
-        <circle cx="66" cy="25" r="5" fill="#6B4820"/>
-        <circle cx="66" cy="25" r="2.8" fill="#C09050"/>
-        <circle cx="67.5" cy="23" r="1.5" fill="#E8C880" opacity="0.6"/>
-        <circle cx="66" cy="25" r="1" fill="#0A0806"/>
+        <circle cx="66" cy="25" r="10" fill="#100B05"/>
+        <circle cx="66" cy="25" r="8.2" fill="url(#wallEye)"/>
+        <ellipse cx="67.9" cy="22.2" rx="1.7" ry="1.1" fill="#F6E7C4" opacity="0.7"/>
 
         {/* Шея */}
-        <rect x="44" y="40" width="12" height="12" rx="2" fill="#2A1E10"/>
+        <rect x="44" y="40" width="12" height="12" rx="2" fill="#221808"/>
 
         {/* Тело */}
-        <rect x="18" y="52" width="64" height="42" rx="3" fill="#3C2E1E"/>
-        <rect x="18" y="52" width="5" height="42" fill="#1A1008" opacity="0.6"/>
-        <rect x="77" y="52" width="5" height="42" fill="#1A1008" opacity="0.6"/>
-        <rect x="23" y="53" width="54" height="3" rx="1" fill="#5A4530" opacity="0.4"/>
+        <rect x="18" y="52" width="64" height="42" rx="3" fill="url(#wallBody)" stroke="#6B5A3E" strokeWidth="0.5" strokeOpacity="0.3"/>
+        <rect x="18" y="52" width="5" height="42" fill="#100B05" opacity="0.5"/>
+        <rect x="77" y="52" width="5" height="42" fill="#100B05" opacity="0.5"/>
+        <rect x="23" y="53" width="54" height="2.5" rx="1" fill="#8A7A5A" opacity="0.3"/>
 
-        {/* Панель — благородная медь */}
-        <rect x="26" y="60" width="32" height="20" rx="2" fill="#241A0C"/>
-        <rect x="28" y="62" width="28" height="7" rx="1" fill="#8A6030" opacity="0.3"/>
-        <text x="42" y="75" textAnchor="middle" fontFamily="monospace" fontWeight="600" fontSize="5.5" fill="#8A6830" opacity="0.8" letterSpacing="1.2">WALL·E</text>
+        {/* Панель управления */}
+        <rect x="26" y="60" width="32" height="20" rx="2" fill="#1C130A"/>
+        <rect x="28" y="62" width="28" height="6" rx="1" fill="#6E5A38" opacity="0.22"/>
+        <text x="42" y="75" textAnchor="middle" fontFamily="monospace" fontWeight="600" fontSize="5.5" fill="#9A8A68" opacity="0.75" letterSpacing="1.2">WALL·E</text>
 
-        {/* LED индикатор — тёплый */}
-        <rect x="66" y="62" width="6" height="12" rx="1.5" fill="#180E06"/>
-        <rect x="67" y="63.5" width="4" height="1.8" rx="0.5" fill="#C07820" opacity="0.7"/>
-        <rect x="67" y="67" width="4" height="1.8" rx="0.5" fill="#A06018" opacity="0.5"/>
-        <rect x="67" y="70.5" width="4" height="1.8" rx="0.5" fill="#803010" opacity="0.3"/>
+        {/* Индикатор состояния — приглушённый */}
+        <rect x="66" y="62" width="6" height="12" rx="1.5" fill="#140D06"/>
+        <rect x="67" y="63.5" width="4" height="1.8" rx="0.5" fill="#8A6A38" opacity="0.55"/>
+        <rect x="67" y="67" width="4" height="1.8" rx="0.5" fill="#6E5228" opacity="0.4"/>
+        <rect x="67" y="70.5" width="4" height="1.8" rx="0.5" fill="#4A3818" opacity="0.28"/>
 
         {/* Рука левая */}
-        <rect x="0" y="58" width="18" height="6" rx="3" fill="#3C2E1E"/>
-        <rect x="-6" y="62" width="12" height="12" rx="2" fill="#2A1E10"/>
-        <rect x="-5" y="63" width="10" height="3" rx="1" fill="#5A4030" opacity="0.4"/>
+        <rect x="0" y="58" width="18" height="6" rx="3" fill="url(#wallLimb)"/>
+        <rect x="-6" y="62" width="12" height="12" rx="2" fill="#221808"/>
+        <rect x="-5" y="63" width="10" height="2.5" rx="1" fill="#6E5A38" opacity="0.3"/>
 
         {/* Рука правая */}
-        <rect x="82" y="58" width="18" height="6" rx="3" fill="#3C2E1E"/>
-        <line x1="100" y1="60" x2="105" y2="55" stroke="#2A1E10" strokeWidth="2" strokeLinecap="round"/>
-        <line x1="100" y1="63" x2="105" y2="68" stroke="#2A1E10" strokeWidth="2" strokeLinecap="round"/>
-        <circle cx="106" cy="54.5" r="1.8" fill="#1A1008"/>
-        <circle cx="106" cy="68.5" r="1.8" fill="#1A1008"/>
+        <rect x="82" y="58" width="18" height="6" rx="3" fill="url(#wallLimb)"/>
+        <line x1="100" y1="60" x2="105" y2="55" stroke="#221808" strokeWidth="2" strokeLinecap="round"/>
+        <line x1="100" y1="63" x2="105" y2="68" stroke="#221808" strokeWidth="2" strokeLinecap="round"/>
+        <circle cx="106" cy="54.5" r="1.8" fill="#140D06"/>
+        <circle cx="106" cy="68.5" r="1.8" fill="#140D06"/>
 
-        {/* Гусеницы — тёмная сталь */}
-        <rect x="12" y="94" width="28" height="14" rx="7" fill="#1C1408"/>
-        <rect x="14" y="100" width="5" height="5" rx="1" fill="#2C2018" opacity="0.9"/>
-        <rect x="21" y="100" width="5" height="5" rx="1" fill="#2C2018" opacity="0.9"/>
-        <rect x="28" y="100" width="5" height="5" rx="1" fill="#2C2018" opacity="0.9"/>
-        <ellipse cx="14.5" cy="101" rx="5" ry="6" fill="#241608"/>
-        <ellipse cx="37.5" cy="101" rx="5" ry="6" fill="#241608"/>
+        {/* Гусеницы */}
+        <rect x="12" y="94" width="28" height="14" rx="7" fill="#160F06"/>
+        <rect x="14" y="100" width="5" height="5" rx="1" fill="#241A0E" opacity="0.9"/>
+        <rect x="21" y="100" width="5" height="5" rx="1" fill="#241A0E" opacity="0.9"/>
+        <rect x="28" y="100" width="5" height="5" rx="1" fill="#241A0E" opacity="0.9"/>
+        <ellipse cx="14.5" cy="101" rx="5" ry="6" fill="#1C1206"/>
+        <ellipse cx="37.5" cy="101" rx="5" ry="6" fill="#1C1206"/>
 
-        <rect x="60" y="94" width="28" height="14" rx="7" fill="#1C1408"/>
-        <rect x="62" y="100" width="5" height="5" rx="1" fill="#2C2018" opacity="0.9"/>
-        <rect x="69" y="100" width="5" height="5" rx="1" fill="#2C2018" opacity="0.9"/>
-        <rect x="76" y="100" width="5" height="5" rx="1" fill="#2C2018" opacity="0.9"/>
-        <ellipse cx="62.5" cy="101" rx="5" ry="6" fill="#241608"/>
-        <ellipse cx="85.5" cy="101" rx="5" ry="6" fill="#241608"/>
+        <rect x="60" y="94" width="28" height="14" rx="7" fill="#160F06"/>
+        <rect x="62" y="100" width="5" height="5" rx="1" fill="#241A0E" opacity="0.9"/>
+        <rect x="69" y="100" width="5" height="5" rx="1" fill="#241A0E" opacity="0.9"/>
+        <rect x="76" y="100" width="5" height="5" rx="1" fill="#241A0E" opacity="0.9"/>
+        <ellipse cx="62.5" cy="101" rx="5" ry="6" fill="#1C1206"/>
+        <ellipse cx="85.5" cy="101" rx="5" ry="6" fill="#1C1206"/>
 
         {/* Тень */}
         <ellipse cx="50" cy="118" rx="36" ry="3" fill="rgba(0,0,0,0.35)"/>
@@ -539,7 +556,7 @@ const CSS = `
 .eternity-page *{ box-sizing: border-box; }
 
 .eternity-page #globe-bg {
-  position: absolute; top: 0; left: 0;
+  position: fixed; top: 0; left: 0;
   width: 100vw; height: 100vh;
   z-index: 0; pointer-events: auto; overflow: hidden;
 }
