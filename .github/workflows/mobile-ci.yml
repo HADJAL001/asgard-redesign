@@ -88,6 +88,13 @@ jobs:
           EXPO_PUBLIC_API_URL: http://10.0.2.2:3002
         run: npx expo prebuild --platform android
 
+      - name: "Mobile: bump Gradle JVM heap (avoid OOM during androidTest dexing)"
+        working-directory: mobile
+        run: |
+          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" >> android/gradle.properties
+          echo "org.gradle.workers.max=2" >> android/gradle.properties
+          echo "org.gradle.daemon=false" >> android/gradle.properties
+
       - name: "Mobile: build Detox android debug + androidTest APKs"
         working-directory: mobile
         env:
