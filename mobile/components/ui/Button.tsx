@@ -14,14 +14,14 @@ type ButtonProps = Omit<PressableProps, 'children'> & {
 };
 
 const VARIANT_CONTAINER: Record<ButtonVariant, string> = {
-  primary: 'bg-accent',
+  primary: '',
   secondary: 'border border-border bg-card',
   danger: 'bg-down',
   ghost: 'bg-transparent',
 };
 
 const VARIANT_TEXT: Record<ButtonVariant, string> = {
-  primary: 'text-bg',
+  primary: '',
   secondary: 'text-white',
   danger: 'text-white',
   ghost: 'text-accent',
@@ -47,9 +47,15 @@ export function Button({
   disabled,
   className,
   onPress,
+  style,
   ...props
 }: ButtonProps & { className?: string }) {
   const isDisabled = disabled || loading;
+  // Primary — единый металл-акцент (gold), а не Tailwind-токен, поэтому цвет фона/текста
+  // задаётся инлайново; disabled-состояние гасится приглушённым disabledGold вместо opacity-50.
+  const primaryContainerStyle =
+    variant === 'primary' ? { backgroundColor: isDisabled ? colors.disabledGold : colors.metal.primary } : undefined;
+  const primaryTextStyle = variant === 'primary' ? { color: colors.navy } : undefined;
 
   return (
     <Pressable
@@ -62,15 +68,18 @@ export function Button({
         'flex-row items-center justify-center gap-2 rounded-xl',
         SIZE_CONTAINER[size],
         VARIANT_CONTAINER[variant],
-        isDisabled && 'opacity-50',
+        isDisabled && variant !== 'primary' && 'opacity-50',
         className,
       )}
+      style={(state) => [primaryContainerStyle, typeof style === 'function' ? style(state) : style]}
       {...props}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#0A0A0F' : colors.cyan} size="small" />
+        <ActivityIndicator color={variant === 'primary' ? colors.navy : colors.cyan} size="small" />
       ) : null}
-      <Text className={cn('font-bold', SIZE_TEXT[size], VARIANT_TEXT[variant])}>{children}</Text>
+      <Text className={cn('font-bold', SIZE_TEXT[size], VARIANT_TEXT[variant])} style={primaryTextStyle}>
+        {children}
+      </Text>
     </Pressable>
   );
 }

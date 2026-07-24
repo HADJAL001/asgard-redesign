@@ -1,5 +1,9 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import {
+  PlayfairDisplay_600SemiBold,
+  PlayfairDisplay_700Bold,
+} from '@expo-google-fonts/playfair-display';
 import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
@@ -31,6 +35,8 @@ export default function RootLayout() {
   const segments = useSegments();
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    PlayfairDisplay_600SemiBold,
+    PlayfairDisplay_700Bold,
   });
 
   const hydrateAuth = useAuthStore((s) => s.hydrate);
@@ -157,10 +163,7 @@ export default function RootLayout() {
               name="biometric-lock"
               options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }}
             />
-            <Stack.Screen
-              name="result/[id]"
-              options={{ title: 'Артефакт', presentation: 'modal', animation: 'fade' }}
-            />
+            <Stack.Screen name="result/[id]" options={{ title: 'Артефакт', animation: 'fade' }} />
             <Stack.Screen name="+not-found" />
           </Stack>
           <StatusBar style="auto" />
