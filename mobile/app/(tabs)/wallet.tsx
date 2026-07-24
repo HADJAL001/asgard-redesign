@@ -180,6 +180,9 @@ export default function WalletScreen() {
           <Button variant="secondary" onPress={() => router.push('/wallet/transfer')}>
             Перевести TimeCoin
           </Button>
+          <Button variant="secondary" onPress={() => router.push('/wallet/convert')}>
+            Конвертировать валюту
+          </Button>
         </Card>
 
         <Card className="gap-3">
