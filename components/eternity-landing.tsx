@@ -725,10 +725,15 @@ const CSS = `
   background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.55) 48%, transparent 66%);
   transform: translateX(-120%); transition: transform 0.55s ease;
 }
+.eternity-page .artifact-form button::after {
+  content: "∞"; margin-left: 2px; font-family: var(--font-playfair), 'Playfair Display', serif;
+  opacity: 0; transform: translateX(-4px); transition: opacity 0.3s ease, transform 0.3s ease;
+}
 .eternity-page .artifact-form button:hover {
   transform: scale(1.03); box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
 }
 .eternity-page .artifact-form button:hover::before { transform: translateX(120%); }
+.eternity-page .artifact-form button:hover::after { opacity: 0.8; transform: translateX(0); }
 .eternity-page .artifact-form button svg { stroke: #0A0D14; stroke-width: 2; position: relative; }
 
 .eternity-page .architects-section h2,
