@@ -14,7 +14,15 @@ Notifications.setNotificationHandler({
   }),
 });
 
+const EAS_PROJECT_ID_PLACEHOLDER = 'YOUR_EAS_PROJECT_ID';
+
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
+  const configuredProjectId = Constants.expoConfig?.extra?.eas?.projectId;
+  if (!configuredProjectId || configuredProjectId === EAS_PROJECT_ID_PLACEHOLDER) {
+    console.warn('EAS projectId не настроен — push-уведомления отключены');
+    return null;
+  }
+
   if (!Device.isDevice) {
     // Push-токены не выдаются на симуляторах/эмуляторах без реального push-сервиса.
     return null;
@@ -39,11 +47,8 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     return null;
   }
 
-  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
   try {
-    const tokenResponse = await Notifications.getExpoPushTokenAsync(
-      projectId ? { projectId } : undefined,
-    );
+    const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId: configuredProjectId });
     return tokenResponse.data;
   } catch {
     // Нет EAS project id / нет сети до push-сервиса — считаем, что пуши недоступны,
