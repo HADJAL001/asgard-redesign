@@ -21,6 +21,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { persistOptions, queryClient } from '@/lib/queryClient';
 import { setupPushNotifications } from '@/lib/push';
 import { setupQuerySync } from '@/lib/querySync';
+import { initSslPinning } from '@/lib/ssl-pinning';
 import { useAuthStore } from '@/store/authStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { useBiometricStore } from '@/store/biometricStore';
@@ -76,6 +77,9 @@ export default function RootLayout() {
   // Разовая инициализация: подписка на сеть/фокус приложения для авто-рефетча React Query
   // + гидратация всех локальных stores (auth/onboarding/biometric/guest) из secure storage.
   useEffect(() => {
+    // Certificate pinning — как можно раньше, до первых сетевых запросов.
+    // Fail-safe: без валидных пинов из env тихо не активируется (см. lib/ssl-pinning).
+    initSslPinning();
     const unsubscribe = setupQuerySync();
     hydrateAuth();
     hydrateOnboarding();
