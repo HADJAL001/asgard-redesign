@@ -270,6 +270,7 @@ import { runPushTokensMigration } from "./migrations/064_push_tokens"
 import { runActivityFeedMigration } from "./migrations/065_activity_feed_table"
 import { runAnalyticsEventsMigration } from "./migrations/066_analytics_events"
 import "./migrations/067_hall_of_fame_index"
+import { runRefreshTokensMigration } from "./migrations/068_refresh_tokens"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
@@ -325,6 +326,9 @@ runNotificationsMigration()
 
 /* Гарантируем наличие таблицы analytics_events (продуктовые события, сейчас — paywall-воронка) при старте сервера. */
 runAnalyticsEventsMigration()
+
+/* Гарантируем наличие таблицы refresh_tokens (stateful refresh с ротацией и детекцией кражи) при старте сервера. */
+runRefreshTokensMigration()
 
 /* Гарантируем наличие таблицы push_tokens (Expo push-токены мобильного приложения) при старте сервера. */
 runPushTokensMigration()
