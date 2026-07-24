@@ -13,11 +13,14 @@ import { BalanceCard, type BalanceRow } from '@/components/BalanceCard';
 import { CurrencyIcon } from '@/components/CurrencyIcon';
 import { LoadingAnimation } from '@/components/LoadingAnimation';
 import { EmptyState } from '@/components/EmptyState';
+import { OrderBook } from '@/components/OrderBook';
+import { MyOrders } from '@/components/MyOrders';
 
 import { useWalletQuery } from '@/hooks/useWalletQuery';
 import { useTcMarketQuery } from '@/hooks/useTcMarketQuery';
 import { useMarketBuyMutation } from '@/hooks/useMarketBuyMutation';
 import { useMarketSellMutation } from '@/hooks/useMarketSellMutation';
+import { useCreateOrderMutation } from '@/hooks/useCreateOrderMutation';
 import { useStakesQuery } from '@/hooks/useStakesQuery';
 import { useStakeMutation } from '@/hooks/useStakeMutation';
 import { useUnstakeMutation } from '@/hooks/useUnstakeMutation';

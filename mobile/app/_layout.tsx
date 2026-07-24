@@ -164,6 +164,7 @@ export default function RootLayout() {
               options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }}
             />
             <Stack.Screen name="result/[id]" options={{ title: 'Артефакт', animation: 'fade' }} />
+            <Stack.Screen name="marketplace/sell" options={{ title: 'Продать артефакт' }} />
             <Stack.Screen name="+not-found" />
           </Stack>
           <StatusBar style="auto" />
