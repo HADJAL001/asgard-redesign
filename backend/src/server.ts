@@ -471,6 +471,11 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   res.status(err.status || 500).json({ error: err.message || "Internal server error" })
 })
 
+/* Security preflight: в проде отказываемся стартовать со слабыми/дефолтными
+   секретами (JWT/ENCRYPTION_KEY). В dev/test — только предупреждение. */
+import { assertProductionSecrets } from "./lib/security-preflight"
+assertProductionSecrets()
+
 const server = app.listen(PORT, () => {
   console.log(`OSGARD backend listening on http://localhost:${PORT}`)
 })
