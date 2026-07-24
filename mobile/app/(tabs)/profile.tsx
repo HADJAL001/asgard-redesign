@@ -19,13 +19,16 @@ import { useToast } from '@/components/ui/Toast';
 import { Avatar } from '@/components/Avatar';
 import { StatsGrid } from '@/components/StatsGrid';
 import { EmptyState } from '@/components/EmptyState';
+import { ArtifactRarity } from '@/components/ArtifactRarity';
 
 import { useAuthStore } from '@/store/authStore';
 import { useLeaderboardQuery } from '@/hooks/useLeaderboardQuery';
 import { useTransactionsQuery } from '@/hooks/useTransactionsQuery';
 import { useArtifactsQuery } from '@/hooks/useArtifactsQuery';
 import { groupByDate } from '@/lib/date-groups';
+import { RARITY_CHAIN } from '@/lib/economy';
 import { colors } from '@/design-system/colors';
+import type { ArtifactRarity as ArtifactRarityId } from '@/types/artifact';
 
 const TOP_N = 5;
 const HEADER_SHRINK_RANGE = 100;
@@ -67,6 +70,16 @@ export default function ProfileScreen() {
     () => leaderboard?.find((e) => e.userId === user?.id) ?? null,
     [leaderboard, user],
   );
+
+  const rarestArtifact = useMemo(() => {
+    const list = artifacts ?? [];
+    if (list.length === 0) return null;
+    return list.reduce((rarest, current) => {
+      const rarestRank = RARITY_CHAIN.indexOf(rarest.rarity as ArtifactRarityId);
+      const currentRank = RARITY_CHAIN.indexOf(current.rarity as ArtifactRarityId);
+      return currentRank > rarestRank ? current : rarest;
+    });
+  }, [artifacts]);
 
   const recentTransactions = useMemo(() => (transactions ?? []).slice(0, 15), [transactions]);
   const transactionGroups = useMemo(
@@ -140,6 +153,18 @@ export default function ProfileScreen() {
             </View>
           </Card>
         </Animated.View>
+
+        {rarestArtifact ? (
+          <Card className="gap-2">
+            <Text className="text-muted">Ваш редчайший артефакт</Text>
+            <View className="flex-row items-center justify-between">
+              <Text className="flex-1 text-base font-bold text-white" numberOfLines={1}>
+                {rarestArtifact.name}
+              </Text>
+              <ArtifactRarity rarity={rarestArtifact.rarity} supply={rarestArtifact.supply} />
+            </View>
+          </Card>
+        ) : null}
 
         <StatsGrid
           stats={[
