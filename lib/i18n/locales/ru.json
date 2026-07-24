@@ -37,7 +37,9 @@
     "profile": "Профиль",
     "mainNav": "Основная навигация",
     "currencyBalances": "Балансы валют",
-    "language": "Язык"
+    "language": "Язык",
+    "more": "Ещё",
+    "close": "Закрыть"
   },
   "twinPage": {
     "title": "Цифровой Близнец",

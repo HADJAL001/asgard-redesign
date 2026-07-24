@@ -37,7 +37,9 @@
     "profile": "Profile",
     "mainNav": "Main navigation",
     "currencyBalances": "Currency balances",
-    "language": "Language"
+    "language": "Language",
+    "more": "More",
+    "close": "Close"
   },
   "twinPage": {
     "title": "Digital Twin",

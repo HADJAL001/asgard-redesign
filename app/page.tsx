@@ -19,11 +19,6 @@ const EternityLanding = dynamic(
   }
 )
 
-const DemoProjectGenerator = dynamic(
-  () => import("@/components/DemoProjectGenerator").then((m) => m.DemoProjectGenerator),
-  { loading: () => null, ssr: false }
-)
-
 const PlatformMap = dynamic(
   () => import("@/components/platform-map/PlatformMap").then((m) => m.PlatformMap),
   { loading: () => <NeutralSplash />, ssr: false }
@@ -54,10 +49,5 @@ export default function Page() {
 
   /* loading=true и нет user → показываем лендинг немедленно.
      После ответа /auth/me (если юзер залогинен) будет ре-рендер на PlatformMap. */
-  return (
-    <>
-      <EternityLanding />
-      <DemoProjectGenerator />
-    </>
-  )
+  return <EternityLanding />
 }
