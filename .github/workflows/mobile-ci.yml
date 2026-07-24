@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - "mobile/**"
+      - "backend/**"
       - ".github/workflows/mobile-ci.yml"
   push:
     branches:
       - main
     paths:
       - "mobile/**"
+      - "backend/**"
       - ".github/workflows/mobile-ci.yml"
 
 jobs:
