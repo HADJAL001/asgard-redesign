@@ -120,6 +120,11 @@ app.use(
   }),
 ) // сжимаем ответы > 1KB
 
+/* Активная кибероборона: блоклист-guard отсекает уже заблокированные IP
+   (honeypot-попадания / превышение порога подозрительности) как можно раньше. */
+import { ipBlocklistGuard, mountHoneypots } from "./middleware/threat-defense"
+app.use(ipBlocklistGuard)
+
 /* Stripe webhook требует "сырое" (raw) тело запроса для проверки подписи,
    поэтому монтируем его ДО express.json(), с express.raw() именно для этого пути. */
 import subscriptionRoutes from "./routes/subscription.routes"
@@ -390,6 +395,9 @@ db.prepare(`UPDATE generation_tasks SET status = 'failed', error = 'Генера
 
 
 
+
+// Honeypot-ловушки монтируются до реальных роутов: попадание блокирует IP.
+mountHoneypots(app)
 
 app.use("/auth", authRoutes)
 app.use("/auth", oauthRoutes)
