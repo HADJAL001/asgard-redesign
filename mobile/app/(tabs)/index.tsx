@@ -8,6 +8,7 @@ import { Coins, Sparkles } from 'lucide-react-native';
 import { ThemePicker } from '@/components/ThemePicker';
 import { VoiceInputButton } from '@/components/VoiceInputButton';
 import { GenerationProgress, type ForgePhase } from '@/components/GenerationProgress';
+import { LimitIndicator } from '@/components/LimitIndicator';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { useWalletQuery } from '@/hooks/useWalletQuery';
 import { useArtifactsQuery, countTodayAiGenerated } from '@/hooks/useArtifactsQuery';
@@ -15,6 +16,7 @@ import { useGenerateArtifact, AI_GENERATE_COST_TC } from '@/hooks/useGenerateArt
 import { ARTIFACT_THEMES, DAILY_AI_GENERATION_SOFT_LIMIT, type ArtifactThemeKey } from '@/types/artifact';
 import { ApiError } from '@/lib/api-client';
 import { colors } from '@/design-system/colors';
+import { useStatusCopy } from '@/lib/i18n/useStatusCopy';
 
 export default function CreateScreen() {
   const [description, setDescription] = useState('');
@@ -23,6 +25,7 @@ export default function CreateScreen() {
   const [error, setError] = useState<string | null>(null);
   const [revealRarity, setRevealRarity] = useState<string | undefined>(undefined);
 
+  const copy = useStatusCopy();
   const { data: wallet } = useWalletQuery();
   const { data: artifacts } = useArtifactsQuery();
   const generateArtifact = useGenerateArtifact();
@@ -71,17 +74,12 @@ export default function CreateScreen() {
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} keyboardShouldPersistTaps="handled">
         <Text className="text-2xl font-bold text-white">Создать артефакт</Text>
 
-        <View className="flex-row items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+        <View className="gap-3 rounded-xl border border-border bg-card px-4 py-3">
           <View className="flex-row items-center gap-2">
             <Coins size={18} color={colors.cyan} />
             <Text className="text-white">{balance.toLocaleString('ru-RU')} ∞</Text>
           </View>
-          <Text
-            className={todayCount >= DAILY_AI_GENERATION_SOFT_LIMIT ? undefined : 'text-muted'}
-            style={todayCount >= DAILY_AI_GENERATION_SOFT_LIMIT ? { color: colors.goldTinted } : undefined}
-          >
-            Сегодня: {todayCount}/{DAILY_AI_GENERATION_SOFT_LIMIT}
-          </Text>
+          <LimitIndicator used={todayCount} max={DAILY_AI_GENERATION_SOFT_LIMIT} />
         </View>
 
         <View className="gap-2">
@@ -117,8 +115,8 @@ export default function CreateScreen() {
         </View>
 
         {!canAfford && (
-          <Text className="text-sm" style={{ color: colors.goldTinted }}>
-            Не хватает совсем немного TimeCoin — нужно ещё {AI_GENERATE_COST_TC - balance} ∞
+          <Text className="text-sm text-down">
+            {copy.rechargeCta} (нужно {AI_GENERATE_COST_TC} ∞)
           </Text>
         )}
         {error && <Text className="text-sm text-down">{error}</Text>}
