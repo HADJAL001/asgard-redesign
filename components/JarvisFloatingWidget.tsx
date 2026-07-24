@@ -56,11 +56,10 @@ export function JarvisFloatingWidget() {
           right: 24,
           bottom: 24,
           zIndex: 9999,
-          width: 56,
-          height: 56,
-          borderRadius: "50%",
+          width: 72,
+          height: 96,
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-end",
           justifyContent: "center",
           background: "transparent",
           border: "none",
@@ -72,19 +71,20 @@ export function JarvisFloatingWidget() {
             style={{
               width: 56,
               height: 56,
+              marginBottom: 20,
               borderRadius: "50%",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               backgroundColor: "#0A0A0F",
               color: "#00D4FF",
-              boxShadow: "0 4px 20px rgba(0,212,255,0.45)",
+              boxShadow: "0 4px 20px rgba(0,212,255,0.35)",
             }}
           >
             <X size={24} strokeWidth={2} aria-hidden="true" />
           </span>
         ) : (
-          <AvatarOrb size={56} variant="idle" />
+          <AvatarOrb size={72} variant="idle" />
         )}
       </button>
     </>
