@@ -64,7 +64,8 @@
           "color": "#00F0FF",
           "sounds": []
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true
