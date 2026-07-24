@@ -1,7 +1,7 @@
 import { test, before, after } from "node:test"
 import assert from "node:assert/strict"
 import { spawn, ChildProcess } from "node:child_process"
-import { DatabaseSync } from "node:sqlite"
+import Database from "better-sqlite3"
 import fs from "node:fs"
 import path from "node:path"
 
@@ -122,7 +122,7 @@ test("параллельные покупки одного предмета ат
   assert.equal(registerRes.status, 201)
   const { token, user } = (await registerRes.json()) as { token: string; user: { id: number } }
 
-  const seedDb = new DatabaseSync(dbAbsolutePath)
+  const seedDb = new Database(dbAbsolutePath)
   seedDb.prepare(`UPDATE wallets SET timecoin = 1000 WHERE user_id = ?`).run(user.id)
   seedDb.close()
 
@@ -142,7 +142,7 @@ test("параллельные покупки одного предмета ат
   assert.equal(successCount, 1, `Ожидался ровно 1 успешный ответ, получено: ${JSON.stringify(statuses)}`)
   assert.equal(conflictCount, CONCURRENCY - 1, `Остальные должны быть 409, получено: ${JSON.stringify(statuses)}`)
 
-  const checkDb = new DatabaseSync(dbAbsolutePath)
+  const checkDb = new Database(dbAbsolutePath)
   const owned = checkDb
     .prepare(`SELECT COUNT(*) as c FROM walli_items WHERE user_id = ? AND item_key = 'genesis'`)
     .get(user.id) as { c: number }

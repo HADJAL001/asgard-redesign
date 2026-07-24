@@ -412,7 +412,7 @@ router.post('/buy/:item_id', requireAuth, (req: Request, res: Response) => {
   }
 
   /* BEGIN IMMEDIATE берёт write-lock сразу при старте транзакции — на
-     единственном SQLite-writer'е (node:sqlite, WAL) это сериализует
+     единственном SQLite-writer'е (better-sqlite3, WAL) это сериализует
      конкурентные запросы на покупку одного и того же предмета одним
      пользователем, устраняя гонку между проверкой владения (SELECT) и
      вставкой строки (INSERT), которая раньше позволяла купить один и

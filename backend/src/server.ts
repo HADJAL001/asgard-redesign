@@ -446,13 +446,10 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
      нет в users — протухший JWT после пересоздания БД) не должны отдавать клиенту сырой текст
      драйвера. Трактуем как невалидную сессию — фронтенд (auth-store) уже умеет разлогинивать
      по 401.
-     Бэкенд использует встроенный node:sqlite (DatabaseSync, см. lib/db.ts), а не better-sqlite3 —
-     его ошибки приходят с code="ERR_SQLITE_ERROR" и numeric errcode (extended result code;
-     787 = SQLITE_CONSTRAINT_FOREIGNKEY и т.д.), а не строками вида "SQLITE_CONSTRAINT_*".
-     Primary result code SQLITE_CONSTRAINT = 19; extended codes упаковывают его в младший байт. */
-  const isDbConstraintError =
-    err?.code === "ERR_SQLITE_ERROR" &&
-    (typeof err.errcode === "number" ? (err.errcode & 0xff) === 19 : /constraint failed/i.test(err?.message || ""))
+     Бэкенд использует better-sqlite3 (см. lib/db.ts) — его ошибки приходят с строковым code
+     вида "SQLITE_CONSTRAINT_FOREIGNKEY", "SQLITE_CONSTRAINT_UNIQUE" и т.д. (префикс
+     "SQLITE_CONSTRAINT"). */
+  const isDbConstraintError = typeof err?.code === "string" && err.code.startsWith("SQLITE_CONSTRAINT")
   if (isDbConstraintError) {
     res.status(401).json({ error: "Сессия недействительна. Пожалуйста, войдите заново." })
     return

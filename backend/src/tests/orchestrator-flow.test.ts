@@ -1,7 +1,7 @@
 import { test, before, after } from "node:test"
 import assert from "node:assert/strict"
 import { spawn, ChildProcess } from "node:child_process"
-import { DatabaseSync } from "node:sqlite"
+import Database from "better-sqlite3"
 import fs from "node:fs"
 import path from "node:path"
 
@@ -100,7 +100,7 @@ async function registerUser(prefix: string): Promise<{ token: string; userId: nu
   // requireOrchestratorAccess) — свежезарегистрированный пользователь по
   // умолчанию на free, поднимаем план напрямую в БД, как в
   // walli-buy-atomicity.test.ts.
-  const planDb = new DatabaseSync(dbAbsolutePath)
+  const planDb = new Database(dbAbsolutePath)
   planDb.prepare(`UPDATE users SET plan = 'supreme' WHERE id = ?`).run(body.user.id)
   planDb.close()
 

@@ -1,7 +1,7 @@
 import { test, before, after } from "node:test"
 import assert from "node:assert/strict"
 import { spawn, ChildProcess } from "node:child_process"
-import { DatabaseSync } from "node:sqlite"
+import Database from "better-sqlite3"
 import fs from "node:fs"
 import path from "node:path"
 
@@ -216,7 +216,7 @@ test("extra-package (mock) начисляет докупленный пакет 
   const purchaseBody = (await purchase.json()) as { mock: boolean }
   assert.equal(purchaseBody.mock, true)
 
-  const checkDb = new DatabaseSync(dbAbsolutePath)
+  const checkDb = new Database(dbAbsolutePath)
   const row = checkDb
     .prepare(`SELECT balance FROM extra_credits WHERE user_id = ? AND provider = 'claude'`)
     .get(userId) as { balance: number } | undefined

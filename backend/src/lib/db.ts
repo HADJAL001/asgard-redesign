@@ -1,4 +1,4 @@
-import { DatabaseSync } from "node:sqlite"
+import Database from "better-sqlite3"
 import fs from "node:fs"
 import path from "node:path"
 import dotenv from "dotenv"
@@ -12,7 +12,7 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true })
 }
 
-export const db = new DatabaseSync(dbPath)
+export const db = new Database(dbPath)
 db.exec("PRAGMA journal_mode = WAL;")
 db.exec("PRAGMA foreign_keys = ON;")
 /* Безопасно для single-writer Node-процесса поверх WAL: при отказе ОС теряются

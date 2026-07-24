@@ -23,7 +23,7 @@ import type { PipelineArtifact, PipelineArtifactSource, PipelineArtifactType } f
    (Redis, если задан REDIS_URL, иначе in-memory Map в этом процессе,
    см. services/cache.service.ts). Отдельного Redis-клиента/Prisma-слоя
    под агентов не заводим — в проекте их и так нет (SQLite через
-   node:sqlite, см. lib/db.ts).
+   better-sqlite3, см. lib/db.ts).
    ================================================================ */
 
 const DEFAULT_MAX_TOKENS = 4096

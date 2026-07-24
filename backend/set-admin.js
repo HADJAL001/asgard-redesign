@@ -2,7 +2,7 @@
  * Назначает роль admin существующему пользователю по email, без рестарта сервера.
  * Использование: node set-admin.js user@example.com
  */
-const { DatabaseSync } = require('node:sqlite');
+const Database = require('better-sqlite3');
 const path = require('path');
 require('dotenv').config();
 
@@ -14,7 +14,7 @@ function setAdmin(email) {
     process.exit(1);
   }
 
-  const db = new DatabaseSync(DB_PATH);
+  const db = new Database(DB_PATH);
 
   const user = db.prepare('SELECT id, username, email, role FROM users WHERE email = ?').get(email);
   if (!user) {

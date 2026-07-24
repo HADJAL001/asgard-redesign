@@ -1,7 +1,7 @@
 import { test, before, after } from "node:test"
 import assert from "node:assert/strict"
 import { spawn, ChildProcess } from "node:child_process"
-import { DatabaseSync } from "node:sqlite"
+import Database from "better-sqlite3"
 import fs from "node:fs"
 import path from "node:path"
 import Stripe from "stripe"
@@ -134,7 +134,7 @@ async function postWebhook(urlPath: string, eventObj: unknown, secret: string) {
 }
 
 function readSubscriptionRow(userId: number): any {
-  const conn = new DatabaseSync(dbAbsolutePath)
+  const conn = new Database(dbAbsolutePath)
   const row = conn.prepare(`SELECT * FROM subscriptions WHERE user_id = ?`).get(userId)
   conn.close()
   return row
@@ -197,7 +197,7 @@ test("customer.subscription.updated обновляет план/статус п�
   const res2 = await postWebhook("/subscription/webhook", failedEvent, SUBSCRIPTION_WEBHOOK_SECRET)
   assert.equal(res2.status, 200)
 
-  const conn = new DatabaseSync(dbAbsolutePath)
+  const conn = new Database(dbAbsolutePath)
   const notification = conn
     .prepare(`SELECT text FROM notifications WHERE user_id = ? AND type = 'billing' ORDER BY id DESC LIMIT 1`)
     .get(userId) as { text: string } | undefined
@@ -219,7 +219,7 @@ test("customer.subscription.updated обновляет план/статус п�
   const body3 = (await res3.json()) as { received: boolean; duplicate: boolean }
   assert.equal(body3.duplicate, true)
 
-  const connAfter = new DatabaseSync(dbAbsolutePath)
+  const connAfter = new Database(dbAbsolutePath)
   const notificationsCountAfter = (
     connAfter.prepare(`SELECT COUNT(*) as c FROM notifications WHERE user_id = ?`).get(userId) as { c: number }
   ).c
@@ -285,7 +285,7 @@ test("checkout.session.completed (mode: payment) начисляет докупл
   const res = await postWebhook("/subscription/webhook", event, SUBSCRIPTION_WEBHOOK_SECRET)
   assert.equal(res.status, 200)
 
-  const conn = new DatabaseSync(dbAbsolutePath)
+  const conn = new Database(dbAbsolutePath)
   const credits = conn
     .prepare(`SELECT balance FROM extra_credits WHERE user_id = ? AND provider = 'claude'`)
     .get(userId) as { balance: number } | undefined

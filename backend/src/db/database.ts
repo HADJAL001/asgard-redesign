@@ -1,5 +1,4 @@
-// Переадресация на основной инстанс БД (node:sqlite)
-// Ранее использовал better-sqlite3, теперь унифицировано через lib/db
+// Переадресация на основной инстанс БД (better-sqlite3, см. lib/db.ts)
 import db from '../lib/db'
 
 export default db

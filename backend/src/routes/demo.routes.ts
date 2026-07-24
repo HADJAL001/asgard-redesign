@@ -198,10 +198,10 @@ router.post("/convert", requireAuth, async (req: AuthRequest, res: Response) => 
     `UPDATE projects SET artifact_count = ? WHERE id = ?`,
   )
 
-  // DatabaseSync (node:sqlite) не даёт .transaction()-хелпер (в отличие от better-sqlite3),
-  // но поддерживает обычный SQL BEGIN/COMMIT/ROLLBACK — оборачиваем все вставки проектов,
-  // артефактов и начисление бонуса в одну транзакцию, чтобы при ошибке на середине цикла
-  // (например, на 2-м из 3 проектов) не оставалось частично сконвертированных демо-данных.
+  // Оборачиваем все вставки проектов, артефактов и начисление бонуса в одну
+  // транзакцию (BEGIN IMMEDIATE/COMMIT/ROLLBACK), чтобы при ошибке на середине
+  // цикла (например, на 2-м из 3 проектов) не оставалось частично
+  // сконвертированных демо-данных.
   db.exec("BEGIN IMMEDIATE")
   try {
     for (const proj of demoProjects.slice(0, 3)) {

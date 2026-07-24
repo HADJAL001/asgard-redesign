@@ -1,8 +1,8 @@
 /**
- * Seed тестового пользователя в реальную БД (node:sqlite)
+ * Seed тестового пользователя в реальную БД (better-sqlite3)
  * Email: test@osgard.com / Password: Test1234!
  */
-const { DatabaseSync } = require('node:sqlite');
+const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 require('dotenv').config();
@@ -10,7 +10,7 @@ require('dotenv').config();
 const DB_PATH = process.env.DB_PATH || path.resolve(__dirname, './data/osgard.db');
 
 async function seed() {
-  const db = new DatabaseSync(DB_PATH);
+  const db = new Database(DB_PATH);
 
   // Показываем таблицы
   const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").all();
