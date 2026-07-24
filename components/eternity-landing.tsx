@@ -11,7 +11,6 @@ import {
   Shield,
   Award,
   Star,
-  LogIn,
   CheckCircle,
   Sparkles,
   X,
@@ -258,21 +257,10 @@ export function EternityLanding() {
               {isSubmitting ? (
                 <><span className="btn-spinner" /> Создаём...</>
               ) : (
-                <>Создать <ArrowRight size={18} strokeWidth={2} aria-hidden="true" /></>
+                <>Создать проект <ArrowRight size={18} strokeWidth={2} aria-hidden="true" /></>
               )}
             </button>
           </form>
-
-          {/* Кнопки авторизации */}
-          <div className="auth-buttons">
-            <Link href="/login" className="auth-btn auth-btn-primary">
-              <LogIn size={16} strokeWidth={2} aria-hidden="true" />
-              Войти
-            </Link>
-            <Link href="/register" className="auth-btn auth-btn-secondary">
-              Регистрация <ArrowRight size={16} strokeWidth={2} aria-hidden="true" />
-            </Link>
-          </div>
         </header>
         <div className="hero-visual">
           <WalleOnGlobe />
@@ -780,36 +768,6 @@ const CSS = `
 }
 .eternity-page .value-title { font-size: 18px; font-weight: 600; color: #fff; letter-spacing: 1px; }
 .eternity-page .value-desc { font-size: 14px; color: #A0B0C8; line-height: 1.6; letter-spacing: 0.02em; }
-
-.eternity-page .auth-buttons {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  animation: eternity-rise 1s ease-out 0.8s forwards; opacity: 0; margin-top: 4px;
-}
-.eternity-page .auth-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  height: 44px; padding: 0 24px; border-radius: 40px;
-  font-family: var(--font-inter), 'Inter', sans-serif;
-  font-size: 14px; font-weight: 600; letter-spacing: 0.04em;
-  text-decoration: none; cursor: pointer; transition: all 0.3s ease;
-  white-space: nowrap;
-}
-.eternity-page .auth-btn-primary {
-  background: linear-gradient(135deg, #FFD700, #FFA500);
-  color: #0A0D14;
-}
-.eternity-page .auth-btn-primary:hover {
-  transform: scale(1.03); box-shadow: 0 0 30px rgba(255, 215, 0, 0.35);
-}
-.eternity-page .auth-btn-secondary {
-  background: rgba(255, 255, 255, 0.04);
-  color: #B0C0D8;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-.eternity-page .auth-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 215, 0, 0.3);
-  color: #fff;
-}
 
 @keyframes eternity-rise {
   0% { opacity: 0; transform: translateY(30px); }
