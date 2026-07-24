@@ -39,12 +39,19 @@
 
 1. ✅ Sentry + ErrorBoundary — `mobile/lib/sentry.ts`, `mobile/components/ErrorBoundary.tsx`,
    подключен в `app/_layout.tsx` (коммит `41ff12d`)
-2. ⚠️ EAS projectId для Push — код готов (`mobile/lib/push.ts` читает
-   `Constants.expoConfig.extra.eas.projectId`, есть guard на случай отсутствия),
-   но в `mobile/app.json` до сих пор placeholder `"YOUR_EAS_PROJECT_ID"`
-   (коммит `2365ae2`). Получить реальный ID может только владелец Expo-аккаунта
-   через `eas login` + `eas init` — агент это сделать не может (нет доступа
-   к аккаунту/креды). **Единственный реально открытый пункт из четырёх.**
+2. ✅ EAS projectId для Push — владелец аккаунта выдал `EXPO_TOKEN` (robot user
+   `SenjorOSA`, роль Developer), выполнен `eas init --non-interactive`.
+   Реальный `projectId` (`126712b9-08e9-4b03-a2f4-113363ed066c`) и `owner`
+   (`senjorosas-team`) записаны в `mobile/app.json`; попутно поправлен
+   невалидный `mobile/eas.json` (пустые `EXPO_PUBLIC_SENTRY_DSN` в env блоках
+   build-профилей ломали `eas init` — убраны, коммит `98f6e0e`). `jest`: 36/36.
+   **Все 4 задачи из «Новой фазы» закрыты.**
+   ⚠️ Важно: в процессе владелец дважды присылал сам токен `EXPO_TOKEN` в чат
+   агенту (плюс один раз токен случайно попал в вывод диагностической команды
+   агента) — оба раза было рекомендовано отозвать и перевыпустить, применено
+   не было. **Эти токены нужно считать скомпрометированными — отозвать на
+   expo.dev → Access tokens при первой возможности**, регулярная ротация
+   робот-токенов в будущем безопаснее, чем хранение в истории чата.
 3. ✅ Экран настроек пользователя — `mobile/app/settings.tsx` (push, reduce
    motion, биометрия, смена пароля), коммит `3167c0e`
 4. ✅ Тесты — `mobile/lib/__tests__/economy.test.ts`,
