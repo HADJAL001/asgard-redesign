@@ -11,6 +11,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.osgard.mobile",
+      "runtimeVersion": {
+        "policy": "appVersion"
+      },
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "OSGARD распознаёт вашу речь, чтобы заполнить описание артефакта.",
         "NSMicrophoneUsageDescription": "OSGARD использует микрофон для голосового ввода описания артефакта."
@@ -18,6 +21,9 @@
     },
     "android": {
       "package": "com.osgard.mobile",
+      "runtimeVersion": {
+        "policy": "appVersion"
+      },
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0A1128"
@@ -81,6 +87,9 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "updates": {
+      "url": "https://u.expo.dev/126712b9-08e9-4b03-a2f4-113363ed066c"
     },
     "extra": {
       "router": {
