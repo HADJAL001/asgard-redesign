@@ -15,21 +15,23 @@ const DEFAULT_AVATAR =
 // ===== ПУБЛИЧНЫЕ РОУТЫ (AuthController) =====
 router.post('/register', rateLimit(60000, 5), AuthController.register);
 router.post('/login', rateLimit(60000, 10), AuthController.login);
-router.post('/refresh', AuthController.refresh);
+// Refresh throttled: без лимита эндпоинт открыт для брутфорса refresh-токенов и DoS.
+router.post('/refresh', rateLimit(60000, 30), AuthController.refresh);
 
 // ===== ЗАЩИЩЁННЫЕ РОУТЫ (AuthController) =====
-router.post('/logout', requireAuth, AuthController.logout);
-router.get('/me', requireAuth, AuthController.me);
-router.post('/change-password', requireAuth, AuthController.changePassword);
-router.post('/link', requireAuth, AuthController.linkProvider);
+router.post('/logout', rateLimit(60000, 30), requireAuth, AuthController.logout);
+router.get('/me', rateLimit(60000, 60), requireAuth, AuthController.me);
+// Смена пароля — чувствительна: жёсткий лимит против перебора старого пароля.
+router.post('/change-password', rateLimit(60000, 10), requireAuth, AuthController.changePassword);
+router.post('/link', rateLimit(60000, 20), requireAuth, AuthController.linkProvider);
 
 // Пример защищённого маршрута, доступного только пользователям с привязанным соцаккаунтом
-router.get('/protected', requireAuth, requireLinked, (req, res) => {
+router.get('/protected', rateLimit(60000, 60), requireAuth, requireLinked, (req, res) => {
   res.json({ success: true, userId: req.userId });
 });
 
 /* ---------------- PATCH /auth/me ---------------- */
-router.patch('/me', requireAuth, (req: AuthRequest, res) => {
+router.patch('/me', rateLimit(60000, 30), requireAuth, (req: AuthRequest, res) => {
   const { displayName, bio, avatarUrl } = req.body || {};
   const current: any = db.prepare(`SELECT * FROM users WHERE id = ?`).get(req.user!.userId);
   if (!current) return res.status(404).json({ error: 'Пользователь не найден', code: 'USER_NOT_FOUND' });
@@ -58,7 +60,7 @@ router.patch('/me', requireAuth, (req: AuthRequest, res) => {
  * -------------------------------------------------------- */
 
 /* POST /auth/2fa/setup */
-router.post('/2fa/setup', requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+router.post('/2fa/setup', rateLimit(60000, 10), requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const userId = req.user!.userId;
 
   const user: any = db
@@ -144,7 +146,7 @@ router.post('/2fa/backup-codes/regenerate', requireAuth, rateLimit(60000, 5, (re
 });
 
 /* POST /auth/2fa/disable */
-router.post('/2fa/disable', requireAuth, (req: AuthRequest, res) => {
+router.post('/2fa/disable', rateLimit(60000, 10), requireAuth, (req: AuthRequest, res) => {
   const userId = req.user!.userId;
   const { token } = req.body || {};
 
@@ -166,7 +168,7 @@ router.post('/2fa/disable', requireAuth, (req: AuthRequest, res) => {
 });
 
 /* GET /auth/2fa/status */
-router.get('/2fa/status', requireAuth, (req: AuthRequest, res) => {
+router.get('/2fa/status', rateLimit(60000, 30), requireAuth, (req: AuthRequest, res) => {
   const user: any = db
     .prepare(`SELECT twofa_enabled, twofa_backup_codes FROM users WHERE id = ?`)
     .get(req.user!.userId);

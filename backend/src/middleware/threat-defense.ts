@@ -50,6 +50,13 @@ export const HONEYPOT_PATHS = [
   "/.aws/credentials",
 ]
 
+/* Санитизация значений перед логированием: вырезаем CR/LF и управляющие
+   символы, обрезаем длину — иначе подконтрольные атакующему данные (IP из
+   заголовка, путь honeypot) могли бы «подделать» строки в логах (log injection). */
+function sanitizeForLog(value: string): string {
+  return value.replace(/[\r\n\t\x00-\x1f\x7f]/g, " ").slice(0, 200)
+}
+
 /* ---------- Хранилище (Redis + in-memory fallback) ---------- */
 type Expiring = { value: number; expires: number }
 const memScore = new Map<string, Expiring>()
@@ -86,8 +93,10 @@ async function blockIp(ip: string, reason: string) {
     }
   }
   // Алерт: авто-блокировка — событие, которое стоит видеть в Sentry.
-  Sentry.captureMessage(`Threat auto-block: ${ip} (${reason})`, "warning")
-  console.warn(`[threat-defense] blocked ${ip}: ${reason}`)
+  const safeIp = sanitizeForLog(ip)
+  const safeReason = sanitizeForLog(reason)
+  Sentry.captureMessage(`Threat auto-block: ${safeIp} (${safeReason})`, "warning")
+  console.warn(`[threat-defense] blocked ${safeIp}: ${safeReason}`)
 }
 
 /** Проверка блокировки IP (Redis → fallback in-memory). */
