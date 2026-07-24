@@ -1,0 +1,18 @@
+title = "OSGARD gitleaks config"
+
+# Наследуем полный набор правил gitleaks по умолчанию.
+[extend]
+useDefault = true
+
+[allowlist]
+description = """
+Заведомо НЕ-секреты: строковые плейсхолдеры небезопасных дефолтных значений,
+против которых код сам же и защищается (см. backend/src/lib/security-preflight.ts,
+auth.service.ts, encryption.ts). Это публичные общеизвестные заглушки, а не
+реальные ключи — их присутствие в коде безопасно и намеренно.
+"""
+regexes = [
+  '''default_secret''',
+  '''default_refresh_secret''',
+  '''default-32-char-key-for-aes''',
+]
