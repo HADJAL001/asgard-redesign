@@ -37,7 +37,7 @@ test("recordOffense игнорирует null IP без ошибок", async () 
 })
 
 test("honeypotHandler отвечает нейтральным 404", () => {
-  process.env.NODE_ENV = "test" // в test-режиме блокировка внутри handler пропускается
+  // recordOffense внутри — fire-and-forget void, на проверку ответа не влияет.
   let statusCode = 0
   let body: any = null
   const res: any = {
