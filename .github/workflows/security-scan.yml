@@ -69,12 +69,10 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: javascript-typescript
-          # Стандартный default-сьют (высокая точность). Расширенные сьюты
-          # (security-extended/-and-quality) давали ложные срабатывания для
-          # этого репозитория: js/missing-rate-limiting не распознаёт кастомный
-          # rateLimit-middleware (флагает КАЖДЫЙ роут, хотя лимиты стоят), а
-          # js/user-controlled-bypass ложно срабатывает на криптопроверке
-          # TOTP-кода. Инъекции/XSS/секреты/path-traversal остаются активными.
+          # config-file исключает два запроса с системными ложными
+          # срабатываниями для этого репозитория (кастомный rate limiter,
+          # криптопроверка TOTP). Прочие security-запросы активны.
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: Анализ CodeQL
         uses: github/codeql-action/analyze@v3
