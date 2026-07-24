@@ -44,6 +44,7 @@ function ArtifactSuccessModal({
   artifactName: string
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -114,19 +115,19 @@ function ArtifactSuccessModal({
   }, [onClose])
 
   return (
-    <div className="artifact-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Артефакт создан">
+    <div className="artifact-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={t("landing.modalAria")}>
       <canvas ref={canvasRef} className="artifact-confetti-canvas" />
       <div className="artifact-modal-card" onClick={(e) => e.stopPropagation()}>
-        <button className="artifact-modal-close" onClick={onClose} aria-label="Закрыть">
+        <button className="artifact-modal-close" onClick={onClose} aria-label={t("landing.modalClose")}>
           <X size={18} />
         </button>
         <div className="artifact-modal-icon">
           <div className="artifact-modal-icon-ring" />
           <CheckCircle size={40} strokeWidth={1.5} />
         </div>
-        <div className="artifact-modal-title">Запрос принят!</div>
+        <div className="artifact-modal-title">{t("landing.modalTitle")}</div>
         <div className="artifact-modal-subtitle">
-          Твой артефакт
+          {t("landing.modalSubtitle")}
         </div>
         <div className="artifact-modal-name">
           <Sparkles size={14} strokeWidth={1.5} />
@@ -134,10 +135,10 @@ function ArtifactSuccessModal({
           <Sparkles size={14} strokeWidth={1.5} />
         </div>
         <div className="artifact-modal-desc">
-          скоро появится в <span className="artifact-modal-highlight">Зале Славы</span>
+          {t("landing.modalDescBefore")} <span className="artifact-modal-highlight">{t("landing.modalDescHighlight")}</span>
         </div>
         <button className="artifact-modal-btn" onClick={onClose}>
-          Отлично! <ArrowRight size={16} strokeWidth={2} />
+          {t("landing.modalBtn")} <ArrowRight size={16} strokeWidth={2} />
         </button>
       </div>
     </div>
@@ -145,6 +146,7 @@ function ArtifactSuccessModal({
 }
 
 export function EternityLanding() {
+  const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
   const [modalArtifact, setModalArtifact] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -226,12 +228,12 @@ export function EternityLanding() {
 
       {/* Прозрачная шапка */}
       <header className={`site-nav${scrolled ? " scrolled" : ""}`}>
-        <Link href="/" className="site-nav-logo" aria-label="OSGARD — главная">
+        <Link href="/" className="site-nav-logo" aria-label={t("landing.navHomeAria")}>
           OSG<InfinityIcon size={16} strokeWidth={2} className="site-nav-logo-glyph" aria-hidden="true" />RD
         </Link>
         <div className="site-nav-links">
-          <Link href="/login" className="site-nav-link">Войти</Link>
-          <Link href="/register" className="site-nav-link site-nav-link-primary">Регистрация</Link>
+          <Link href="/login" className="site-nav-link">{t("landing.navLogin")}</Link>
+          <Link href="/register" className="site-nav-link site-nav-link-primary">{t("landing.navRegister")}</Link>
         </div>
       </header>
 
@@ -239,27 +241,26 @@ export function EternityLanding() {
       <div className="container">
         <header className="hero-content">
           <h1>
-            Преврати идею
-            <br />в вечность
+            {t("landing.heroTitleLine1")}
+            <br />{t("landing.heroTitleLine2")}
           </h1>
           <div className="tc-badge">
             <InfinityIcon size={14} strokeWidth={1.4} aria-hidden="true" />
-            Цифровое золото нового поколения
+            {t("landing.badgeText")}
             <span className="tc-badge-dot" aria-hidden="true" />
           </div>
           <p className="hero-subtitle">
-            Создавай проекты, продавай за <InfinityIcon className="ico gold" size={20} aria-hidden="true" /> TimeCoin,
-            становись легендой
+            {t("landing.heroSubtitleBefore")} <InfinityIcon className="ico gold" size={20} aria-hidden="true" /> {t("landing.heroSubtitleAfter")}
           </p>
 
           {/* Миниатюрное окно ввода (всегда видимо) */}
           <form className="artifact-form" onSubmit={handleSubmit}>
-            <input ref={inputRef} type="text" placeholder="Опишите ваш проект" autoComplete="off" aria-label="Опишите ваш проект" />
+            <input ref={inputRef} type="text" placeholder={t("landing.inputPlaceholder")} autoComplete="off" aria-label={t("landing.inputPlaceholder")} />
             <button type="submit" disabled={isSubmitting} className={isSubmitting ? "submitting" : ""}>
               {isSubmitting ? (
-                <><span className="btn-spinner" /> Создаём...</>
+                <><span className="btn-spinner" /> {t("landing.creatingBtn")}</>
               ) : (
-                <>Создать проект <ArrowRight size={18} strokeWidth={2} aria-hidden="true" /></>
+                <>{t("landing.createBtn")} <ArrowRight size={18} strokeWidth={2} aria-hidden="true" /></>
               )}
             </button>
           </form>
@@ -268,78 +269,78 @@ export function EternityLanding() {
         </header>
 
         <section className="how-section">
-          <Reveal><h2>Как это работает</h2></Reveal>
+          <Reveal><h2>{t("landing.howTitle")}</h2></Reveal>
           <div className="how-container">
             <Reveal delay={0} className="how-item">
               <div className="how-step">01</div>
               <div className="how-icon-badge"><IconIdea size={32} /></div>
-              <div className="how-title">Задумай идею</div>
-              <div className="how-desc">Опиши концепцию будущего артефакта — от киберпанк-клинка до древнего свитка.</div>
+              <div className="how-title">{t("landing.how1Title")}</div>
+              <div className="how-desc">{t("landing.how1Desc")}</div>
             </Reveal>
             <Reveal delay={0.12} className="how-item">
               <div className="how-step">02</div>
               <div className="how-icon-badge"><IconCreate size={32} /></div>
-              <div className="how-title">Создай артефакт</div>
-              <div className="how-desc">AI воплощает идею в уникальный цифровой артефакт за считаные секунды.</div>
+              <div className="how-title">{t("landing.how2Title")}</div>
+              <div className="how-desc">{t("landing.how2Desc")}</div>
             </Reveal>
             <Reveal delay={0.24} className="how-item">
               <div className="how-step">03</div>
               <div className="how-icon-badge"><IconLegend size={32} /></div>
-              <div className="how-title">Стань легендой</div>
-              <div className="how-desc">Продай за TimeCoin, поднимись в Зале Славы, войди в историю OSGARD.</div>
+              <div className="how-title">{t("landing.how3Title")}</div>
+              <div className="how-desc">{t("landing.how3Desc")}</div>
             </Reveal>
           </div>
         </section>
 
         <section className="examples-section">
-          <Reveal><h2>Примеры проектов</h2></Reveal>
-          <Reveal delay={0.05}><p className="examples-subtitle">От нишевых сервисов до массовых платформ — здесь можно создать любой проект.</p></Reveal>
+          <Reveal><h2>{t("landing.examplesTitle")}</h2></Reveal>
+          <Reveal delay={0.05}><p className="examples-subtitle">{t("landing.examplesSubtitle")}</p></Reveal>
           <div className="examples-container">
             <Reveal delay={0} className="example-card">
               <div className="example-preview example-preview-1" />
               <div className="example-body">
                 <div className="example-icon-badge"><IconMarket size={26} /></div>
-                <div className="example-title">Магазин артефактов</div>
-                <div className="example-desc">Витрина для продажи уникальных артефактов сообществу.</div>
+                <div className="example-title">{t("landing.example1Title")}</div>
+                <div className="example-desc">{t("landing.example1Desc")}</div>
               </div>
             </Reveal>
             <Reveal delay={0.12} className="example-card">
               <div className="example-preview example-preview-2" />
               <div className="example-body">
                 <div className="example-icon-badge"><IconDialogue size={26} /></div>
-                <div className="example-title">Живой диалог</div>
-                <div className="example-desc">Интерактивные истории и сюжетные миры с AI-персонажами.</div>
+                <div className="example-title">{t("landing.example2Title")}</div>
+                <div className="example-desc">{t("landing.example2Desc")}</div>
               </div>
             </Reveal>
             <Reveal delay={0.24} className="example-card">
               <div className="example-preview example-preview-3" />
               <div className="example-body">
                 <div className="example-icon-badge"><IconDashboard size={26} /></div>
-                <div className="example-title">Личный дашборд</div>
-                <div className="example-desc">Аналитика роста твоей вселенной и коллекции артефактов.</div>
+                <div className="example-title">{t("landing.example3Title")}</div>
+                <div className="example-desc">{t("landing.example3Desc")}</div>
               </div>
             </Reveal>
             <Reveal delay={0.36} className="example-card">
               <div className="example-preview example-preview-4" />
               <div className="example-body">
                 <div className="example-icon-badge"><IconVPN size={26} /></div>
-                <div className="example-title">VPN-сервис</div>
-                <div className="example-desc">Приватный доступ в сеть под своим брендом — тарифы, подписка, серверы.</div>
+                <div className="example-title">{t("landing.example4Title")}</div>
+                <div className="example-desc">{t("landing.example4Desc")}</div>
               </div>
             </Reveal>
             <Reveal delay={0.48} className="example-card">
               <div className="example-preview example-preview-5" />
               <div className="example-body">
                 <div className="example-icon-badge"><IconSocial size={26} /></div>
-                <div className="example-title">Социальная сеть</div>
-                <div className="example-desc">Лента, профили и подписки — платформа для своего комьюнити.</div>
+                <div className="example-title">{t("landing.example5Title")}</div>
+                <div className="example-desc">{t("landing.example5Desc")}</div>
               </div>
             </Reveal>
           </div>
         </section>
 
         <section className="architects-section">
-          <h2>Архитекторы вселенной</h2>
+          <h2>{t("landing.architectsTitle")}</h2>
           <div className="cards-container">
             <article className="card gold">
               <div className="card-avatar">
@@ -401,22 +402,22 @@ export function EternityLanding() {
         </section>
 
         <section className="economy-section">
-          <Reveal><h2>Экономика артефактов</h2></Reveal>
+          <Reveal><h2>{t("landing.economyTitle")}</h2></Reveal>
           <div className="values-container">
             <Reveal delay={0} className="value-item">
               <IconTrade size={32} />
-              <div className="value-title">Торгуй</div>
-              <div className="value-desc">Продавай и покупай артефакты на открытом рынке TimeCoin.</div>
+              <div className="value-title">{t("landing.value1Title")}</div>
+              <div className="value-desc">{t("landing.value1Desc")}</div>
             </Reveal>
             <Reveal delay={0.12} className="value-item">
               <IconEarn size={32} />
-              <div className="value-title">Зарабатывай</div>
-              <div className="value-desc">Получай TimeCoin за каждый созданный шедевр.</div>
+              <div className="value-title">{t("landing.value2Title")}</div>
+              <div className="value-desc">{t("landing.value2Desc")}</div>
             </Reveal>
             <Reveal delay={0.24} className="value-item">
               <IconInvest size={32} />
-              <div className="value-title">Инвестируй</div>
-              <div className="value-desc">Вкладывай накопленное в новые вселенные и расти вместе с платформой.</div>
+              <div className="value-title">{t("landing.value3Title")}</div>
+              <div className="value-desc">{t("landing.value3Desc")}</div>
             </Reveal>
           </div>
         </section>
@@ -424,10 +425,10 @@ export function EternityLanding() {
         <section className="community-section">
           <Reveal className="community-inner">
             <IconCommunity size={40} />
-            <h2>Готов оставить свой след в вечности?</h2>
-            <p className="community-desc">Присоединяйся к элите архитекторов и развивай вселенную вместе с ними.</p>
+            <h2>{t("landing.communityTitle")}</h2>
+            <p className="community-desc">{t("landing.communityDesc")}</p>
             <Link href="/register" className="final-cta-btn">
-              Создать артефакт <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
+              {t("landing.communityBtn")} <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
             </Link>
           </Reveal>
         </section>

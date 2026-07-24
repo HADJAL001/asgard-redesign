@@ -161,14 +161,14 @@ function ProfileMenu({
       <Link href="/login" className="flex items-center gap-2 transition-opacity hover:opacity-90">
         <Image
           src={avatarUrl || "/placeholder.svg"}
-          alt="Гость"
+          alt={t("nav.guest")}
           width={32}
           height={32}
           className="size-8 rounded-full object-cover"
           style={{ border: "1px solid #2A2A3E" }}
         />
         <span className="hidden text-[14px] sm:block" style={{ color: "rgba(255,255,255,0.8)" }}>
-          Гость
+          {t("nav.guest")}
         </span>
       </Link>
     )
@@ -225,7 +225,7 @@ function ProfileMenu({
             style={{ color: "#FF6B6B", borderTop: "1px solid #2A2A3E" }}
           >
             <LogOut size={15} strokeWidth={1.75} />
-            Выйти
+            {t("nav.logout")}
           </button>
         </div>
       )}
@@ -280,7 +280,7 @@ function NavDrawer({
             className="text-[13px] font-semibold tracking-[0.18em]"
             style={{ color: "var(--color-gold)" }}
           >
-            МЕНЮ
+            {t("nav.menuTitle")}
           </span>
           <button
             type="button"
@@ -363,7 +363,7 @@ export function Navbar() {
       <Link
         href="/"
         className="pl-6 flex items-baseline gap-2 transition-opacity hover:opacity-90"
-        aria-label="OSGARD NEW WORLD — главная"
+        aria-label={t("nav.homeAria")}
       >
         <span
           className="text-[18px] font-semibold tracking-[0.18em]"
@@ -487,7 +487,7 @@ export function Navbar() {
 
         <ProfileMenu
           isAuthenticated={isAuthenticated}
-          displayName={user?.displayName || user?.username || "Гость"}
+          displayName={user?.displayName || user?.username || t("nav.guest")}
           avatarUrl={user?.avatarUrl || AVATAR}
           isProfileActive={isActive("/profile")}
           onLogout={logout}

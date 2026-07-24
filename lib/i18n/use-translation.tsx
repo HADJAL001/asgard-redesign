@@ -53,6 +53,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(LANG_CHANGE_EVENT, handleChange)
   }, [])
 
+  useEffect(() => {
+    document.documentElement.lang = locale
+  }, [locale])
+
   const changeLocale = useCallback((next: Locale) => {
     persistLocale(next)
     setLocaleState(next)
