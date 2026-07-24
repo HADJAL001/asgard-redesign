@@ -41,10 +41,15 @@ export default function CreateScreen() {
     const hint = theme ? `${theme.hint} ${description.trim()}` : description.trim();
 
     setPhase('charging');
-    setTimeout(() => setPhase('burst'), 600);
 
     try {
+      // 'charging' зациклен на произвольную длительность (InfinityForgeSymbol), поэтому
+      // 'burst' включаем по факту ответа backend, а не по гадательному таймеру — так на
+      // долгой AI-генерации анимация не замирает в промежуточном состоянии.
       const result = await generateArtifact.mutateAsync(hint);
+      setPhase('burst');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await new Promise((resolve) => setTimeout(resolve, 350));
       setRevealRarity(result.artifact.rarity);
       setPhase('reveal');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -71,7 +76,10 @@ export default function CreateScreen() {
             <Coins size={18} color={colors.cyan} />
             <Text className="text-white">{balance.toLocaleString('ru-RU')} ∞</Text>
           </View>
-          <Text className={todayCount >= DAILY_AI_GENERATION_SOFT_LIMIT ? 'text-down' : 'text-muted'}>
+          <Text
+            className={todayCount >= DAILY_AI_GENERATION_SOFT_LIMIT ? undefined : 'text-muted'}
+            style={todayCount >= DAILY_AI_GENERATION_SOFT_LIMIT ? { color: colors.goldTinted } : undefined}
+          >
             Сегодня: {todayCount}/{DAILY_AI_GENERATION_SOFT_LIMIT}
           </Text>
         </View>
@@ -109,7 +117,9 @@ export default function CreateScreen() {
         </View>
 
         {!canAfford && (
-          <Text className="text-sm text-down">Недостаточно TimeCoin (нужно {AI_GENERATE_COST_TC} ∞)</Text>
+          <Text className="text-sm" style={{ color: colors.goldTinted }}>
+            Не хватает совсем немного TimeCoin — нужно ещё {AI_GENERATE_COST_TC - balance} ∞
+          </Text>
         )}
         {error && <Text className="text-sm text-down">{error}</Text>}
 

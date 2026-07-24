@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { PriceChart } from '@/components/PriceChart';
-import { AnimatedBalance } from '@/components/AnimatedBalance';
+import { BalanceCard, type BalanceRow } from '@/components/BalanceCard';
 import { CurrencyIcon } from '@/components/CurrencyIcon';
 import { LoadingAnimation } from '@/components/LoadingAnimation';
 import { EmptyState } from '@/components/EmptyState';
@@ -45,6 +45,28 @@ export default function WalletScreen() {
 
   const isRefreshing = walletFetching || tcFetching || stakesFetching;
   const activeStakes = useMemo(() => (stakes ?? []).filter((s) => s.status === 'active'), [stakes]);
+
+  const balanceRows = useMemo<BalanceRow[]>(
+    () => [
+      ...CURRENCY_ORDER.map((id) => ({
+        key: id,
+        icon: <CurrencyIcon currency={id} />,
+        label: CURRENCIES[id].label,
+        value: wallet?.[id] ?? 0,
+        format: (n: number) => formatCurrencyAmount(id, n),
+        suffix: CURRENCIES[id].symbol,
+      })),
+      {
+        key: 'usd',
+        icon: <CurrencyIcon currency="usd" />,
+        label: 'USD-баланс',
+        value: wallet?.cash_usd ?? 0,
+        format: (n: number) => fmtUSD(n),
+        dividerAbove: true,
+      },
+    ],
+    [wallet],
+  );
 
   const closeModal = () => {
     setActiveModal(null);
@@ -111,37 +133,7 @@ export default function WalletScreen() {
       >
         <Text className="text-2xl font-bold text-white">Кошелёк</Text>
 
-        <Card className="gap-3">
-          {CURRENCY_ORDER.map((id) => (
-            <View key={id} className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-2">
-                <CurrencyIcon currency={id} />
-                <Text className="text-muted">{CURRENCIES[id].label}</Text>
-              </View>
-              <View className="flex-row items-center">
-                <AnimatedBalance
-                  value={wallet?.[id] ?? 0}
-                  format={(n) => formatCurrencyAmount(id, n)}
-                  className="text-base font-bold text-white"
-                  style={{ padding: 0, textAlign: 'right' }}
-                />
-                <Text className="text-base font-bold text-white"> {CURRENCIES[id].symbol}</Text>
-              </View>
-            </View>
-          ))}
-          <View className="flex-row items-center justify-between border-t border-border pt-3">
-            <View className="flex-row items-center gap-2">
-              <CurrencyIcon currency="usd" />
-              <Text className="text-muted">USD-баланс</Text>
-            </View>
-            <AnimatedBalance
-              value={wallet?.cash_usd ?? 0}
-              format={(n) => fmtUSD(n)}
-              className="text-base font-bold text-white"
-              style={{ padding: 0, textAlign: 'right' }}
-            />
-          </View>
-        </Card>
+        <BalanceCard rows={balanceRows} />
 
         <Card className="gap-3">
           <View className="flex-row items-center justify-between">
