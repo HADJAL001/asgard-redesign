@@ -261,10 +261,9 @@ export function EternityLanding() {
               )}
             </button>
           </form>
-        </header>
-        <div className="hero-visual">
+
           <WalleOnGlobe />
-        </div>
+        </header>
 
         <section className="how-section">
           <Reveal><h2>Как это работает</h2></Reveal>
@@ -420,13 +419,51 @@ export function EternityLanding() {
   )
 }
 
-const WM_CSS = `.wm-scene{position:absolute;bottom:20px;right:0;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center;width:240px;opacity:0;animation:wm-rise 0.9s cubic-bezier(0.2,0.8,0.2,1) 0.3s forwards}.wm-rider{display:flex;flex-direction:column;align-items:center;animation:wm-patrol 9s ease-in-out 1.2s infinite}.wm-track{width:190px;height:3px;margin-top:-22px;border-radius:2px;background:repeating-linear-gradient(90deg,rgba(190,178,150,0.32) 0 8px,transparent 8px 18px);box-shadow:0 1px 2px rgba(0,0,0,0.5)}.wm-svg{width:180px;height:252px;shape-rendering:geometricPrecision;filter:drop-shadow(0 18px 30px rgba(0,0,0,0.55)) drop-shadow(0 2px 6px rgba(0,0,0,0.5))}.wm-echo-badge{margin-top:10px;font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.14em;color:#8A8578;opacity:0.7;font-family:monospace}.wm-bubble{margin-top:6px;background:rgba(6,7,12,0.96);border:1px solid rgba(180,170,150,0.16);border-radius:6px;padding:7px 16px;font-size:11px;font-weight:400;color:#B5AD98;white-space:nowrap;letter-spacing:0.04em;font-family:monospace}@keyframes wm-rise{0%{opacity:0;transform:translateY(24px)}100%{opacity:1;transform:translateY(0)}}@keyframes wm-patrol{0%,100%{transform:translateX(-38px)}50%{transform:translateX(38px)}}@media(prefers-reduced-motion:reduce){.wm-rider{animation:none}}@media(max-width:600px){.wm-scene{right:0;bottom:12px;width:180px}.wm-track{width:150px;margin-top:-17px}.wm-rider{animation-name:wm-patrol-sm}@keyframes wm-patrol-sm{0%,100%{transform:translateX(-26px)}50%{transform:translateX(26px)}}.wm-svg{width:140px;height:196px}.wm-bubble{font-size:10px;padding:6px 12px}.wm-echo-badge{font-size:8px}}`
+const WM_CSS = `
+.wm-container{margin-top:28px;width:100%;max-width:300px;opacity:0;animation:wm-rise 0.9s cubic-bezier(0.2,0.8,0.2,1) 0.5s forwards}
+.wm-frame{position:relative;overflow:hidden;border-radius:16px;padding:26px 16px 16px;background:radial-gradient(120% 140% at 50% 0%, rgba(46,38,20,0.55) 0%, rgba(10,13,20,0.88) 55%, rgba(4,5,9,0.96) 100%);border:1px solid rgba(212,175,55,0.22);box-shadow:0 14px 34px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(212,175,55,0.05);animation:wm-flicker 6s ease-in-out infinite}
+.wm-frame::before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;box-shadow:inset 0 0 54px 16px rgba(0,0,0,0.78);z-index:1}
+.wm-rivet{position:absolute;width:4px;height:4px;border-radius:50%;background:rgba(212,175,55,0.4);box-shadow:0 0 3px rgba(212,175,55,0.3);z-index:2}
+.wm-rivet-tl{top:8px;left:8px}.wm-rivet-tr{top:8px;right:8px}.wm-rivet-bl{bottom:8px;left:8px}.wm-rivet-br{bottom:8px;right:8px}
+.wm-tag{position:absolute;top:10px;left:16px;z-index:2;font-family:monospace;font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(212,175,55,0.55)}
+.wm-leds{position:absolute;top:11px;right:16px;z-index:2;display:flex;gap:5px}
+.wm-led{width:5px;height:5px;border-radius:50%;background:var(--color-gold);box-shadow:0 0 5px rgba(212,175,55,0.85);animation:wm-pulse-led 2.6s ease-in-out infinite}
+.wm-led-b{background:#C1502E;box-shadow:0 0 5px rgba(193,80,46,0.85);animation-delay:0.7s}
+.wm-led-c{animation-delay:1.4s}
+.wm-scene{position:relative;z-index:2;display:flex;justify-content:center;pointer-events:none}
+.wm-rider{display:flex;flex-direction:column;align-items:center;animation:wm-patrol 9s ease-in-out 1.6s infinite}
+.wm-track{width:150px;height:3px;margin-top:-18px;border-radius:2px;background:repeating-linear-gradient(90deg, rgba(190,178,150,0.32) 0 8px, transparent 8px 18px);box-shadow:0 1px 2px rgba(0,0,0,0.5)}
+.wm-svg{width:150px;height:210px;shape-rendering:geometricPrecision;filter:drop-shadow(0 14px 24px rgba(0,0,0,0.55)) drop-shadow(0 2px 6px rgba(0,0,0,0.5))}
+.wm-echo-badge{margin-top:10px;text-align:center;font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.14em;color:#8A8578;opacity:0.7;font-family:monospace}
+.wm-bubble{margin-top:6px;background:rgba(6,7,12,0.96);border:1px solid rgba(180,170,150,0.16);border-radius:6px;padding:7px 16px;font-size:11px;font-weight:400;color:#B5AD98;white-space:nowrap;letter-spacing:0.04em;font-family:monospace}
+.wm-scanline{position:absolute;left:6%;right:6%;height:2px;top:-6%;z-index:2;background:linear-gradient(90deg, transparent, rgba(212,175,55,0.75), transparent);opacity:0;animation:wm-scan 5.5s linear infinite}
+@keyframes wm-rise{0%{opacity:0;transform:translateY(24px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes wm-patrol{0%,100%{transform:translateX(-28px)}50%{transform:translateX(28px)}}
+@keyframes wm-pulse-led{0%,100%{opacity:0.4}50%{opacity:1}}
+@keyframes wm-scan{0%{top:-6%;opacity:0}8%{opacity:0.6}92%{opacity:0.6}100%{top:104%;opacity:0}}
+@keyframes wm-flicker{0%,100%{filter:brightness(1)}50%{filter:brightness(1.035)}97%{filter:brightness(0.975)}}
+@media(prefers-reduced-motion:reduce){.wm-rider,.wm-led,.wm-scanline,.wm-frame{animation:none}}
+@media(max-width:600px){.wm-container{max-width:260px}.wm-svg{width:130px;height:182px}.wm-track{width:130px;margin-top:-16px}}
+`
 
 // ─── ВАЛЛИ минималистичный ──────────────────────────────────────────
 function WalleOnGlobe() {
   const { t } = useTranslation()
   return (
-    <div className="wm-scene" aria-label={t("walli.echoAriaLabel")}>
+    <div className="wm-container" aria-label={t("walli.echoAriaLabel")}>
+      <div className="wm-frame">
+        <span className="wm-rivet wm-rivet-tl" aria-hidden="true" />
+        <span className="wm-rivet wm-rivet-tr" aria-hidden="true" />
+        <span className="wm-rivet wm-rivet-bl" aria-hidden="true" />
+        <span className="wm-rivet wm-rivet-br" aria-hidden="true" />
+        <span className="wm-tag" aria-hidden="true">WALL·E · 01</span>
+        <div className="wm-leds" aria-hidden="true">
+          <span className="wm-led wm-led-a" />
+          <span className="wm-led wm-led-b" />
+          <span className="wm-led wm-led-c" />
+        </div>
+        <div className="wm-scanline" aria-hidden="true" />
+    <div className="wm-scene">
       <div className="wm-rider">
       <svg className="wm-svg" viewBox="-10 0 120 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <defs>
@@ -528,6 +565,8 @@ function WalleOnGlobe() {
         {t("walli.echoBubble")}
       </div>
       </div>
+    </div>
+      </div>
       <style>{WM_CSS}</style>
     </div>
   )
@@ -617,7 +656,6 @@ const CSS = `
   display: flex; flex-direction: column; justify-content: center;
   align-items: flex-start; gap: 24px;
 }
-.eternity-page .hero-visual { position: relative; }
 .eternity-page h1 {
   font-family: var(--font-playfair), 'Playfair Display', serif;
   font-size: 64px; font-weight: 700; color: #fff;
@@ -780,13 +818,11 @@ const CSS = `
 @media (max-width: 1100px) {
   .eternity-page .container { grid-template-columns: 1fr; gap: 60px; }
   .eternity-page .hero-content { align-items: center; text-align: center; }
-  .eternity-page .hero-visual { min-height: 340px; }
   .eternity-page h1 { font-size: 48px; }
   .eternity-page .artifact-form { max-width: 100%; }
 }
 @media (max-width: 600px) {
   .eternity-page .container { padding-top: 128px; }
-  .eternity-page .hero-visual { min-height: 260px; }
   .eternity-page h1 { font-size: 36px; }
   .eternity-page .artifact-form { flex-direction: column; gap: 10px; }
   .eternity-page .artifact-form input,
