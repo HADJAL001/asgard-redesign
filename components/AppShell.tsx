@@ -14,7 +14,6 @@ import { ReadonlyModeProvider } from "@/lib/readonly-mode"
 import { PaywallModal } from "./PaywallModal"
 import { GlobalHotkeys } from "@/lib/use-hotkeys"
 import { JarvisFloatingWidget } from "./JarvisFloatingWidget"
-import { RoamingAvatar } from "./RoamingAvatar"
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -23,7 +22,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       <PaywallModal />
       <GlobalHotkeys />
       <JarvisFloatingWidget />
-      <RoamingAvatar />
     </ReadonlyModeProvider>
   )
 }
