@@ -40,6 +40,7 @@ jobs:
   e2e-android:
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -89,6 +90,8 @@ jobs:
 
       - name: "Mobile: build Detox android debug + androidTest APKs"
         working-directory: mobile
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4096m -Dorg.gradle.workers.max=2"
         run: npm run e2e:build:android
 
       - name: "Mobile: start Metro (JS bundler for debug APK)"
