@@ -246,13 +246,13 @@ export function EternityLanding() {
             <span className="tc-badge-dot" aria-hidden="true" />
           </div>
           <p className="hero-subtitle">
-            Создавай артефакты, продавай за <InfinityIcon className="ico gold" size={20} aria-hidden="true" /> TimeCoin,
+            Создавай проекты, продавай за <InfinityIcon className="ico gold" size={20} aria-hidden="true" /> TimeCoin,
             становись легендой
           </p>
 
           {/* Миниатюрное окно ввода (всегда видимо) */}
           <form className="artifact-form" onSubmit={handleSubmit}>
-            <input ref={inputRef} type="text" placeholder="Опиши свой артефакт..." autoComplete="off" aria-label="Опиши свой артефакт" />
+            <input ref={inputRef} type="text" placeholder="Опишите ваш проект" autoComplete="off" aria-label="Опишите ваш проект" />
             <button type="submit" disabled={isSubmitting} className={isSubmitting ? "submitting" : ""}>
               {isSubmitting ? (
                 <><span className="btn-spinner" /> Создаём...</>
