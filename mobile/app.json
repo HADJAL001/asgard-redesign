@@ -10,14 +10,25 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.osgard.mobile"
+      "bundleIdentifier": "com.osgard.mobile",
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "OSGARD распознаёт вашу речь, чтобы заполнить описание артефакта.",
+        "NSMicrophoneUsageDescription": "OSGARD использует микрофон для голосового ввода описания артефакта."
+      }
     },
     "android": {
       "package": "com.osgard.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0A1128"
-      }
+      },
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -72,9 +83,13 @@
       "typedRoutes": true
     },
     "extra": {
+      "router": {
+        "origin": false
+      },
       "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
+        "projectId": "126712b9-08e9-4b03-a2f4-113363ed066c"
       }
-    }
+    },
+    "owner": "senjorosas-team"
   }
 }
