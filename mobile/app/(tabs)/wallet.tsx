@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { PiggyBank } from 'lucide-react-native';
 
 import { Card } from '@/components/ui/Card';
@@ -172,6 +173,13 @@ export default function WalletScreen() {
               Продать
             </Button>
           </View>
+        </Card>
+
+        <Card className="gap-3">
+          <Text className="text-lg font-bold text-white">Действия</Text>
+          <Button variant="secondary" onPress={() => router.push('/wallet/transfer')}>
+            Перевести TimeCoin
+          </Button>
         </Card>
 
         <Card className="gap-3">

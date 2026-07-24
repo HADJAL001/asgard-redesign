@@ -165,6 +165,7 @@ export default function RootLayout() {
             />
             <Stack.Screen name="result/[id]" options={{ title: 'Артефакт', animation: 'fade' }} />
             <Stack.Screen name="marketplace/sell" options={{ title: 'Продать артефакт' }} />
+            <Stack.Screen name="wallet/transfer" options={{ title: 'Перевод TimeCoin' }} />
             <Stack.Screen name="+not-found" />
           </Stack>
           <StatusBar style="auto" />
