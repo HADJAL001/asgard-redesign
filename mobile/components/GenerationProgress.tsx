@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
-import { AccessibilityInfo, Modal, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { Modal, Text, View } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing, cancelAnimation } from 'react-native-reanimated';
 import { rarityMeta } from '@/lib/economy';
 import { colors } from '@/design-system/colors';
 import { InfinityForgeSymbol } from '@/components/InfinityForgeSymbol';
+import { usePrefsStore } from '@/store/prefsStore';
 
 export type ForgePhase = 'idle' | 'charging' | 'burst' | 'reveal';
 
@@ -15,18 +16,8 @@ const PHASE_LABEL: Record<Exclude<ForgePhase, 'idle'>, string> = {
   reveal: 'Готово!',
 };
 
-function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled?.().then(setReduced);
-    const sub = AccessibilityInfo.addEventListener?.('reduceMotionChanged', setReduced);
-    return () => sub?.remove?.();
-  }, []);
-  return reduced;
-}
-
 export function GenerationProgress({ phase, rarity }: { phase: ForgePhase; rarity?: string }) {
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = usePrefsStore((s) => s.effectiveReduceMotion);
   const shockScale = useSharedValue(1);
   const shockOpacity = useSharedValue(0);
 

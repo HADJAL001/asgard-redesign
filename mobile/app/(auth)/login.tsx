@@ -73,6 +73,7 @@ export default function LoginScreen() {
 
         <View className="gap-3">
           <TextInput
+            testID="login-username-input"
             value={identifier}
             onChangeText={setIdentifier}
             placeholder="Email или логин"
@@ -82,6 +83,7 @@ export default function LoginScreen() {
             className="rounded-xl border border-border bg-card px-4 py-3 text-white"
           />
           <TextInput
+            testID="login-password-input"
             value={password}
             onChangeText={setPassword}
             placeholder="Пароль"
@@ -94,6 +96,7 @@ export default function LoginScreen() {
         {error && <Text className="text-sm text-down">{error}</Text>}
 
         <Pressable
+          testID="login-submit-button"
           onPress={handleSubmit}
           disabled={!canSubmit}
           className={`items-center rounded-xl px-4 py-4 ${canSubmit ? 'bg-accent' : 'bg-border'}`}

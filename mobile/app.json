@@ -65,10 +65,16 @@
           "sounds": []
         }
       ],
+      "@sentry/react-native",
       "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
     }
   }
 }

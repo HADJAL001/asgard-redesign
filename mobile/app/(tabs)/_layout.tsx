@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
-import { Sparkles, History, Wallet, User } from 'lucide-react-native';
+import { Sparkles, History, Store, Wallet, User } from 'lucide-react-native';
 
 import { HapticTab } from '@/components/HapticTab';
 import TabBarBackground from '@/components/ui/TabBarBackground';
@@ -36,6 +36,13 @@ export default function TabLayout() {
         options={{
           title: 'История',
           tabBarIcon: ({ color }) => <History size={26} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="marketplace"
+        options={{
+          title: 'Маркет',
+          tabBarIcon: ({ color }) => <Store size={26} color={color} />,
         }}
       />
       <Tabs.Screen

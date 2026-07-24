@@ -4,6 +4,7 @@ import type { MarketListing } from '@/types/market';
 import type { OsgardWallet } from '@/types/artifact';
 import { MARKETPLACE_QUERY_KEY } from '@/hooks/useMarketplaceQuery';
 import { WALLET_QUERY_KEY } from '@/hooks/useWalletQuery';
+import { ARTIFACTS_QUERY_KEY } from '@/hooks/useArtifactsQuery';
 
 export function useBuyListingMutation() {
   const queryClient = useQueryClient();
@@ -15,6 +16,7 @@ export function useBuyListingMutation() {
       queryClient.setQueryData<MarketListing[]>(MARKETPLACE_QUERY_KEY, (old) =>
         old ? old.filter((l) => l.id !== listingId) : old,
       );
+      queryClient.invalidateQueries({ queryKey: ARTIFACTS_QUERY_KEY });
     },
   });
 }

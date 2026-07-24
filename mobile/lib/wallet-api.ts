@@ -10,7 +10,7 @@ export async function convertCurrency(
   wallet: OsgardWallet;
   conversion: { from: CurrencyKey; to: CurrencyKey; amountSent: number; amountReceived: number; fee: number };
 }> {
-  return apiClient.post('/wallet/convert', { fromCurrency: from, toCurrency: to, amount });
+  return apiClient.post('/wallet/convert', { from, to, amount });
 }
 
 export async function lookupRecipient(email: string): Promise<RecipientLookupResult> {

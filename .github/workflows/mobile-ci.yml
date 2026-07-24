@@ -29,9 +29,87 @@ jobs:
 
       - run: npm test -- --watchAll=false
 
-      # Detox e2e требует нативной сборки (Android emulator/iOS simulator) и
-      # здесь намеренно не запускается — нет доступного device farm в этом
-      # workflow. Прогон вручную: `npx expo prebuild`, затем
-      # `npm run e2e:build:android && npm run e2e:test:android`.
-      # TODO: подключить Detox через EAS Build + `wix/detox-github-action`
-      # (или device farm), когда появится подходящий раннер.
+  e2e-android:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            mobile/package-lock.json
+            backend/package-lock.json
+
+      - name: "Backend: install deps"
+        working-directory: backend
+        run: npm ci
+
+      - name: "Backend: init DB + seed demo user (alex_odin)"
+        working-directory: backend
+        run: |
+          npm run init-db
+          npm run migrate:orderbook
+          npm run migrate:referrals
+          npm run migrate:premium-upgrade
+          npm run migrate:subscriptions
+
+      - name: "Backend: build"
+        working-directory: backend
+        run: npm run build
+
+      - name: "Backend: start server"
+        working-directory: backend
+        run: |
+          nohup npm start > backend.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3002/health && break
+            sleep 1
+          done
+
+      - name: "Mobile: install deps"
+        working-directory: mobile
+        run: npm ci
+
+      - name: "Mobile: expo prebuild (android)"
+        working-directory: mobile
+        env:
+          EXPO_PUBLIC_API_URL: http://10.0.2.2:3002
+        run: npx expo prebuild --platform android
+
+      - name: "Mobile: build Detox android debug + androidTest APKs"
+        working-directory: mobile
+        run: npm run e2e:build:android
+
+      - name: "Mobile: start Metro (JS bundler for debug APK)"
+        working-directory: mobile
+        run: |
+          nohup npx expo start --port 8081 --non-interactive > metro.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8081/status && break
+            sleep 1
+          done
+
+      - name: Run Detox e2e tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          avd-name: Pixel_7_API_34
+          arch: x86_64
+          profile: pixel_7
+          working-directory: mobile
+          script: npm run e2e:test:android
+
+      - name: Upload Detox artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detox-artifacts
+          path: mobile/artifacts
+          if-no-files-found: ignore
+
+      # iOS e2e не настроен — конфиг ios.sim.debug в .detoxrc.js требует
+      # macOS-раннера и Xcode; при необходимости добавить отдельный job
+      # на macos-latest по аналогии с этим.

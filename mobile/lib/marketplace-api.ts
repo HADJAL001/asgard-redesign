@@ -11,3 +11,21 @@ export async function buyListing(listingId: MarketListing['id']): Promise<Osgard
   const data = await apiClient.post<{ wallet: OsgardWallet }>(`/marketplace/${listingId}/buy`);
   return data.wallet;
 }
+
+export type CreatedListing = Pick<
+  MarketListing,
+  'id' | 'artifactId' | 'sellerId' | 'price' | 'currency' | 'status' | 'listedAt'
+>;
+
+export async function createListing(
+  artifactId: number,
+  price: number,
+  currency: string,
+): Promise<CreatedListing> {
+  const data = await apiClient.post<{ listing: CreatedListing }>('/marketplace/list', {
+    artifactId,
+    price,
+    currency,
+  });
+  return data.listing;
+}
