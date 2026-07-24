@@ -24,6 +24,8 @@ import {
   IconMarket,
   IconDialogue,
   IconDashboard,
+  IconVPN,
+  IconSocial,
   IconCommunity,
   IconTrade,
   IconEarn,
@@ -270,19 +272,19 @@ export function EternityLanding() {
           <div className="how-container">
             <Reveal delay={0} className="how-item">
               <div className="how-step">01</div>
-              <IconIdea size={36} />
+              <div className="how-icon-badge"><IconIdea size={32} /></div>
               <div className="how-title">Задумай идею</div>
               <div className="how-desc">Опиши концепцию будущего артефакта — от киберпанк-клинка до древнего свитка.</div>
             </Reveal>
             <Reveal delay={0.12} className="how-item">
               <div className="how-step">02</div>
-              <IconCreate size={36} />
+              <div className="how-icon-badge"><IconCreate size={32} /></div>
               <div className="how-title">Создай артефакт</div>
               <div className="how-desc">AI воплощает идею в уникальный цифровой артефакт за считаные секунды.</div>
             </Reveal>
             <Reveal delay={0.24} className="how-item">
               <div className="how-step">03</div>
-              <IconLegend size={36} />
+              <div className="how-icon-badge"><IconLegend size={32} /></div>
               <div className="how-title">Стань легендой</div>
               <div className="how-desc">Продай за TimeCoin, поднимись в Зале Славы, войди в историю OSGARD.</div>
             </Reveal>
@@ -291,11 +293,12 @@ export function EternityLanding() {
 
         <section className="examples-section">
           <Reveal><h2>Примеры проектов</h2></Reveal>
+          <Reveal delay={0.05}><p className="examples-subtitle">От нишевых сервисов до массовых платформ — здесь можно создать любой проект.</p></Reveal>
           <div className="examples-container">
             <Reveal delay={0} className="example-card">
               <div className="example-preview example-preview-1" />
               <div className="example-body">
-                <IconMarket size={28} />
+                <div className="example-icon-badge"><IconMarket size={26} /></div>
                 <div className="example-title">Магазин артефактов</div>
                 <div className="example-desc">Витрина для продажи уникальных артефактов сообществу.</div>
               </div>
@@ -303,7 +306,7 @@ export function EternityLanding() {
             <Reveal delay={0.12} className="example-card">
               <div className="example-preview example-preview-2" />
               <div className="example-body">
-                <IconDialogue size={28} />
+                <div className="example-icon-badge"><IconDialogue size={26} /></div>
                 <div className="example-title">Живой диалог</div>
                 <div className="example-desc">Интерактивные истории и сюжетные миры с AI-персонажами.</div>
               </div>
@@ -311,9 +314,25 @@ export function EternityLanding() {
             <Reveal delay={0.24} className="example-card">
               <div className="example-preview example-preview-3" />
               <div className="example-body">
-                <IconDashboard size={28} />
+                <div className="example-icon-badge"><IconDashboard size={26} /></div>
                 <div className="example-title">Личный дашборд</div>
                 <div className="example-desc">Аналитика роста твоей вселенной и коллекции артефактов.</div>
+              </div>
+            </Reveal>
+            <Reveal delay={0.36} className="example-card">
+              <div className="example-preview example-preview-4" />
+              <div className="example-body">
+                <div className="example-icon-badge"><IconVPN size={26} /></div>
+                <div className="example-title">VPN-сервис</div>
+                <div className="example-desc">Приватный доступ в сеть под своим брендом — тарифы, подписка, серверы.</div>
+              </div>
+            </Reveal>
+            <Reveal delay={0.48} className="example-card">
+              <div className="example-preview example-preview-5" />
+              <div className="example-body">
+                <div className="example-icon-badge"><IconSocial size={26} /></div>
+                <div className="example-title">Социальная сеть</div>
+                <div className="example-desc">Лента, профили и подписки — платформа для своего комьюнити.</div>
               </div>
             </Reveal>
           </div>
@@ -1017,13 +1036,35 @@ const CSS = `
   transform: translateY(-4px); border-color: rgba(212, 175, 55, 0.3); box-shadow: var(--eg-glow-gold);
 }
 .eternity-page .how-step {
-  font-family: var(--font-space), sans-serif; font-size: 13px; font-weight: 700;
-  color: var(--eg-gold-2); letter-spacing: 0.1em; opacity: 0.7;
+  font-family: var(--font-space), 'Playfair Display', serif; font-size: 32px; font-weight: 700;
+  background: linear-gradient(150deg, var(--eg-gold-1), var(--eg-gold-3));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  letter-spacing: 0.06em; opacity: 0.85;
 }
 .eternity-page .how-title { font-size: 18px; font-weight: 600; color: #fff; letter-spacing: 0.5px; margin-top: 4px; }
 .eternity-page .how-desc { font-size: 14px; color: #A0B0C8; line-height: 1.6; letter-spacing: 0.02em; }
 
+.eternity-page .how-icon-badge,
+.eternity-page .example-icon-badge {
+  width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 30% 30%, rgba(212, 175, 55, 0.14), rgba(10, 13, 20, 0.92) 75%);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  box-shadow: inset 0 0 18px rgba(212, 175, 55, 0.12), 0 0 22px rgba(212, 175, 55, 0.1);
+  transition: box-shadow 0.35s ease, transform 0.35s ease;
+}
+.eternity-page .how-item:hover .how-icon-badge,
+.eternity-page .example-card:hover .example-icon-badge {
+  box-shadow: inset 0 0 22px rgba(212, 175, 55, 0.2), 0 0 32px rgba(212, 175, 55, 0.22);
+  transform: scale(1.06);
+}
+
 /* ─── «Примеры проектов» ─── */
+.eternity-page .examples-subtitle {
+  grid-column: 1/-1; text-align: center; color: #A0B0C8; font-size: 15px;
+  letter-spacing: 0.02em; margin-top: -24px; margin-bottom: 40px;
+  max-width: 560px; margin-left: auto; margin-right: auto;
+}
 .eternity-page .examples-container {
   display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;
 }
@@ -1050,6 +1091,8 @@ const CSS = `
 .eternity-page .example-preview-1 { background: radial-gradient(circle at 30% 30%, rgba(212,175,55,0.35), rgba(10,13,20,0.9) 70%); }
 .eternity-page .example-preview-2 { background: radial-gradient(circle at 70% 40%, rgba(106,90,205,0.35), rgba(10,13,20,0.9) 70%); }
 .eternity-page .example-preview-3 { background: radial-gradient(circle at 50% 70%, rgba(45,125,210,0.3), rgba(10,13,20,0.9) 70%); }
+.eternity-page .example-preview-4 { background: radial-gradient(circle at 35% 65%, rgba(46,204,113,0.28), rgba(10,13,20,0.9) 70%); }
+.eternity-page .example-preview-5 { background: radial-gradient(circle at 65% 35%, rgba(255,105,180,0.26), rgba(10,13,20,0.9) 70%); }
 .eternity-page .example-body {
   display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
   padding: 24px;

@@ -122,6 +122,35 @@ export function IconDashboard({ size }: { size?: number }) {
   )
 }
 
+export function IconVPN({ size }: { size?: number }) {
+  return (
+    <GoldIcon size={size}>
+      {(c) => (
+        <>
+          <path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" stroke={c} strokeWidth={1.4} strokeLinejoin="round" />
+          <path d="M9 12.2l2 2 4-4.4" stroke={c} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      )}
+    </GoldIcon>
+  )
+}
+
+export function IconSocial({ size }: { size?: number }) {
+  return (
+    <GoldIcon size={size}>
+      {(c) => (
+        <>
+          <rect x="4" y="5" width="16" height="6" rx="2" stroke={c} strokeWidth={1.4} />
+          <rect x="4" y="13" width="16" height="6" rx="2" stroke={c} strokeWidth={1.4} opacity={0.55} />
+          <circle cx="8" cy="8" r="1.3" fill={c} stroke="none" />
+          <path d="M11.5 8h5" stroke={c} strokeWidth={1.3} strokeLinecap="round" />
+          <path d="M16.2 15.6c-.9-.8-2.2-.3-2.2.8 0 .9 1 1.7 2.2 2.6 1.2-.9 2.2-1.7 2.2-2.6 0-1.1-1.3-1.6-2.2-.8z" stroke={c} strokeWidth={1.1} strokeLinejoin="round" />
+        </>
+      )}
+    </GoldIcon>
+  )
+}
+
 /* ── «Сообщество» ── */
 
 export function IconCommunity({ size }: { size?: number }) {
