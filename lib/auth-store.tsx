@@ -30,14 +30,16 @@ export type User = {
   githubPublishUsername?: string | null
 }
 
-type AuthResult = { ok: boolean; message?: string }
+type AuthResult = { ok: boolean; message?: string; twofaRequired?: boolean }
 
 type AuthValue = {
   user: User | null
   /** true пока идёт первичная проверка сессии (/auth/me) */
   loading: boolean
   isAuthenticated: boolean
-  login: (username: string, password: string) => Promise<AuthResult>
+  /** twofaCode — TOTP или резервный код; передаётся на втором шаге, если бэкенд
+   *  вернул twofaRequired на первом (только пароль). */
+  login: (username: string, password: string, twofaCode?: string) => Promise<AuthResult>
   register: (username: string, email: string, password: string) => Promise<AuthResult>
   /** Логин по токенам, выданным бэкендом после OAuth-редиректа (см. /auth/callback). */
   loginWithToken: (token: string, refreshToken?: string) => Promise<AuthResult>
@@ -95,12 +97,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
   }, [])
 
-  const login = useCallback<AuthValue["login"]>(async (username, password) => {
+  const login = useCallback<AuthValue["login"]>(async (username, password, twofaCode) => {
     try {
-      const loginPayload = username.includes("@")
+      const base = username.includes("@")
         ? { email: username, password }
         : { username, password }
-      const data = await apiClient.post<{ user: User }>("/auth/login", loginPayload, { skipAuthRedirect: true })
+      // 6-значный ввод трактуем как TOTP, иначе — как резервный код (xxxxx-xxxxx).
+      const twofaField = twofaCode
+        ? /^\d{6}$/.test(twofaCode.trim())
+          ? { twofaToken: twofaCode.trim() }
+          : { backupCode: twofaCode.trim() }
+        : {}
+      const loginPayload = { ...base, ...twofaField }
+      const data = await apiClient.post<{ user?: User; twofaRequired?: boolean }>(
+        "/auth/login",
+        loginPayload,
+        { skipAuthRedirect: true },
+      )
+      // Бэкенд ответил 200 с флагом «нужен второй фактор» — токены НЕ выданы.
+      if (data.twofaRequired) {
+        return { ok: false, twofaRequired: true, message: "Введите код двухфакторной аутентификации" }
+      }
+      if (!data.user) {
+        return { ok: false, message: "Не удалось выполнить вход" }
+      }
       setStoredUser(data.user)
       setUser(data.user)
       return { ok: true }

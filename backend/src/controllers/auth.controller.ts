@@ -7,6 +7,7 @@ import Joi from 'joi';
 import db from '../db/database';
 import { captureError } from '../lib/sentry';
 import { fetchTreasuryTcForEmission, canEmitUnbackedSync } from '../lib/emission-guard';
+import { TwoFAService } from '../services/twofa.service';
 
 const SOCIAL_PROVIDERS: SocialProvider[] = ['google', 'github'];
 
@@ -221,6 +222,48 @@ export class AuthController {
 
       if (user.banned) {
         return res.status(403).json({ error: 'Аккаунт заблокирован' });
+      }
+
+      /* ===== ВТОРОЙ ФАКТОР (2FA) =====
+         Если у пользователя включена 2FA, одного пароля недостаточно: не выдаём
+         токены, пока не предъявлен валидный TOTP-код (twofaToken) ИЛИ одноразовый
+         резервный код (backupCode). Раньше этой проверки не было — логин выдавал
+         полный доступ по одному паролю, полностью обходя 2FA.
+         Совместимость с одностадийным клиентом: если код не передан, возвращаем
+         200 с флагом twofaRequired (без токенов) — клиент повторяет запрос с кодом. */
+      if (user.twofa_enabled) {
+        const { twofaToken, backupCode } = req.body;
+
+        if (!twofaToken && !backupCode) {
+          return res.status(200).json({
+            success: false,
+            twofaRequired: true,
+            error: 'Требуется код двухфакторной аутентификации',
+            code: 'TWOFA_REQUIRED',
+          });
+        }
+
+        let passed = false;
+
+        if (twofaToken && user.twofa_secret) {
+          passed = TwoFAService.verifyStoredToken(user.twofa_secret, String(twofaToken));
+        }
+
+        // Резервный код — одноразовый: при успехе удаляем его из набора в БД.
+        if (!passed && backupCode) {
+          const remaining = TwoFAService.consumeBackupCode(user.twofa_backup_codes ?? null, String(backupCode));
+          if (remaining) {
+            db.prepare(`UPDATE users SET twofa_backup_codes = ? WHERE id = ?`).run(
+              TwoFAService.serializeBackupHashes(remaining),
+              user.id,
+            );
+            passed = true;
+          }
+        }
+
+        if (!passed) {
+          return res.status(401).json({ error: 'Неверный код 2FA', code: 'TWOFA_INVALID' });
+        }
       }
 
       UserModel.updateLastLogin(user.id);

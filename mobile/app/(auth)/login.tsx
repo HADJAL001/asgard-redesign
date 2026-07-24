@@ -13,13 +13,20 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Второй шаг входа: бэкенд запросил код 2FA (TOTP или резервный код).
+  const [twofaRequired, setTwofaRequired] = useState(false);
+  const [twofaCode, setTwofaCode] = useState('');
 
   const login = useAuthStore((s) => s.login);
   const loginWithToken = useAuthStore((s) => s.loginWithToken);
   const migrateGuest = useGuestStore((s) => s.migrateToAccount);
   const biometric = useBiometricStore();
 
-  const canSubmit = identifier.trim().length > 0 && password.length > 0 && !loading;
+  const canSubmit =
+    identifier.trim().length > 0 &&
+    password.length > 0 &&
+    !loading &&
+    (!twofaRequired || twofaCode.trim().length > 0);
 
   const afterAuthSuccess = async () => {
     await migrateGuest();
@@ -36,8 +43,18 @@ export default function LoginScreen() {
     if (!canSubmit) return;
     setLoading(true);
     setError(null);
-    const result = await login(identifier.trim(), password);
+    const result = await login(
+      identifier.trim(),
+      password,
+      twofaRequired ? twofaCode.trim() : undefined,
+    );
     setLoading(false);
+    // Бэкенд запросил второй фактор — показываем поле кода и ждём повторной отправки.
+    if (result.twofaRequired) {
+      setTwofaRequired(true);
+      setError(null);
+      return;
+    }
     if (!result.ok) {
       setError(result.message ?? 'Не удалось войти');
       return;
@@ -91,6 +108,20 @@ export default function LoginScreen() {
             secureTextEntry
             className="rounded-xl border border-border bg-card px-4 py-3 text-white"
           />
+          {twofaRequired && (
+            <TextInput
+              testID="login-2fa-input"
+              value={twofaCode}
+              onChangeText={setTwofaCode}
+              placeholder="Код 2FA или резервный код"
+              placeholderTextColor="#8A8A9A"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="default"
+              autoFocus
+              className="rounded-xl border border-accent bg-card px-4 py-3 text-white"
+            />
+          )}
         </View>
 
         {error && <Text className="text-sm text-down">{error}</Text>}
@@ -102,7 +133,7 @@ export default function LoginScreen() {
           className={`items-center rounded-xl px-4 py-4 ${canSubmit ? 'bg-accent' : 'bg-border'}`}
         >
           <Text className={`text-base font-bold ${canSubmit ? 'text-bg' : 'text-muted'}`}>
-            {loading ? 'Входим…' : 'Войти'}
+            {loading ? 'Входим…' : twofaRequired ? 'Подтвердить код' : 'Войти'}
           </Text>
         </Pressable>
 

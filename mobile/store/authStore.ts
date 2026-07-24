@@ -18,7 +18,13 @@ type AuthState = {
    *  чтобы не показывать biometric-lock сразу после обычного входа. */
   justLoggedIn: boolean;
   hydrate: () => Promise<void>;
-  login: (identifier: string, password: string) => Promise<{ ok: boolean; message?: string }>;
+  /** twofaCode — TOTP или резервный код; передаётся на втором шаге, когда бэкенд
+   *  вернул twofaRequired на первом (только пароль). */
+  login: (
+    identifier: string,
+    password: string,
+    twofaCode?: string,
+  ) => Promise<{ ok: boolean; message?: string; twofaRequired?: boolean }>;
   register: (
     username: string,
     email: string,
@@ -32,6 +38,8 @@ type AuthState = {
 };
 
 type AuthResponse = { success: boolean; token: string; refreshToken: string; user: OsgardUser };
+// Ответ логина, когда включена 2FA и код ещё не предъявлен (токены не выданы).
+type TwofaChallenge = { success: false; twofaRequired: true };
 
 // Бэкенд матчит вход по конкретному полю (email -> findByEmail, иначе -> findByUsername),
 // поэтому на клиенте нужно определить, что именно ввёл пользователь в единое поле логина.
@@ -58,12 +66,27 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  login: async (identifier, password) => {
+  login: async (identifier, password, twofaCode) => {
     try {
       const credentials = EMAIL_RE.test(identifier) ? { email: identifier } : { username: identifier };
-      const data = await apiClient.post<AuthResponse>('/auth/login', { ...credentials, password }, { auth: false });
-      await setTokens(data.token, data.refreshToken);
-      set({ user: data.user, isAuthenticated: true, justLoggedIn: true });
+      // 6 цифр — TOTP, иначе резервный код (формат xxxxx-xxxxx).
+      const twofaField = twofaCode
+        ? /^\d{6}$/.test(twofaCode.trim())
+          ? { twofaToken: twofaCode.trim() }
+          : { backupCode: twofaCode.trim() }
+        : {};
+      const data = await apiClient.post<AuthResponse | TwofaChallenge>(
+        '/auth/login',
+        { ...credentials, password, ...twofaField },
+        { auth: false },
+      );
+      // Бэкенд запросил второй фактор — токенов ещё нет.
+      if ('twofaRequired' in data && data.twofaRequired) {
+        return { ok: false, twofaRequired: true, message: 'Введите код двухфакторной аутентификации' };
+      }
+      const authData = data as AuthResponse;
+      await setTokens(authData.token, authData.refreshToken);
+      set({ user: authData.user, isAuthenticated: true, justLoggedIn: true });
       return { ok: true };
     } catch (e: any) {
       return { ok: false, message: e.message ?? 'Не удалось войти' };

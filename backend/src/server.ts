@@ -209,6 +209,7 @@ import "./migrations/006_jarvis_shop"
 import "./migrations/007_feedback"
 import { runTcConvertMigration } from "./migrations/008_tc_convert"
 import { run2FAMigration } from "./migrations/009_2fa"
+import { run2FABackupCodesMigration } from "./migrations/068_2fa_backup_codes"
 import { runNonceMigration } from "./migrations/010_nonce"
 import { runIndexesMigration } from "./migrations/011_indexes"
 import { runWalliSystemMigration } from "./migrations/012_walli_system"
@@ -319,6 +320,9 @@ runTcConvertMigration()
 
 /* Гарантируем наличие колонок twofa_secret и twofa_enabled при старте сервера. */
 run2FAMigration()
+
+/* Гарантируем наличие колонки twofa_backup_codes (резервные коды 2FA) при старте сервера. */
+run2FABackupCodesMigration()
 
 /* Гарантируем наличие таблицы notifications (лайки/комментарии к постам) при старте сервера. */
 runNotificationsMigration()
