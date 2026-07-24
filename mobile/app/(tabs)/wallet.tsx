@@ -27,6 +27,7 @@ import { useUnstakeMutation } from '@/hooks/useUnstakeMutation';
 
 import { CURRENCY_ORDER, CURRENCIES, formatCurrencyAmount } from '@/lib/economy';
 import { STAKE_TERMS, MIN_STAKE, fmtUSD, fmtTC } from '@/lib/tc-market';
+import { ApiError } from '@/lib/api-client';
 
 type ActiveModal = 'buy' | 'sell' | 'stake' | null;
 
@@ -37,12 +38,15 @@ export default function WalletScreen() {
 
   const marketBuy = useMarketBuyMutation();
   const marketSell = useMarketSellMutation();
+  const createOrder = useCreateOrderMutation();
   const stakeTC = useStakeMutation();
   const unstakeTC = useUnstakeMutation();
 
   const toast = useToast();
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [amount, setAmount] = useState('');
+  const [orderKind, setOrderKind] = useState<'market' | 'limit'>('market');
+  const [limitPrice, setLimitPrice] = useState('');
   const [stakeTermIndex, setStakeTermIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,6 +78,8 @@ export default function WalletScreen() {
   const closeModal = () => {
     setActiveModal(null);
     setAmount('');
+    setLimitPrice('');
+    setOrderKind('market');
     setError(null);
   };
 
@@ -85,6 +91,9 @@ export default function WalletScreen() {
 
   const parsedAmount = Number(amount.replace(',', '.'));
   const canSubmitAmount = amount.trim().length > 0 && parsedAmount > 0;
+
+  const parsedLimitPrice = Number(limitPrice.replace(',', '.'));
+  const canSubmitLimit = canSubmitAmount && limitPrice.trim().length > 0 && parsedLimitPrice > 0;
 
   const handleBuy = async () => {
     if (!canSubmitAmount) return;
@@ -100,6 +109,17 @@ export default function WalletScreen() {
     if (!res) return;
     toast.show(`Продано ${fmtTC(res.trade.tcAmount)}`, 'success');
     closeModal();
+  };
+
+  const handleLimitOrder = async (side: 'buy' | 'sell') => {
+    if (!canSubmitLimit) return;
+    try {
+      await createOrder.mutateAsync({ side, price: parsedLimitPrice, amount: parsedAmount });
+      toast.show(side === 'buy' ? 'Заявка на покупку выставлена' : 'Заявка на продажу выставлена', 'success');
+      closeModal();
+    } catch (e) {
+      toast.show(e instanceof ApiError ? e.message : 'Не удалось выставить заявку', 'error');
+    }
   };
 
   const handleStake = async () => {
@@ -155,6 +175,16 @@ export default function WalletScreen() {
         </Card>
 
         <Card className="gap-3">
+          <Text className="text-lg font-bold text-white">Стакан заявок</Text>
+          <OrderBook />
+        </Card>
+
+        <Card className="gap-3">
+          <Text className="text-lg font-bold text-white">Мои заявки</Text>
+          <MyOrders />
+        </Card>
+
+        <Card className="gap-3">
           <View className="flex-row items-center justify-between">
             <Text className="text-lg font-bold text-white">Стейкинг</Text>
             <Button size="sm" variant="secondary" onPress={() => setActiveModal('stake')}>
@@ -193,31 +223,97 @@ export default function WalletScreen() {
 
       <Modal visible={activeModal === 'buy'} onClose={closeModal} title="Купить TimeCoin">
         <View className="gap-3">
+          <View className="flex-row gap-2">
+            <Button
+              className="flex-1"
+              size="sm"
+              variant={orderKind === 'market' ? 'primary' : 'secondary'}
+              onPress={() => setOrderKind('market')}
+            >
+              Рынок
+            </Button>
+            <Button
+              className="flex-1"
+              size="sm"
+              variant={orderKind === 'limit' ? 'primary' : 'secondary'}
+              onPress={() => setOrderKind('limit')}
+            >
+              Лимит
+            </Button>
+          </View>
+          {orderKind === 'limit' && (
+            <Input
+              label="Цена за ∞ в USD"
+              keyboardType="decimal-pad"
+              value={limitPrice}
+              onChangeText={setLimitPrice}
+              placeholder={fmtUSD(0)}
+            />
+          )}
           <Input
-            label="Сумма в USD"
+            label={orderKind === 'market' ? 'Сумма в USD' : 'Количество TimeCoin'}
             keyboardType="decimal-pad"
             value={amount}
             onChangeText={setAmount}
             placeholder="0.00"
           />
-          <Button disabled={!canSubmitAmount} loading={marketBuy.isPending} onPress={handleBuy}>
-            Купить
-          </Button>
+          {orderKind === 'market' ? (
+            <Button disabled={!canSubmitAmount} loading={marketBuy.isPending} onPress={handleBuy}>
+              Купить
+            </Button>
+          ) : (
+            <Button disabled={!canSubmitLimit} loading={createOrder.isPending} onPress={() => handleLimitOrder('buy')}>
+              Выставить заявку
+            </Button>
+          )}
         </View>
       </Modal>
 
       <Modal visible={activeModal === 'sell'} onClose={closeModal} title="Продать TimeCoin">
         <View className="gap-3">
+          <View className="flex-row gap-2">
+            <Button
+              className="flex-1"
+              size="sm"
+              variant={orderKind === 'market' ? 'primary' : 'secondary'}
+              onPress={() => setOrderKind('market')}
+            >
+              Рынок
+            </Button>
+            <Button
+              className="flex-1"
+              size="sm"
+              variant={orderKind === 'limit' ? 'primary' : 'secondary'}
+              onPress={() => setOrderKind('limit')}
+            >
+              Лимит
+            </Button>
+          </View>
+          {orderKind === 'limit' && (
+            <Input
+              label="Цена за ∞ в USD"
+              keyboardType="decimal-pad"
+              value={limitPrice}
+              onChangeText={setLimitPrice}
+              placeholder={fmtUSD(0)}
+            />
+          )}
           <Input
-            label={`Сумма в ${fmtTC(0).split(' ')[1]}`}
+            label={orderKind === 'market' ? `Сумма в ${fmtTC(0).split(' ')[1]}` : 'Количество TimeCoin'}
             keyboardType="decimal-pad"
             value={amount}
             onChangeText={setAmount}
             placeholder="0.00"
           />
-          <Button disabled={!canSubmitAmount} loading={marketSell.isPending} onPress={handleSell}>
-            Продать
-          </Button>
+          {orderKind === 'market' ? (
+            <Button disabled={!canSubmitAmount} loading={marketSell.isPending} onPress={handleSell}>
+              Продать
+            </Button>
+          ) : (
+            <Button disabled={!canSubmitLimit} loading={createOrder.isPending} onPress={() => handleLimitOrder('sell')}>
+              Выставить заявку
+            </Button>
+          )}
         </View>
       </Modal>
 
