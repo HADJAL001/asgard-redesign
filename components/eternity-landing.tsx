@@ -145,11 +145,18 @@ function ArtifactSuccessModal({
 
 export function EternityLanding() {
   const inputRef = useRef<HTMLInputElement>(null)
-  const [counter, setCounter] = useState(0)
   const [modalArtifact, setModalArtifact] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
 
   const closeModal = useCallback(() => setModalArtifact(null), [])
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24)
+    onScroll()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
 
   const [particles, setParticles] = useState<
     { left: string; top: string; duration: string; delay: string }[]
@@ -165,27 +172,6 @@ export function EternityLanding() {
         })),
       )
     })
-  }, [])
-
-  // Animated counter → 12 847
-  useEffect(() => {
-    const target = 12847
-    const duration = 2000
-    const start = performance.now() + 600
-    let raf = 0
-    const tick = (now: number) => {
-      if (now < start) {
-        raf = requestAnimationFrame(tick)
-        return
-      }
-      const progress = Math.min((now - start) / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 4)
-      setCounter(Math.floor(eased * target))
-      if (progress < 1) raf = requestAnimationFrame(tick)
-      else setCounter(target)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
   }, [])
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -208,13 +194,6 @@ export function EternityLanding() {
       setIsSubmitting(false)
       el.value = ""
     }, 400)
-  }
-
-  const scrollToForm = () => {
-    const el = inputRef.current
-    if (!el) return
-    el.scrollIntoView({ behavior: "smooth", block: "center" })
-    el.focus()
   }
 
   return (
@@ -244,6 +223,17 @@ export function EternityLanding() {
         <ArtifactSuccessModal artifactName={modalArtifact} onClose={closeModal} />
       )}
 
+      {/* Прозрачная шапка */}
+      <header className={`site-nav${scrolled ? " scrolled" : ""}`}>
+        <Link href="/" className="site-nav-logo" aria-label="OSGARD — главная">
+          OSG<InfinityIcon size={16} strokeWidth={2} className="site-nav-logo-glyph" aria-hidden="true" />RD
+        </Link>
+        <div className="site-nav-links">
+          <Link href="/login" className="site-nav-link">Войти</Link>
+          <Link href="/register" className="site-nav-link site-nav-link-primary">Регистрация</Link>
+        </div>
+      </header>
+
       {/* Основной контент */}
       <div className="container">
         <header className="hero-content">
@@ -272,11 +262,6 @@ export function EternityLanding() {
               )}
             </button>
           </form>
-
-          <div className="counter-box">
-            <InfinityIcon className="ico gold" size={16} aria-hidden="true" /> Уже создано артефактов:{" "}
-            <span id="counter-val">{counter.toLocaleString("ru-RU")}</span>
-          </div>
 
           {/* Кнопки авторизации */}
           <div className="auth-buttons">
@@ -433,17 +418,11 @@ export function EternityLanding() {
         <section className="community-section">
           <Reveal className="community-inner">
             <IconCommunity size={40} />
-            <h2>Сообщество</h2>
-            <p className="community-desc">Присоединяйся к элите архитекторов и развивай вселенную вместе с ними.</p>
-          </Reveal>
-        </section>
-
-        <section className="final-cta-section">
-          <Reveal className="final-cta-inner">
             <h2>Готов оставить свой след в вечности?</h2>
-            <button type="button" className="final-cta-btn" onClick={scrollToForm}>
+            <p className="community-desc">Присоединяйся к элите архитекторов и развивай вселенную вместе с ними.</p>
+            <Link href="/register" className="final-cta-btn">
               Создать артефакт <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
-            </button>
+            </Link>
           </Reveal>
         </section>
       </div>
@@ -453,7 +432,7 @@ export function EternityLanding() {
   )
 }
 
-const WM_CSS = `.wm-scene{position:absolute;bottom:32px;right:6%;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center}.wm-svg{width:180px;height:252px;image-rendering:crisp-edges;shape-rendering:geometricPrecision;filter:drop-shadow(0 12px 32px rgba(120,70,20,0.55)) drop-shadow(0 3px 8px rgba(0,0,0,0.9));animation:wm-bob 6s cubic-bezier(0.45,0.05,0.55,0.95) infinite;will-change:transform}.wm-echo-badge{margin-top:8px;font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.14em;color:#8A7050;opacity:0.75;font-family:monospace}.wm-bubble{margin-top:6px;background:rgba(4,5,10,0.97);border:1px solid rgba(180,140,80,0.3);border-radius:6px;padding:7px 16px;font-size:11px;font-weight:400;color:#A08A60;white-space:nowrap;letter-spacing:0.06em;font-family:monospace}@keyframes wm-bob{0%,100%{transform:translateY(0) rotate(-0.4deg)}45%{transform:translateY(-9px) rotate(0.25deg)}75%{transform:translateY(-4px) rotate(-0.15deg)}}@media(max-width:600px){.wm-scene{right:4%;bottom:16px}.wm-svg{width:140px;height:196px}.wm-bubble{font-size:10px;padding:6px 12px}.wm-echo-badge{font-size:8px}}`
+const WM_CSS = `.wm-scene{position:absolute;bottom:32px;right:6%;z-index:10;pointer-events:none;display:flex;flex-direction:column;align-items:center;opacity:0;animation:wm-rise 0.9s cubic-bezier(0.2,0.8,0.2,1) 0.3s forwards}.wm-svg{width:180px;height:252px;image-rendering:crisp-edges;shape-rendering:geometricPrecision;filter:drop-shadow(0 12px 32px rgba(120,70,20,0.55)) drop-shadow(0 3px 8px rgba(0,0,0,0.9))}.wm-echo-badge{margin-top:8px;font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.14em;color:#8A7050;opacity:0.75;font-family:monospace}.wm-bubble{margin-top:6px;background:rgba(4,5,10,0.97);border:1px solid rgba(180,140,80,0.3);border-radius:6px;padding:7px 16px;font-size:11px;font-weight:400;color:#A08A60;white-space:nowrap;letter-spacing:0.06em;font-family:monospace}@keyframes wm-rise{0%{opacity:0;transform:translateY(24px)}100%{opacity:1;transform:translateY(0)}}@media(max-width:600px){.wm-scene{right:4%;bottom:16px}.wm-svg{width:140px;height:196px}.wm-bubble{font-size:10px;padding:6px 12px}.wm-echo-badge{font-size:8px}}`
 
 // ─── ВАЛЛИ минималистичный ──────────────────────────────────────────
 function WalleOnGlobe() {
@@ -555,7 +534,6 @@ const CSS = `
   color: #fff;
   font-family: var(--font-inter), 'Inter', 'Helvetica Neue', sans-serif;
   font-weight: 400;
-  letter-spacing: 0.02em;
   overflow-x: hidden;
 }
 .eternity-page *{ box-sizing: border-box; }
@@ -583,8 +561,45 @@ const CSS = `
   100% { transform: translateY(-100vh) translateX(40px); opacity: 0; }
 }
 
+.eternity-page .site-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 48px; background: transparent; border-bottom: 1px solid transparent;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  transition: background-color 0.3s ease, border-color 0.3s ease, backdrop-filter 0.3s ease;
+}
+.eternity-page .site-nav.scrolled {
+  background: rgba(4, 6, 12, 0.72);
+  border-bottom-color: rgba(212, 175, 55, 0.12);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.eternity-page .site-nav-logo {
+  display: inline-flex; align-items: center;
+  font-family: var(--font-playfair), 'Playfair Display', serif;
+  font-size: 20px; font-weight: 700; letter-spacing: 0.06em; color: #fff;
+  text-decoration: none;
+}
+.eternity-page .site-nav-logo-glyph { margin: 0 1px; color: var(--eg-gold-1); }
+.eternity-page .site-nav-links { display: flex; align-items: center; gap: 20px; }
+.eternity-page .site-nav-link {
+  font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.65);
+  text-decoration: none; transition: color 0.2s ease;
+}
+.eternity-page .site-nav-link:hover { color: #fff; }
+.eternity-page .site-nav-link-primary {
+  padding: 8px 18px; border-radius: 30px; color: #0A0D14;
+  background: linear-gradient(135deg, var(--eg-gold-1), var(--eg-gold-3));
+}
+.eternity-page .site-nav-link-primary:hover { color: #0A0D14; box-shadow: 0 0 20px rgba(212, 175, 55, 0.35); }
+@media (max-width: 600px) {
+  .eternity-page .site-nav { padding: 16px 20px; }
+  .eternity-page .site-nav-logo { font-size: 17px; }
+  .eternity-page .site-nav-links { gap: 12px; }
+}
+
 .eternity-page .container {
   max-width: 1440px; margin: 0 auto; padding: 80px;
+  padding-top: 158px;
   position: relative; z-index: 2;
   display: grid; grid-template-columns: 1fr 1fr; gap: 100px 40px;
   min-height: 100vh;
@@ -596,10 +611,10 @@ const CSS = `
 }
 .eternity-page .hero-visual { position: relative; }
 .eternity-page h1 {
-  font-family: var(--font-space), 'Playfair Display', serif;
-  font-size: 76px; font-weight: 700; color: #fff;
-  letter-spacing: 4px; line-height: 1.1;
-  text-shadow: 0 0 80px rgba(70, 150, 255, 0.06);
+  font-family: var(--font-playfair), 'Playfair Display', serif;
+  font-size: 64px; font-weight: 700; color: #fff;
+  letter-spacing: 0; line-height: 1.1;
+  text-shadow: 0 0 80px rgba(212, 175, 55, 0.08);
   animation: eternity-rise 1s ease-out forwards;
 }
 .eternity-page .hero-subtitle {
@@ -632,56 +647,51 @@ const CSS = `
   border-color: #FFD700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.05);
 }
 .eternity-page .artifact-form button {
+  position: relative; overflow: hidden;
   background: linear-gradient(135deg, #FFD700, #FFA500);
   border: none; border-radius: 40px; padding: 10px 24px;
   font-family: var(--font-inter), 'Inter', sans-serif;
   font-weight: 600; font-size: 14px; color: #0A0D14; cursor: pointer;
-  transition: all 0.3s ease; white-space: nowrap; height: 44px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease; white-space: nowrap; height: 44px;
   display: flex; align-items: center; gap: 8px; letter-spacing: 0.04em;
+}
+.eternity-page .artifact-form button::before {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.55) 48%, transparent 66%);
+  transform: translateX(-120%); transition: transform 0.55s ease;
 }
 .eternity-page .artifact-form button:hover {
   transform: scale(1.03); box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
 }
-.eternity-page .artifact-form button svg { stroke: #0A0D14; stroke-width: 2; }
-
-.eternity-page .counter-box {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; color: #6A7A8A;
-  background: rgba(255, 255, 255, 0.02); padding: 6px 16px;
-  border-radius: 20px; border: 1px solid rgba(255, 215, 0, 0.1);
-  animation: eternity-rise 1s ease-out 0.6s forwards; opacity: 0; letter-spacing: 0.02em;
-}
-.eternity-page .counter-box .ico.gold {
-  color: #FFD700; stroke-width: 1.2;
-  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.3));
-}
+.eternity-page .artifact-form button:hover::before { transform: translateX(120%); }
+.eternity-page .artifact-form button svg { stroke: #0A0D14; stroke-width: 2; position: relative; }
 
 .eternity-page .architects-section h2,
 .eternity-page .how-section h2,
 .eternity-page .examples-section h2,
 .eternity-page .economy-section h2 {
-  font-family: var(--font-space), 'Playfair Display', serif;
-  font-size: 32px; text-align: center; color: #fff;
-  grid-column: 1/-1; margin-bottom: 40px; letter-spacing: 6px;
+  font-family: var(--font-playfair), 'Playfair Display', serif;
+  font-size: 28px; text-align: center; color: #fff;
+  grid-column: 1/-1; margin-bottom: 40px; letter-spacing: 2px;
   text-shadow: 0 0 40px rgba(255, 215, 0, 0.05);
 }
-.eternity-page .architects-section { grid-column: 1/-1; margin-top: 100px; }
-.eternity-page .how-section { grid-column: 1/-1; margin-top: 60px; }
-.eternity-page .examples-section { grid-column: 1/-1; margin-top: 100px; }
-.eternity-page .economy-section { grid-column: 1/-1; margin-top: 100px; }
+.eternity-page .architects-section { grid-column: 1/-1; margin-top: 96px; }
+.eternity-page .how-section { grid-column: 1/-1; margin-top: 96px; }
+.eternity-page .examples-section { grid-column: 1/-1; margin-top: 96px; }
+.eternity-page .economy-section { grid-column: 1/-1; margin-top: 96px; }
 
 .eternity-page .cards-container,
 .eternity-page .values-container {
-  display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;
+  display: flex; gap: 32px; justify-content: center; flex-wrap: wrap;
 }
 
 .eternity-page .card,
 .eternity-page .value-item {
   position: relative;
   background: var(--eg-glass-bg); border: 1px solid var(--eg-glass-border);
-  border-radius: 16px; padding: 32px 24px;
+  border-radius: 16px; padding: 40px 32px;
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  box-shadow: none; opacity: 0;
+  box-shadow: 0 8px 32px rgba(10, 17, 40, 0.35); opacity: 0;
   display: flex; flex-direction: column; align-items: center; gap: 10px;
   letter-spacing: 0.02em; width: 100%; max-width: 280px; text-align: center;
   transition: transform 0.35s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s ease, border-color 0.35s ease;
@@ -695,15 +705,24 @@ const CSS = `
   -webkit-mask-composite: xor; mask-composite: exclude;
   pointer-events: none;
 }
+.eternity-page .card::after,
+.eternity-page .value-item::after,
+.eternity-page .how-item::after,
+.eternity-page .example-card::after,
+.eternity-page .community-inner::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  opacity: 0.04; pointer-events: none; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
 .eternity-page .card:hover,
 .eternity-page .value-item:hover {
   transform: translateY(-4px);
   border-color: rgba(212, 175, 55, 0.3);
   box-shadow: var(--eg-glow-gold);
 }
-.eternity-page .card.gold { --card-color: #FFD700; animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s forwards; }
-.eternity-page .card.silver { --card-color: #E0E0E0; animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s forwards; }
-.eternity-page .card.bronze { --card-color: #CD7F32; animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.6s forwards; }
+.eternity-page .card.gold { --card-color: #FFD700; animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s forwards; }
+.eternity-page .card.silver { --card-color: #E0E0E0; animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s forwards; }
+.eternity-page .card.bronze { --card-color: #CD7F32; animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s forwards; }
 
 .eternity-page .card-avatar {
   width: 64px; height: 64px;
@@ -724,6 +743,7 @@ const CSS = `
 .eternity-page .card-name { font-size: 24px; font-weight: 600; color: #fff; letter-spacing: 1px; }
 .eternity-page .card-level { font-size: 14px; font-weight: 500; color: var(--card-color, #6A8A9A); letter-spacing: 2px; }
 .eternity-page .card-rating {
+  font-family: var(--font-playfair), 'Playfair Display', serif;
   font-size: 14px; color: #A0B0C8; display: flex; align-items: center; gap: 6px;
   background: rgba(0, 0, 0, 0.3); padding: 4px 14px; border-radius: 20px; letter-spacing: 0.05em;
 }
@@ -787,6 +807,7 @@ const CSS = `
   .eternity-page .artifact-form { max-width: 100%; }
 }
 @media (max-width: 600px) {
+  .eternity-page .container { padding-top: 128px; }
   .eternity-page .hero-visual { min-height: 260px; }
   .eternity-page h1 { font-size: 36px; }
   .eternity-page .artifact-form { flex-direction: column; gap: 10px; }
@@ -936,7 +957,6 @@ const CSS = `
 .eternity-page .tc-badge-dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--eg-gold-1); box-shadow: 0 0 8px rgba(247, 224, 94, 0.8);
-  animation: eg-pulse-dot 2s ease-in-out infinite;
 }
 
 /* ─── Виньетка вокруг глобуса ─── */
@@ -965,10 +985,19 @@ const CSS = `
 .eternity-page .how-item {
   position: relative;
   background: var(--eg-glass-bg); border: 1px solid var(--eg-glass-border);
-  border-radius: 16px; padding: 32px 24px; width: 100%; max-width: 300px;
+  border-radius: 16px; padding: 40px 32px; width: 100%; max-width: 300px;
   display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(10, 17, 40, 0.35);
   transition: transform 0.35s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.eternity-page .how-item::before {
+  content: ""; position: absolute; inset: 0; border-radius: 16px; padding: 1px;
+  background: linear-gradient(150deg, var(--eg-gold-1), var(--eg-gold-3) 60%, transparent);
+  opacity: 0.35;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  pointer-events: none;
 }
 .eternity-page .how-item:hover {
   transform: translateY(-4px); border-color: rgba(212, 175, 55, 0.3); box-shadow: var(--eg-glow-gold);
@@ -989,7 +1018,16 @@ const CSS = `
   background: var(--eg-glass-bg); border: 1px solid var(--eg-glass-border);
   border-radius: 16px; width: 100%; max-width: 320px;
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(10, 17, 40, 0.35);
   transition: transform 0.35s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s ease, border-color 0.35s ease;
+}
+.eternity-page .example-card::before {
+  content: ""; position: absolute; inset: 0; border-radius: 16px; padding: 1px;
+  background: linear-gradient(150deg, var(--eg-gold-1), var(--eg-gold-3) 60%, transparent);
+  opacity: 0.35;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  pointer-events: none; z-index: 1;
 }
 .eternity-page .example-card:hover {
   transform: translateY(-4px); border-color: rgba(212, 175, 55, 0.3); box-shadow: var(--eg-glow-gold);
@@ -1006,55 +1044,55 @@ const CSS = `
 .eternity-page .example-desc { font-size: 13px; color: #A0B0C8; line-height: 1.6; letter-spacing: 0.02em; }
 
 /* ─── «Сообщество» ─── */
-.eternity-page .community-section { grid-column: 1/-1; margin-top: 100px; display: flex; justify-content: center; }
+.eternity-page .community-section { grid-column: 1/-1; margin-top: 96px; margin-bottom: 40px; display: flex; justify-content: center; }
 .eternity-page .community-inner {
   position: relative; text-align: center; max-width: 560px; width: 100%;
   background: var(--eg-glass-bg); border: 1px solid var(--eg-glass-border);
   border-radius: 20px; padding: 48px 32px;
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(10, 17, 40, 0.35);
   display: flex; flex-direction: column; align-items: center; gap: 14px;
 }
+.eternity-page .community-inner::before {
+  content: ""; position: absolute; inset: 0; border-radius: 20px; padding: 1px;
+  background: linear-gradient(150deg, var(--eg-gold-1), var(--eg-gold-3) 60%, transparent);
+  opacity: 0.35;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  pointer-events: none;
+}
+.eternity-page .community-inner:hover {
+  border-color: rgba(212, 175, 55, 0.3); box-shadow: var(--eg-glow-gold);
+}
 .eternity-page .community-inner h2 {
-  font-family: var(--font-space), 'Playfair Display', serif;
-  font-size: 28px; color: #fff; letter-spacing: 4px; margin: 0;
+  font-family: var(--font-playfair), 'Playfair Display', serif;
+  font-size: 28px; color: #fff; letter-spacing: 2px; margin: 0;
 }
 .eternity-page .community-desc { font-size: 15px; color: #A0B0C8; line-height: 1.6; letter-spacing: 0.02em; }
 
-/* ─── Финальный CTA ─── */
-.eternity-page .final-cta-section { grid-column: 1/-1; margin-top: 100px; margin-bottom: 40px; display: flex; justify-content: center; }
-.eternity-page .final-cta-inner {
-  text-align: center; display: flex; flex-direction: column; align-items: center; gap: 24px;
-}
-.eternity-page .final-cta-inner h2 {
-  font-family: var(--font-space), 'Playfair Display', serif;
-  font-size: 30px; color: #fff; letter-spacing: 3px; max-width: 560px; margin: 0;
-}
 .eternity-page .final-cta-btn {
+  position: relative; overflow: hidden;
   display: inline-flex; align-items: center; gap: 10px;
   background: linear-gradient(135deg, var(--eg-gold-1), var(--eg-gold-3));
   border: none; border-radius: 40px; padding: 14px 32px;
   font-family: var(--font-inter), 'Inter', sans-serif;
   font-weight: 700; font-size: 15px; color: #0A0D14; cursor: pointer;
-  transition: all 0.3s ease; letter-spacing: 0.04em;
+  transition: transform 0.3s ease, box-shadow 0.3s ease; letter-spacing: 0.04em;
+}
+.eternity-page .final-cta-btn::before {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.55) 48%, transparent 66%);
+  transform: translateX(-120%); transition: transform 0.55s ease;
+}
+.eternity-page .final-cta-btn::after {
+  content: "∞"; margin-left: 2px; font-family: var(--font-playfair), 'Playfair Display', serif;
+  opacity: 0; transform: translateX(-4px); transition: opacity 0.3s ease, transform 0.3s ease;
 }
 .eternity-page .final-cta-btn:hover {
   transform: scale(1.03); box-shadow: var(--eg-glow-gold);
 }
-
-/* ─── Float-анимация лидерборд-карточек (не пересекается с framer-motion Reveal, т.к. .card не обёрнут в Reveal) ─── */
-@media (prefers-reduced-motion: no-preference) {
-  .eternity-page .card { will-change: transform; }
-  .eternity-page .card.gold { animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s forwards, eg-float 6s ease-in-out 1.2s infinite; }
-  .eternity-page .card.silver { animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.4s forwards, eg-float 6.6s ease-in-out 1.4s infinite; }
-  .eternity-page .card.bronze { animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.6s forwards, eg-float 7.2s ease-in-out 1.6s infinite; }
-}
-@media (max-width: 600px) {
-  .eternity-page .card.gold,
-  .eternity-page .card.silver,
-  .eternity-page .card.bronze {
-    animation: eternity-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards !important;
-  }
-}
+.eternity-page .final-cta-btn:hover::before { transform: translateX(120%); }
+.eternity-page .final-cta-btn:hover::after { opacity: 0.8; transform: translateX(0); }
 
 @media (max-width: 1100px) {
   .eternity-page .how-container,

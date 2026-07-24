@@ -44,10 +44,15 @@ export default function CreateScreen() {
     const hint = theme ? `${theme.hint} ${description.trim()}` : description.trim();
 
     setPhase('charging');
-    setTimeout(() => setPhase('burst'), 600);
 
     try {
+      // 'charging' зациклен на произвольную длительность (InfinityForgeSymbol), поэтому
+      // 'burst' включаем по факту ответа backend, а не по гадательному таймеру — так на
+      // долгой AI-генерации анимация не замирает в промежуточном состоянии.
       const result = await generateArtifact.mutateAsync(hint);
+      setPhase('burst');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await new Promise((resolve) => setTimeout(resolve, 350));
       setRevealRarity(result.artifact.rarity);
       setPhase('reveal');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -110,7 +115,7 @@ export default function CreateScreen() {
         </View>
 
         {!canAfford && (
-          <Text className="text-sm text-down">
+          <Text className="text-sm" style={{ color: colors.goldTinted }}>
             {copy.rechargeCta} (нужно {AI_GENERATE_COST_TC} ∞)
           </Text>
         )}

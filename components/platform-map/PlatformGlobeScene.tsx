@@ -88,13 +88,13 @@ export function PlatformGlobeScene({ sections }: PlatformGlobeSceneProps) {
     >
       <ambientLight intensity={0.5} color="#1A2A4A" />
       <directionalLight position={[5, 10, 7]} intensity={1.2} color="#4A8AB5" />
-      <pointLight position={[-5, 0, 5]} intensity={0.8} color="#00D4FF" />
+      <pointLight position={[-5, 0, 5]} intensity={0.8} color="#F0C75E" />
       <pointLight position={[5, -5, -5]} intensity={0.5} color="#7B2FBE" />
 
       <Environment resolution={256} frames={1}>
         <color attach="background" args={["#05070f"]} />
         <Lightformer form="rect" intensity={1.6} color="#4A8AB5" position={[0, 4, 4]} scale={[8, 4, 1]} />
-        <Lightformer form="rect" intensity={1.1} color="#00D4FF" position={[-5, 0, 3]} scale={[4, 6, 1]} />
+        <Lightformer form="rect" intensity={1.1} color="#F0C75E" position={[-5, 0, 3]} scale={[4, 6, 1]} />
         <Lightformer form="rect" intensity={0.8} color="#7B2FBE" position={[5, -2, -3]} scale={[5, 5, 1]} />
         <Lightformer form="circle" intensity={0.6} color="#cfe6ff" position={[0, -4, 2]} scale={[3, 3, 1]} />
       </Environment>

@@ -26,6 +26,8 @@ import {
   GitBranch,
   CreditCard,
   Plug,
+  Menu,
+  X,
   type LucideIcon,
 } from "lucide-react"
 
@@ -40,7 +42,7 @@ import { Globe } from "lucide-react"
 
 
 /* ---- Palette ----
-   panel #0A0A0F · accent #00D4FF · text #FFFFFF · icon/label #6A6A8A · border #2A2A3E */
+   panel #0A0A0F · accent #D4AF37 · text #FFFFFF · icon/label #6A6A8A · border #2A2A3E */
 
 const AVATAR =
   "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=160&q=80"
@@ -66,6 +68,9 @@ export const NAV: NavItem[] = [
   { key: "nav.economyMap", href: "/docs/economy-map", Icon: Map },
   { key: "nav.pricing", href: "/pricing", Icon: CreditCard },
 ]
+
+/** Разделы, которые остаются в основной строке шапки — остальное уходит в боковое меню. */
+const CORE_NAV_KEYS = ["nav.home", "nav.forge", "nav.marketplace"]
 
 /** Переключатель языка · выпадающий список RU / EN / KZ */
 function LanguageSwitcher() {
@@ -112,7 +117,7 @@ function LanguageSwitcher() {
                 setOpen(false)
               }}
               className="flex w-full items-center justify-between px-3 py-2 text-left text-[13px] transition-colors hover:bg-white/5"
-              style={{ color: locale === l ? "#00D4FF" : "rgba(255,255,255,0.8)" }}
+              style={{ color: locale === l ? "var(--color-gold)" : "rgba(255,255,255,0.8)" }}
             >
               {LOCALE_LABELS[l]}
               <span style={{ color: "#6A6A8A" }}>{LOCALE_SHORT[l]}</span>
@@ -184,11 +189,11 @@ function ProfileMenu({
           width={32}
           height={32}
           className="size-8 rounded-full object-cover"
-          style={{ border: `1px solid ${isProfileActive || open ? "#00D4FF" : "#2A2A3E"}` }}
+          style={{ border: `1px solid ${isProfileActive || open ? "var(--color-gold)" : "#2A2A3E"}` }}
         />
         <span
           className="hidden text-[14px] sm:block"
-          style={{ color: isProfileActive || open ? "#00D4FF" : "rgba(255,255,255,0.8)" }}
+          style={{ color: isProfileActive || open ? "var(--color-gold)" : "rgba(255,255,255,0.8)" }}
         >
           {displayName}
         </span>
@@ -228,12 +233,99 @@ function ProfileMenu({
   )
 }
 
+/** Боковое меню · все разделы, гамбургер на мобильных, «Ещё» на десктопе */
+function NavDrawer({
+  items,
+  isActive,
+  open,
+  onClose,
+}: {
+  items: NavItem[]
+  isActive: (href: string) => boolean
+  open: boolean
+  onClose: () => void
+}) {
+  const { t } = useTranslation()
+
+  useEffect(() => {
+    if (!open) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [open, onClose])
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        aria-hidden="true"
+        className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-200"
+        style={{ opacity: open ? 1 : 0, pointerEvents: open ? "auto" : "none" }}
+      />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("nav.mainNav")}
+        className="fixed right-0 top-0 z-50 flex h-full w-[280px] max-w-[85vw] flex-col transition-transform duration-200"
+        style={{
+          backgroundColor: "#0A0A0F",
+          borderLeft: "1px solid #2A2A3E",
+          transform: open ? "translateX(0)" : "translateX(100%)",
+        }}
+      >
+        <div className="flex h-16 shrink-0 items-center justify-between px-5" style={{ borderBottom: "1px solid #2A2A3E" }}>
+          <span
+            className="text-[13px] font-semibold tracking-[0.18em]"
+            style={{ color: "var(--color-gold)" }}
+          >
+            МЕНЮ
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("nav.close")}
+            className="rounded-full p-1.5 transition-colors hover:bg-white/5"
+            style={{ color: "#6A6A8A" }}
+          >
+            <X size={18} strokeWidth={1.75} />
+          </button>
+        </div>
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
+          {items.map(({ key, href, Icon }) => {
+            const active = isActive(href)
+            return (
+              <Link
+                key={key}
+                href={href}
+                onClick={onClose}
+                aria-current={active ? "page" : undefined}
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-normal transition-colors hover:bg-white/5"
+                style={{ color: active ? "var(--color-gold)" : "rgba(255,255,255,0.75)" }}
+              >
+                <Icon
+                  size={17}
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                  style={{ color: active ? "var(--color-gold)" : "#6A6A8A" }}
+                />
+                {t(key)}
+              </Link>
+            )
+          })}
+        </nav>
+      </aside>
+    </>
+  )
+}
+
 function Badge({ count }: { count: number }) {
   if (count <= 0) return null
   return (
     <span
       className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full text-[10px] font-medium leading-none"
-      style={{ backgroundColor: "#00D4FF", color: "#0A0A0F" }}
+      style={{ backgroundColor: "var(--color-gold)", color: "#0A0A0F" }}
     >
       {count}
     </span>
@@ -246,6 +338,7 @@ export function Navbar() {
   const { t } = useTranslation()
   const { user, isAuthenticated, logout } = useAuth()
   const { unreadCount, fetchUnreadCount } = useNotificationsStore()
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -258,6 +351,7 @@ export function Navbar() {
     href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/")
 
   const navItems = user?.role === "admin" ? [...NAV, { key: "nav.admin", href: "/admin", Icon: ShieldCheck }] : NAV
+  const coreItems = navItems.filter((item) => CORE_NAV_KEYS.includes(item.key))
 
   return (
     <div className="sticky top-0 z-40 font-sans">
@@ -292,9 +386,9 @@ export function Navbar() {
         </span>
       </Link>
 
-      {/* Primary menu — 32px gaps, icon + label, active underline */}
+      {/* Primary menu — только ключевые разделы, остальное в боковом меню */}
       <nav className="ml-10 hidden items-center gap-8 md:flex" aria-label={t("nav.mainNav")}>
-        {navItems.map(({ key, href, Icon }) => {
+        {coreItems.map(({ key, href, Icon }) => {
           const active = isActive(href)
           return (
             <Link
@@ -302,13 +396,13 @@ export function Navbar() {
               href={href}
               aria-current={active ? "page" : undefined}
               className="group relative flex items-center py-1 text-[14px] font-normal transition-all duration-150 hover:-translate-y-px"
-              style={{ color: active ? "#00D4FF" : "rgba(255,255,255,0.6)" }}
+              style={{ color: active ? "var(--color-gold)" : "rgba(255,255,255,0.6)" }}
             >
               <Icon
                 size={16}
                 strokeWidth={1.5}
                 className="mr-2 transition-colors group-hover:opacity-100"
-                style={{ color: active ? "#00D4FF" : "#6A6A8A" }}
+                style={{ color: active ? "var(--color-gold)" : "#6A6A8A" }}
                 aria-hidden="true"
               />
               <span className="group-hover:opacity-100" style={{ opacity: active ? 1 : undefined }}>
@@ -317,7 +411,7 @@ export function Navbar() {
               {/* underline = width of the item content */}
               <span
                 className="absolute -bottom-[21px] left-0 h-0.5 w-full transition-opacity"
-                style={{ backgroundColor: "#00D4FF", opacity: active ? 1 : 0 }}
+                style={{ backgroundColor: "var(--color-gold)", opacity: active ? 1 : 0 }}
                 aria-hidden="true"
               />
             </Link>
@@ -328,9 +422,21 @@ export function Navbar() {
 
       {/* Right side — 4-currency balances, notifications, mail, profile */}
       <div className="ml-auto flex items-center gap-5 pr-6">
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          aria-label={t("nav.mainNav")}
+          aria-haspopup="dialog"
+          aria-expanded={drawerOpen}
+          className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-medium transition-colors hover:bg-white/5"
+          style={{ color: "#6A6A8A", border: "1px solid #2A2A3E" }}
+        >
+          <Menu size={16} strokeWidth={1.75} aria-hidden="true" />
+          <span className="hidden sm:inline">{t("nav.more")}</span>
+        </button>
         <div
           className="hidden items-center gap-1 rounded-full p-1 lg:flex"
-          style={{ border: `1px solid ${isActive("/wallet") ? "#00D4FF" : "#2A2A3E"}` }}
+          style={{ border: `1px solid ${isActive("/wallet") ? "var(--color-gold)" : "#2A2A3E"}` }}
           role="group"
           aria-label={t("nav.currencyBalances")}
         >
@@ -363,7 +469,7 @@ export function Navbar() {
           aria-label={t("nav.notifications")}
           aria-current={isActive("/notifications") ? "page" : undefined}
           className="relative transition-colors hover:text-white"
-          style={{ color: isActive("/notifications") ? "#00D4FF" : "#6A6A8A" }}
+          style={{ color: isActive("/notifications") ? "var(--color-gold)" : "#6A6A8A" }}
         >
           <Bell size={18} strokeWidth={1.5} aria-hidden="true" />
           <Badge count={isAuthenticated ? unreadCount : 0} />
@@ -373,7 +479,7 @@ export function Navbar() {
           aria-label={t("nav.messages")}
           aria-current={isActive("/messages") ? "page" : undefined}
           className="relative transition-colors hover:text-white"
-          style={{ color: isActive("/messages") ? "#00D4FF" : "#6A6A8A" }}
+          style={{ color: isActive("/messages") ? "var(--color-gold)" : "#6A6A8A" }}
         >
           <Mail size={18} strokeWidth={1.5} aria-hidden="true" />
           <Badge count={0} />
@@ -388,6 +494,7 @@ export function Navbar() {
         />
       </div>
       </header>
+      <NavDrawer items={navItems} isActive={isActive} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </div>
   )
 }

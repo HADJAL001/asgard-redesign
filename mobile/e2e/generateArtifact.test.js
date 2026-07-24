@@ -18,7 +18,8 @@ describe('Генерация артефакта', () => {
     await element(by.id('create-generate-button')).tap();
 
     // Пуш "charging" -> "burst" -> "reveal" анимация в GenerationProgress,
-    // затем переход на модальный экран /result/[id] — ждём заголовок экрана.
+    // затем переход (native-stack push с shared element transition) на экран
+    // /result/[id] — ждём заголовок экрана.
     await waitFor(element(by.text('Артефакт')))
       .toBeVisible()
       .withTimeout(20000);
