@@ -11,12 +11,11 @@ import {
   Shield,
   Award,
   Star,
-  CheckCircle,
-  Sparkles,
-  X,
 } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { Reveal } from "@/components/landing/Reveal"
+import { DemoProjectModal, type DemoSessionV2 } from "@/components/DemoProjectModal"
+import { IkeaModal } from "@/components/IkeaModal"
 import {
   IconIdea,
   IconCreate,
@@ -36,123 +35,21 @@ const GlobeScene = dynamic(() => import("@/components/landing/GlobeScene"), {
   ssr: false,
 })
 
-// ─── Кастомный модальный компонент ─────────────────────────────────────
-function ArtifactSuccessModal({
-  artifactName,
-  onClose,
-}: {
-  artifactName: string
-  onClose: () => void
-}) {
-  const { t } = useTranslation()
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    canvas.width = window.innerWidth
-    canvas.height = window.innerHeight
-
-    const confetti: {
-      x: number; y: number; vx: number; vy: number
-      color: string; size: number; rotation: number; rotSpeed: number; opacity: number
-    }[] = []
-
-    const colors = ["#FFD700", "#FFA500", "#FF6B6B", "#7AACFF", "#A855F7", "#34D399", "#F472B6"]
-
-    for (let i = 0; i < 120; i++) {
-      confetti.push({
-        x: Math.random() * canvas.width,
-        y: -20 - Math.random() * 200,
-        vx: (Math.random() - 0.5) * 4,
-        vy: 2 + Math.random() * 5,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        size: 4 + Math.random() * 8,
-        rotation: Math.random() * Math.PI * 2,
-        rotSpeed: (Math.random() - 0.5) * 0.2,
-        opacity: 1,
-      })
-    }
-
-    let rafId = 0
-    let t = 0
-    const animate = () => {
-      t++
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      let allDone = true
-      for (const p of confetti) {
-        p.x += p.vx
-        p.y += p.vy
-        p.vy += 0.08
-        p.rotation += p.rotSpeed
-        if (t > 80) p.opacity -= 0.012
-        if (p.opacity > 0) allDone = false
-        ctx.save()
-        ctx.globalAlpha = Math.max(0, p.opacity)
-        ctx.translate(p.x, p.y)
-        ctx.rotate(p.rotation)
-        ctx.fillStyle = p.color
-        ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2)
-        ctx.restore()
-      }
-      if (!allDone) rafId = requestAnimationFrame(animate)
-    }
-    rafId = requestAnimationFrame(animate)
-
-    return () => cancelAnimationFrame(rafId)
-  }, [])
-
-  // закрытие по Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
-    }
-    window.addEventListener("keydown", handler)
-    return () => window.removeEventListener("keydown", handler)
-  }, [onClose])
-
-  return (
-    <div className="artifact-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={t("landing.modalAria")}>
-      <canvas ref={canvasRef} className="artifact-confetti-canvas" />
-      <div className="artifact-modal-card" onClick={(e) => e.stopPropagation()}>
-        <button className="artifact-modal-close" onClick={onClose} aria-label={t("landing.modalClose")}>
-          <X size={18} />
-        </button>
-        <div className="artifact-modal-icon">
-          <div className="artifact-modal-icon-ring" />
-          <CheckCircle size={40} strokeWidth={1.5} />
-        </div>
-        <div className="artifact-modal-title">{t("landing.modalTitle")}</div>
-        <div className="artifact-modal-subtitle">
-          {t("landing.modalSubtitle")}
-        </div>
-        <div className="artifact-modal-name">
-          <Sparkles size={14} strokeWidth={1.5} />
-          &ldquo;{artifactName}&rdquo;
-          <Sparkles size={14} strokeWidth={1.5} />
-        </div>
-        <div className="artifact-modal-desc">
-          {t("landing.modalDescBefore")} <span className="artifact-modal-highlight">{t("landing.modalDescHighlight")}</span>
-        </div>
-        <button className="artifact-modal-btn" onClick={onClose}>
-          {t("landing.modalBtn")} <ArrowRight size={16} strokeWidth={2} />
-        </button>
-      </div>
-    </div>
-  )
-}
 
 export function EternityLanding() {
   const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [modalArtifact, setModalArtifact] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [demoOpen, setDemoOpen] = useState(false)
+  const [demoInitialName, setDemoInitialName] = useState("")
+  const [ikeaOpen, setIkeaOpen] = useState(false)
+  const [ikeaSession, setIkeaSession] = useState<DemoSessionV2 | null>(null)
   const [scrolled, setScrolled] = useState(false)
 
-  const closeModal = useCallback(() => setModalArtifact(null), [])
+  const handleLimitReached = useCallback((session: DemoSessionV2) => {
+    setDemoOpen(false)
+    setIkeaSession(session)
+    setIkeaOpen(true)
+  }, [])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24)
@@ -191,12 +88,11 @@ export function EternityLanding() {
       }, 1500)
       return
     }
-    setIsSubmitting(true)
-    setTimeout(() => {
-      setModalArtifact(query)
-      setIsSubmitting(false)
-      el.value = ""
-    }, 400)
+    // Реальный demo-flow: имя из hero-формы уходит в DemoProjectModal как initialName,
+    // модалка сама вызывает /api/demo/generate и показывает reveal артефактов.
+    setDemoInitialName(query)
+    setDemoOpen(true)
+    el.value = ""
   }
 
   return (
@@ -221,10 +117,19 @@ export function EternityLanding() {
         ))}
       </div>
 
-      {/* Модальное окно успеха */}
-      {modalArtifact && (
-        <ArtifactSuccessModal artifactName={modalArtifact} onClose={closeModal} />
-      )}
+      {/* Гостевой demo-flow: реальная генерация проекта + артефактов + reveal */}
+      <DemoProjectModal
+        open={demoOpen}
+        onClose={() => setDemoOpen(false)}
+        onLimitReached={handleLimitReached}
+        initialName={demoInitialName}
+      />
+      <IkeaModal
+        open={ikeaOpen}
+        onClose={() => setIkeaOpen(false)}
+        session={ikeaSession}
+        onContinueDemo={() => setDemoOpen(true)}
+      />
 
       {/* Прозрачная шапка */}
       <header className={`site-nav${scrolled ? " scrolled" : ""}`}>
@@ -256,12 +161,8 @@ export function EternityLanding() {
           {/* Миниатюрное окно ввода (всегда видимо) */}
           <form className="artifact-form" onSubmit={handleSubmit}>
             <input ref={inputRef} type="text" placeholder={t("landing.inputPlaceholder")} autoComplete="off" aria-label={t("landing.inputPlaceholder")} />
-            <button type="submit" disabled={isSubmitting} className={isSubmitting ? "submitting" : ""}>
-              {isSubmitting ? (
-                <><span className="btn-spinner" /> {t("landing.creatingBtn")}</>
-              ) : (
-                <>{t("landing.createBtn")} <ArrowRight size={18} strokeWidth={2} aria-hidden="true" /></>
-              )}
+            <button type="submit">
+              {t("landing.createBtn")} <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
             </button>
           </form>
 

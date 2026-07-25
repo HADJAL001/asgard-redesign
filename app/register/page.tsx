@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, type FormEvent } from "react"
+import { useState, useEffect, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Infinity as InfinityIcon, Loader2 } from "lucide-react"
+import { Infinity as InfinityIcon, Loader2, Gift } from "lucide-react"
 import { useAuth } from "@/lib/auth-store"
+import { getReferralCode } from "@/lib/referral"
 import { SocialLoginButtons } from "@/components/social-login-buttons"
 
 /* ================================================================
@@ -28,6 +29,9 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Пришёл по реферальной ссылке → показываем welcome-бонус (двусторонняя реферралка).
+  const [invited, setInvited] = useState(false)
+  useEffect(() => { Promise.resolve().then(() => setInvited(!!getReferralCode())) }, [])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -78,6 +82,17 @@ export default function RegisterPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-white">OSGARD</h1>
           <p className="text-sm text-[#6A6A8A]">Создайте аккаунт и начните зарабатывать</p>
         </div>
+
+        {invited && (
+          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-[#D4AF37]/30 bg-[#D4AF37]/[0.07] px-4 py-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#D4AF37]/40 text-[#D4AF37]">
+              <Gift className="h-4 w-4" />
+            </span>
+            <p className="text-[13px] leading-snug text-white/80">
+              Тебя пригласили — при регистрации получишь <span className="font-semibold text-[#D4AF37]">+5&nbsp;∞</span> приветственный бонус.
+            </p>
+          </div>
+        )}
 
         <div className="rounded-2xl border border-[#2A2A3E] bg-[#14141E] p-6 shadow-2xl">
           <h2 className="mb-6 text-lg font-semibold text-white">Регистрация</h2>

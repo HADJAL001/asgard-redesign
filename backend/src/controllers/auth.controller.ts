@@ -139,6 +139,12 @@ export class AuthController {
                   UPDATE referrals SET status = 'active', reward_amount = 10
                   WHERE referrer_id = ? AND referee_id = ? AND status = 'pending'
                 `).run(referredBy, userId);
+                // Двусторонняя реферралка: приглашённый тоже получает welcome-бонус (+5 ∞),
+                // но только если казна тянет полную эмиссию (10 рефереру + 5 новичку = 15).
+                // Реферер уже начислен по своему 10-guard'у выше — эта проверка его не откатывает.
+                if (canEmitUnbackedSync(15, treasuryTc)) {
+                  db.prepare(`UPDATE wallets SET timecoin = timecoin + 5 WHERE user_id = ?`).run(userId);
+                }
               } else {
                 db.prepare(`
                   UPDATE referrals SET status = 'reserve_capped'

@@ -20,14 +20,11 @@ import {
   Skull,
   Cog,
   Crown,
-  Shield,
-  Gem,
-  Swords,
   ArrowRight,
   RefreshCw,
 } from "lucide-react"
 import { PremiumModal } from "./PremiumModal"
-import { ProjectArtifactReveal } from "./ProjectArtifactReveal"
+import { ProjectArtifactReveal, type RevealRarityMeta } from "./ProjectArtifactReveal"
 import { useDemoGenerate } from "@/hooks/useDemoGenerate"
 import {
   loadSession,
@@ -48,17 +45,15 @@ const THEMES = [
   { id: "mythology",label: "Mythology",       hint: "мифология, боги, герои, легенды",          Icon: Crown },
 ]
 
-/* ---- редкости ---- */
-const RARITY_META: Record<DemoArtifact["rarity"], { label: string; color: string }> = {
-  common:    { label: "Обычный",    color: "#9CA3AF" },
-  uncommon:  { label: "Необычный",  color: "#34D399" },
-  rare:      { label: "Редкий",     color: "#60A5FA" },
-  epic:      { label: "Эпический",  color: "#A78BFA" },
-  legendary: { label: "Легендарный",color: "#FBBF24" },
-}
-
-const TYPE_ICON: Record<string, typeof Sparkles> = {
-  neural: Cpu, crystal: Gem, weapon: Swords, shield: Shield, artifact: Sparkles,
+/* ---- редкости (demo-таксономия → словарь reveal-компонента) ----
+   Символы усиливают «ощутимость» тира; legendary — высший тир demo:
+   голографическая фольга (glow), epic — золотое сияние (shine). */
+const REVEAL_RARITY_META: Record<DemoArtifact["rarity"], RevealRarityMeta> = {
+  common:    { label: "Обычный",     color: "#9CA3AF", symbol: "○" },
+  uncommon:  { label: "Необычный",   color: "#34D399", symbol: "◇" },
+  rare:      { label: "Редкий",      color: "#60A5FA", symbol: "◆" },
+  epic:      { label: "Эпический",   color: "#A78BFA", symbol: "★", shine: true },
+  legendary: { label: "Легендарный", color: "#FBBF24", symbol: "∞", glow: true },
 }
 
 /* ================================================================ */
@@ -67,19 +62,24 @@ export interface DemoProjectModalProps {
   onClose: () => void
   /** Колбэк когда достигнут лимит генераций — показать IkeaModal */
   onLimitReached: (session: DemoSessionV2) => void
+  /** Предзаполненное имя вселенной (пробрасывается из hero-формы лендинга). */
+  initialName?: string
 }
 
-export function DemoProjectModal({ open, onClose, onLimitReached }: DemoProjectModalProps) {
+export function DemoProjectModal({ open, onClose, onLimitReached, initialName }: DemoProjectModalProps) {
   const [name, setName] = useState("")
   const [theme, setTheme] = useState(THEMES[0])
   const [formError, setFormError] = useState<string | null>(null)
 
   const { session, remaining, loading, error, lastResult, generate, reset } = useDemoGenerate({ onLimitReached })
 
-  /* Сбрасываем локальную ошибку валидации при открытии */
+  /* При открытии: сбрасываем ошибку валидации и подхватываем имя из hero-формы. */
   useEffect(() => {
-    if (open) Promise.resolve().then(() => setFormError(null))
-  }, [open])
+    if (open) Promise.resolve().then(() => {
+      setFormError(null)
+      if (initialName) setName(initialName)
+    })
+  }, [open, initialName])
 
   const displayError = formError || error
 
@@ -216,70 +216,30 @@ export function DemoProjectModal({ open, onClose, onLimitReached }: DemoProjectM
           )}
         </button>
 
-        {/* Результат последней генерации */}
+        {/* Результат последней генерации — experiential-reveal «рождения»
+            артефактов из проекта, тот же компонент, что в авторизованном flow. */}
         {lastResult && !loading && (
-          <div
-            className="rounded-2xl p-5 space-y-4"
-            style={{
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.07)",
-              animation: "pm-scale-in 0.35s cubic-bezier(0.16,1,0.3,1) both",
-            }}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[16px] font-semibold text-white">{lastResult.name}</p>
-                <p className="mt-0.5 text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  {lastResult.description}
-                </p>
-              </div>
-              <span
-                className="shrink-0 text-[11px] font-medium px-2.5 py-1 rounded-full"
-                style={{ background: "rgba(6,182,212,0.1)", color: "#06B6D4", border: "1px solid rgba(6,182,212,0.2)" }}
-              >
-                {lastResult.artifactCount} арт.
-              </span>
-            </div>
-
-            {/* Карточки артефактов */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {lastResult.artifacts.slice(0, 6).map((a) => {
-                const ArtIcon = TYPE_ICON[a.type] || Sparkles
-                const rm = RARITY_META[a.rarity] || RARITY_META.common
-                return (
-                  <div
-                    key={a.id}
-                    className="rounded-xl p-3 flex flex-col gap-1.5"
-                    style={{
-                      background: "rgba(255,255,255,0.03)",
-                      border: `1px solid ${rm.color}22`,
-                    }}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <ArtIcon size={13} strokeWidth={1.75} style={{ color: rm.color }} />
-                      <span className="text-[11px] font-medium truncate text-white/80">{a.name}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px]" style={{ color: rm.color }}>{rm.label}</span>
-                      <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>⚡{a.power}</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Сохранить */}
-            <Link
-              href="/register"
-              className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 text-[13px] font-semibold transition-all duration-200"
-              style={{
-                background: "linear-gradient(135deg, #F59E0B, #EF4444)",
-                color: "#fff",
-                boxShadow: "0 0 20px rgba(245,158,11,0.2)",
-              }}
-            >
-              💾 Сохранить вселенную <ArrowRight size={14} />
-            </Link>
+          <div style={{ animation: "pm-scale-in 0.35s cubic-bezier(0.16,1,0.3,1) both" }}>
+            <ProjectArtifactReveal
+              projectName={lastResult.name}
+              projectDescription={lastResult.description}
+              projectBadge={`${lastResult.artifactCount} артефактов рождено вместе с проектом`}
+              artifacts={lastResult.artifacts}
+              rarityMeta={REVEAL_RARITY_META}
+              ctaSlot={
+                <Link
+                  href="/register"
+                  className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 text-[13px] font-semibold transition-all duration-200"
+                  style={{
+                    background: "linear-gradient(135deg, #F59E0B, #EF4444)",
+                    color: "#fff",
+                    boxShadow: "0 0 20px rgba(245,158,11,0.2)",
+                  }}
+                >
+                  💾 Сохранить вселенную <ArrowRight size={14} />
+                </Link>
+              }
+            />
           </div>
         )}
 
