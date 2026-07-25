@@ -24,6 +24,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Search, Store, Archive, CheckCircle2, Boxes, Loader2, Hammer, Sparkles, Swords, X } from "lucide-react"
 import { Navbar } from "./navbar"
+import { FusionModal } from "./FusionModal"
 import { useOsgardStore, type ForgeLoadout } from "@/lib/store/osgard-store"
 import {
   COLORS,
@@ -63,6 +64,7 @@ export function ArtifactsView() {
   }
 
   const [filter, setFilter] = useState<Filter>(FILTERS.some((f) => f.id === initial) ? initial : "all")
+  const [fusionOpen, setFusionOpen] = useState(false)
   const [query, setQuery] = useState("")
 
   const {
@@ -107,6 +109,7 @@ export function ArtifactsView() {
   return (
     <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #1A1A1A 100%)", color: COLORS.text }}>
       <Navbar />
+      <FusionModal open={fusionOpen} onClose={() => setFusionOpen(false)} />
 
       <main className="mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -115,6 +118,13 @@ export function ArtifactsView() {
             <p className="mt-1 text-[14px]" style={{ color: "rgba(255,255,255,0.4)" }}>
               {t("artifacts.subtitle")}
             </p>
+            <button
+              onClick={() => setFusionOpen(true)}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px] font-semibold transition-all"
+              style={{ background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.3)", color: "#E5D4A0" }}
+            >
+              🔀 Слить артефакты
+            </button>
           </div>
           <div className="relative w-full sm:w-72">
             <Search size={16} strokeWidth={1.75} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: COLORS.label }} />

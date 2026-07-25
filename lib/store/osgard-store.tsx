@@ -336,6 +336,14 @@ export interface AiArtifactActionResult {
   error?: string
 }
 
+/** Результат fuseArtifacts (см. POST /artifacts/fuse) — потомок + флаг мутации. */
+export interface FusionActionResult {
+  success: boolean
+  artifact?: OsgardArtifact
+  mutation?: boolean
+  error?: string
+}
+
 /** Результат premiumUpgradeArtifact (см. POST /artifacts/:id/premium-upgrade) — унифицированный ответ для UI. */
 export interface PremiumUpgradeActionResult {
   success: boolean
@@ -528,6 +536,8 @@ export interface OsgardStoreState {
 
   /** POST /artifacts/generate-ai — AI-генерация уникального артефакта (Grok → DeepSeek → fallback). */
   generateAiArtifact: (hint?: string) => Promise<AiArtifactActionResult>
+  /** Слияние двух своих артефактов → AI-потомок (POST /artifacts/fuse). */
+  fuseArtifacts: (artifactAId: number, artifactBId: number) => Promise<FusionActionResult>
 
   /** POST /artifacts/:id/premium-upgrade — премиум-усиление артефакта за TimeCoin (мгновенно, до уровня 10, 25% шанс крита). */
   premiumUpgradeArtifact: (artifactId: number) => Promise<PremiumUpgradeActionResult>
@@ -1067,6 +1077,26 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       return { success: true, artifact: res.artifact, aiSource: res.aiSource }
     } catch (err) {
       const message = extractErrorMessage(err, "Не удалось сгенерировать артефакт")
+      set({ loading: false, error: message })
+      return { success: false, error: message }
+    }
+  },
+
+  /* ---- action: POST /artifacts/fuse — слияние двух артефактов в AI-потомка ---- */
+  fuseArtifacts: async (artifactAId, artifactBId) => {
+    set({ loading: true, error: null })
+    try {
+      const res = await apiClient.post<{ ok: boolean; mutation: boolean; artifact: OsgardArtifact }>(
+        "/artifacts/fuse",
+        { artifactAId, artifactBId },
+      )
+      // Родители «сожжены», потомок добавлен — перечитываем список и кошелёк.
+      await get().fetchArtifacts()
+      await get().fetchWallet()
+      set({ loading: false })
+      return { success: true, artifact: res.artifact, mutation: res.mutation }
+    } catch (err) {
+      const message = extractErrorMessage(err, "Не удалось выполнить слияние")
       set({ loading: false, error: message })
       return { success: false, error: message }
     }

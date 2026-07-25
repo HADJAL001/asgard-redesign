@@ -196,6 +196,7 @@ import walletRoutes from "./routes/wallet.routes"
 import tcMarketRoutes, { getTcMarketSseConnections } from "./routes/tcmarket.routes"
 import stakesRoutes from "./routes/stakes.routes"
 import artifactsRoutes from "./routes/artifacts.routes"
+import shareRoutes from "./routes/share.routes"
 import marketplaceRoutes from "./routes/marketplace.routes"
 import projectsRoutes from "./routes/projects.routes"
 import leaderboardRoutes from "./routes/leaderboard.routes"
@@ -298,6 +299,7 @@ import "./migrations/067_hall_of_fame_index"
 import { runRefreshTokensMigration } from "./migrations/068_refresh_tokens"
 import { runDailyStreakMigration } from "./migrations/077_daily_streak"
 import { runStreakReminders } from "./lib/streak-reminders"
+import { runArtifactFusionMigration } from "./migrations/078_artifact_fusion"
 import { RefreshTokenService } from "./lib/refresh-tokens"
 import { scheduleBackups } from "./lib/db-backup"
 import "./migrations/075_yookassa_payments"
@@ -370,6 +372,7 @@ runAnalyticsEventsMigration()
 /* Гарантируем наличие таблицы refresh_tokens (stateful refresh с ротацией и детекцией кражи) при старте сервера. */
 runRefreshTokensMigration()
 runDailyStreakMigration()
+runArtifactFusionMigration()
 
 /* Push-напоминания о daily-стрике: раз в сутки в STREAK_REMINDER_HOUR_UTC (по
    умолчанию 18:00 UTC) тормошим только тех, кто «под угрозой» (забрал вчера, но
@@ -485,6 +488,7 @@ app.use("/wallet", walletRoutes)
 app.use("/tc-market", tcMarketRoutes)
 app.use("/stakes", stakesRoutes)
 app.use("/artifacts", artifactsRoutes)
+app.use("/share", shareRoutes) // публичные share-эндпоинты (без auth) для OG-карточек
 app.use("/marketplace", marketplaceRoutes)
 app.use("/projects", projectsRoutes)
 app.use("/leaderboard", leaderboardRoutes)
