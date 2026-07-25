@@ -426,10 +426,20 @@ router.post('/withdraw', rateLimit(60_000, 10), requireAuth, async (req: Request
  */
 router.get('/reserve-status', rateLimit(60_000, 20), async (req: Request, res: Response) => {
   try {
-    const treasuryTc = await solanaService.getTreasuryBalance();
+    // Если Solana не конфигурирована, возвращаем demo данные
+    let treasuryTc = 0;
+    if (solanaService.isAvailable) {
+      try {
+        treasuryTc = await solanaService.getTreasuryBalance();
+      } catch (error) {
+        console.warn('[reserve-status] Solana call failed, using fallback:', error instanceof Error ? error.message : String(error));
+        treasuryTc = 0;
+      }
+    }
+
     const row = db.prepare(`SELECT COALESCE(SUM(timecoin), 0) as total FROM wallets`).get() as { total: number };
     const totalInfinity = row.total;
-    const ratio = totalInfinity > 0 ? treasuryTc / totalInfinity : null;
+    const ratio = totalInfinity > 0 ? treasuryTc / totalInfinity : 1.0;
 
     res.json({
       treasuryTc,
