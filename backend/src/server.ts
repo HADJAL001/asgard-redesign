@@ -297,6 +297,7 @@ import { runAnalyticsEventsMigration } from "./migrations/066_analytics_events"
 import "./migrations/067_hall_of_fame_index"
 import { runRefreshTokensMigration } from "./migrations/068_refresh_tokens"
 import { runDailyStreakMigration } from "./migrations/077_daily_streak"
+import { runStreakReminders } from "./lib/streak-reminders"
 import { RefreshTokenService } from "./lib/refresh-tokens"
 import { scheduleBackups } from "./lib/db-backup"
 import "./migrations/075_yookassa_payments"
@@ -369,6 +370,25 @@ runAnalyticsEventsMigration()
 /* Гарантируем наличие таблицы refresh_tokens (stateful refresh с ротацией и детекцией кражи) при старте сервера. */
 runRefreshTokensMigration()
 runDailyStreakMigration()
+
+/* Push-напоминания о daily-стрике: раз в сутки в STREAK_REMINDER_HOUR_UTC (по
+   умолчанию 18:00 UTC) тормошим только тех, кто «под угрозой» (забрал вчера, но
+   не сегодня). Отключается STREAK_REMINDERS_ENABLED=false. NODE_ENV=test — пропуск.
+   Доставка на устройство best-effort (Expo Push API); если push-токенов нет —
+   ничего не шлём. Планируем на конкретный час, а не «через 24ч от старта», чтобы
+   не будить людей в случайное время после рестарта Railway. */
+if (process.env.NODE_ENV !== "test" && process.env.STREAK_REMINDERS_ENABLED !== "false") {
+  const HOUR = Number(process.env.STREAK_REMINDER_HOUR_UTC ?? 18)
+  const DAY_MS = 24 * 60 * 60 * 1000
+  const fire = () => runStreakReminders().catch((e) => captureError("[push] streak reminders failed:", e))
+  const now = new Date()
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), HOUR, 0, 0))
+  if (next.getTime() <= now.getTime()) next.setUTCDate(next.getUTCDate() + 1)
+  setTimeout(() => {
+    fire()
+    setInterval(fire, DAY_MS).unref()
+  }, next.getTime() - now.getTime()).unref()
+}
 
 /* Уборка refresh_tokens: таблица растёт на каждый логин/ротацию, отозванные
    строки не удаляются сразу (нужны для детекции reuse в grace-окне). Чистим
