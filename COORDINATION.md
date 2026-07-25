@@ -84,6 +84,17 @@
   (`creator-royalty.ts`, `080_*`, `marketplace.routes.ts`) не трогаю. `server.ts` —
   точечно +2 строки (import миграции не нужен; только `import provenanceRoutes` +
   `app.use("/provenance", …)`), объявляю здесь по правилу №4.
+- **B — ГОТОВО Фаза D (2026-07-25):** «Хранилище провенанса» приземлено и
+  задеплоено — **PR #54 squash-мёрж в `main`** (`a0b9e79`). Гейт зелёный: root
+  `tsc`=0, backend `tsc`=0, `eslint`=0, CI (Vercel build / test / CodeQL /
+  gitleaks / npm audit) — pass. Живая прод-проверка без секретов:
+  `GET /vault` → **200** (Vercel), `GET /api/provenance/vault` → **401**
+  (роут в бою, `requireAuth` реален — не 404), `GET /api/provenance/artifact/
+  999999999` → **401** (auth раньше проверки существования → чужое не
+  раскрываем), `GET /api/health` → **200** (Railway из `main`). Миграций не
+  создавал (081 остаётся свободной). `server.ts` — только объявленные +2
+  строки. **Полная суперпремиальная программа A→D завершена** (A #43, B #47,
+  C #51, D #54). Домены не пересекали.
 - _(A: подтверди получение при случае; далее общаемся только здесь)_
 
 ---
@@ -188,7 +199,7 @@ demo_convert/artifact_share_view. Живой прод-прогон цифр во
 | Кто | Сейчас делает | Ветка | Файлы/область | Обновлено |
 |---|---|---|---|---|
 | Claude A | Свободен. **Старший/интегратор.** ✅ Прод-проверка воронки роста (growth 401 / share 200 — контур write#46+read#49 в бою). ✅ Интегрировал/задеплоил PR #52 B (провенанс+роялти) по указанию пользователя — гейт зелёный (tsc=0, 25/25). Ранее: воронка #46/#49, Фьюжн #40, починка сборки #42/#45, #35/#37/#38/#39. Следующее (жду разведения по папкам): #3 персонализация / #4 семантический поиск. | chore/launch-assets-coord | COORDINATION.md, marketing/promo-teaser.* | 2026-07-25 |
-| Claude B | **Proof-of-Craft + витрина родословной** (Кузница больше не казино): статы куются ДЕТЕРМИНИРОВАННО из реальной субстанции проекта (глубина генерации + число файлов + настоящая AI vs шаблон → `craftScore ∈ [0..1]`), рулеточный фарм невозможен. Миграция **081** аддитивна: +`artifacts.craft_score` (nullable), старые артефакты grandfather (NULL=legacy, не пересчитываю). Публичная витрина `GET /artifacts/:id/provenance` (read-only, шарится): творец + craftScore + дерево родословной ковки-слияния (рекурсия по `parent_a/b_id`, потолок глубины + защита от циклов) + цепочка перепродаж. **Дополняет** vault-витрину Фазы D (мой `/provenance/*`, уже на `main`), не конфликтует (разные пути/файлы). `server.ts`/`COORDINATION.md` — точечно. tsc=0, тесты 15/15. Свои файлы коммичу поимённо. ✅ На `main`: Фаза D «Хранилище провенанса» (vault), Фаза C «Живая вселенная» #51, провенанс+роялти #52, share #41, Фазы A/B #43/#47. | feature/proof-of-craft-provenance | backend/migrations/081_proof_of_craft.ts (new), lib/proof-of-craft.ts (new), routes/artifacts.routes.ts, server.ts (+1 import), tests/proof-of-craft.test.ts (new), COORDINATION.md | 2026-07-25 |
+| Claude B | **Proof-of-Craft + витрина родословной** (Кузница больше не казино): статы куются ДЕТЕРМИНИРОВАННО из реальной субстанции проекта (глубина генерации + число файлов + настоящая AI vs шаблон → `craftScore ∈ [0..1]`), рулеточный фарм невозможен. Миграция **081** аддитивна: +`artifacts.craft_score` (nullable), старые артефакты grandfather (NULL=legacy, не пересчитываю). Публичная витрина `GET /artifacts/:id/provenance` (read-only, шарится): творец + craftScore + дерево родословной ковки-слияния (рекурсия по `parent_a/b_id`, потолок глубины + защита от циклов) + цепочка перепродаж. **Дополняет** vault Фазы D #54 (`/provenance/*`, owner-only), не конфликтует (разные пути/файлы). `server.ts`/`COORDINATION.md` — точечно. tsc=0, тесты 15/15. Свои файлы коммичу поимённо. ✅ На `main`: суперпремиальная программа A→D завершена (A #43, B #47, C #51, D «Хранилище провенанса» #54), провенанс+роялти #52, share #41. | feature/proof-of-craft-provenance | backend/migrations/081_proof_of_craft.ts (new), lib/proof-of-craft.ts (new), routes/artifacts.routes.ts, server.ts (+1 import), tests/proof-of-craft.test.ts (new), COORDINATION.md | 2026-07-25 |
 
 ---
 
