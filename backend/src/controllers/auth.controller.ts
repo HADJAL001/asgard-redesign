@@ -9,6 +9,7 @@ import { captureError } from '../lib/sentry';
 import { fetchTreasuryTcForEmission, canEmitUnbackedSync } from '../lib/emission-guard';
 import { RefreshTokenService } from '../lib/refresh-tokens';
 import { TwoFAService } from '../services/twofa.service';
+import { track, GrowthEvent } from '../lib/analytics';
 
 const SOCIAL_PROVIDERS: SocialProvider[] = ['google', 'github'];
 
@@ -166,6 +167,9 @@ export class AuthController {
       // Stateful refresh-токен с ротацией/отзывом (не JWT) — см. lib/refresh-tokens.
       const refreshToken = RefreshTokenService.issue(userId);
 
+      // Аналитика роста: вершина воронки. referredBy — был ли юзер приведён рефералом.
+      track(GrowthEvent.Register, { userId, meta: { referred: Boolean(referralCode) } });
+
       res.status(201).json({
         success: true,
         token,
@@ -279,6 +283,9 @@ export class AuthController {
       const token = AuthService.generateAccessToken(user.id);
       // Stateful refresh-токен с ротацией/отзывом (не JWT) — см. lib/refresh-tokens.
       const refreshToken = RefreshTokenService.issue(user.id);
+
+      // Аналитика роста: возвраты (login) — сырьё для DAU и удержания.
+      track(GrowthEvent.Login, { userId: user.id });
 
       res.json({
         success: true,

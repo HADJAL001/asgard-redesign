@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express"
 import { generateProjectContent } from "../services/ai-generator"
 import { redisClient, ensureRedisConnected } from "../lib/redis"
 import { captureError } from "../lib/sentry"
+import { track, GrowthEvent } from "../lib/analytics"
 
 /* ================================================================
    OSGARD · Demo Routes — без авторизации
@@ -252,6 +253,13 @@ router.post("/convert", requireAuth, async (req: AuthRequest, res: Response) => 
     }
 
     db.exec("COMMIT")
+
+    // Аналитика роста: активация — гость превратил демо в реальные записи.
+    // Ключевая точка воронки demo → register → convert (см. #35).
+    track(GrowthEvent.DemoConvert, {
+      userId,
+      meta: { projects: Math.min(demoProjects.length, 3), artifacts: totalArtifacts, bonusTokens },
+    })
 
     return res.json({
       ok: true,
