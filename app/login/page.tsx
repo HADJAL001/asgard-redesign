@@ -111,25 +111,27 @@ function LoginPageInner() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0A0A0F] px-4">
-      {/* фоновое свечение в стиле OSGARD */}
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+      {/* Локальное золото-бирюзовое свечение поверх общего AmbientBackdrop
+          (фон платформы дышит сквозь прозрачную подложку — не глушим его). */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-1/2 top-1/3 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#00D4FF]/10 blur-[120px]" />
-        <div className="absolute right-1/4 bottom-1/4 h-[300px] w-[300px] rounded-full bg-[#E74C3C]/10 blur-[100px]" />
+        <div className="absolute left-1/2 top-1/3 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:rgb(var(--color-gold-rgb)/0.10)] blur-[130px]" />
+        <div className="absolute right-1/4 bottom-1/4 h-[320px] w-[320px] rounded-full bg-[color:rgb(var(--color-cyan-rgb)/0.08)] blur-[110px]" />
       </div>
 
       <div className="relative z-10 w-full max-w-md">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#2A2A3E] bg-[#14141E] text-[#00D4FF] shadow-[0_0_30px_rgba(0,212,255,0.15)]">
-            <InfinityIcon className="h-7 w-7" />
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[color:rgb(var(--color-gold-rgb)/0.4)] bg-[color:var(--eg-glass-bg)] text-[color:var(--color-gold)] shadow-[var(--eg-glow-gold)] backdrop-blur">
+            <InfinityIcon className="h-8 w-8" />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">OSGARD</h1>
-          <p className="text-sm text-[#6A6A8A]">Neural Platform · Command Interface</p>
+          <span className="elite-eyebrow">Neural Platform</span>
+          <h1 className="holo-title font-display text-4xl font-bold tracking-tight">OSGARD</h1>
+          <p className="text-sm text-[#8899bb]">Command Interface</p>
         </div>
 
-        <div className="rounded-2xl border border-[#2A2A3E] bg-[#14141E] p-6 shadow-2xl">
+        <div className="premium-card premium-panel rounded-2xl p-6">
           {/* переключатель режима */}
-          <div className="mb-6 flex rounded-xl border border-[#2A2A3E] bg-[#0A0A0F] p-1">
+          <div className="mb-6 flex rounded-xl border border-[color:var(--eg-glass-border)] bg-[color:rgb(8_10_20/55%)] p-1">
             <button
               type="button"
               onClick={() => {
@@ -138,8 +140,8 @@ function LoginPageInner() {
                 setTwofaRequired(false)
                 setTwofaCode("")
               }}
-              className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
-                mode === "login" ? "bg-[#00D4FF] text-black" : "text-[#6A6A8A] hover:text-white"
+              className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
+                mode === "login" ? "seg-premium-active" : "text-[#8899bb] hover:text-white"
               }`}
             >
               Вход
@@ -152,8 +154,8 @@ function LoginPageInner() {
                 setTwofaRequired(false)
                 setTwofaCode("")
               }}
-              className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
-                mode === "register" ? "bg-[#00D4FF] text-black" : "text-[#6A6A8A] hover:text-white"
+              className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
+                mode === "register" ? "seg-premium-active" : "text-[#8899bb] hover:text-white"
               }`}
             >
               Регистрация
@@ -162,7 +164,7 @@ function LoginPageInner() {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="username" className="text-xs font-medium text-[#6A6A8A]">
+              <label htmlFor="username" className="text-xs font-medium text-[#8899bb]">
                 {mode === "login" ? "Email или Username" : "Username"}
               </label>
               <input
@@ -172,13 +174,13 @@ function LoginPageInner() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder={mode === "login" ? "alex@example.com или alex_odin" : "alex_odin"}
-                className="rounded-lg border border-[#2A2A3E] bg-[#0A0A0F] px-3 py-2.5 text-sm text-white outline-none placeholder:text-[#6A6A8A]/60 focus:border-[#00D4FF] focus:ring-1 focus:ring-[#00D4FF]"
+                className="premium-field px-3 py-2.5 text-sm"
               />
             </div>
 
             {mode === "register" && (
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="email" className="text-xs font-medium text-[#6A6A8A]">
+                <label htmlFor="email" className="text-xs font-medium text-[#8899bb]">
                   Email
                 </label>
                 <input
@@ -188,13 +190,13 @@ function LoginPageInner() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="alex@osgard.io"
-                  className="rounded-lg border border-[#2A2A3E] bg-[#0A0A0F] px-3 py-2.5 text-sm text-white outline-none placeholder:text-[#6A6A8A]/60 focus:border-[#00D4FF] focus:ring-1 focus:ring-[#00D4FF]"
+                  className="premium-field px-3 py-2.5 text-sm"
                 />
               </div>
             )}
 
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="password" className="text-xs font-medium text-[#6A6A8A]">
+              <label htmlFor="password" className="text-xs font-medium text-[#8899bb]">
                 Пароль
               </label>
               <input
@@ -204,13 +206,13 @@ function LoginPageInner() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="rounded-lg border border-[#2A2A3E] bg-[#0A0A0F] px-3 py-2.5 text-sm text-white outline-none placeholder:text-[#6A6A8A]/60 focus:border-[#00D4FF] focus:ring-1 focus:ring-[#00D4FF]"
+                className="premium-field px-3 py-2.5 text-sm"
               />
             </div>
 
             {mode === "register" && (
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="confirmPassword" className="text-xs font-medium text-[#6A6A8A]">
+                <label htmlFor="confirmPassword" className="text-xs font-medium text-[#8899bb]">
                   Подтвердите пароль
                 </label>
                 <input
@@ -220,14 +222,14 @@ function LoginPageInner() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="rounded-lg border border-[#2A2A3E] bg-[#0A0A0F] px-3 py-2.5 text-sm text-white outline-none placeholder:text-[#6A6A8A]/60 focus:border-[#00D4FF] focus:ring-1 focus:ring-[#00D4FF]"
+                  className="premium-field px-3 py-2.5 text-sm"
                 />
               </div>
             )}
 
             {mode === "login" && twofaRequired && (
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="twofaCode" className="text-xs font-medium text-[#6A6A8A]">
+                <label htmlFor="twofaCode" className="text-xs font-medium text-[#8899bb]">
                   Код 2FA
                 </label>
                 <input
@@ -239,9 +241,9 @@ function LoginPageInner() {
                   value={twofaCode}
                   onChange={(e) => setTwofaCode(e.target.value)}
                   placeholder="123456 или резервный код"
-                  className="rounded-lg border border-[#2A2A3E] bg-[#0A0A0F] px-3 py-2.5 text-sm text-white outline-none placeholder:text-[#6A6A8A]/60 focus:border-[#00D4FF] focus:ring-1 focus:ring-[#00D4FF]"
+                  className="premium-field px-3 py-2.5 text-sm"
                 />
-                <p className="text-[11px] text-[#6A6A8A]">
+                <p className="text-[11px] text-[#8899bb]">
                   Введите 6-значный код из приложения-аутентификатора или один из резервных кодов.
                 </p>
               </div>
@@ -256,7 +258,7 @@ function LoginPageInner() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-2 flex items-center justify-center gap-2 rounded-lg bg-[#00D4FF] py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-60"
+              className="btn-premium-gold mt-2 flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold disabled:opacity-60"
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               {mode === "login" ? (twofaRequired ? "Подтвердить код" : "Войти") : "Создать аккаунт"}
@@ -268,7 +270,7 @@ function LoginPageInner() {
           </div>
         </div>
 
-        <p className="mt-6 text-center text-xs text-[#6A6A8A]">
+        <p className="mt-6 text-center text-xs text-[#8899bb]">
           {mode === "login" ? "Нет аккаунта? " : "Уже есть аккаунт? "}
           <button
             type="button"
@@ -278,7 +280,7 @@ function LoginPageInner() {
               setTwofaRequired(false)
               setTwofaCode("")
             }}
-            className="text-[#00D4FF] hover:underline"
+            className="font-medium text-[color:var(--color-gold)] hover:underline"
           >
             {mode === "login" ? "Зарегистрироваться" : "Войти"}
           </button>
