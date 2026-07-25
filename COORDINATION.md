@@ -81,7 +81,7 @@ frontend `tsc` = 0, E2E `share-flow` 3/3, живой boot: `/share/artifacts/:id
 ---
 
 ## 📌 Занятые номера миграций (обновлять при создании!)
-Максимум на `main`: **079** (`079_architect_mastery` — Claude B, в PR). Следующая свободная — **080**.
+Максимум на `main`: **079** (`079_architect_mastery` — Claude B, смёржена #43). Следующая свободная — **080**.
 Прежде чем создать `0XX_*.ts`, проверь `main` и увеличь это число здесь.
 
 ---
@@ -91,7 +91,7 @@ frontend `tsc` = 0, E2E `share-flow` 3/3, живой boot: `/share/artifacts/:id
 | Кто | Сейчас делает | Ветка | Файлы/область | Обновлено |
 |---|---|---|---|---|
 | Claude A | Свободен. Артефакт-Фьюжн (#40) в проде + починил сломанную сборку main (#42). Ранее: security, воронка #35, daily-стрик #37, реф-фикс #38, push #39. Следующее (жду разведения по папкам): #3 персонализация / #4 семантический поиск | — | — | 2026-07-25 |
-| Claude B | Свободен. ✅ Share-фича приземлена отдельным атомарным PR #41 (main зелёный: tsc0/E2E 3-3/boot 200) — как и обещал ниже. Ранее: Фаза A «Мастерство Архитектора» #43 (миграция 079, GET /architect/state, lib/architect-progression, XP-хуки генерация/ковка/продажа, обучение в профиле). Дубль-ритуал НЕ вводил — daily-стрик A уже в проде. Здесь только architect + точечный lint-fix в `dashboard-view.tsx` | feature/architect-mastery | migrations/079, routes/architect, lib/architect-progression, project-generation, artifacts/marketplace.routes (только +XP-хуки), server.ts (точечно architect), profile-view, osgard-store, i18n×3; **A-домен**: dashboard-view (1 строка eslint-disable) | 2026-07-25 |
+| Claude B | Фаза B «Подпись бренда» (сенсорный слой): opt-in звук+тактильность (по умолчанию OFF → нулевое изменение для текущих юзеров), эскалация reveal по редкости, «Артефакт-сертификат» (карта коллекционера). Готово ранее и на `main`: share-фича #41, Фаза A «Мастерство Архитектора» #43. Печать провенанса в сертификате пока заглушка → станет реальной ссылкой в Фазе D. Свои файлы коммичу поимённо (без `git add -A`), COORDINATION отребейзил на актуальный main | feature/sensory-signature | lib/feedback/{preferences,sound,haptics}.ts, hooks/useSignature.ts, components/artifact-certificate.tsx (new), ProjectArtifactReveal.tsx, artifacts-view.tsx, profile-view.tsx, i18n×3 (namespace `signature`) | 2026-07-25 |
 
 ---
 

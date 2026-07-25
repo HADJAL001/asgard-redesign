@@ -22,9 +22,10 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Search, Store, Archive, CheckCircle2, Boxes, Loader2, Hammer, Sparkles, Swords, X } from "lucide-react"
+import { Search, Store, Archive, CheckCircle2, Boxes, Loader2, Hammer, Sparkles, Swords, X, ScrollText } from "lucide-react"
 import { Navbar } from "./navbar"
 import { FusionModal } from "./FusionModal"
+import { ArtifactCertificate, type CertificateArtifact } from "./artifact-certificate"
 import { useOsgardStore, type ForgeLoadout } from "@/lib/store/osgard-store"
 import {
   COLORS,
@@ -65,6 +66,7 @@ export function ArtifactsView() {
 
   const [filter, setFilter] = useState<Filter>(FILTERS.some((f) => f.id === initial) ? initial : "all")
   const [fusionOpen, setFusionOpen] = useState(false)
+  const [certArtifact, setCertArtifact] = useState<CertificateArtifact | null>(null)
   const [query, setQuery] = useState("")
 
   const {
@@ -110,6 +112,7 @@ export function ArtifactsView() {
     <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #1A1A1A 100%)", color: COLORS.text }}>
       <Navbar />
       <FusionModal open={fusionOpen} onClose={() => setFusionOpen(false)} />
+      <ArtifactCertificate artifact={certArtifact} onClose={() => setCertArtifact(null)} />
 
       <main className="mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -199,6 +202,7 @@ export function ArtifactsView() {
                 slotsFull={slotsFull}
                 onEquip={() => equipArtifact(a.id)}
                 onUnequip={() => unequipArtifact(a.id)}
+                onCertificate={() => setCertArtifact(a)}
                 t={t}
                 statusMeta={STATUS_META}
               />
@@ -349,6 +353,7 @@ function ArtifactCard({
   slotsFull,
   onEquip,
   onUnequip,
+  onCertificate,
   t,
   statusMeta,
 }: {
@@ -372,6 +377,7 @@ function ArtifactCard({
   slotsFull: boolean
   onEquip: () => void
   onUnequip: () => void
+  onCertificate: () => void
   t: (key: string, vars?: Record<string, string | number>) => string
   statusMeta: Record<ArtifactStatus, { label: string; color: string; Icon: typeof Store }>
 }) {
@@ -417,6 +423,25 @@ function ArtifactCard({
             <status.Icon size={12} strokeWidth={1.75} />
             {status.label}
           </span>
+          {/* Сертификат коллекционера — доступен для любого статуса */}
+          <button
+            type="button"
+            onClick={onCertificate}
+            aria-label={t("signature.certificate")}
+            title={t("signature.certificate")}
+            className="flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors"
+            style={{ border: `1px solid ${COLORS.border}`, color: COLORS.label }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = FORGE_GOLD
+              e.currentTarget.style.color = FORGE_GOLD
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = COLORS.border
+              e.currentTarget.style.color = COLORS.label
+            }}
+          >
+            <ScrollText size={13} strokeWidth={1.75} />
+          </button>
         </div>
       </div>
 
