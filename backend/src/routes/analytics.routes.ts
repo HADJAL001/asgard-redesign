@@ -6,13 +6,16 @@ import { rateLimit } from "../middleware/rateLimiter"
 
 const router = Router()
 
-/* Пока единственный источник событий — paywall/pricing-воронка (см. AdminController.paywallFunnel).
-   Белый список защищает таблицу от произвольного мусора с публичной ручки без авторизации. */
+/* Белый список защищает таблицу от произвольного мусора с публичной ручки без авторизации.
+   Источники: paywall/pricing-воронка (AdminController.paywallFunnel) + виральная петля
+   share (artifact_share_click — намерение поделиться, замыкает K-фактор в growth-ридере
+   вместе с серверным artifact_share_view #46). Никаких других событий с публичной ручки. */
 const ALLOWED_EVENTS = new Set([
   "pricing_view",
   "pricing_click",
   "pricing_conversion",
   "pricing_abandon",
+  "artifact_share_click",
 ])
 
 const MAX_META_JSON_LENGTH = 2000

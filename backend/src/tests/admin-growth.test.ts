@@ -38,10 +38,15 @@ beforeEach(() => {
   db.exec('DELETE FROM analytics_events;');
 });
 
-// Прямая вставка события с явным временем — для проверки окна/ряда.
-function insertAt(event: string, createdAt: number, opts: { userId?: number | null; meta?: any } = {}) {
+// Прямая вставка события с явным временем — для проверки окна/ряда. sessionId можно
+// задать явно: для распределения share_click по разным «шарерам» (distinctSharers).
+function insertAt(
+  event: string,
+  createdAt: number,
+  opts: { userId?: number | null; meta?: any; sessionId?: string } = {},
+) {
   const userId = opts.userId ?? null;
-  const sessionId = userId != null ? `srv:u${userId}` : 'srv:anon';
+  const sessionId = opts.sessionId ?? (userId != null ? `srv:u${userId}` : 'srv:anon');
   db.prepare(
     `INSERT INTO analytics_events (user_id, session_id, event_name, meta, created_at) VALUES (?, ?, ?, ?, ?)`,
   ).run(userId, sessionId, event, opts.meta != null ? JSON.stringify(opts.meta) : null, createdAt);
@@ -129,11 +134,66 @@ test('growth: daily — группировка по дню, свежее све�
   assert.ok(daily[0].day > daily[daily.length - 1].day, 'порядок дней по убыванию');
 });
 
+// ——— Виральная петля: K-фактор (share_click → attribution → register) ———
+
+test('growth: K-фактор = viralRegistrations / distinctSharers, с сырьём для перепроверки', async () => {
+  const now = Date.now();
+  // Два уникальных «шарера» (c1, c2) дали 3 клика share (c1 кликнул дважды).
+  insertAt('artifact_share_click', now - DAY_MS, { sessionId: 'c1', meta: { artifactId: 5 } });
+  insertAt('artifact_share_click', now - DAY_MS, { sessionId: 'c1', meta: { artifactId: 5 } });
+  insertAt('artifact_share_click', now - DAY_MS, { sessionId: 'c2', meta: { artifactId: 6 } });
+  // Три регистрации; две — виральные (meta.src='share:*'), одна — органическая.
+  insertAt('register', now - DAY_MS, { userId: 1, meta: { referred: false, src: 'share:5' } });
+  insertAt('register', now - DAY_MS, { userId: 2, meta: { referred: false, src: 'share:6' } });
+  insertAt('register', now - DAY_MS, { userId: 3, meta: { referred: false } });
+
+  const t = (await growth(30)).body.growth.totals;
+  assert.equal(t.shareClicks, 3, 'все клики учтены');
+  assert.equal(t.distinctSharers, 2, 'уникальные шареры по session_id');
+  assert.equal(t.viralRegistrations, 2, 'register с src=share%');
+  assert.equal(t.registrations, 3);
+  assert.equal(t.kFactor, 1, '2 виральных / 2 шерера = 1.0');
+});
+
+test('growth: ноль шареров → kFactor=0 и CTR=0 без деления на ноль', async () => {
+  insertAt('register', Date.now() - DAY_MS, { userId: 1, meta: { referred: false } });
+  const t = (await growth(30)).body.growth.totals;
+  assert.equal(t.distinctSharers, 0);
+  assert.equal(t.shareClicks, 0);
+  assert.equal(t.kFactor, 0);
+  assert.equal(t.shareClickThroughRate, 0);
+});
+
+test('growth: viralRegistrations — только register с meta.src LIKE share%, не путая с referred/другим src', async () => {
+  const now = Date.now();
+  insertAt('register', now, { userId: 1, meta: { referred: true } });        // реферал, не share
+  insertAt('register', now, { userId: 2, meta: { src: 'share' } });          // share без id — считается
+  insertAt('register', now, { userId: 3, meta: { src: 'pricing' } });        // другой src — не виральный
+  const t = (await growth(30)).body.growth.totals;
+  assert.equal(t.viralRegistrations, 1, "только 'share'/'share:*'");
+  assert.equal(t.referredRegistrations, 1, 'referred считается отдельно');
+});
+
+test('growth: shareClickThroughRate = shareClicks / shareViews', async () => {
+  const now = Date.now();
+  insertAt('artifact_share_view', now, { meta: { artifactId: 5 } });
+  insertAt('artifact_share_view', now, { meta: { artifactId: 5 } });
+  insertAt('artifact_share_view', now, { meta: { artifactId: 6 } });
+  insertAt('artifact_share_click', now, { sessionId: 'c1', meta: { artifactId: 5 } });
+  const t = (await growth(30)).body.growth.totals;
+  assert.equal(t.shareViews, 3);
+  assert.equal(t.shareClicks, 1);
+  assert.ok(Math.abs(t.shareClickThroughRate - 1 / 3) < 1e-9, 'CTR = 1/3');
+});
+
 test('growth: пустая таблица — нули, referralRate=0, без деления на ноль', async () => {
   const res = await growth(30);
   assert.equal(res.statusCode, 200);
   const t = res.body.growth.totals;
   assert.equal(t.registrations, 0);
   assert.equal(t.referralRate, 0);
+  assert.equal(t.shareClicks, 0);
+  assert.equal(t.viralRegistrations, 0);
+  assert.equal(t.kFactor, 0);
   assert.deepEqual(res.body.growth.daily, []);
 });

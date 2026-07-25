@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Navbar } from "./navbar"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { useAuth } from "@/lib/auth-store"
+import { track, setShareAttribution } from "@/lib/analytics"
 import {
   ARTIFACT_TYPES,
   RARITY,
@@ -55,6 +56,16 @@ export function ArtifactDetailView({ id }: { id: number }) {
     fetchProjects({ skipAuthRedirect: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Виральная атрибуция: гость на публичной share-ссылке /artifact/:id почти наверняка
+  // пришёл по шаре. Ставим first-touch маркер — при последующей регистрации auth-store
+  // передаст его в register (см. lib/analytics + growth-ридер, K-фактор). Только для
+  // неавторизованного: залогиненный юзер, листающий деталь в приложении, не «виральный
+  // приход» и повторно не регистрируется — метку ему не пишем.
+  useEffect(() => {
+    if (!user) setShareAttribution(`share:${id}`)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
 
   const base = useMemo(() => artifacts.find((a) => a.id === id), [artifacts, id])
   const project = useMemo(
@@ -168,6 +179,10 @@ export function ArtifactDetailView({ id }: { id: number }) {
                 type="button"
                 onClick={async () => {
                   const url = `${window.location.origin}/artifact/${id}`
+                  // Намерение поделиться — вершина виральной петли. Событие уходит с
+                  // keepalive, склеивается по анонимной session_id; growth-ридер считает
+                  // shareClicks/distinctSharers и K-фактор (см. lib/analytics).
+                  track("artifact_share_click", { artifactId: id })
                   try {
                     if (typeof navigator !== "undefined" && navigator.share) {
                       await navigator.share({ title: `${base.name} — OSGARD`, url })
