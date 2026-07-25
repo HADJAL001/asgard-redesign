@@ -328,6 +328,7 @@ import "./migrations/082_artifact_identity"
 import "./migrations/083_founders_program"
 import "./migrations/084_academy_certificates"
 import "./migrations/085_idempotency_keys"
+import "./migrations/086_mentor_sessions"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"

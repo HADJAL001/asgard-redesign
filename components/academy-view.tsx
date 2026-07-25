@@ -226,6 +226,15 @@ export function AcademyView() {
             </div>
           )}
 
+          {isActive && currentTier === "founder_circle" && (
+            <div className="acd-circle-entry">
+              <Link href="/calendar" className="acd-circle-link">
+                <Users size={16} strokeWidth={2} />
+                Записаться на встречу с создателями
+              </Link>
+            </div>
+          )}
+
           {notice && (
             <div className={`acd-notice acd-notice--${notice.kind}`}>{notice.text}</div>
           )}
@@ -617,9 +626,21 @@ const ACADEMY_CSS = `
   .acd-tiers { grid-template-columns: 1fr; }
 }
 
+/* ── Вход на встречу с создателями (только активный Circle) ── */
+.acd-circle-entry { margin-top: 20px; }
+.acd-circle-link {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 11px 22px; border-radius: 999px; text-decoration: none;
+  font-size: 14px; font-weight: 700; letter-spacing: 0.4px;
+  color: #1A1405; background: linear-gradient(100deg, #F4D77E, #D4AF37 60%, #C79A24);
+  box-shadow: 0 10px 28px rgba(212,175,55,0.26), inset 0 1px 0 rgba(255,255,255,0.4);
+  transition: transform .25s cubic-bezier(0.16,1,0.3,1), box-shadow .25s ease;
+}
+.acd-circle-link:hover { transform: scale(1.03); box-shadow: 0 14px 38px rgba(212,175,55,0.4), inset 0 1px 0 rgba(255,255,255,0.5); }
+
 /* ── Доступность: замораживаем амбиентные анимации ── */
 @media (prefers-reduced-motion: reduce) {
-  .acd-syn, .acd-node, .acd-cta, .acd-cta::after, .acd-cta-inf { animation: none !important; transition: none !important; }
+  .acd-syn, .acd-node, .acd-cta, .acd-cta::after, .acd-cta-inf, .acd-circle-link { animation: none !important; transition: none !important; }
   .acd-node { opacity: 0.8; }
 }
 `
