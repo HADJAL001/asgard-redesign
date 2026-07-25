@@ -41,6 +41,51 @@ export function getAnalyticsSessionId(): string {
   }
 }
 
+/* ---------------- Виральная атрибуция (share → register) ----------------
+   Гость, пришедший по публичной share-ссылке /artifact/:id, помечается first-touch
+   маркером 'share:<id>'. При регистрации auth-store забирает его и передаёт в register
+   → бэкенд пишет в meta.src → growth-ридер считает viralRegistrations и K-фактор.
+   First-touch: первый источник побеждает (повторный заход по другой ссылке не
+   перетирает). TTL совпадает с сессионным (30 дней) — просроченный маркер игнорим. */
+const SHARE_ATTR_KEY = "osgard_src"
+
+export function setShareAttribution(marker: string): void {
+  if (typeof window === "undefined") return
+  try {
+    const existing = localStorage.getItem(SHARE_ATTR_KEY)
+    if (existing) {
+      // First-touch: не перетираем, если маркер ещё жив (в пределах TTL).
+      try {
+        const p = JSON.parse(existing) as { createdAt?: number }
+        if (typeof p?.createdAt === "number" && Date.now() - p.createdAt < SESSION_TTL_MS) return
+      } catch {
+        /* битый маркер — перезапишем ниже */
+      }
+    }
+    localStorage.setItem(SHARE_ATTR_KEY, JSON.stringify({ value: marker, createdAt: Date.now() }))
+  } catch {
+    /* localStorage недоступен — атрибуция просто не сработает, не роняем страницу */
+  }
+}
+
+/* Забрать и погасить маркер (одноразово, при регистрации). Возвращает null, если
+   маркера нет или он протух. Бэкенд валидирует формат повторно (публичный вход). */
+export function takeShareAttribution(): string | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = localStorage.getItem(SHARE_ATTR_KEY)
+    if (!raw) return null
+    localStorage.removeItem(SHARE_ATTR_KEY)
+    const p = JSON.parse(raw) as { value?: string; createdAt?: number }
+    if (p?.value && typeof p.createdAt === "number" && Date.now() - p.createdAt < SESSION_TTL_MS) {
+      return p.value
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 export function track(eventName: string, meta?: Record<string, any>) {
   if (typeof window === "undefined") return
   try {

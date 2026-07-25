@@ -28,7 +28,15 @@ export class AuthController {
   // ===== РЕГИСТРАЦИЯ =====
   static async register(req: Request, res: Response) {
     try {
-      const { email, phone, password, username, referralCode, provider, providerId } = req.body;
+      const { email, phone, password, username, referralCode, provider, providerId, src } = req.body;
+
+      // Атрибуция виральной петли: если юзер пришёл по share-ссылке, фронт передаёт
+      // first-touch маркер 'share' | 'share:<artifactId>'. Кладём его в аналитику
+      // register — growth-ридер по нему считает viralRegistrations и честный K-фактор
+      // (share_click → register). Валидируем СТРОГО: это публичный вход, src не должен
+      // раздувать meta или тащить произвольный мусор в таблицу.
+      const attributionSrc =
+        typeof src === "string" && /^share(:[a-zA-Z0-9_-]{1,32})?$/.test(src) ? src : null;
 
       if (!isValidUsername(username)) {
         return res.status(400).json({ error: 'Некорректный username', code: 'INVALID_USERNAME' });
@@ -167,8 +175,13 @@ export class AuthController {
       // Stateful refresh-токен с ротацией/отзывом (не JWT) — см. lib/refresh-tokens.
       const refreshToken = RefreshTokenService.issue(userId);
 
-      // Аналитика роста: вершина воронки. referredBy — был ли юзер приведён рефералом.
-      track(GrowthEvent.Register, { userId, meta: { referred: Boolean(referralCode) } });
+      // Аналитика роста: вершина воронки. referred — приведён ли рефералом; src —
+      // виральная атрибуция (пришёл по share-ссылке), заполняется только для валидного
+      // маркера, иначе поля нет (чистый meta без null-шума).
+      track(GrowthEvent.Register, {
+        userId,
+        meta: { referred: Boolean(referralCode), ...(attributionSrc ? { src: attributionSrc } : {}) },
+      });
 
       res.status(201).json({
         success: true,

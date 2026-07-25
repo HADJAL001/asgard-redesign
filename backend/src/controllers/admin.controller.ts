@@ -405,16 +405,24 @@ export class AdminController {
   // серверный track(), и клиентский приёмник пишут Date.now()), поэтому здесь
   // normalizedTs() не нужен — сравниваем и делим на 1000 напрямую.
   //
-  // K-фактор виральности здесь НЕ считаем: честной атрибуции «переход по share →
-  // регистрация» нет (share_click пишется на фронте, связь с конкретной
-  // регистрацией не прослеживается). Отдаём то, что реально измеримо: охват
-  // share (сколько раз открыли публичные карточки) и долю реферальных
-  // регистраций (meta.referred у события register).
+  // K-фактор виральности: теперь атрибуция «переход по share → регистрация» ЕСТЬ
+  // (петля замкнута отдельной задачей): фронт при заходе по share-ссылке ставит
+  // first-touch маркер 'share:<id>' и передаёт его в register → auth.controller
+  // пишет его в meta.src события register (см. attributionSrc там). Клик по «share»
+  // приходит клиентским artifact_share_click (whitelist в analytics.routes.ts).
+  //
+  // Честный K = viralRegistrations / distinctSharers — сколько НОВЫХ регистраций
+  // приносит один уникальный «шарер» (сессия, кликнувшая share). Это НЕ учебниковый
+  // K с рассылкой инвайтов, а его честный прокси на наших событиях; допущения явны:
+  //   • distinctSharers — уникальные session_id с artifact_share_click (намерение);
+  //   • viralRegistrations — register c meta.src LIKE 'share%' (доехал до регистрации).
+  // Ноль шареров → K=0 (без деления на ноль). Отдаём и сырьё (clicks/sharers/viral),
+  // чтобы цифру можно было перепроверить, а не верить агрегату на слово.
   static async growth(req: AuthRequest, res: Response) {
     try {
       const days = Math.min(365, Math.max(1, parseInt(String(req.query.days ?? "30"), 10) || 30))
       const sinceMs = Date.now() - days * 86400000
-      const EVENTS = "('register','login','demo_convert','artifact_share_view')"
+      const EVENTS = "('register','login','demo_convert','artifact_share_view','artifact_share_click')"
 
       const totals = db
         .prepare(
@@ -426,7 +434,10 @@ export class AdminController {
             COUNT(DISTINCT CASE WHEN event_name='login' THEN user_id END) as uniqueLoggedInUsers,
             COUNT(CASE WHEN event_name='demo_convert' THEN 1 END) as demoConversions,
             COUNT(CASE WHEN event_name='artifact_share_view' THEN 1 END) as shareViews,
-            COUNT(DISTINCT CASE WHEN event_name='artifact_share_view' THEN json_extract(meta,'$.artifactId') END) as uniqueSharedArtifacts
+            COUNT(DISTINCT CASE WHEN event_name='artifact_share_view' THEN json_extract(meta,'$.artifactId') END) as uniqueSharedArtifacts,
+            COUNT(CASE WHEN event_name='artifact_share_click' THEN 1 END) as shareClicks,
+            COUNT(DISTINCT CASE WHEN event_name='artifact_share_click' THEN session_id END) as distinctSharers,
+            COUNT(CASE WHEN event_name='register' AND json_extract(meta,'$.src') LIKE 'share%' THEN 1 END) as viralRegistrations
           FROM analytics_events
           WHERE created_at >= ? AND event_name IN ${EVENTS}
         `,
@@ -439,6 +450,9 @@ export class AdminController {
         demoConversions: number
         shareViews: number
         uniqueSharedArtifacts: number
+        shareClicks: number
+        distinctSharers: number
+        viralRegistrations: number
       }
 
       // Дневной ряд для графика (по UTC-дню события). DESC — свежее сверху.
@@ -450,7 +464,8 @@ export class AdminController {
             COUNT(CASE WHEN event_name='register' THEN 1 END) as registrations,
             COUNT(CASE WHEN event_name='login' THEN 1 END) as logins,
             COUNT(CASE WHEN event_name='demo_convert' THEN 1 END) as demoConversions,
-            COUNT(CASE WHEN event_name='artifact_share_view' THEN 1 END) as shareViews
+            COUNT(CASE WHEN event_name='artifact_share_view' THEN 1 END) as shareViews,
+            COUNT(CASE WHEN event_name='artifact_share_click' THEN 1 END) as shareClicks
           FROM analytics_events
           WHERE created_at >= ? AND event_name IN ${EVENTS}
           GROUP BY day
@@ -463,6 +478,7 @@ export class AdminController {
         logins: number
         demoConversions: number
         shareViews: number
+        shareClicks: number
       }[]
 
       res.json({
@@ -479,6 +495,15 @@ export class AdminController {
             demoConversions: totals.demoConversions,
             shareViews: totals.shareViews,
             uniqueSharedArtifacts: totals.uniqueSharedArtifacts,
+            // ——— Виральная петля (замкнута: click → attribution → register) ———
+            shareClicks: totals.shareClicks,
+            distinctSharers: totals.distinctSharers,
+            viralRegistrations: totals.viralRegistrations,
+            // K-фактор: новых регистраций на одного уникального шарера. Явный прокси
+            // на наших событиях (см. комментарий над методом), не учебниковый invite-K.
+            kFactor: totals.distinctSharers > 0 ? totals.viralRegistrations / totals.distinctSharers : 0,
+            // CTR публичной share-карточки: доля просмотров, дошедших до клика «поделиться».
+            shareClickThroughRate: totals.shareViews > 0 ? totals.shareClicks / totals.shareViews : 0,
           },
           daily,
         },

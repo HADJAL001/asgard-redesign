@@ -28,6 +28,7 @@ async function runDemoConversion() {
   }
 }
 import { clearReferralCode, getReferralCode } from "./referral"
+import { takeShareAttribution } from "./analytics"
 
 /* ================================================================
    OSGARD · Auth store (React Context)
@@ -157,9 +158,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback<AuthValue["register"]>(async (username, email, password) => {
     try {
       const referralCode = getReferralCode()
+      // Виральная атрибуция: одноразово забираем first-touch маркер share-ссылки
+      // (ставится в artifact-detail-view для гостя) и передаём в register — бэкенд
+      // пишет его в meta.src, growth-ридер считает viralRegistrations и K-фактор.
+      const src = takeShareAttribution()
       const data = await apiClient.post<{ user: User }>(
         "/auth/register",
-        { username, email, password, ...(referralCode ? { referralCode } : {}) },
+        { username, email, password, ...(referralCode ? { referralCode } : {}), ...(src ? { src } : {}) },
         { skipAuthRedirect: true },
       )
       clearReferralCode()
