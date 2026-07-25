@@ -15,6 +15,7 @@ import {
 import { fuseStats, fusedRarity, fusionHint, MUTATION_CHANCE } from "../lib/artifact-fusion"
 import { explainCraftScore, deriveCraftedStats, type GenerationDepth } from "../lib/proof-of-craft"
 import { deriveArtifactIdentity, type ArtifactIdentity } from "../lib/artifact-identity"
+import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
 
 const router = Router()
 
@@ -269,68 +270,108 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
 
   const price = computePrice({ power, defense, magic, speed, rarity, views_24h: 0, supply })
 
-  db.prepare(
-    `UPDATE wallets SET ${forgeCurrency} = ${forgeCurrency} - ?, updated_at = ? WHERE user_id = ?`,
-  ).run(paidCost, now, req.user!.userId)
+  /* Идемпотентность: стабильный клиентский ключ (заголовок Idempotency-Key или
+     body.idempotencyKey) делает ковку ровно-однократной — ретрай сети/двойной
+     клик не спишет дважды. Атомарность: списание + все вставки коммитятся одной
+     транзакцией, исключение откатывает всё (денег-без-артефакта не бывает). */
+  const idemKey = normalizeIdemKey(req.header("Idempotency-Key") ?? (req.body as any)?.idempotencyKey)
 
-  const info = db
-    .prepare(
-      `INSERT INTO artifacts (owner_id, project_id, name, type, rarity, level, power, defense, magic, speed, status, views_24h, supply, price, list_currency, craft_score, origin_myth, visual_theme)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'kept', 0, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      req.user!.userId,
-      resolvedProjectId,
-      name,
-      type,
-      rarity,
-      level,
-      power,
-      defense,
-      magic,
-      speed,
-      supply,
-      price,
-      LIST_CURRENCY_BY_RARITY[rarity],
-      crafted.craftScore,
-      identity.originMyth,
-      visualTheme,
-    )
+  let opResult: { result: { artifactId: number; artifact: any }; replayed: boolean }
+  try {
+    opResult = runEconomyOp<{ artifactId: number; artifact: any }>({
+      userId: req.user!.userId,
+      scope: "forge",
+      idemKey,
+      mutate: () => {
+        /* Авторитетная проверка баланса ВНУТРИ транзакции — закрывает TOCTOU:
+           между внешним пре-чеком и списанием параллельная операция могла
+           опустошить кошелёк. */
+        const w: any = db.prepare(`SELECT ${forgeCurrency} as bal FROM wallets WHERE user_id = ?`).get(req.user!.userId)
+        if (!w || (w.bal ?? 0) < paidCost) {
+          throw new EconomyError(`Недостаточно средств (нужно ${paidCost} ${forgeCurrency})`, 400)
+        }
 
-  if (resolvedProjectId) {
-    db.prepare(`UPDATE projects SET artifact_count = artifact_count + 1 WHERE id = ?`).run(resolvedProjectId)
+        db.prepare(
+          `UPDATE wallets SET ${forgeCurrency} = ${forgeCurrency} - ?, updated_at = ? WHERE user_id = ?`,
+        ).run(paidCost, now, req.user!.userId)
+
+        const info = db
+          .prepare(
+            `INSERT INTO artifacts (owner_id, project_id, name, type, rarity, level, power, defense, magic, speed, status, views_24h, supply, price, list_currency, craft_score, origin_myth, visual_theme)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'kept', 0, ?, ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            req.user!.userId,
+            resolvedProjectId,
+            name,
+            type,
+            rarity,
+            level,
+            power,
+            defense,
+            magic,
+            speed,
+            supply,
+            price,
+            LIST_CURRENCY_BY_RARITY[rarity],
+            crafted.craftScore,
+            identity.originMyth,
+            visualTheme,
+          )
+
+        if (resolvedProjectId) {
+          db.prepare(`UPDATE projects SET artifact_count = artifact_count + 1 WHERE id = ?`).run(resolvedProjectId)
+        }
+
+        db.prepare(
+          `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+           VALUES (?, 'forge', ?, 'Кузница Артефактов', ?, ?, 'done')`,
+        ).run(req.user!.userId, name, paidCost, forgeCurrency)
+
+        const artifactId = Number(info.lastInsertRowid)
+        const artifact = db
+          .prepare(
+            `SELECT id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
+                    status, views_24h as views24h, supply, price, list_currency as listCurrency,
+                    craft_score as craftScore, created_at as createdAt
+             FROM artifacts WHERE id = ?`,
+          )
+          .get(artifactId)
+
+        return { artifactId, artifact }
+      },
+    })
+  } catch (err) {
+    if (err instanceof EconomyError) {
+      logAudit(req.user!.userId, "rejected", paidCost, "insufficient_balance", { action: "forge", currency: forgeCurrency })
+      return res.status(err.status).json({ error: err.message })
+    }
+    throw err
   }
 
-  db.prepare(
-    `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-     VALUES (?, 'forge', ?, 'Кузница Артефактов', ?, ?, 'done')`,
-  ).run(req.user!.userId, name, paidCost, forgeCurrency)
-  logAudit(req.user!.userId, "debit", paidCost, "artifact_forge", {
-    name,
-    currency: forgeCurrency,
-    baseCost: forgeCost,
-    discountRate: forgeDiscount.discountRate,
-    saved: savedAmount,
-  })
+  const { artifact, artifactId } = opResult.result
 
-  const artifact = db
-    .prepare(
-      `SELECT id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
-              status, views_24h as views24h, supply, price, list_currency as listCurrency,
-              craft_score as craftScore, created_at as createdAt
-       FROM artifacts WHERE id = ?`,
-    )
-    .get(Number(info.lastInsertRowid))
-
-  createActivityEvent({
-    userId: req.user!.userId,
-    type: "artifact_crafted",
-    entityType: "artifact",
-    entityId: Number(info.lastInsertRowid),
-    text: `выковал артефакт «${name}»`,
-    metadata: { name, rarity },
-  })
-  addArchitectXp(req.user!.userId, "artifact_forged")
+  /* Побочная телеметрия — ВНЕ денежной транзакции: её сбой не должен откатывать
+     успешную ковку. Только на ПЕРВЫЙ успех (не replayed): повтор по идемпотентному
+     ключу не дублирует аудит-débit, ленту событий и XP. */
+  if (!opResult.replayed) {
+    logAudit(req.user!.userId, "debit", paidCost, "artifact_forge", {
+      name,
+      currency: forgeCurrency,
+      baseCost: forgeCost,
+      discountRate: forgeDiscount.discountRate,
+      saved: savedAmount,
+    })
+    createActivityEvent({
+      userId: req.user!.userId,
+      type: "artifact_crafted",
+      entityType: "artifact",
+      entityId: artifactId,
+      text: `выковал артефакт «${name}»`,
+      metadata: { name, rarity },
+    })
+    addArchitectXp(req.user!.userId, "artifact_forged")
+  }
 
   // Разбор ковки: показываем, ПОЧЕМУ статы такие — вклад каждого честного
   // сигнала в craftScore. Прозрачность Proof-of-Craft как зрелище, не чёрный
