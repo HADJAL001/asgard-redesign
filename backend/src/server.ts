@@ -202,6 +202,7 @@ import leaderboardRoutes from "./routes/leaderboard.routes"
 import hallOfFameRoutes from "./routes/halloffame.routes"
 import transactionsRoutes from "./routes/transactions.routes"
 import onboardingRoutes from "./routes/onboarding.routes"
+import rewardsRoutes from "./routes/rewards.routes"
 import secretRoomRoutes from "./routes/secret-room.routes"
 import dropsRoutes from "./routes/drops.routes"
 import auctionsRoutes from "./routes/auctions.routes"
@@ -295,6 +296,7 @@ import { runActivityFeedMigration } from "./migrations/065_activity_feed_table"
 import { runAnalyticsEventsMigration } from "./migrations/066_analytics_events"
 import "./migrations/067_hall_of_fame_index"
 import { runRefreshTokensMigration } from "./migrations/068_refresh_tokens"
+import { runDailyStreakMigration } from "./migrations/077_daily_streak"
 import { RefreshTokenService } from "./lib/refresh-tokens"
 import { scheduleBackups } from "./lib/db-backup"
 import "./migrations/075_yookassa_payments"
@@ -366,6 +368,7 @@ runAnalyticsEventsMigration()
 
 /* Гарантируем наличие таблицы refresh_tokens (stateful refresh с ротацией и детекцией кражи) при старте сервера. */
 runRefreshTokensMigration()
+runDailyStreakMigration()
 
 /* Уборка refresh_tokens: таблица растёт на каждый логин/ротацию, отозванные
    строки не удаляются сразу (нужны для детекции reuse в grace-окне). Чистим
@@ -472,6 +475,7 @@ app.use("/users", usersRoutes)
 app.use("/push", pushRoutes)
 app.use("/transactions", transactionsRoutes)
 app.use("/onboarding", onboardingRoutes)
+app.use("/rewards", rewardsRoutes)
 app.use("/secret-room", secretRoomRoutes)
 app.use("/drops", dropsRoutes)
 app.use("/auctions", auctionsRoutes)
