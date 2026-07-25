@@ -245,7 +245,7 @@ router.post('/withdraw', rateLimit(60_000, 10), requireAuth, async (req: Request
       // Денежный путь: без включённой 2FA вывод запрещён. Направляем на подключение
       // (POST /auth/2fa/setup → /auth/2fa/verify). Аварийный тумблер: REQUIRE_2FA_WITHDRAWAL=false.
       return res.status(403).json({
-        error: 'Для вывода средств необходимо включить 2FA: /auth/2fa/setup → /auth/2fa/verify',
+        error: 'Для вывода средств включите двухфакторную аутентификацию (2FA) в настройках безопасности.',
         code: 'TWOFA_REQUIRED',
       });
     }
