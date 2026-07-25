@@ -86,13 +86,22 @@ const ARCHETYPE_BY_TYPE: Array<[string[], string]> = [
 /* Резерв, если тип не распознан: выбираем из пула по хешу (детерминированно). */
 const ARCHETYPE_FALLBACK = ["Артефакт-Химера", "Безымянный Осколок", "Кованый Странник", "Эхо-Конструкт"]
 
-/* Материал из редкости. Неизвестная редкость → кованая сталь. */
+/* Материал из редкости. Неизвестная редкость → кованая сталь.
+   Именительный — для метки visual_theme; родительный — для мифа («из …»). */
 const MATERIAL_BY_RARITY: Record<string, string> = {
   common: "обсидиан",
   rare: "лунное серебро",
   epic: "квантовое стекло",
   legendary: "звёздный сплав",
   mythic: "первичный эфир",
+}
+const MATERIAL_GENITIVE: Record<string, string> = {
+  обсидиан: "обсидиана",
+  "лунное серебро": "лунного серебра",
+  "квантовое стекло": "квантового стекла",
+  "звёздный сплав": "звёздного сплава",
+  "первичный эфир": "первичного эфира",
+  "кованая сталь": "кованой стали",
 }
 
 /* Слово-настроение — из хеша. */
@@ -155,9 +164,10 @@ export function deriveArtifactIdentity(sig: IdentitySignals): ArtifactIdentity {
   const essence = ESSENCE_POOL[(h >>> 5) % ESSENCE_POOL.length]
   const palette = paletteFor(h, sig.craftScore)
 
-  // Миф: «Имя» — редкость архетип из материала. Далее честный факт ковки.
+  // Миф: «Имя» — редкость архетип из материала (родит. падеж). Далее факт ковки.
   const rarityWord = (sig.rarity ?? "").toLowerCase()
-  const head = `«${sig.name}» — ${rarityWord ? rarityWord + " " : ""}${archetype} из ${material}`
+  const materialGen = MATERIAL_GENITIVE[material] ?? material
+  const head = `«${sig.name}» — ${rarityWord ? rarityWord + " " : ""}${archetype} из ${materialGen}`
 
   let body: string
   if (sig.craftScore == null) {
