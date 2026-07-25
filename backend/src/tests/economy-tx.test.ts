@@ -35,6 +35,7 @@ db.exec(`
   );
   CREATE UNIQUE INDEX IF NOT EXISTS idx_idem_unique ON idempotency_keys(user_id, scope, idem_key);
   CREATE TABLE IF NOT EXISTS wallets (user_id INTEGER PRIMARY KEY, timecoin INTEGER NOT NULL DEFAULT 0);
+  CREATE TABLE IF NOT EXISTS listings (id INTEGER PRIMARY KEY, status TEXT NOT NULL DEFAULT 'active');
 `)
 
 function resetWallet(userId: number, balance: number) {
@@ -122,6 +123,45 @@ test("без ключа: атомарно, но каждый вызов испо
   assert.equal(op().replayed, false)
   assert.equal(balance(uid), 80, "оба вызова списали (идемпотентность выключена)")
   assert.equal(idemCount(uid), 0, "без ключа строки идемпотентности не создаются")
+})
+
+test("TOCTOU-захват лота: параллельный двойной buy списывает ровно один раз", () => {
+  /* Моделируем узкое место marketplace /:id/buy: авторитетный перевод лота
+     active→sold условным UPDATE ... WHERE status='active' (changes!==1 → 409)
+     ДО списания. Два «одновременных» покупателя гонятся за одним лотом —
+     захватить и списать должен ровно один; второй откатывается целиком. */
+  const seller = 10
+  const listingId = 777
+  db.prepare(`INSERT INTO listings (id, status) VALUES (?, 'active')
+              ON CONFLICT(id) DO UPDATE SET status='active'`).run(listingId)
+  resetWallet(20, 100) // покупатель A
+  resetWallet(21, 100) // покупатель B
+  resetWallet(seller, 0)
+
+  const buy = (buyerId: number) =>
+    runEconomyOp({
+      userId: buyerId,
+      scope: "market_buy",
+      idemKey: null,
+      mutate: () => {
+        const claim = db
+          .prepare(`UPDATE listings SET status='sold' WHERE id=? AND status='active'`)
+          .run(listingId)
+        if (claim.changes !== 1) throw new EconomyError("Лот уже продан", 409)
+        db.prepare(`UPDATE wallets SET timecoin = timecoin - 40 WHERE user_id = ?`).run(buyerId)
+        db.prepare(`UPDATE wallets SET timecoin = timecoin + 40 WHERE user_id = ?`).run(seller)
+        return { ok: true, buyer: buyerId }
+      },
+    })
+
+  const first = buy(20)
+  assert.equal(first.result.buyer, 20)
+  // Второй покупатель приходит на уже проданный лот — 409, его баланс не тронут.
+  assert.throws(() => buy(21), (e: unknown) => e instanceof EconomyError && (e as EconomyError).status === 409)
+
+  assert.equal(balance(20), 60, "покупатель A списан один раз")
+  assert.equal(balance(21), 100, "покупатель B не списан (откат)")
+  assert.equal(balance(seller), 40, "продавец получил ровно за одну продажу")
 })
 
 test("EconomyError пробрасывается, ключ не пишется → честный повтор возможен", () => {
