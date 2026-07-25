@@ -296,6 +296,7 @@ import { runAnalyticsEventsMigration } from "./migrations/066_analytics_events"
 import "./migrations/067_hall_of_fame_index"
 import { runRefreshTokensMigration } from "./migrations/068_refresh_tokens"
 import { RefreshTokenService } from "./lib/refresh-tokens"
+import { scheduleBackups } from "./lib/db-backup"
 import "./migrations/075_yookassa_payments"
 import "./migrations/069_economy_map_reward"
 import "./migrations/070_secret_room"
@@ -386,6 +387,10 @@ if (process.env.NODE_ENV !== "test") {
     }
   }, DAY_MS).unref()
 }
+
+/* Автоматические онлайн-бэкапы SQLite (point-in-time recovery для экономики).
+   BACKUP_DIR должен указывать на персистентный том — см. lib/db-backup.ts. */
+scheduleBackups()
 
 /* Гарантируем наличие таблицы push_tokens (Expo push-токены мобильного приложения) при старте сервера. */
 runPushTokensMigration()
