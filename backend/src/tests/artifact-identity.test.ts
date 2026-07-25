@@ -52,6 +52,7 @@ test('айдентика: миф честен — пересказывает р�
     ...base, type: 'neural', depth: 'deep', fileCount: 40, aiReal: true,
   });
   assert.match(id.originMyth, /«Клинок»/);
+  assert.match(id.originMyth, /из квантового стекла/); // родительный падеж, а не «из квантовое стекло»
   assert.match(id.originMyth, /40 файлов/);
   assert.match(id.originMyth, /глубок/i);
   assert.match(id.originMyth, /настоящей AI/);
