@@ -70,6 +70,9 @@ export function DashboardView() {
   const { user } = useAuth()
   const [onboardingStep, setOnboardingStep] = useState<number | null>(null)
   const [showPrologue, setShowPrologue] = useState(() => searchParams.get("welcome") === "1")
+  /* Подтверждение переноса демо-вселенной гостя в аккаунт (флаг ставит auth-store
+     после конвертации через /demo/convert). Читаем в useEffect — безопасно для SSR. */
+  const [demoSaved, setDemoSaved] = useState<{ artifacts: number; bonus: number } | null>(null)
 
   /* Реальные данные аккаунта — тот же источник, что используют /projects и /wallet
      (useOsgardStore → GET /projects/mine и GET /wallet). Никаких моков. */
@@ -144,6 +147,21 @@ export function DashboardView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /* Один раз читаем флаг переноса демо-вселенной, показываем баннер и сразу
+     очищаем флаг, чтобы он не всплывал при следующих заходах на дашборд. */
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("osgard_demo_converted")
+      if (raw) {
+        const d = JSON.parse(raw)
+        setDemoSaved({ artifacts: Number(d.artifacts) || 0, bonus: Number(d.bonus) || 0 })
+        localStorage.removeItem("osgard_demo_converted")
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
   return (
     <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0F0F1A 100%)", color: "#FFFFFF" }}>
       <Navbar />
@@ -171,6 +189,32 @@ export function DashboardView() {
             Обзор системы и активности
           </p>
         </header>
+
+        {/* Подтверждение переноса демо-вселенной */}
+        {demoSaved && (
+          <div
+            className="mb-8 flex items-center gap-3 rounded-2xl border px-4 py-3"
+            role="status"
+            style={{ borderColor: "rgba(212,175,55,0.3)", background: "rgba(212,175,55,0.08)" }}
+          >
+            <span className="text-[18px]" aria-hidden="true">✨</span>
+            <div className="flex-1 text-[13px]">
+              <span className="font-semibold text-white">Твоя вселенная сохранена!</span>{" "}
+              <span style={{ color: "rgba(255,255,255,0.6)" }}>
+                Перенесено артефактов: {demoSaved.artifacts}
+                {demoSaved.bonus > 0 ? ` · бонус +${demoSaved.bonus} TC` : ""}
+              </span>
+            </div>
+            <button
+              onClick={() => setDemoSaved(null)}
+              className="text-[18px] leading-none"
+              style={{ color: "rgba(255,255,255,0.4)" }}
+              aria-label="Закрыть"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* Metrics */}
         <section className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
