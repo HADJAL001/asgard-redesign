@@ -16,6 +16,7 @@ import { useTranslation } from "@/lib/i18n/use-translation"
 import { Reveal } from "@/components/landing/Reveal"
 import { DemoProjectModal, type DemoSessionV2 } from "@/components/DemoProjectModal"
 import { IkeaModal } from "@/components/IkeaModal"
+import { LivePulseBar } from "@/components/live-pulse-bar"
 import {
   IconIdea,
   IconCreate,
@@ -165,6 +166,10 @@ export function EternityLanding() {
               {t("landing.createBtn")} <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
             </button>
           </form>
+
+          <div className="hero-pulse">
+            <LivePulseBar variant="landing" />
+          </div>
 
           <WalleOnGlobe />
         </header>
@@ -588,6 +593,10 @@ const CSS = `
   font-size: 18px; font-weight: 300; color: #B0C0D8;
   max-width: 560px; line-height: 1.6; letter-spacing: 0.03em;
   animation: eternity-rise 1s ease-out 0.2s forwards; opacity: 0;
+}
+.eternity-page .hero-pulse {
+  width: 100%; max-width: 560px; margin-top: 4px;
+  animation: eternity-rise 1s ease-out 0.55s forwards; opacity: 0;
 }
 .eternity-page .ico { display: inline-block; vertical-align: middle; }
 .eternity-page .hero-subtitle .ico.gold {

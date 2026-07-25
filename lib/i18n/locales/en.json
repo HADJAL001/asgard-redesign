@@ -349,6 +349,12 @@
     "empty": "No events yet",
     "loadMore": "Load more"
   },
+  "pulse": {
+    "forged": "forged today",
+    "active": "in the forge now",
+    "rarest": "drop of the day",
+    "quiet": "Quiet in the forge — be the first today"
+  },
   "hallOfFame": {
     "title": "OSGARD Hall of Fame",
     "subtitle": "Legends of the OSGARD ecosystem — architects with the highest income, sales and rating.",

@@ -62,4 +62,73 @@ router.get("/", (req, res) => {
   res.json({ success: true, events, nextCursor })
 })
 
+/* ---------------- GET /feed/pulse ----------------
+   Амбиентные агрегаты «живой вселенной» поверх той же таблицы activity_events
+   (индекс created_at). Только чтение, дёшево, без новой миграции. Честные нули
+   при отсутствии данных — никакого фейка: пусто → «тихо», а не выдуманные цифры.
+   Фронт опрашивает это раз в ~20с (см. live-pulse-bar). */
+router.get("/pulse", (_req, res) => {
+  const forged24h = (
+    db
+      .prepare(
+        `SELECT COUNT(*) as n FROM activity_events
+         WHERE type = 'artifact_crafted' AND created_at >= datetime('now','-24 hours')`,
+      )
+      .get() as { n: number }
+  ).n
+
+  // «Активно сейчас» — честное окно недавней активности (15 мин), не «онлайн»-фейк.
+  const activeNow = (
+    db
+      .prepare(
+        `SELECT COUNT(DISTINCT user_id) as n FROM activity_events
+         WHERE created_at >= datetime('now','-15 minutes')`,
+      )
+      .get() as { n: number }
+  ).n
+
+  const events24h = (
+    db
+      .prepare(
+        `SELECT COUNT(*) as n FROM activity_events
+         WHERE created_at >= datetime('now','-24 hours')`,
+      )
+      .get() as { n: number }
+  ).n
+
+  // Редчайший дроп за сутки: ранжируем по metadata.rarity (JSON1), берём топ.
+  const rarestRow = db
+    .prepare(
+      `SELECT e.id, e.metadata, e.created_at,
+              u.username, u.display_name,
+              CASE json_extract(e.metadata,'$.rarity')
+                WHEN 'mythic' THEN 5 WHEN 'legendary' THEN 4 WHEN 'epic' THEN 3
+                WHEN 'rare' THEN 2 WHEN 'common' THEN 1 ELSE 0 END as rank
+       FROM activity_events e
+       JOIN users u ON u.id = e.user_id
+       WHERE e.type = 'artifact_crafted' AND e.created_at >= datetime('now','-24 hours')
+       ORDER BY rank DESC, e.id DESC
+       LIMIT 1`,
+    )
+    .get() as
+    | { id: number; metadata: string | null; created_at: string; username: string; display_name: string | null; rank: number }
+    | undefined
+
+  let rarest: { name: string | null; rarity: string | null; actor: string; createdAt: string } | null = null
+  if (rarestRow && rarestRow.rank > 0) {
+    const meta = rarestRow.metadata ? (JSON.parse(rarestRow.metadata) as { name?: string; rarity?: string }) : {}
+    rarest = {
+      name: meta.name ?? null,
+      rarity: meta.rarity ?? null,
+      actor: rarestRow.display_name || rarestRow.username,
+      createdAt: rarestRow.created_at,
+    }
+  }
+
+  res.json({
+    success: true,
+    pulse: { forged24h, activeNow, events24h, rarest, at: new Date().toISOString() },
+  })
+})
+
 export default router

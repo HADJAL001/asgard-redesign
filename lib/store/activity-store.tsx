@@ -45,6 +45,10 @@ type ActivityStoreState = {
 
   fetchFeed: () => Promise<void>
   loadMore: () => Promise<void>
+  /** Фоновый поллинг «живого тикера»: тихо префиксит только по-настоящему новые
+      события (id, которых ещё нет) к голове ленты. Ошибки глушим — фон не должен
+      мигать баннером. Возвращает id новых событий (для анимации влёта). */
+  refresh: () => Promise<number[]>
 }
 
 export const useActivityStore = create<ActivityStoreState>((set, get) => ({
@@ -79,6 +83,25 @@ export const useActivityStore = create<ActivityStoreState>((set, get) => ({
       set({ events: [...events, ...res.events], nextCursor: res.nextCursor, loadingMore: false })
     } catch (err) {
       set({ loadingMore: false, error: extractErrorMessage(err, "Не удалось загрузить ленту активности") })
+    }
+  },
+
+  refresh: async () => {
+    const { events, loading } = get()
+    // Не мешаем первичной загрузке и не трогаем состояние, если лента ещё пуста
+    // (первый показ идёт через fetchFeed, чтобы отработали loading/empty-состояния).
+    if (loading || events.length === 0) return []
+    try {
+      const res = await apiClient.get<{ events: ActivityEvent[]; nextCursor: number | null }>("/feed", {
+        skipAuthRedirect: true,
+      })
+      const known = new Set(events.map((e) => e.id))
+      const fresh = res.events.filter((e) => !known.has(e.id))
+      if (fresh.length === 0) return []
+      set({ events: [...fresh, ...events] })
+      return fresh.map((e) => e.id)
+    } catch {
+      return [] // тихо — фоновый поллинг
     }
   },
 }))
