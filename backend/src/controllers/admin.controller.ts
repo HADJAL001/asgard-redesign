@@ -693,6 +693,108 @@ export class AdminController {
       res.status(500).json({ error: "Internal server error" })
     }
   }
+
+  // ===== GET /admin/analytics/security?days= =====
+  /* Картина безопасности (read-only): постура защиты аккаунтов + аудит активности
+     администраторов поверх admin_logs. Ничего не мутирует, миграций не требует —
+     надстройка над моим доменом (auth/2FA/admin-audit). ВАЖНО про единицы времени
+     (реальная боль этой БД, уже отражена в normalizedTs ниже):
+       • users.created_at — на проде может лежать как TEXT (DATETIME CURRENT_TIMESTAMP),
+         поэтому НОРМАЛИЗУЕМ через normalizedTs() к unix-мс перед сравнением;
+       • users.last_login — пишется как unixepoch() = СЕКУНДЫ (user.model.ts), поэтому
+         сравниваем с порогом в СЕКУНДАХ (sinceSec), а не в мс — иначе «активные» всегда 0;
+       • admin_logs.created_at — Date.now() = мс (наша таблица аудита) → сравнение в мс. */
+  static async security(req: AuthRequest, res: Response) {
+    try {
+      const days = Math.min(365, Math.max(1, parseInt(String(req.query.days ?? "30"), 10) || 30))
+      const sinceMs = Date.now() - days * 86400000
+      const sinceSec = Math.floor(sinceMs / 1000)
+
+      // ——— Постура аккаунтов (safeCount: отсутствие колонки → 0, а не 500) ———
+      const totalUsers = safeCount(`SELECT COUNT(*) as c FROM users`)
+      const twofaEnabled = safeCount(`SELECT COUNT(*) as c FROM users WHERE twofa_enabled = 1`)
+      const bannedUsers = safeCount(`SELECT COUNT(*) as c FROM users WHERE banned = 1`)
+      const admins = safeCount(`SELECT COUNT(*) as c FROM users WHERE role = 'admin'`)
+      // created_at может быть TEXT на проде → normalizedTs к мс; порог в мс.
+      const newUsers = safeCount(
+        `SELECT COUNT(*) as c FROM users WHERE ${normalizedTs("created_at")} >= ${sinceMs}`,
+      )
+      // last_login — СЕКУНДЫ (unixepoch); порог в секундах. NULL = ни разу не входил.
+      const activeUsers = safeCount(
+        `SELECT COUNT(*) as c FROM users WHERE last_login IS NOT NULL AND last_login >= ${sinceSec}`,
+      )
+
+      // ——— Активность администраторов (admin_logs — наша таблица, created_at в мс) ———
+      const adminRow = db
+        .prepare(
+          `
+          SELECT
+            COUNT(*) as actions,
+            COUNT(DISTINCT admin_id) as distinctAdmins,
+            COUNT(DISTINCT ip) as distinctIps,
+            COUNT(CASE WHEN status >= 400 THEN 1 END) as failedActions,
+            COUNT(CASE WHEN action NOT LIKE 'GET %' THEN 1 END) as mutatingActions
+          FROM admin_logs
+          WHERE created_at >= ?
+        `,
+        )
+        .get(sinceMs) as {
+        actions: number
+        distinctAdmins: number
+        distinctIps: number
+        failedActions: number
+        mutatingActions: number
+      }
+
+      // ——— Сырьё для аудитора (топ-20) ———
+      const topAdminActions = db
+        .prepare(
+          `SELECT action, COUNT(*) as count FROM admin_logs
+           WHERE created_at >= ? GROUP BY action ORDER BY count DESC, action ASC LIMIT 20`,
+        )
+        .all(sinceMs) as { action: string; count: number }[]
+
+      const topAdminIps = db
+        .prepare(
+          `SELECT ip, COUNT(*) as count FROM admin_logs
+           WHERE created_at >= ? AND ip IS NOT NULL GROUP BY ip ORDER BY count DESC, ip ASC LIMIT 20`,
+        )
+        .all(sinceMs) as { ip: string; count: number }[]
+
+      res.json({
+        success: true,
+        security: {
+          days,
+          accounts: {
+            totalUsers,
+            twofaEnabled,
+            // Доля аккаунтов с включённой 2FA — ключевая метрика постуры защиты.
+            twofaAdoptionRate: totalUsers > 0 ? twofaEnabled / totalUsers : 0,
+            bannedUsers,
+            admins,
+            newUsers,
+            activeUsers,
+          },
+          adminActivity: {
+            actions: adminRow.actions,
+            distinctAdmins: adminRow.distinctAdmins,
+            distinctIps: adminRow.distinctIps,
+            // Неуспешные админ-запросы (HTTP ≥ 400): всплеск = зонд прав/битый доступ.
+            failedActions: adminRow.failedActions,
+            // Немутирующие GET исключены — считаем реальные действия над системой.
+            mutatingActions: adminRow.mutatingActions,
+          },
+          suspects: {
+            topAdminActions,
+            topAdminIps,
+          },
+        },
+      })
+    } catch (error: any) {
+      captureError("Admin security error:", error)
+      res.status(500).json({ error: "Internal server error" })
+    }
+  }
 }
 
 // users.created_at / transactions.created_at на факте хранятся как TEXT
