@@ -795,6 +795,59 @@ export class AdminController {
       res.status(500).json({ error: "Internal server error" })
     }
   }
+
+  // ===== GET /admin/analytics/guest-funnel?days= =====
+  // Верхняя часть конверсионной воронки «1 бесплатный проект по IP» (миграция 087):
+  // гость провижинится → создаёт первый проект (активация бесплатной единицы) →
+  // регистрируется и «забирает» гостя (claim, claimed_at). Меряем каждую ступень
+  // и переходы между ними за окно `days` по когорте гостей (users.is_guest=1,
+  // created_at в окне). Все счётчики через safeCount — отсутствие guest-колонок
+  // (старый прод до 087) даёт 0, а не 500. Дополняет существующий registered→
+  // activated→paid funnel, не пересекаясь с ним. Read-only, ничего не мутирует.
+  static async guestFunnel(req: AuthRequest, res: Response) {
+    try {
+      const days = Math.min(365, Math.max(1, parseInt(String(req.query.days ?? "30"), 10) || 30))
+      const sinceMs = Date.now() - days * 86400000
+
+      // Когорта гостей окна. created_at гостя пишется как unix ms, но для
+      // унификации с остальными ридерами приводим через normalizedTs.
+      const cohortWhere = `is_guest = 1 AND ${normalizedTs("created_at")} >= ${sinceMs}`
+
+      const created = safeCount(`SELECT COUNT(*) as c FROM users WHERE ${cohortWhere}`)
+      // Активация: у гостя есть ≥1 проект (первый бесплатный сгенерирован).
+      const withProject = safeCount(
+        `SELECT COUNT(*) as c FROM users u WHERE ${cohortWhere}
+           AND EXISTS (SELECT 1 FROM projects p WHERE p.user_id = u.id)`,
+      )
+      // Конверсия: гость «забран» реальным аккаунтом (claimed_at проставлен).
+      const claimed = safeCount(
+        `SELECT COUNT(*) as c FROM users WHERE ${cohortWhere} AND claimed_at IS NOT NULL`,
+      )
+      // Забраны И имели проект — «здоровая» конверсия (перенесена реальная работа).
+      const claimedWithProject = safeCount(
+        `SELECT COUNT(*) as c FROM users u WHERE ${cohortWhere} AND claimed_at IS NOT NULL
+           AND EXISTS (SELECT 1 FROM projects p WHERE p.user_id = u.id)`,
+      )
+
+      res.json({
+        success: true,
+        guestFunnel: {
+          days,
+          created, // провижинено гостей
+          withProject, // из них создали первый проект
+          claimed, // из них зарегистрировались (claim)
+          claimedWithProject, // забраны, имея проект (ценная конверсия)
+          // Ступенчатые переходы (0..1), знаменатель = предыдущая ступень.
+          activationRate: created > 0 ? withProject / created : 0, // created→project
+          claimRate: created > 0 ? claimed / created : 0, // created→claim
+          projectToClaimRate: withProject > 0 ? claimedWithProject / withProject : 0, // project→claim
+        },
+      })
+    } catch (error: any) {
+      captureError("Admin guest-funnel error:", error)
+      res.status(500).json({ error: "Internal server error" })
+    }
+  }
 }
 
 // users.created_at / transactions.created_at на факте хранятся как TEXT
