@@ -674,16 +674,19 @@ router.post("/fuse", requireAuth, asyncHandler(async (req: AuthRequest, res) => 
 ------------------------------------------------------------------ */
 const PROVENANCE_MAX_DEPTH = 6 /* потолок рекурсии дерева предков (защита от глубины/циклов) */
 
-const provenanceNodeStmt = db.prepare(
-  `SELECT id, name, type, rarity, level, power, defense, magic, speed,
-          craft_score as craftScore, is_mutation as isMutation,
-          parent_a_id as parentAId, parent_b_id as parentBId
-   FROM artifacts WHERE id = ?`,
-)
-
 router.get("/:id/provenance", (req, res) => {
   const id = Number(req.params.id)
   if (!id) return res.status(400).json({ error: "Некорректный id" })
+
+  // Prepare лениво, ВНУТРИ хендлера: на уровне модуля он бы выполнился при
+  // импорте роутов — раньше, чем миграции создадут таблицу artifacts (краш
+  // "no such table" на старте). Better-sqlite3 кэширует план сам.
+  const provenanceNodeStmt = db.prepare(
+    `SELECT id, name, type, rarity, level, power, defense, magic, speed,
+            craft_score as craftScore, is_mutation as isMutation,
+            parent_a_id as parentAId, parent_b_id as parentBId
+     FROM artifacts WHERE id = ?`,
+  )
 
   const root: any = db
     .prepare(
