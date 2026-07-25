@@ -277,6 +277,7 @@ import "./migrations/039_walli_items_index"
 import "./migrations/040_orchestrator_jarvis_templates"
 import walliRoutes from "./routes/walli.routes"
 import demoRoutes from "./routes/demo.routes"
+import guestRoutes from "./routes/guest.routes"
 import demoCodeRoutes from "./routes/demo-code.routes"
 import yookassaRoutes from "./routes/yookassa.routes"
 import adminRoutes from "./routes/admin.routes"
@@ -329,6 +330,7 @@ import "./migrations/083_founders_program"
 import "./migrations/084_academy_certificates"
 import "./migrations/085_idempotency_keys"
 import "./migrations/086_mentor_sessions"
+import "./migrations/087_guest_accounts"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
@@ -544,6 +546,7 @@ app.use("/walli", walliRoutes)
 app.use("/demo/code", demoCodeRoutes)
 app.use("/yookassa", yookassaRoutes)
 app.use("/demo", demoRoutes)
+app.use("/guest", guestRoutes)
 app.use("/admin", adminRoutes)
 app.use("/billing-dashboard", billingDashboardRoutes)
 app.use("/orchestrator", orchestratorRoutes)

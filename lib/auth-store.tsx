@@ -29,6 +29,20 @@ async function runDemoConversion() {
 }
 import { clearReferralCode, getReferralCode } from "./referral"
 import { takeShareAttribution } from "./analytics"
+import { claimGuestSession } from "./guest-session"
+
+/* После входа/регистрации забираем гостевой проект (воронка «1 бесплатный
+   проект по IP»): проект и артефакты гостя переносятся на реальный аккаунт.
+   Best-effort и идемпотентно (серверный claim одноразовый) — вызывается со
+   ВСЕХ auth-путей, как и runDemoConversion, чтобы ни одна точка входа не
+   теряла гостевую работу. Если гостя не было — просто no-op. */
+async function runGuestClaim() {
+  try {
+    await claimGuestSession()
+  } catch {
+    /* best-effort — не блокируем вход */
+  }
+}
 
 /* ================================================================
    OSGARD · Auth store (React Context)
@@ -149,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStoredUser(data.user)
       setUser(data.user)
       await runDemoConversion()
+      await runGuestClaim()
       return { ok: true }
     } catch (err: any) {
       return { ok: false, message: err?.message || "Не удалось выполнить вход" }
@@ -171,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStoredUser(data.user)
       setUser(data.user)
       await runDemoConversion()
+      await runGuestClaim()
       return { ok: true }
     } catch (err: any) {
       return { ok: false, message: err?.message || "Не удалось зарегистрироваться" }
@@ -187,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStoredUser(data.user)
       setUser(data.user)
       await runDemoConversion()
+      await runGuestClaim()
       return { ok: true }
     } catch (err: any) {
       return { ok: false, message: err?.message || "Не удалось выполнить вход" }

@@ -20,8 +20,13 @@ export const dynamic = "force-dynamic"
 
 const ACCESS_COOKIE = "osgard_access"
 const REFRESH_COOKIE = "osgard_refresh"
+/* Отдельная стойкая кука гостевого токена: переживает перезапись access/refresh
+   при регистрации, чтобы POST /guest/claim знал, какого гостя забирать. httpOnly —
+   гостевой JWT, как и основной, в JS не попадает. */
+const GUEST_COOKIE = "osgard_guest"
 const ACCESS_MAX_AGE = 20 * 60 // 20 минут (access-токен живёт 15 мин на бэкенде)
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60 // 7 дней
+const GUEST_MAX_AGE = 24 * 60 * 60 // 24 часа (совпадает с TTL гостевого токена на бэкенде)
 
 function cookieOptions(maxAge: number) {
   return {
@@ -43,6 +48,7 @@ function setSessionCookies(res: NextResponse, token: string, refreshToken?: stri
 function clearSessionCookies(res: NextResponse) {
   res.cookies.set(ACCESS_COOKIE, "", { ...cookieOptions(0) })
   res.cookies.set(REFRESH_COOKIE, "", { ...cookieOptions(0) })
+  res.cookies.set(GUEST_COOKIE, "", { ...cookieOptions(0) })
 }
 
 async function forwardToBackend(
@@ -125,6 +131,42 @@ async function handleAuthIssue(pathStr: string, req: NextRequest) {
   const { token, refreshToken, ...rest } = upstream.json
   const res = NextResponse.json(rest, { status: upstream.status })
   setSessionCookies(res, token, refreshToken)
+  return res
+}
+
+/** POST guest/start — гость получает НАСТОЯЩУЮ сессию без регистрации.
+ *  Бэкенд возвращает гостевой JWT в теле; мы кладём его в access-cookie (чтобы
+ *  тут же работал существующий POST /projects/generate) И в стойкую guest-cookie
+ *  (переживёт регистрацию → нужна для claim). Токен из тела вырезаем — в JS он
+ *  не попадает, как и основной. */
+async function handleGuestStart(pathStr: string, req: NextRequest) {
+  const upstream = await forwardToBackend(pathStr, req)
+  if (!upstream.json || !upstream.json.token) {
+    return NextResponse.json(upstream.json ?? { error: "Bad response from backend" }, { status: upstream.status })
+  }
+  const { token, ...rest } = upstream.json
+  const res = NextResponse.json(rest, { status: upstream.status })
+  // Гостю не нужен refresh — только короткоживущий access + стойкая guest-кука.
+  res.cookies.set(ACCESS_COOKIE, token, cookieOptions(GUEST_MAX_AGE))
+  res.cookies.set(GUEST_COOKIE, token, cookieOptions(GUEST_MAX_AGE))
+  return res
+}
+
+/** POST guest/claim — реальный аккаунт (уже авторизован через access-cookie)
+ *  забирает гостя. Гостевой токен подставляем в тело из стойкой guest-cookie
+ *  (клиентский JS до него не дотянется). При успехе guest-cookie гасим —
+ *  забирать больше нечего. Бэкенд имеет и IP-fallback, если куки нет. */
+async function handleGuestClaim(pathStr: string, req: NextRequest) {
+  const accessToken = req.cookies.get(ACCESS_COOKIE)?.value
+  const guestToken = req.cookies.get(GUEST_COOKIE)?.value
+  const upstream = await forwardToBackend(pathStr, req, {
+    authToken: accessToken,
+    bodyOverride: JSON.stringify({ guestToken: guestToken ?? null }),
+  })
+  const res = buildUpstreamResponse(upstream)
+  if (upstream.status === 200) {
+    res.cookies.set(GUEST_COOKIE, "", { ...cookieOptions(0) })
+  }
   return res
 }
 
@@ -302,6 +344,12 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
   }
   if (req.method === "POST" && pathStr === "auth/logout") {
     return handleAuthLogout(req)
+  }
+  if (req.method === "POST" && pathStr === "guest/start") {
+    return handleGuestStart(pathStr, req)
+  }
+  if (req.method === "POST" && pathStr === "guest/claim") {
+    return handleGuestClaim(pathStr, req)
   }
   if (req.method === "GET" && pathStr === "auth/github/publish/connect") {
     return handleGithubPublishConnect(req)

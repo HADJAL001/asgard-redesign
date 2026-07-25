@@ -17,6 +17,8 @@ import { useTranslation } from "@/lib/i18n/use-translation"
 import { useAuth } from "@/lib/auth-store"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { savePendingGeneration } from "@/lib/pending-generation"
+import { startGuestSession } from "@/lib/guest-session"
+import { track } from "@/lib/analytics"
 import { Reveal } from "@/components/landing/Reveal"
 import { DemoProjectModal, type DemoSessionV2 } from "@/components/DemoProjectModal"
 import { IkeaModal } from "@/components/IkeaModal"
@@ -110,9 +112,37 @@ export function EternityLanding() {
       return
     }
 
+    // Гость: поднимаем НАСТОЯЩУЮ гостевую сессию (cookie, JWT в JS не попадает) и
+    // тут же генерируем реальный проект — первое впечатление без стены регистрации.
+    // Проект переедет на аккаунт при регистрации (guest/claim). Если гостевую
+    // сессию поднять не удалось (сеть/лимит по IP) — деградируем к прежнему пути:
+    // сохраняем намерение и уводим на регистрацию.
     if (!isAuthenticated) {
+      setSubmitting(true)
+      try {
+        const guest = await startGuestSession()
+        if (guest.ok) {
+          track("guest_generate_start", { existing: !!guest.existing })
+          // Уже есть гостевой проект по этому IP — не плодим второй, ведём к нему.
+          if (guest.existing && guest.hasProject && guest.projectId) {
+            el.value = ""
+            router.push(`/projects/${guest.projectId}`)
+            return
+          }
+          const res = await useOsgardStore.getState().generateProject(query)
+          if (res.success && res.project) {
+            el.value = ""
+            router.push(`/projects/${res.project.id}`)
+            return
+          }
+        }
+      } catch {
+        /* падаем в fallback ниже */
+      }
+      // Fallback: гостевую генерацию поднять не вышло — прежний конверсионный путь.
       savePendingGeneration({ name: query })
       el.value = ""
+      setSubmitting(false)
       router.push("/register")
       return
     }
