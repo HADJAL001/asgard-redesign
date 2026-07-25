@@ -14,9 +14,35 @@
    из lib/economy напрямую.
    ================================================================ */
 
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { motion, useReducedMotion } from "framer-motion"
 import { Sparkles, Cpu, Gem, Swords, Shield } from "lucide-react"
+import { useSignature, type SignatureCue } from "@/hooks/useSignature"
+
+/* Восемь фиксированных лучей всплеска частиц (детерминированно, без Math.random —
+   burst одинаков между рендерами и предсказуем для reduced-motion-гейта). */
+const BURST_RAYS = Array.from({ length: 8 }, (_, i) => {
+  const angle = (i / 8) * Math.PI * 2
+  return { x: Math.cos(angle) * 46, y: Math.sin(angle) * 46, delay: (i % 4) * 0.04 }
+})
+
+/** Всплеск золотых частиц вокруг «героя» момента (legendary/mythic). */
+function ParticleBurst({ color }: { color: string }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 -z-10 flex items-center justify-center" aria-hidden>
+      {BURST_RAYS.map((r, i) => (
+        <motion.span
+          key={i}
+          className="absolute size-1 rounded-full"
+          style={{ background: color, boxShadow: `0 0 6px ${color}` }}
+          initial={{ opacity: 0, x: 0, y: 0, scale: 0.4 }}
+          animate={{ opacity: [0, 1, 0], x: r.x, y: r.y, scale: [0.4, 1, 0.2] }}
+          transition={{ duration: 1.1, delay: 0.15 + r.delay, ease: [0.16, 1, 0.3, 1] }}
+        />
+      ))}
+    </div>
+  )
+}
 
 export interface RevealArtifact {
   id: string | number
@@ -78,6 +104,7 @@ export function ProjectArtifactReveal({
   ctaSlot,
 }: ProjectArtifactRevealProps) {
   const reduce = useReducedMotion()
+  const { play } = useSignature()
   const [revealed, setRevealed] = useState(false)
 
   useEffect(() => {
@@ -99,6 +126,21 @@ export function ProjectArtifactReveal({
         a.power + a.defense + a.magic + a.speed > best.power + best.defense + best.magic + best.speed ? a : best,
       ).id
     : null
+
+  // Пиковый тир каскада — БЕЗ хардкода таксономии: берём готовые флаги meta
+  // (glow ≈ mythic, shine ≈ legendary), которые вызывающий уже проставил.
+  const hasGlow = artifacts.some((a) => (rarityMeta[a.rarity] || fallbackMeta).glow)
+  const hasShine = artifacts.some((a) => (rarityMeta[a.rarity] || fallbackMeta).shine)
+  const peakCue: SignatureCue = hasGlow ? "legendary" : hasShine ? "rarityUp" : "artifactBorn"
+
+  // Сенсорная «подпись» момента — один раз, когда артефакты становятся видны.
+  // play() внутри уважает тумблер (по умолчанию OFF) и reduced-motion.
+  const signaturePlayed = useRef(false)
+  useEffect(() => {
+    if (!showArtifacts || signaturePlayed.current || artifacts.length === 0) return
+    signaturePlayed.current = true
+    play(peakCue)
+  }, [showArtifacts, artifacts.length, peakCue, play])
 
   return (
     <div className="flex flex-col items-center gap-5 text-center">
@@ -144,6 +186,8 @@ export function ProjectArtifactReveal({
           const Icon = TYPE_ICON[a.type] || Sparkles
           const meta = rarityMeta[a.rarity] || fallbackMeta
           const isBest = a.id === bestId
+          // Кульминация только у героя высшего тира (флаги meta, не строки редкости).
+          const heroClimax = isBest && !reduce && !!(meta.glow || meta.shine)
           // Свечение иконки пропорционально тиру: высший — двойное, легендарный — золотое.
           const iconGlow = meta.glow
             ? `0 0 18px ${meta.color}, inset 0 0 12px ${meta.color}55`
@@ -155,8 +199,17 @@ export function ProjectArtifactReveal({
             <motion.div
               key={a.id}
               initial={reduce ? false : { opacity: 0, y: 16, scale: 0.9 }}
-              animate={showArtifacts ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 16, scale: 0.9 }}
-              transition={{ duration: 0.4, delay: reduce ? 0 : i * 0.12, ease: [0.16, 1, 0.3, 1] }}
+              animate={
+                showArtifacts
+                  ? { opacity: 1, y: 0, scale: heroClimax ? [0.9, 1.07, 1] : 1 }
+                  : { opacity: 0, y: 16, scale: 0.9 }
+              }
+              transition={{
+                // Герой высшего тира появляется ПОСЛЕ всех, медленнее — климакс каскада.
+                duration: heroClimax ? 0.72 : 0.4,
+                delay: reduce ? 0 : heroClimax ? artifacts.length * 0.12 + 0.12 : i * 0.12,
+                ease: [0.16, 1, 0.3, 1],
+              }}
               className="relative flex flex-col items-center gap-1.5 rounded-xl p-3"
               style={{
                 background: "rgba(255,255,255,0.03)",
@@ -164,6 +217,20 @@ export function ProjectArtifactReveal({
                 boxShadow: isBest ? `0 0 20px ${meta.color}33` : "none",
               }}
             >
+              {/* Кульминация редкости: вспышка фольги + всплеск частиц вокруг героя. */}
+              {heroClimax && (
+                <>
+                  <ParticleBurst color={meta.color} />
+                  <motion.span
+                    className="pointer-events-none absolute inset-0 -z-10 rounded-xl"
+                    aria-hidden
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: [0, 1, 0] }}
+                    transition={{ duration: 1, delay: artifacts.length * 0.12 + 0.15, ease: [0.16, 1, 0.3, 1] }}
+                    style={{ boxShadow: "var(--eg-glow-gold)", border: `1px solid ${meta.color}` }}
+                  />
+                </>
+              )}
               {isBest && (
                 <span
                   className="absolute -top-2 right-2 rounded-full px-1.5 py-px text-[8px] font-semibold uppercase tracking-wide"

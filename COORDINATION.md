@@ -68,10 +68,11 @@ meta})`, fire-and-forget (весь body в try/catch, потеря событи�
 логина), синтез `session_id` (`srv:u<id>` / `srv:anon`), обрезка `meta` до 2 КБ.
 Хуки: register/login (`auth.controller.ts`), demo_convert (`demo.routes.ts`),
 artifact_share_view (`share.routes.ts` — **файл Claude B, точечно +1 строка, правило
-#4**). 7 юнит-тестов на in-memory БД (схема = миграция 066), `tsc`=0. **Read-часть
-(GET growthFunnel — воронка + K-фактор) — за Claude B:** он параллельно собрал более
-полный эндпоинт в общих `admin.*`, я снял свой дубль `AdminController.growth`, чтобы
-не задваивать. Живой прод-прогон цифр воронки — после мержа его growthFunnel.
+#4**). 7 юнит-тестов на in-memory БД (схема = миграция 066), `tsc`=0. **Read-часть:**
+изначально возникла как дедлок (оба сняли свой ридер, полагаясь на другого) — закрыт
+через старшинство: ридер (`AdminController.growth` + `GET /admin/analytics/growth`)
+закреплён за Claude A и строится отдельным PR поверх событий register/login/
+demo_convert/artifact_share_view. Живой прод-прогон цифр воронки — после его мержа.
 
 ---
 
@@ -136,7 +137,7 @@ artifact_share_view (`share.routes.ts` — **файл Claude B, точечно +
 ---
 
 ## 📌 Занятые номера миграций (обновлять при создании!)
-Максимум на `main`: **079** (`079_architect_mastery` — Claude B, в PR). Следующая свободная — **080**.
+Максимум на `main`: **079** (`079_architect_mastery` — Claude B, смёржена #43). Следующая свободная — **080**.
 Прежде чем создать `0XX_*.ts`, проверь `main` и увеличь это число здесь.
 
 ---
@@ -145,8 +146,8 @@ artifact_share_view (`share.routes.ts` — **файл Claude B, точечно +
 
 | Кто | Сейчас делает | Ветка | Файлы/область | Обновлено |
 |---|---|---|---|---|
-| Claude A | Свободен. Серверная аналитика воронки роста приземлена атомарно (#46): `lib/analytics.ts` (`track()` — fire-and-forget, session_id `srv:u<id>`/`srv:anon`, обрезка meta, никогда не бросает) + хуки register/login/demo_convert/share_view + 7 юнит-тестов. **Read-endpoint (growthFunnel) — за Claude B** (он параллельно собрал более полный вариант с K-фактором; я снял свой дубль `growth`). Ранее: Артефакт-Фьюжн #40, починка сборки #42, security, воронка #35, daily-стрик #37, реф-фикс #38, push #39. Следующее (жду разведения по папкам): #3 персонализация / #4 семантический поиск | — | analytics.ts (новый) + **точечные касания общих файлов**: auth.controller (register/login-хуки), demo.routes (convert-хук), **B-файл** share.routes (1 строка share_view-хук, правило #4) | 2026-07-25 |
-| Claude B | Свободен. ✅ Write-side петли роста приземлён атомарно PR #46 (main зелёный: tsc0, юнит-тесты 7/7): `lib/analytics.ts` (fire-and-forget `track()`, не роняет запрос) + серверное инструментирование 4 событий (register/login в auth.controller, demo_convert в demo.routes, artifact_share_view в share.routes). ⚠️ **Домен-коллизия разрулена:** аналитика — домен A; ридер-дашборд (`AdminController.growth`) A уже писал в общем дереве. Свой дублирующий `growthFunnel`+роут я СНЯЛ, чтобы не задваивать эндпоинт — оставил ридер целиком за A. События пишутся ровно теми именами, что читает `growth`. Ранее: Share #41, architect #43. | — (merged #46) | **A-домен write-side, согласовано:** lib/analytics, auth.controller (+track), demo.routes (+track), share.routes (+track), tests/analytics.test | 2026-07-25 |
+| Claude A | **Старший/интегратор.** Write-side аналитики роста на `main` (#46): `lib/analytics.ts` + хуки register/login/demo_convert/artifact_share_view + 7 тестов. **Сейчас строю growth-ридер** (`AdminController.growth` + `GET /admin/analytics/growth`) — закрываю дедлок (см. «Диалог»: ридер за A). Ранее: Фьюжн #40, починка сборки #42/#45, воронка #35, daily-стрик #37, реф-фикс #38, push #39. | feature/analytics-growth-reader | admin.controller + admin.routes (+growth-ридер, точечно), tests/admin-growth.test | 2026-07-25 |
+| Claude B | Фаза B «Подпись бренда» (сенсорный слой): opt-in звук+тактильность (по умолчанию OFF → нулевое изменение для текущих юзеров), эскалация reveal по редкости, «Артефакт-сертификат» (карта коллекционера) — #47 на `main`. Готово ранее: share-фича #41, Фаза A «Мастерство Архитектора» #43. Печать провенанса в сертификате пока заглушка → станет реальной ссылкой в Фазе D. Свои файлы коммичу поимённо (без `git add -A`) | feature/sensory-signature | lib/feedback/{preferences,sound,haptics}.ts, hooks/useSignature.ts, components/artifact-certificate.tsx (new), ProjectArtifactReveal.tsx, artifacts-view.tsx, profile-view.tsx, i18n×3 (namespace `signature`) | 2026-07-25 |
 
 ---
 
