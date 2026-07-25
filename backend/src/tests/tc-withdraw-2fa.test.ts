@@ -15,7 +15,11 @@ import path from "node:path"
    отвалиться на Joi.
    ================================================================ */
 
-const PORT = 3989
+// Порт уникален среди spawn-тестов: node --test гоняет файлы конкурентно, и общий
+// порт = гонка за bind → клиент попадает на ЧУЖОЙ сервер с другой БД (ловили: этот
+// тест делил 3989 с orchestrator-flow → сид 2FA не виден → TWOFA_REQUIRED вместо
+// TWOFA_TOKEN_REQUIRED только в полном прогоне). Занятые: 3987/88/89/90/93/94.
+const PORT = 3991
 const BASE_URL = `http://localhost:${PORT}`
 const DB_RELATIVE_PATH = "./data/test-withdraw-2fa.db"
 const backendRoot = path.resolve(__dirname, "../..")
