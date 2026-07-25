@@ -315,6 +315,7 @@ import "./migrations/076_artifact_loadout"
 import "./migrations/079_architect_mastery"
 import "./migrations/080_creator_provenance"
 import "./migrations/081_proof_of_craft"
+import "./migrations/082_artifact_identity"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
