@@ -7,6 +7,7 @@ import Joi from 'joi';
 import db from '../db/database';
 import { captureError } from '../lib/sentry';
 import { fetchTreasuryTcForEmission, canEmitUnbackedSync } from '../lib/emission-guard';
+import { RefreshTokenService } from '../lib/refresh-tokens';
 
 const SOCIAL_PROVIDERS: SocialProvider[] = ['google', 'github'];
 
@@ -155,7 +156,8 @@ export class AuthController {
       }
 
       const token = AuthService.generateAccessToken(userId);
-      const refreshToken = AuthService.generateRefreshToken(userId);
+      // Stateful refresh-токен с ротацией/отзывом (не JWT) — см. lib/refresh-tokens.
+      const refreshToken = RefreshTokenService.issue(userId);
 
       res.status(201).json({
         success: true,
@@ -226,7 +228,8 @@ export class AuthController {
       UserModel.updateLastLogin(user.id);
 
       const token = AuthService.generateAccessToken(user.id);
-      const refreshToken = AuthService.generateRefreshToken(user.id);
+      // Stateful refresh-токен с ротацией/отзывом (не JWT) — см. lib/refresh-tokens.
+      const refreshToken = RefreshTokenService.issue(user.id);
 
       res.json({
         success: true,
@@ -278,7 +281,7 @@ export class AuthController {
     }
   }
 
-  // ===== ОБНОВЛЕНИЕ ТОКЕНА =====
+  // ===== ОБНОВЛЕНИЕ ТОКЕНА (ротация refresh + детекция кражи) =====
   static async refresh(req: Request, res: Response) {
     try {
       const { refreshToken } = req.body;
@@ -286,15 +289,29 @@ export class AuthController {
         return res.status(400).json({ error: 'Refresh token required' });
       }
 
-      const decoded = AuthService.verifyRefreshToken(refreshToken);
-      if (!decoded || !decoded.userId) {
-        return res.status(401).json({ error: 'Invalid refresh token' });
+      const result = RefreshTokenService.rotate(refreshToken);
+
+      switch (result.status) {
+        case 'ok': {
+          const accessToken = AuthService.generateAccessToken(result.userId);
+          // Клиент ОБЯЗАН сохранить новый refreshToken — старый уже отозван.
+          return res.json({ success: true, accessToken, refreshToken: result.refreshToken });
+        }
+        case 'retry':
+          // Гонка/сетевой ретрай в grace-окне: не жёсткая ошибка, но и не новый
+          // токен. Клиент повторит с тем же токеном либо перелогинится.
+          return res.status(409).json({ error: 'Refresh in progress, retry', code: 'REFRESH_RETRY' });
+        case 'reuse':
+          // Детекция кражи: семья отозвана. 401 → клиент чистит токены и логинится.
+          return res.status(401).json({ error: 'Token reuse detected', code: 'REFRESH_REUSE' });
+        case 'expired':
+          return res.status(401).json({ error: 'Refresh token expired', code: 'REFRESH_EXPIRED' });
+        case 'invalid':
+        default:
+          return res.status(401).json({ error: 'Invalid refresh token', code: 'REFRESH_INVALID' });
       }
-
-      const newAccessToken = AuthService.generateAccessToken(decoded.userId);
-      res.json({ success: true, accessToken: newAccessToken });
-
     } catch (error: any) {
+      captureError('Refresh error:', error);
       res.status(401).json({ error: 'Invalid refresh token' });
     }
   }
@@ -335,7 +352,18 @@ export class AuthController {
   }
 
   // ===== ВЫХОД =====
+  // Отзываем refresh-токен текущей сессии (если клиент его прислал), не трогая
+  // остальные сессии пользователя. Best-effort: даже без токена возвращаем success,
+  // т.к. access-токен клиент чистит локально, а он короткоживущий (15 мин).
   static async logout(req: Request, res: Response) {
+    try {
+      const { refreshToken } = req.body || {};
+      if (refreshToken && typeof refreshToken === 'string') {
+        RefreshTokenService.revoke(refreshToken);
+      }
+    } catch (error: any) {
+      captureError('Logout revoke error:', error);
+    }
     res.json({ success: true, message: 'Logged out successfully' });
   }
 

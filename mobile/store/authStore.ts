@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { apiClient, clearTokens, getAccessToken, setTokens } from '@/lib/api-client';
+import { apiClient, clearTokens, getAccessToken, getRefreshToken, setTokens } from '@/lib/api-client';
 
 export type OsgardUser = {
   id: number;
@@ -98,6 +98,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    // Best-effort отзыв refresh-сессии на бэкенде (передаём refresh-токен явно —
+    // сервер отзовёт именно её). Не блокируем локальную очистку, если сеть упала.
+    try {
+      const refreshToken = await getRefreshToken();
+      await apiClient.post('/auth/logout', { refreshToken });
+    } catch {
+      /* оффлайн/ошибка — access короткоживущий, refresh протухнет сам за 7 дней */
+    }
     await clearTokens();
     set({ user: null, isAuthenticated: false, justLoggedIn: false });
   },

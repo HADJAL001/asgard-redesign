@@ -40,12 +40,19 @@ async function refreshAccessToken(): Promise<string | null> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken }),
   });
-  if (!res.ok) {
+  if (res.status === 401 || res.status === 403) {
+    // refresh реально невалиден/истёк/украден (детекция reuse) — сессия закончилась.
     await clearTokens();
     return null;
   }
+  if (!res.ok) {
+    // 409 (retry в grace-окне) / 5xx / сеть — временный сбой, НЕ разлогиниваем.
+    return null;
+  }
   const data = await res.json();
-  await setTokens(data.accessToken, refreshToken);
+  // Сервер ротирует refresh-токен: старый уже отозван, надо сохранить новый.
+  // Fallback на прежний — на случай старого бэкенда, который его ещё не отдаёт.
+  await setTokens(data.accessToken, data.refreshToken ?? refreshToken);
   return data.accessToken;
 }
 

@@ -235,14 +235,20 @@ function handleAuthLogout(req: NextRequest) {
   const res = NextResponse.json({ success: true })
   clearSessionCookies(res)
   const accessToken = req.cookies.get(ACCESS_COOKIE)?.value
+  const refreshToken = req.cookies.get(REFRESH_COOKIE)?.value
   if (accessToken) {
-    // best-effort, не блокируем ответ клиенту
-    forwardToBackend("auth/logout", req, { authToken: accessToken, bodyOverride: "" }).catch(() => {})
+    // best-effort, не блокируем ответ клиенту. Передаём refresh-токен в теле —
+    // бэкенд отзовёт именно эту сессию (refresh лежит в httpOnly-cookie, клиентский
+    // JS до него не дотянется, поэтому подставляем здесь, в прокси).
+    forwardToBackend("auth/logout", req, {
+      authToken: accessToken,
+      bodyOverride: JSON.stringify({ refreshToken: refreshToken ?? null }),
+    }).catch(() => {})
   }
   return res
 }
 
-type RefreshResult = { token: string } | { error: "invalid" } | { error: "transient" }
+type RefreshResult = { token: string; refreshToken?: string } | { error: "invalid" } | { error: "transient" }
 
 /**
  * Пробует обновить access-токен через refresh-cookie.
@@ -268,7 +274,8 @@ async function tryRefresh(req: NextRequest): Promise<RefreshResult> {
     if (!upstream.ok) return { error: "transient" }
     const data = await upstream.json().catch(() => null)
     if (!data?.accessToken) return { error: "transient" }
-    return { token: data.accessToken }
+    // Бэкенд ротирует refresh — пробрасываем новый токен наверх, чтобы обновить cookie.
+    return { token: data.accessToken, refreshToken: data.refreshToken }
   } catch {
     return { error: "transient" }
   }
@@ -318,6 +325,11 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
         upstream = await forwardToBackend(pathStr, req, { authToken: refreshResult.token })
         const res = buildUpstreamResponse(upstream)
         res.cookies.set(ACCESS_COOKIE, refreshResult.token, cookieOptions(ACCESS_MAX_AGE))
+        // Ротированный refresh-токен — перезаписываем cookie, иначе следующий refresh
+        // придёт со старым (уже отозванным) токеном и словит детекцию reuse.
+        if (refreshResult.refreshToken) {
+          res.cookies.set(REFRESH_COOKIE, refreshResult.refreshToken, cookieOptions(REFRESH_MAX_AGE))
+        }
         return res
       }
 
