@@ -4,6 +4,7 @@ import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { logAudit } from "../lib/audit"
 import { createActivityEvent } from "../lib/activity"
 import { addArchitectXp } from "../lib/architect-progression"
+import { computeCreatorRoyalty } from "../lib/creator-royalty"
 
 const router = Router()
 
@@ -52,10 +53,13 @@ router.get("/listings", (_req, res) => {
          l.id, l.artifact_id as artifactId, l.seller_id as sellerId, l.price, l.currency,
          l.status, l.listed_at as listedAt,
          a.name as artifactName, a.type as artifactType, a.rarity, a.level, a.power, a.defense, a.magic, a.speed,
-         u.username as sellerUsername, u.display_name as sellerDisplayName
+         a.creator_id as creatorId,
+         u.username as sellerUsername, u.display_name as sellerDisplayName,
+         cu.username as creatorUsername, cu.display_name as creatorDisplayName
        FROM marketplace_listings l
        JOIN artifacts a ON a.id = l.artifact_id
        JOIN users u ON u.id = l.seller_id
+       LEFT JOIN users cu ON cu.id = a.creator_id
        WHERE l.status = 'active'
        ORDER BY l.listed_at DESC`,
     )
@@ -152,6 +156,10 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
     .get(listing.seller_id)
   const qualifiesForHof = isLargeSale && sellerHasCompletedQuest
 
+  /* Роялти творцу считаем до транзакции (чистая функция), выплачиваем внутри.
+     Фиксируем факт выплаты для пост-коммит аудита/ленты. */
+  let royaltyPaid: { creatorId: number; amount: number } | null = null
+
   db.exec("BEGIN IMMEDIATE")
   try {
     /* Списываем у покупателя */
@@ -163,6 +171,29 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
     db.prepare(
       `UPDATE wallets SET ${currency} = ${currency} + ?, updated_at = ? WHERE user_id = ?`,
     ).run(sellerReceives, now, listing.seller_id)
+
+    /* Creator-роялти: первому кузнецу артефакта — доля комиссии при перепродаже.
+       Из платформенной части fee (net продавца и цена покупателя не меняются).
+       Anti-wash: роялти < комиссии, круговая перепродажа убыточна. Не платится,
+       если творец — сам продавец/покупатель, либо его кошелёк уже удалён. */
+    const royalty = computeCreatorRoyalty(fee, {
+      creatorId: artifact.creator_id,
+      sellerId: listing.seller_id,
+      buyerId: req.user!.userId,
+    })
+    if (royalty) {
+      const creatorWallet: any = db.prepare(`SELECT user_id FROM wallets WHERE user_id = ?`).get(royalty.creatorId)
+      if (creatorWallet) {
+        db.prepare(
+          `UPDATE wallets SET ${currency} = ${currency} + ?, updated_at = ? WHERE user_id = ?`,
+        ).run(royalty.amount, now, royalty.creatorId)
+        db.prepare(
+          `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+           VALUES (?, 'royalty', ?, ?, ?, ?, 'done')`,
+        ).run(royalty.creatorId, artifact.name, `Роялти · продавец #${listing.seller_id}`, royalty.amount, currency)
+        royaltyPaid = { creatorId: royalty.creatorId, amount: royalty.amount }
+      }
+    }
 
     /* Buyback & burn: доля комиссии в TimeCoin сжигается → реальная дефляция. */
     if (currency === "timecoin") {
@@ -242,6 +273,22 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
     metadata: { name: artifact.name, rarity: artifact.rarity, price: listing.price, currency },
   })
   addArchitectXp(listing.seller_id, "artifact_sold")
+
+  if (royaltyPaid) {
+    logAudit(royaltyPaid.creatorId, "credit", royaltyPaid.amount, "creator_royalty", {
+      listingId,
+      artifactId: listing.artifact_id,
+      currency,
+    })
+    createActivityEvent({
+      userId: royaltyPaid.creatorId,
+      type: "royalty_earned",
+      entityType: "artifact",
+      entityId: listing.artifact_id,
+      text: `получил роялти за свою ковку «${artifact.name}»`,
+      metadata: { name: artifact.name, rarity: artifact.rarity, amount: royaltyPaid.amount, currency },
+    })
+  }
 
   if (qualifiesForHof) {
     createActivityEvent({
