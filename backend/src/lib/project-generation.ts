@@ -15,6 +15,7 @@ import { GENERATION_DEPTHS, type GenerationDepth } from "./generation-depths"
 import { createNotification } from "./notifications"
 import { emitGenerationStage } from "./generation-events"
 import { getForgeBonusForUser } from "./forge-loadout"
+import { nextFloats } from "./provably-fair"
 import { addArchitectXp } from "./architect-progression"
 
 /* ================================================================
@@ -40,8 +41,10 @@ function computePrice(a: { power: number; defense: number; magic: number; speed:
   return Math.round(statSum * 5) // базовая цена common-артефакта без спроса
 }
 
-function randomStat(): number {
-  return 10 + Math.floor(Math.random() * 30)
+/** Стат [10..39] из provably-fair float'а [0,1) — распределение 1:1 с прежним
+ *  `10 + Math.floor(Math.random()*30)`, но детерминированно и проверяемо. */
+function statFromFloat(f: number): number {
+  return 10 + Math.floor(f * 30)
 }
 
 /* Валюта листинга по редакции стартового артефакта. Common — базовые credits;
@@ -70,13 +73,23 @@ export function insertStarterArtifacts(
   )
 
   let count = 0
-  for (const a of artifacts) {
-    const power = randomStat() + bonus.statBonus
-    const defense = randomStat() + bonus.statBonus
-    const magic = randomStat() + bonus.statBonus
-    const speed = randomStat() + bonus.statBonus
+  for (let i = 0; i < artifacts.length; i++) {
+    const a = artifacts[i]
+    // Provably-fair: ровно 5 детерминированных float'ов на артефакт (4 стата + ролл
+    // редкости) из commit-reveal сид-цепочки владельца. purpose привязан к проекту и
+    // индексу → каждый бросок независимо воспроизводим из раскрытого server_seed.
+    const [fPow, fDef, fMag, fSpd, fRare] = nextFloats(
+      userId,
+      `starter:${projectId}:${i}`,
+      5,
+      `project ${projectId} · ${a.name}`,
+    )
+    const power = statFromFloat(fPow) + bonus.statBonus
+    const defense = statFromFloat(fDef) + bonus.statBonus
+    const magic = statFromFloat(fMag) + bonus.statBonus
+    const speed = statFromFloat(fSpd) + bonus.statBonus
     // Каждый артефакт независимо тянет на «редкое рождение» по шансу лоадаута.
-    const rarity = bonus.rarityUpChance > 0 && Math.random() < bonus.rarityUpChance ? "rare" : "common"
+    const rarity = bonus.rarityUpChance > 0 && fRare < bonus.rarityUpChance ? "rare" : "common"
     const price = computePrice({ power, defense, magic, speed })
 
     insertArtifact.run(
