@@ -18,5 +18,6 @@ router.get("/logs", AdminController.listLogs)
 router.get("/analytics/funnel", AdminController.funnel)
 router.get("/analytics/retention", AdminController.retention)
 router.get("/analytics/paywall-funnel", AdminController.paywallFunnel)
+router.get("/analytics/growth", AdminController.growth)
 
 export default router
