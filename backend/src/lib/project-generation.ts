@@ -13,6 +13,7 @@ import { adaptTemplate } from "../services/template-adapter"
 import { captureError } from "./sentry"
 import { GENERATION_DEPTHS, type GenerationDepth } from "./generation-depths"
 import { createNotification } from "./notifications"
+import { getForgeBonusForUser } from "./forge-loadout"
 
 /* ================================================================
    OSGARD · Общий сервис генерации проектов
@@ -41,28 +42,55 @@ function randomStat(): number {
   return 10 + Math.floor(Math.random() * 30)
 }
 
+/* Валюта листинга по редакции стартового артефакта. Common — базовые credits;
+   если снаряжение Кузницы «поднимает» артефакт до rare, листинг в shards
+   (паритет с LIST_CURRENCY_BY_RARITY в artifacts.routes.ts). */
+const STARTER_LIST_CURRENCY: Record<string, string> = { common: "credits", rare: "shards" }
+
 /** Вставляет стартовые артефакты проекта (детерминированный локальный рандомайзер —
- *  экономика не завязана на AI) и проставляет projects.artifact_count. */
+ *  экономика не завязана на AI) и проставляет projects.artifact_count.
+ *
+ *  Снаряжение Кузницы (forge loadout): надетые артефакты владельца дают
+ *  ОГРАНИЧЕННЫЙ бонус (см. lib/forge-loadout.ts) — плоская добавка к статам и
+ *  шанс родиться 'rare'. Пустой лоадаут → нулевой бонус → поведение 1:1 как
+ *  раньше (аддитивно, prod-safe). */
 export function insertStarterArtifacts(
   userId: number,
   projectId: number,
   artifacts: Array<{ name: string; type: string }>,
   now: number,
 ) {
+  const bonus = getForgeBonusForUser(userId)
+
   const insertArtifact = db.prepare(
     `INSERT INTO artifacts (owner_id, project_id, name, type, rarity, level, power, defense, magic, speed, status, views_24h, supply, price, list_currency, created_at)
-     VALUES (?, ?, ?, ?, 'common', 1, ?, ?, ?, ?, 'kept', 0, 1, ?, 'credits', ?)`,
+     VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 'kept', 0, 1, ?, ?, ?)`,
   )
 
   let count = 0
   for (const a of artifacts) {
-    const power = randomStat()
-    const defense = randomStat()
-    const magic = randomStat()
-    const speed = randomStat()
+    const power = randomStat() + bonus.statBonus
+    const defense = randomStat() + bonus.statBonus
+    const magic = randomStat() + bonus.statBonus
+    const speed = randomStat() + bonus.statBonus
+    // Каждый артефакт независимо тянет на «редкое рождение» по шансу лоадаута.
+    const rarity = bonus.rarityUpChance > 0 && Math.random() < bonus.rarityUpChance ? "rare" : "common"
     const price = computePrice({ power, defense, magic, speed })
 
-    insertArtifact.run(userId, projectId, a.name, a.type, power, defense, magic, speed, price, now)
+    insertArtifact.run(
+      userId,
+      projectId,
+      a.name,
+      a.type,
+      rarity,
+      power,
+      defense,
+      magic,
+      speed,
+      price,
+      STARTER_LIST_CURRENCY[rarity] ?? "credits",
+      now,
+    )
     count += 1
   }
 

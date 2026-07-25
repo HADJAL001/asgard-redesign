@@ -155,12 +155,51 @@ export interface OsgardArtifact {
   listCurrency: string
   /** Уникальный визуальный эффект (появляется при level >= 10 через премиум-усиление). */
   visualEffect?: string | null
+  /** Момент экипировки в снаряжение Кузницы (unix-ms) или null/undefined, если артефакт не надет. */
+  equippedAt?: number | null
   /** Поля AI-генерации (POST /artifacts/generate-ai) — null/undefined для вручную скованных артефактов. */
   description?: string | null
   lore?: string | null
   aiVisual?: string | null
   source?: string | null
   createdAt: number
+}
+
+/** Надетый артефакт в снаряжении Кузницы (см. GET /artifacts/loadout). */
+export interface EquippedArtifact {
+  id: number
+  name: string
+  type: string
+  rarity: string
+  level: number
+  power: number
+  defense: number
+  magic: number
+  speed: number
+}
+
+/** Совокупный бонус снаряжения Кузницы, реально применяемый к рождающимся артефактам. */
+export interface ForgeBonus {
+  /** Число надетых артефактов, из которых посчитан бонус. */
+  equippedCount: number
+  /** Плоская добавка к каждому стату новорождённого артефакта. */
+  statBonus: number
+  /** Вероятность родиться 'rare' вместо 'common' (0..0.3). */
+  rarityUpChance: number
+}
+
+/** Снимок снаряжения Кузницы (GET /artifacts/loadout). */
+export interface ForgeLoadout {
+  equipped: EquippedArtifact[]
+  bonus: ForgeBonus
+  maxSlots: number
+}
+
+/** Пустое снаряжение (нулевой бонус) — начальное состояние и безопасный fallback. */
+export const EMPTY_FORGE_LOADOUT: ForgeLoadout = {
+  equipped: [],
+  bonus: { equippedCount: 0, statBonus: 0, rarityUpChance: 0 },
+  maxSlots: 3,
 }
 
 /** Запись рейтинга архитекторов (см. GET /leaderboard). */
@@ -310,6 +349,14 @@ export interface PremiumUpgradeActionResult {
   error?: string
 }
 
+/** Результат equip/unequip (см. POST /artifacts/:id/equip|unequip) — унифицированный ответ для UI. */
+export interface LoadoutActionResult {
+  success: boolean
+  /** Свежий снимок снаряжения после действия (для мгновенного обновления UI). */
+  loadout?: ForgeLoadout
+  error?: string
+}
+
 /** Проект пользователя (см. backend/src/routes/projects.routes.ts). */
 export interface OsgardProject {
   id: number
@@ -394,6 +441,8 @@ export interface OsgardStoreState {
   userOrders: UserOrder[]
   stakes: OsgardStake[]
   artifacts: OsgardArtifact[]
+  /** Снаряжение Кузницы: надетые артефакты + совокупный бонус к генерации (см. GET /artifacts/loadout). */
+  forgeLoadout: ForgeLoadout
   marketplaceListings: MarketListing[]
   /** Рейтинг архитекторов (см. GET /leaderboard). Доход, кол-во продаж, уровень. */
   leaderboard: LeaderboardEntry[]
@@ -482,6 +531,14 @@ export interface OsgardStoreState {
 
   /** POST /artifacts/:id/premium-upgrade — премиум-усиление артефакта за TimeCoin (мгновенно, до уровня 10, 25% шанс крита). */
   premiumUpgradeArtifact: (artifactId: number) => Promise<PremiumUpgradeActionResult>
+
+  /* ---- снаряжение Кузницы (💎 ставка: экипировка → реальные бусты генерации) ---- */
+  /** GET /artifacts/loadout — надетые артефакты + совокупный бонус к генерации. */
+  fetchLoadout: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
+  /** POST /artifacts/:id/equip — надеть артефакт в снаряжение Кузницы. */
+  equipArtifact: (artifactId: number) => Promise<LoadoutActionResult>
+  /** POST /artifacts/:id/unequip — снять артефакт со снаряжения. */
+  unequipArtifact: (artifactId: number) => Promise<LoadoutActionResult>
 
   /* ---- маркетплейс ---- */
   /** GET /marketplace/listings — список всех активных лотов на продаже. */
@@ -611,6 +668,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   userOrders: [],
   stakes: [],
   artifacts: [],
+  forgeLoadout: EMPTY_FORGE_LOADOUT,
   marketplaceListings: [],
   leaderboard: [],
   transactions: [],
@@ -1048,6 +1106,58 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     }
   },
 
+  /* ---- fetch: GET /artifacts/loadout — снаряжение Кузницы ---- */
+  fetchLoadout: async (opts) => {
+    try {
+      const loadout = await apiClient.get<ForgeLoadout>("/artifacts/loadout", opts)
+      set({ forgeLoadout: loadout, error: null })
+    } catch (err) {
+      set({ error: extractErrorMessage(err, "Не удалось загрузить снаряжение Кузницы") })
+    }
+  },
+
+  /* ---- action: POST /artifacts/:id/equip — надеть артефакт ---- */
+  equipArtifact: async (artifactId) => {
+    set({ loading: true, error: null })
+    try {
+      const loadout = await apiClient.post<ForgeLoadout>(`/artifacts/${artifactId}/equip`)
+
+      set((s) => ({
+        forgeLoadout: loadout,
+        artifacts: s.artifacts.map((a) => (a.id === artifactId ? { ...a, equippedAt: Date.now() } : a)),
+        loading: false,
+        error: null,
+      }))
+
+      return { success: true, loadout }
+    } catch (err) {
+      const message = extractErrorMessage(err, "Не удалось надеть артефакт")
+      set({ loading: false, error: message })
+      return { success: false, error: message }
+    }
+  },
+
+  /* ---- action: POST /artifacts/:id/unequip — снять артефакт ---- */
+  unequipArtifact: async (artifactId) => {
+    set({ loading: true, error: null })
+    try {
+      const loadout = await apiClient.post<ForgeLoadout>(`/artifacts/${artifactId}/unequip`)
+
+      set((s) => ({
+        forgeLoadout: loadout,
+        artifacts: s.artifacts.map((a) => (a.id === artifactId ? { ...a, equippedAt: null } : a)),
+        loading: false,
+        error: null,
+      }))
+
+      return { success: true, loadout }
+    } catch (err) {
+      const message = extractErrorMessage(err, "Не удалось снять артефакт")
+      set({ loading: false, error: message })
+      return { success: false, error: message }
+    }
+  },
+
   /* ---- fetch: GET /marketplace/listings — все активные лоты маркетплейса ---- */
   fetchListings: async (opts) => {
     try {
@@ -1411,6 +1521,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       userOrders: [],
       stakes: [],
       artifacts: [],
+      forgeLoadout: EMPTY_FORGE_LOADOUT,
       marketplaceListings: [],
       leaderboard: [],
       transactions: [],

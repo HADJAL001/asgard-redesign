@@ -304,6 +304,7 @@ import "./migrations/071_market_drops"
 import "./migrations/072_auctions"
 import "./migrations/073_api_keys"
 import "./migrations/074_generation_depth"
+import "./migrations/076_artifact_loadout"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"

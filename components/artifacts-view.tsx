@@ -22,9 +22,9 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Search, Store, Archive, CheckCircle2, Boxes, Loader2 } from "lucide-react"
+import { Search, Store, Archive, CheckCircle2, Boxes, Loader2, Hammer, Sparkles, Swords, X } from "lucide-react"
 import { Navbar } from "./navbar"
-import { useOsgardStore } from "@/lib/store/osgard-store"
+import { useOsgardStore, type ForgeLoadout } from "@/lib/store/osgard-store"
 import {
   COLORS,
   RARITY,
@@ -38,6 +38,10 @@ import { useTranslation } from "@/lib/i18n/use-translation"
 
 type ArtifactStatus = "kept" | "listed" | "sold"
 type Filter = "all" | ArtifactStatus
+
+/** Золотой акцент Кузницы — визуально отделяет механику снаряжения от cyan-акцента платформы. */
+const FORGE_GOLD = "#D4AF37"
+const FORGE_GOLD_SOFT = "rgba(212,175,55,0.08)"
 
 export function ArtifactsView() {
   const { t } = useTranslation()
@@ -61,12 +65,29 @@ export function ArtifactsView() {
   const [filter, setFilter] = useState<Filter>(FILTERS.some((f) => f.id === initial) ? initial : "all")
   const [query, setQuery] = useState("")
 
-  const { artifacts, fetchArtifacts, tcPrice, loading, error } = useOsgardStore()
+  const {
+    artifacts,
+    fetchArtifacts,
+    forgeLoadout,
+    fetchLoadout,
+    equipArtifact,
+    unequipArtifact,
+    tcPrice,
+    loading,
+    error,
+  } = useOsgardStore()
 
   useEffect(() => {
     fetchArtifacts({ skipAuthRedirect: true })
+    fetchLoadout({ skipAuthRedirect: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const equippedIds = useMemo(
+    () => new Set(forgeLoadout.equipped.map((e) => e.id)),
+    [forgeLoadout.equipped],
+  )
+  const slotsFull = forgeLoadout.equipped.length >= forgeLoadout.maxSlots
 
   const shown = useMemo(() => {
     return artifacts.filter((a) => {
@@ -106,6 +127,9 @@ export function ArtifactsView() {
             />
           </div>
         </div>
+
+        {/* Снаряжение Кузницы */}
+        <ForgeLoadoutPanel loadout={forgeLoadout} onUnequip={(id) => unequipArtifact(id)} t={t} />
 
         {/* Filters */}
         <div className="mt-8 flex flex-wrap gap-2">
@@ -161,6 +185,10 @@ export function ArtifactsView() {
                 a={a}
                 tcUsdPrice={tcPrice.price}
                 onSell={() => router.push("/my-sales")}
+                equipped={equippedIds.has(a.id)}
+                slotsFull={slotsFull}
+                onEquip={() => equipArtifact(a.id)}
+                onUnequip={() => unequipArtifact(a.id)}
                 t={t}
                 statusMeta={STATUS_META}
               />
@@ -169,6 +197,129 @@ export function ArtifactsView() {
         )}
       </main>
     </div>
+  )
+}
+
+/* ================================================================
+   ForgeLoadoutPanel — снаряжение Кузницы
+   ----------------------------------------------------------------
+   Показывает надетые артефакты (до maxSlots) и совокупный бонус,
+   реально применяемый к артефактам, которые родятся со следующим
+   проектом. Пустое снаряжение → нулевой бонус (честно, без обмана).
+   ================================================================ */
+function ForgeLoadoutPanel({
+  loadout,
+  onUnequip,
+  t,
+}: {
+  loadout: ForgeLoadout
+  onUnequip: (id: number) => void
+  t: (key: string, vars?: Record<string, string | number>) => string
+}) {
+  const { equipped, bonus, maxSlots } = loadout
+  const slots = Array.from({ length: maxSlots }, (_, i) => equipped[i] ?? null)
+  const hasBonus = bonus.statBonus > 0 || bonus.rarityUpChance > 0
+  const rarityPct = Math.round(bonus.rarityUpChance * 100)
+
+  return (
+    <section
+      className="mt-8 rounded-2xl p-5 md:p-6"
+      style={{ border: `1px solid ${FORGE_GOLD}33`, background: `linear-gradient(180deg, ${FORGE_GOLD_SOFT} 0%, rgba(255,255,255,0.01) 100%)` }}
+    >
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-9 items-center justify-center rounded-xl" style={{ border: `1px solid ${FORGE_GOLD}55`, color: FORGE_GOLD }}>
+            <Hammer size={18} strokeWidth={1.75} />
+          </span>
+          <div>
+            <h2 className="text-[17px] font-semibold leading-tight" style={{ color: FORGE_GOLD }}>
+              {t("artifacts.loadoutTitle")}
+            </h2>
+            <p className="text-[12px]" style={{ color: COLORS.label }}>
+              {t("artifacts.loadoutSubtitle", { count: equipped.length, max: maxSlots })}
+            </p>
+          </div>
+        </div>
+
+        {/* Совокупный бонус */}
+        <div className="flex items-center gap-2 text-[12px]">
+          {hasBonus ? (
+            <>
+              <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5" style={{ border: `1px solid ${FORGE_GOLD}55`, color: FORGE_GOLD }}>
+                <Swords size={13} strokeWidth={1.75} />
+                {t("artifacts.loadoutStatBonus", { value: bonus.statBonus })}
+              </span>
+              {rarityPct > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5" style={{ border: `1px solid ${FORGE_GOLD}55`, color: FORGE_GOLD }}>
+                  <Sparkles size={13} strokeWidth={1.75} />
+                  {t("artifacts.loadoutRarityChance", { value: rarityPct })}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-[12px]" style={{ color: COLORS.label }}>
+              {t("artifacts.loadoutNoBonus")}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Слоты */}
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {slots.map((slot, i) => {
+          if (!slot) {
+            return (
+              <div
+                key={`empty-${i}`}
+                className="flex items-center justify-center rounded-xl py-4 text-[12px]"
+                style={{ border: `1px dashed ${COLORS.border}`, color: COLORS.label }}
+              >
+                {t("artifacts.loadoutEmptySlot")}
+              </div>
+            )
+          }
+          const rarity = RARITY[safeRarity(slot.rarity)]
+          const TypeIcon = ARTIFACT_TYPES[safeType(slot.type)].Icon
+          return (
+            <div
+              key={slot.id}
+              className="flex items-center justify-between gap-2 rounded-xl px-3 py-3"
+              style={{ border: `1px solid ${rarity.color}66`, backgroundColor: COLORS.card }}
+            >
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg" style={{ border: `1px solid ${rarity.color}` }}>
+                  <TypeIcon size={18} strokeWidth={1.25} style={{ color: rarity.color }} />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-medium">{slot.name}</p>
+                  <p className="text-[11px]" style={{ color: rarity.color }}>
+                    {rarity.label} · {t("artifacts.level", { level: slot.level })}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onUnequip(slot.id)}
+                aria-label={t("artifacts.loadoutUnequip")}
+                title={t("artifacts.loadoutUnequip")}
+                className="flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors"
+                style={{ border: `1px solid ${COLORS.border}`, color: COLORS.label }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = COLORS.red
+                  e.currentTarget.style.color = COLORS.red
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = COLORS.border
+                  e.currentTarget.style.color = COLORS.label
+                }}
+              >
+                <X size={14} strokeWidth={2} />
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
@@ -184,6 +335,10 @@ function ArtifactCard({
   a,
   tcUsdPrice,
   onSell,
+  equipped,
+  slotsFull,
+  onEquip,
+  onUnequip,
   t,
   statusMeta,
 }: {
@@ -203,6 +358,10 @@ function ArtifactCard({
   }
   tcUsdPrice: number
   onSell: () => void
+  equipped: boolean
+  slotsFull: boolean
+  onEquip: () => void
+  onUnequip: () => void
   t: (key: string, vars?: Record<string, string | number>) => string
   statusMeta: Record<ArtifactStatus, { label: string; color: string; Icon: typeof Store }>
 }) {
@@ -219,13 +378,17 @@ function ArtifactCard({
   return (
     <article
       className="flex flex-col rounded-xl p-5 transition-all duration-200"
-      style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
+      style={{
+        backgroundColor: COLORS.card,
+        border: `1px solid ${equipped ? FORGE_GOLD : COLORS.border}`,
+        boxShadow: equipped ? `0 0 0 1px ${FORGE_GOLD}22, 0 8px 28px rgba(212,175,55,0.06)` : "none",
+      }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = rarity.color
+        e.currentTarget.style.borderColor = equipped ? FORGE_GOLD : rarity.color
         e.currentTarget.style.transform = "translateY(-2px)"
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = COLORS.border
+        e.currentTarget.style.borderColor = equipped ? FORGE_GOLD : COLORS.border
         e.currentTarget.style.transform = "translateY(0)"
       }}
     >
@@ -233,10 +396,18 @@ function ArtifactCard({
         <span className="flex size-12 items-center justify-center rounded-xl" style={{ border: `1px solid ${rarity.color}` }}>
           <TypeIcon size={24} strokeWidth={1.25} style={{ color: rarity.color }} />
         </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]" style={{ border: `1px solid ${COLORS.border}`, color: status.color }}>
-          <status.Icon size={12} strokeWidth={1.75} />
-          {status.label}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {equipped && (
+            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px]" style={{ border: `1px solid ${FORGE_GOLD}66`, color: FORGE_GOLD }}>
+              <Hammer size={11} strokeWidth={1.75} />
+              {t("artifacts.loadoutEquippedBadge")}
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]" style={{ border: `1px solid ${COLORS.border}`, color: status.color }}>
+            <status.Icon size={12} strokeWidth={1.75} />
+            {status.label}
+          </span>
+        </div>
       </div>
 
       <h3 className="mt-4 text-[16px] font-medium">{a.name}</h3>
@@ -270,25 +441,58 @@ function ArtifactCard({
           )}
         </div>
         {a.status === "kept" && (
-          <button
-            type="button"
-            onClick={onSell}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors"
-            style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = COLORS.accent
-              e.currentTarget.style.borderColor = COLORS.accent
-              e.currentTarget.style.color = COLORS.bg
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent"
-              e.currentTarget.style.borderColor = COLORS.border
-              e.currentTarget.style.color = COLORS.text
-            }}
-          >
-            <Store size={14} strokeWidth={1.75} />
-            {t("artifacts.sell")}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Экипировка в снаряжение Кузницы */}
+            {equipped ? (
+              <button
+                type="button"
+                onClick={onUnequip}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors"
+                style={{ border: `1px solid ${FORGE_GOLD}`, color: FORGE_GOLD, backgroundColor: FORGE_GOLD_SOFT }}
+              >
+                <Hammer size={14} strokeWidth={1.75} />
+                {t("artifacts.loadoutUnequip")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onEquip}
+                disabled={slotsFull}
+                title={slotsFull ? t("artifacts.loadoutFullHint") : undefined}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                style={{ border: `1px solid ${FORGE_GOLD}55`, color: FORGE_GOLD }}
+                onMouseEnter={(e) => {
+                  if (slotsFull) return
+                  e.currentTarget.style.backgroundColor = FORGE_GOLD_SOFT
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent"
+                }}
+              >
+                <Hammer size={14} strokeWidth={1.75} />
+                {t("artifacts.loadoutEquip")}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onSell}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors"
+              style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = COLORS.accent
+                e.currentTarget.style.borderColor = COLORS.accent
+                e.currentTarget.style.color = COLORS.bg
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent"
+                e.currentTarget.style.borderColor = COLORS.border
+                e.currentTarget.style.color = COLORS.text
+              }}
+            >
+              <Store size={14} strokeWidth={1.75} />
+              {t("artifacts.sell")}
+            </button>
+          </div>
         )}
       </div>
     </article>

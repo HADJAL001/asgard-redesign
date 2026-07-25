@@ -5,6 +5,11 @@ import { generateAiArtifactContent, computeUniqueHash, ARTIFACT_RARITIES } from 
 import { asyncHandler } from "../utils/async-handler"
 import { logAudit } from "../lib/audit"
 import { createActivityEvent } from "../lib/activity"
+import {
+  FORGE_MAX_SLOTS,
+  computeForgeBonus,
+  type EquippedArtifactStats,
+} from "../lib/forge-loadout"
 
 const router = Router()
 
@@ -66,12 +71,94 @@ router.get("/mine", requireAuth, (req: AuthRequest, res) => {
     .prepare(
       `SELECT id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
               status, views_24h as views24h, supply, price, list_currency as listCurrency,
-              description, lore, ai_visual as aiVisual, visual_effect as visualEffect, source, created_at as createdAt
+              description, lore, ai_visual as aiVisual, visual_effect as visualEffect, source,
+              equipped_at as equippedAt, created_at as createdAt
        FROM artifacts WHERE owner_id = ? ORDER BY created_at DESC`,
     )
     .all(req.user!.userId)
 
   res.json({ artifacts })
+})
+
+/* ---------------- Снаряжение Кузницы (forge loadout) ----------------
+   Надетые артефакты (до FORGE_MAX_SLOTS) РЕАЛЬНО усиливают статы и шанс
+   редкости артефактов, которые рождаются со следующим проектом
+   (см. lib/forge-loadout.ts + insertStarterArtifacts). Экипировка
+   бесплатна, обратима и не расходует артефакт.
+------------------------------------------------------------------------ */
+
+const LOADOUT_SELECT = `id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
+       status, price, list_currency as listCurrency, equipped_at as equippedAt, created_at as createdAt`
+
+/** Собирает полезную нагрузку лоадаута пользователя: надетые артефакты + рассчитанный бонус. */
+function loadoutPayload(userId: number) {
+  const equipped = db
+    .prepare(
+      `SELECT ${LOADOUT_SELECT} FROM artifacts
+       WHERE owner_id = ? AND equipped_at IS NOT NULL
+       ORDER BY equipped_at DESC LIMIT ?`,
+    )
+    .all(userId, FORGE_MAX_SLOTS) as any[]
+
+  const bonus = computeForgeBonus(equipped as EquippedArtifactStats[])
+  return { equipped, bonus, maxSlots: FORGE_MAX_SLOTS }
+}
+
+/* ---------------- GET /artifacts/loadout ---------------- */
+router.get("/loadout", requireAuth, (req: AuthRequest, res) => {
+  res.json(loadoutPayload(req.user!.userId))
+})
+
+/* ---------------- POST /artifacts/:id/equip ---------------- */
+router.post("/:id/equip", requireAuth, (req: AuthRequest, res) => {
+  const id = Number(req.params.id)
+  const userId = req.user!.userId
+  const artifact: any = db.prepare(`SELECT * FROM artifacts WHERE id = ?`).get(id)
+
+  if (!artifact) return res.status(404).json({ error: "Артефакт не найден" })
+  if (artifact.owner_id !== userId) {
+    return res.status(403).json({ error: "Нет доступа к этому артефакту" })
+  }
+  if (artifact.status !== "kept") {
+    return res.status(400).json({ error: "Надеть можно только артефакт, который не выставлен на продажу" })
+  }
+
+  // Уже надет → идемпотентно возвращаем текущий лоадаут.
+  if (artifact.equipped_at) {
+    return res.json({ ...loadoutPayload(userId), equipped_id: id })
+  }
+
+  const { count } = db
+    .prepare(`SELECT COUNT(*) as count FROM artifacts WHERE owner_id = ? AND equipped_at IS NOT NULL`)
+    .get(userId) as { count: number }
+  if (count >= FORGE_MAX_SLOTS) {
+    return res.status(400).json({
+      error: `Все слоты снаряжения заняты (${FORGE_MAX_SLOTS}). Снимите один артефакт, чтобы надеть другой.`,
+      code: "LOADOUT_FULL",
+    })
+  }
+
+  db.prepare(`UPDATE artifacts SET equipped_at = ? WHERE id = ?`).run(Date.now(), id)
+
+  res.json({ ...loadoutPayload(userId), equipped_id: id })
+})
+
+/* ---------------- POST /artifacts/:id/unequip ---------------- */
+router.post("/:id/unequip", requireAuth, (req: AuthRequest, res) => {
+  const id = Number(req.params.id)
+  const userId = req.user!.userId
+  const artifact: any = db.prepare(`SELECT id, owner_id, equipped_at FROM artifacts WHERE id = ?`).get(id)
+
+  if (!artifact) return res.status(404).json({ error: "Артефакт не найден" })
+  if (artifact.owner_id !== userId) {
+    return res.status(403).json({ error: "Нет доступа к этому артефакту" })
+  }
+
+  if (artifact.equipped_at) {
+    db.prepare(`UPDATE artifacts SET equipped_at = NULL WHERE id = ?`).run(id)
+  }
+
+  res.json({ ...loadoutPayload(userId), unequipped_id: id })
 })
 
 /* Ковка за ЛЮБУЮ монету, но слабее: чем дешевле/слабее валюта, тем ниже

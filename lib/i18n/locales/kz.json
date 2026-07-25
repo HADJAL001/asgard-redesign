@@ -277,7 +277,17 @@
     "sell": "Сату",
     "statusListed": "Сатылымда",
     "statusKept": "Сатылымда емес",
-    "statusSold": "Сатылған"
+    "statusSold": "Сатылған",
+    "loadoutTitle": "Ұстахана жарақтары",
+    "loadoutSubtitle": "{{max}} ішінен {{count}} киілген · киілген артефакттар келесі жобамен туатындарды күшейтеді",
+    "loadoutStatBonus": "статтарға +{{value}}",
+    "loadoutRarityChance": "{{value}}% сиректік мүмкіндігі",
+    "loadoutNoBonus": "Генерацияны күшейту үшін артефакттарды киіңіз",
+    "loadoutEmptySlot": "Бос ұяшық",
+    "loadoutEquip": "Кию",
+    "loadoutUnequip": "Шешу",
+    "loadoutEquippedBadge": "Киілген",
+    "loadoutFullHint": "Барлық жарақ ұяшықтары толы — алдымен бір артефактты шешіңіз"
   },
   "marketplace": {
     "title": "Маркетплейс",

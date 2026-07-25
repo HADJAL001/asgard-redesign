@@ -277,7 +277,17 @@
     "sell": "Sell",
     "statusListed": "Listed",
     "statusKept": "Not listed",
-    "statusSold": "Sold"
+    "statusSold": "Sold",
+    "loadoutTitle": "Forge Loadout",
+    "loadoutSubtitle": "{{count}} of {{max}} equipped · equipped artifacts empower the ones born with your next project",
+    "loadoutStatBonus": "+{{value}} to stats",
+    "loadoutRarityChance": "{{value}}% rarity chance",
+    "loadoutNoBonus": "Equip artifacts to boost generation",
+    "loadoutEmptySlot": "Empty slot",
+    "loadoutEquip": "Equip",
+    "loadoutUnequip": "Unequip",
+    "loadoutEquippedBadge": "Equipped",
+    "loadoutFullHint": "All loadout slots are full — unequip an artifact first"
   },
   "marketplace": {
     "title": "Marketplace",

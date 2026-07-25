@@ -285,7 +285,17 @@
     "sell": "Продать",
     "statusListed": "В продаже",
     "statusKept": "Не в продаже",
-    "statusSold": "Продан"
+    "statusSold": "Продан",
+    "loadoutTitle": "Снаряжение Кузницы",
+    "loadoutSubtitle": "Надето {{count}} из {{max}} · надетые артефакты усиливают те, что родятся со следующим проектом",
+    "loadoutStatBonus": "+{{value}} к статам",
+    "loadoutRarityChance": "{{value}}% шанс редкости",
+    "loadoutNoBonus": "Наденьте артефакты, чтобы усилить генерацию",
+    "loadoutEmptySlot": "Пустой слот",
+    "loadoutEquip": "Надеть",
+    "loadoutUnequip": "Снять",
+    "loadoutEquippedBadge": "Надет",
+    "loadoutFullHint": "Все слоты снаряжения заняты — снимите один артефакт"
   },
   "marketplace": {
     "title": "Маркетплейс",
