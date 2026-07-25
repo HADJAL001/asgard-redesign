@@ -938,3 +938,47 @@ svg { width: 1rem; height: 1rem; flex: none; }
 @media (prefers-reduced-motion: reduce) {
   .btn-premium-gold:hover:not(:disabled) { transform: none; }
 }
+
+/* ===== OSGARD brand mark (∞) — Claude B ============================
+   Премиальный фирменный знак: гравированный золотой лемнискат +
+   бегущий световой филамент. Лого-использование (вход/регистрация/
+   сплэши), НЕ денежный глиф TimeCoin. Строится на золотых токенах
+   (--eg-gold-*, --color-gold-rgb, --eg-glow-gold, --ease-premium).   */
+.osgard-mark { display: block; overflow: visible; }
+
+/* Тёплый радиальный подсвет за знаком в «оправе» — глубина/материя. */
+.osgard-mark-box::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(120% 120% at 50% 16%,
+              rgb(var(--color-gold-rgb) / 0.16), transparent 62%);
+}
+
+/* Гравированное золотое тело — металлический градиент + мягкое свечение. */
+.osgard-mark-base {
+  fill: none;
+  stroke: url(#osgard-mark-gold);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 6px rgb(var(--color-gold-rgb) / 0.45));
+}
+
+/* Бегущий блик: короткий яркий отрезок скользит вдоль контура один раз
+   за цикл (dasharray нормирован к pathLength=300), с fade in/out. */
+.osgard-mark-sheen {
+  fill: none;
+  stroke: #FFF6D0;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 30 270;
+  animation: osgard-mark-sweep 4.6s var(--ease-premium) infinite;
+}
+@keyframes osgard-mark-sweep {
+  0%   { stroke-dashoffset: 300; opacity: 0; }
+  15%  { opacity: 1; }
+  60%  { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .osgard-mark-sheen { animation: none; opacity: 0; }
+}
