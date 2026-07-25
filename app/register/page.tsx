@@ -3,10 +3,11 @@
 import { useState, useEffect, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Infinity as InfinityIcon, Loader2, Gift } from "lucide-react"
+import { Loader2, Gift } from "lucide-react"
 import { useAuth } from "@/lib/auth-store"
 import { getReferralCode } from "@/lib/referral"
 import { SocialLoginButtons } from "@/components/social-login-buttons"
+import { OsgardMark } from "@/components/osgard-mark"
 
 /* ================================================================
    OSGARD · Register
@@ -77,9 +78,7 @@ export default function RegisterPage() {
 
       <div className="relative z-10 w-full max-w-md">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[color:rgb(var(--color-gold-rgb)/0.4)] bg-[color:var(--eg-glass-bg)] text-[color:var(--color-gold)] shadow-[var(--eg-glow-gold)] backdrop-blur">
-            <InfinityIcon className="h-8 w-8" />
-          </div>
+          <OsgardMark size={64} />
           <span className="elite-eyebrow">Создай аккаунт</span>
           <h1 className="holo-title font-display text-4xl font-bold tracking-tight">OSGARD</h1>
           <p className="text-sm text-[#8899bb]">Создайте аккаунт и начните зарабатывать</p>
