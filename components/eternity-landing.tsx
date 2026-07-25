@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent, useCallback } from "react"
 import Link from "next/link"
 import dynamic from "next/dynamic"
+import { useRouter } from "next/navigation"
 import {
   Infinity as InfinityIcon,
   ArrowRight,
@@ -13,6 +14,9 @@ import {
   Star,
 } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/use-translation"
+import { useAuth } from "@/lib/auth-store"
+import { useOsgardStore } from "@/lib/store/osgard-store"
+import { savePendingGeneration } from "@/lib/pending-generation"
 import { Reveal } from "@/components/landing/Reveal"
 import { DemoProjectModal, type DemoSessionV2 } from "@/components/DemoProjectModal"
 import { IkeaModal } from "@/components/IkeaModal"
@@ -39,12 +43,15 @@ const GlobeScene = dynamic(() => import("@/components/landing/GlobeScene"), {
 
 export function EternityLanding() {
   const { t } = useTranslation()
+  const router = useRouter()
+  const { isAuthenticated } = useAuth()
   const inputRef = useRef<HTMLInputElement>(null)
   const [demoOpen, setDemoOpen] = useState(false)
   const [demoInitialName, setDemoInitialName] = useState("")
   const [ikeaOpen, setIkeaOpen] = useState(false)
   const [ikeaSession, setIkeaSession] = useState<DemoSessionV2 | null>(null)
   const [scrolled, setScrolled] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   const handleLimitReached = useCallback((session: DemoSessionV2) => {
     setDemoOpen(false)
@@ -75,25 +82,56 @@ export function EternityLanding() {
     })
   }, [])
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  /** Короткая красная подсветка поля — переиспользуем для «пусто» и для ошибки генерации. */
+  const flashInputError = useCallback(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.borderColor = "#FF6B6B"
+    el.style.boxShadow = "0 0 20px rgba(255, 107, 107, 0.3)"
+    setTimeout(() => {
+      el.style.borderColor = ""
+      el.style.boxShadow = ""
+    }, 1500)
+  }, [])
+
+  /* Ввод из hero → РЕАЛЬНАЯ генерация проекта (настоящий код + артефакты), а не демо-превью.
+     Авторизован  → сразу POST /projects/generate и переход на страницу проекта, где уже
+                     показывается статус 'generating' и результат.
+     Гость        → сохраняем намерение (pending-generation) и уводим на регистрацию; после
+                     входа дашборд сам заберёт намерение и запустит генерацию. */
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (submitting) return
     const el = inputRef.current
     if (!el) return
     const query = el.value.trim()
     if (!query) {
-      el.style.borderColor = "#FF6B6B"
-      el.style.boxShadow = "0 0 20px rgba(255, 107, 107, 0.3)"
-      setTimeout(() => {
-        el.style.borderColor = ""
-        el.style.boxShadow = ""
-      }, 1500)
+      flashInputError()
       return
     }
-    // Реальный demo-flow: имя из hero-формы уходит в DemoProjectModal как initialName,
-    // модалка сама вызывает /api/demo/generate и показывает reveal артефактов.
-    setDemoInitialName(query)
-    setDemoOpen(true)
-    el.value = ""
+
+    if (!isAuthenticated) {
+      savePendingGeneration({ name: query })
+      el.value = ""
+      router.push("/register")
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const res = await useOsgardStore.getState().generateProject(query)
+      if (res.success && res.project) {
+        el.value = ""
+        // Глубина по умолчанию — quick (бесплатно). Страница проекта покажет ход генерации.
+        router.push(`/projects/${res.project.id}`)
+        return
+      }
+      flashInputError()
+      setSubmitting(false)
+    } catch {
+      flashInputError()
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -161,9 +199,17 @@ export function EternityLanding() {
 
           {/* Миниатюрное окно ввода (всегда видимо) */}
           <form className="artifact-form" onSubmit={handleSubmit}>
-            <input ref={inputRef} type="text" placeholder={t("landing.inputPlaceholder")} autoComplete="off" aria-label={t("landing.inputPlaceholder")} />
-            <button type="submit">
-              {t("landing.createBtn")} <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
+            <input ref={inputRef} type="text" placeholder={t("landing.inputPlaceholder")} autoComplete="off" aria-label={t("landing.inputPlaceholder")} disabled={submitting} />
+            <button type="submit" className={submitting ? "submitting" : undefined} disabled={submitting}>
+              {submitting ? (
+                <>
+                  {t("landing.createBtn")} <span className="btn-spinner" aria-hidden="true" />
+                </>
+              ) : (
+                <>
+                  {t("landing.createBtn")} <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
+                </>
+              )}
             </button>
           </form>
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   FolderKanban,
@@ -25,6 +25,7 @@ import { DailyRewardCard } from "./DailyRewardCard"
 import { apiClient } from "@/lib/api-client"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { useAuth } from "@/lib/auth-store"
+import { takePendingGeneration } from "@/lib/pending-generation"
 import { formatTokens, badgeIcon } from "@/lib/economy"
 import { fmtTC } from "@/lib/tc-market"
 
@@ -69,7 +70,7 @@ function SectionTitle({ Icon, children }: { Icon: LucideIcon; children: React.Re
 export function DashboardView() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const [onboardingStep, setOnboardingStep] = useState<number | null>(null)
   const [showPrologue, setShowPrologue] = useState(() => searchParams.get("welcome") === "1")
   /* Подтверждение переноса демо-вселенной гостя в аккаунт (флаг ставит auth-store
@@ -78,8 +79,41 @@ export function DashboardView() {
 
   /* Реальные данные аккаунта — тот же источник, что используют /projects и /wallet
      (useOsgardStore → GET /projects/mine и GET /wallet). Никаких моков. */
-  const { projects, wallet, fetchProjects, fetchWallet } = useOsgardStore()
+  const { projects, wallet, fetchProjects, fetchWallet, generateProject } = useOsgardStore()
   const [dataLoading, setDataLoading] = useState(true)
+
+  /* Мост «hero-запрос → реальная генерация»: гость описал проект на лендинге,
+     ушёл на регистрацию — теперь забираем отложенное намерение и запускаем
+     настоящую генерацию (POST /projects/generate). Guard через ref + одноразовый
+     takePendingGeneration() → в StrictMode/повторном заходе не сработает дважды. */
+  const [autoGenName, setAutoGenName] = useState<string | null>(null)
+  const [autoGenError, setAutoGenError] = useState<string | null>(null)
+  const pendingRanRef = useRef(false)
+
+  useEffect(() => {
+    if (pendingRanRef.current) return
+    if (!isAuthenticated) return
+    const intent = takePendingGeneration()
+    if (!intent) return
+    pendingRanRef.current = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAutoGenName(intent.name)
+    ;(async () => {
+      try {
+        const res = await generateProject(intent.name, intent.hint, intent.depth)
+        if (res.success && res.project) {
+          router.push(`/projects/${res.project.id}`)
+          return
+        }
+        setAutoGenName(null)
+        setAutoGenError(res.error || "Не удалось запустить генерацию проекта")
+      } catch {
+        setAutoGenName(null)
+        setAutoGenError("Не удалось запустить генерацию проекта")
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated])
 
   useEffect(() => {
     let cancelled = false
@@ -172,6 +206,23 @@ export function DashboardView() {
     <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0F0F1A 100%)", color: "#FFFFFF" }}>
       <Navbar />
 
+      {/* Автозапуск генерации по намерению с лендинга — оверлей на время старта */}
+      {autoGenName && (
+        <div
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-4 px-6 text-center"
+          role="status"
+          style={{ background: "rgba(6,7,12,0.88)", backdropFilter: "blur(6px)" }}
+        >
+          <Loader2 size={40} className="animate-spin" style={{ color: ACCENT }} />
+          <div className="text-[16px] font-medium text-white">
+            Создаём проект «{autoGenName}»…
+          </div>
+          <div className="text-[13px]" style={{ color: LABEL }}>
+            Генерация реального кода и артефактов уже началась
+          </div>
+        </div>
+      )}
+
       {showPrologue && (
         <OnboardingPrologue
           name={user?.displayName || user?.username || ""}
@@ -198,6 +249,37 @@ export function DashboardView() {
             <LivePulseBar />
           </div>
         </header>
+
+        {/* Ошибка автозапуска генерации по намерению с лендинга */}
+        {autoGenError && (
+          <div
+            className="mb-8 flex items-center gap-3 rounded-2xl border px-4 py-3"
+            role="alert"
+            style={{ borderColor: "rgba(255,92,92,0.35)", background: "rgba(255,92,92,0.08)" }}
+          >
+            <span className="text-[18px]" aria-hidden="true">⚠️</span>
+            <div className="flex-1 text-[13px]">
+              <span className="font-semibold text-white">Не удалось начать генерацию.</span>{" "}
+              <span style={{ color: "rgba(255,255,255,0.6)" }}>{autoGenError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push("/projects")}
+              className="shrink-0 rounded-lg px-3 py-1.5 text-[12px] font-medium"
+              style={{ border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
+            >
+              Создать вручную
+            </button>
+            <button
+              onClick={() => setAutoGenError(null)}
+              className="text-[18px] leading-none"
+              style={{ color: "rgba(255,255,255,0.4)" }}
+              aria-label="Закрыть"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* Подтверждение переноса демо-вселенной */}
         {demoSaved && (
