@@ -189,7 +189,7 @@ demo_convert/artifact_share_view. Живой прод-прогон цифр во
 ---
 
 ## 📌 Занятые номера миграций (обновлять при создании!)
-Максимум на `main`: **080** (`080_creator_provenance` — Claude B, смёржена #52). Следующая свободная — **081**.
+Максимум на `main`: **080** (`080_creator_provenance` — Claude B, смёржена #52). **081** (`081_proof_of_craft` — Claude B, в ветке `feature/proof-of-craft-provenance`, аддитивна: +колонка `artifacts.craft_score`, grandfather). Следующая свободная — **082**.
 Прежде чем создать `0XX_*.ts`, проверь `main` и увеличь это число здесь.
 
 ---
@@ -199,7 +199,7 @@ demo_convert/artifact_share_view. Живой прод-прогон цифр во
 | Кто | Сейчас делает | Ветка | Файлы/область | Обновлено |
 |---|---|---|---|---|
 | Claude A | Свободен. **Старший/интегратор.** ✅ Прод-проверка воронки роста (growth 401 / share 200 — контур write#46+read#49 в бою). ✅ Интегрировал/задеплоил PR #52 B (провенанс+роялти) по указанию пользователя — гейт зелёный (tsc=0, 25/25). Ранее: воронка #46/#49, Фьюжн #40, починка сборки #42/#45, #35/#37/#38/#39. Следующее (жду разведения по папкам): #3 персонализация / #4 семантический поиск. | chore/launch-assets-coord | COORDINATION.md, marketing/promo-teaser.* | 2026-07-25 |
-| Claude B | **Свободен. ✅ Полная суперпремиальная программа A→D завершена и в бою** (A «Ритуал Кузнеца» #43, B «Подпись бренда» #47, C «Живая вселенная» #51, D «Хранилище провенанса» #54). Фаза D задеплоена (`a0b9e79`): `GET /provenance/vault` + `GET /provenance/artifact/:id` (owner-only, read-only поверх `activity_events`/#52 `creator_id`), `components/vault-view.tsx`, `app/vault/page.tsx`, печать сертификата → `/vault?artifact=<id>`, пункт «Хранилище» в navbar, i18n×3. Прод-верификация: `/vault` 200, `/api/provenance/*` 401 (гейт реален), `/health` 200. Миграций не создавал (081 свободна). `server.ts` — +2 объявленные строки. Свои файлы коммичу поимённо (без `git add -A`). | — (на `main`) | Фаза D смёржена (#54) | 2026-07-25 |
+| Claude B | **Proof-of-Craft + витрина родословной** (Кузница больше не казино): статы куются ДЕТЕРМИНИРОВАННО из реальной субстанции проекта (глубина генерации + число файлов + настоящая AI vs шаблон → `craftScore ∈ [0..1]`), рулеточный фарм невозможен. Миграция **081** аддитивна: +`artifacts.craft_score` (nullable), старые артефакты grandfather (NULL=legacy, не пересчитываю). Публичная витрина `GET /artifacts/:id/provenance` (read-only, шарится): творец + craftScore + дерево родословной ковки-слияния (рекурсия по `parent_a/b_id`, потолок глубины + защита от циклов) + цепочка перепродаж. **Дополняет** vault Фазы D #54 (`/provenance/*`, owner-only), не конфликтует (разные пути/файлы). `server.ts`/`COORDINATION.md` — точечно. tsc=0, тесты 15/15. Свои файлы коммичу поимённо. ✅ На `main`: суперпремиальная программа A→D завершена (A #43, B #47, C #51, D «Хранилище провенанса» #54), провенанс+роялти #52, share #41. | feature/proof-of-craft-provenance | backend/migrations/081_proof_of_craft.ts (new), lib/proof-of-craft.ts (new), routes/artifacts.routes.ts, server.ts (+1 import), tests/proof-of-craft.test.ts (new), COORDINATION.md | 2026-07-25 |
 
 ---
 

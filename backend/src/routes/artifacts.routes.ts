@@ -12,6 +12,7 @@ import {
   type EquippedArtifactStats,
 } from "../lib/forge-loadout"
 import { fuseStats, fusedRarity, fusionHint, MUTATION_CHANCE } from "../lib/artifact-fusion"
+import { computeCraftScore, deriveCraftedStats, type GenerationDepth } from "../lib/proof-of-craft"
 
 const router = Router()
 
@@ -73,6 +74,7 @@ router.get("/mine", requireAuth, (req: AuthRequest, res) => {
     .prepare(
       `SELECT id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
               status, views_24h as views24h, supply, price, list_currency as listCurrency,
+              craft_score as craftScore,
               description, lore, ai_visual as aiVisual, visual_effect as visualEffect, source,
               equipped_at as equippedAt, created_at as createdAt
        FROM artifacts WHERE owner_id = ? ORDER BY created_at DESC`,
@@ -190,14 +192,18 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
   }
 
   let resolvedProjectId: number | null = null
+  let craftProject: any = null
   if (projectId !== undefined && projectId !== null && projectId !== "") {
     const project: any = db
-      .prepare(`SELECT id FROM projects WHERE id = ? AND user_id = ?`)
+      .prepare(
+        `SELECT id, generation_depth, ai_source, template_id FROM projects WHERE id = ? AND user_id = ?`,
+      )
       .get(Number(projectId), req.user!.userId)
     if (!project) {
       return res.status(404).json({ error: "Проект не найден" })
     }
     resolvedProjectId = project.id
+    craftProject = project
   }
 
   const forgeCurrency = typeof currency === "string" && FORGE_CURRENCIES[currency] ? currency : "timecoin"
@@ -210,13 +216,22 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
     return res.status(400).json({ error: `Недостаточно средств (нужно ${forgeCost} ${forgeCurrency})` })
   }
 
-  /* Случайная генерация характеристик — масштабируется силой валюты (слабее монета → слабее артефакт) */
-  const roll = () => 10 + Math.floor(Math.random() * 30)
-  const power = Math.max(1, Math.round(roll() * statMult))
-  const defense = Math.max(1, Math.round(roll() * statMult))
-  const magic = Math.max(1, Math.round(roll() * statMult))
-  const speed = Math.max(1, Math.round(roll() * statMult))
-  const rarity = "common"
+  /* Proof-of-Craft: статы выводятся детерминированно из реальной субстанции
+     проекта (глубина, число файлов, настоящая AI-генерация), а не ГСЧ.
+     Куёшь лучшее приложение → лучший артефакт. См. lib/proof-of-craft.ts.
+     Множитель валюты сохраняется поверх (слабее монета → слабее артефакт). */
+  const fileCount = resolvedProjectId
+    ? ((db.prepare(`SELECT COUNT(*) as c FROM project_files WHERE project_id = ?`).get(resolvedProjectId) as any)?.c ?? 0)
+    : 0
+  const craftScore = computeCraftScore({
+    hasProject: !!resolvedProjectId,
+    depth: (craftProject?.generation_depth as GenerationDepth) ?? null,
+    fileCount,
+    aiSource: craftProject?.ai_source ?? null,
+    templateId: craftProject?.template_id ?? null,
+  })
+  const crafted = deriveCraftedStats(craftScore, statMult, `${resolvedProjectId ?? "solo"}:${name}`)
+  const { power, defense, magic, speed, rarity } = crafted
   const level = 1
   const supply = 1
   const now = Date.now()
@@ -229,8 +244,8 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
 
   const info = db
     .prepare(
-      `INSERT INTO artifacts (owner_id, project_id, name, type, rarity, level, power, defense, magic, speed, status, views_24h, supply, price, list_currency)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'kept', 0, ?, ?, ?)`,
+      `INSERT INTO artifacts (owner_id, project_id, name, type, rarity, level, power, defense, magic, speed, status, views_24h, supply, price, list_currency, craft_score)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'kept', 0, ?, ?, ?, ?)`,
     )
     .run(
       req.user!.userId,
@@ -246,6 +261,7 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
       supply,
       price,
       LIST_CURRENCY_BY_RARITY[rarity],
+      crafted.craftScore,
     )
 
   if (resolvedProjectId) {
@@ -261,7 +277,8 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
   const artifact = db
     .prepare(
       `SELECT id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
-              status, views_24h as views24h, supply, price, list_currency as listCurrency, created_at as createdAt
+              status, views_24h as views24h, supply, price, list_currency as listCurrency,
+              craft_score as craftScore, created_at as createdAt
        FROM artifacts WHERE id = ?`,
     )
     .get(Number(info.lastInsertRowid))
@@ -444,7 +461,8 @@ router.post("/:id/evolve", requireAuth, (req: AuthRequest, res) => {
   const updated = db
     .prepare(
       `SELECT id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
-              status, views_24h as views24h, supply, price, list_currency as listCurrency, created_at as createdAt
+              status, views_24h as views24h, supply, price, list_currency as listCurrency,
+              craft_score as craftScore, created_at as createdAt
        FROM artifacts WHERE id = ?`,
     )
     .get(id)
@@ -640,6 +658,121 @@ router.post("/fuse", requireAuth, asyncHandler(async (req: AuthRequest, res) => 
 
   res.status(201).json({ ok: true, mutation: mutate, artifact })
 }))
+
+/* ---------------- GET /artifacts/:id/provenance ----------------
+   Витрина родословной артефакта — делает петлю созидания видимой и
+   разделяемой (публичный read-only, ссылку можно шарить). Три пласта
+   провенанса, все из уже существующих данных:
+
+     • creator     — первый кузнец (creator_id, миграция 080).
+     • craftScore  — «честность» статов (craft_score, миграция 081);
+                     NULL = выковано до Proof-of-Craft (legacy).
+     • lineage     — дерево ковки-слияния (parent_a_id/parent_b_id,
+                     миграция 078): из каких артефактов скован потомок.
+     • ownership   — цепочка перепродаж (marketplace_listings sold):
+                     кто через кого владел, сколько раз перепродан.
+------------------------------------------------------------------ */
+const PROVENANCE_MAX_DEPTH = 6 /* потолок рекурсии дерева предков (защита от глубины/циклов) */
+
+const provenanceNodeStmt = db.prepare(
+  `SELECT id, name, type, rarity, level, power, defense, magic, speed,
+          craft_score as craftScore, is_mutation as isMutation,
+          parent_a_id as parentAId, parent_b_id as parentBId
+   FROM artifacts WHERE id = ?`,
+)
+
+router.get("/:id/provenance", (req, res) => {
+  const id = Number(req.params.id)
+  if (!id) return res.status(400).json({ error: "Некорректный id" })
+
+  const root: any = db
+    .prepare(
+      `SELECT id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
+              craft_score as craftScore, is_mutation as isMutation, status,
+              owner_id as ownerId, creator_id as creatorId, created_at as createdAt
+       FROM artifacts WHERE id = ?`,
+    )
+    .get(id)
+  if (!root) return res.status(404).json({ error: "Артефакт не найден" })
+
+  const userLite = (uid: number | null | undefined) => {
+    if (!uid) return null
+    return (
+      db.prepare(`SELECT id, username, display_name as displayName FROM users WHERE id = ?`).get(uid) ?? null
+    )
+  }
+
+  /* Дерево предков через fusion. visited защищает от циклов и повторов;
+     глубина ограничена PROVENANCE_MAX_DEPTH. */
+  const visited = new Set<number>()
+  const buildLineage = (artId: number | null, depth: number): any => {
+    if (!artId || depth > PROVENANCE_MAX_DEPTH || visited.has(artId)) return null
+    visited.add(artId)
+    const node: any = provenanceNodeStmt.get(artId)
+    if (!node) return null
+    const parents = [
+      buildLineage(node.parentAId, depth + 1),
+      buildLineage(node.parentBId, depth + 1),
+    ].filter(Boolean)
+    return {
+      id: node.id,
+      name: node.name,
+      rarity: node.rarity,
+      craftScore: node.craftScore,
+      isMutation: !!node.isMutation,
+      parents,
+    }
+  }
+  const lineage = {
+    id: root.id,
+    name: root.name,
+    rarity: root.rarity,
+    craftScore: root.craftScore,
+    isMutation: !!root.isMutation,
+    parents: [buildLineage(root.id, 0)?.parents ?? []].flat(),
+  }
+
+  /* Цепочка владения: реальные перепродажи артефакта (sold-листинги). */
+  const sold: any[] = db
+    .prepare(
+      `SELECT seller_id as sellerId, buyer_id as buyerId, price, currency, sold_at as soldAt
+       FROM marketplace_listings
+       WHERE artifact_id = ? AND status = 'sold'
+       ORDER BY sold_at ASC`,
+    )
+    .all(id)
+  const ownershipChain = sold.map((s) => ({
+    seller: userLite(s.sellerId),
+    buyer: userLite(s.buyerId),
+    price: s.price,
+    currency: s.currency,
+    soldAt: s.soldAt,
+  }))
+
+  res.set("Cache-Control", "public, max-age=10")
+  res.json({
+    artifact: {
+      id: root.id,
+      name: root.name,
+      type: root.type,
+      rarity: root.rarity,
+      level: root.level,
+      power: root.power,
+      defense: root.defense,
+      magic: root.magic,
+      speed: root.speed,
+      craftScore: root.craftScore, // null → выковано до Proof-of-Craft (legacy)
+      isMutation: !!root.isMutation,
+      status: root.status,
+      createdAt: root.createdAt,
+    },
+    creator: userLite(root.creatorId),
+    currentOwner: userLite(root.ownerId),
+    lineage,
+    ownershipChain,
+    resaleCount: ownershipChain.length,
+  })
+})
 
 export default router
 
