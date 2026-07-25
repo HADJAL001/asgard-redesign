@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express"
 import db from "../lib/db"
+import { track, GrowthEvent } from "../lib/analytics"
 
 /* ================================================================
    OSGARD · Публичные share-эндпоинты (БЕЗ авторизации)
@@ -45,6 +46,10 @@ router.get("/artifacts/:id", (req: Request, res: Response) => {
     | undefined
 
   if (!row) return res.status(404).json({ error: "Artifact not found" })
+
+  // Аналитика роста: вирусный охват — публичную карточку кто-то открыл
+  // (переход по расшаренной ссылке / краул соцсети). Гостевое событие.
+  track(GrowthEvent.ShareView, { meta: { artifactId: id } })
 
   // Краулеры и OG-роут могут кешировать — карточка меняется редко.
   res.set("Cache-Control", "public, max-age=300")
