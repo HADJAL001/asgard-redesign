@@ -194,6 +194,7 @@ const ORCHESTRATOR_STREAM_RE = /^orchestrator\/stream\/[^/]+$/
 const GENERATION_STREAM_RE = /^task\/[^/]+\/stream$/
 const TC_MARKET_STREAM_RE = /^tc-market\/stream$/
 const NOTIFICATIONS_STREAM_RE = /^notifications\/stream$/
+const PROJECTS_STREAM_RE = /^projects\/\d+\/stream$/
 
 /**
  * SSE-эндпоинт выполнения цепочки нельзя пропускать через forwardToBackend —
@@ -319,6 +320,11 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
   }
   if (req.method === "GET" && NOTIFICATIONS_STREAM_RE.test(pathStr)) {
     // Персональный поток — требует авторизации (токен из httpOnly cookie).
+    return handleOrchestratorStream(pathStr, req, accessToken)
+  }
+  if (req.method === "GET" && PROJECTS_STREAM_RE.test(pathStr)) {
+    // Живой лог генерации проекта (GET /projects/:id/stream) — владелец-only,
+    // бэкенд проверяет user_id по Bearer из httpOnly cookie.
     return handleOrchestratorStream(pathStr, req, accessToken)
   }
 

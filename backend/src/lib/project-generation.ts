@@ -13,6 +13,7 @@ import { adaptTemplate } from "../services/template-adapter"
 import { captureError } from "./sentry"
 import { GENERATION_DEPTHS, type GenerationDepth } from "./generation-depths"
 import { createNotification } from "./notifications"
+import { emitGenerationStage } from "./generation-events"
 import { getForgeBonusForUser } from "./forge-loadout"
 import { addArchitectXp } from "./architect-progression"
 
@@ -116,7 +117,12 @@ async function runAppGenerationJob(
     let badge = quick.badge
     let artifactNames: string[] | null = null
 
+    // Стадия 1: замысел разобран (тема/шаблон уже определены синхронно при создании проекта).
+    emitGenerationStage({ projectId, stage: "analyzing", label: "Анализирую замысел", progress: 0.1 })
+
     if (template) {
+      // Стадия 2a: найден подходящий шаблон — адаптируем (быстрее и дешевле AI).
+      emitGenerationStage({ projectId, stage: "template", label: "Адаптирую шаблон", progress: 0.35 })
       const adapted = await adaptTemplate(template, name, hint)
       files = adapted.files
       source = adapted.source
@@ -126,6 +132,8 @@ async function runAppGenerationJob(
 
       incrementTemplateUsage(template.id, estimateTokensSaved(template.files.length))
     } else {
+      // Стадия 2b: шаблона нет — полная генерация кода через AI (дольше).
+      emitGenerationStage({ projectId, stage: "ai", label: "Генерирую код приложения", progress: 0.35 })
       const result = await generateApp(name, hint, { bypassCache })
       files = result.files
       source = result.source
@@ -143,8 +151,12 @@ async function runAppGenerationJob(
       }
     }
 
+    // Стадия 3: проверяем сгенерированные файлы.
+    emitGenerationStage({ projectId, stage: "validating", label: "Проверяю файлы", progress: 0.7, fileCount: files.length })
     const errors = validateGeneratedFiles(files)
 
+    // Стадия 4: записываем файлы проекта.
+    emitGenerationStage({ projectId, stage: "writing", label: "Записываю файлы проекта", progress: 0.85, fileCount: files.length })
     const insertFile = db.prepare(
       `INSERT INTO project_files (project_id, path, content, updated_at)
        VALUES (?, ?, ?, ?)
@@ -169,6 +181,16 @@ async function runAppGenerationJob(
       })
     }
 
+    // Терминальная стадия ready: живой лог рождения проекта завершён успехом.
+    emitGenerationStage({
+      projectId,
+      stage: "ready",
+      label: "Приложение готово",
+      progress: 1,
+      fileCount: files.length,
+      source,
+    })
+
     // Реальное асинхронное событие завершения: мгновенно пушим уведомление через SSE.
     createNotification({
       userId,
@@ -179,10 +201,13 @@ async function runAppGenerationJob(
     })
   } catch (err: any) {
     captureError("[projects.generate] app generation job failed:", err)
+    const message = err?.message || "Неизвестная ошибка генерации"
     db.prepare(`UPDATE projects SET status = 'failed', generation_error = ? WHERE id = ?`).run(
-      err?.message || "Неизвестная ошибка генерации",
+      message,
       projectId,
     )
+    // Терминальная стадия failed: клиент показывает ошибку и кнопку «попробовать снова».
+    emitGenerationStage({ projectId, stage: "failed", label: "Ошибка генерации", progress: 1, error: message })
     createNotification({
       userId,
       type: "generation_failed",

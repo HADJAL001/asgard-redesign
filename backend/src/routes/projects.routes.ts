@@ -13,8 +13,12 @@ import { captureError } from "../lib/sentry"
 import { PROJECT_SELECT_COLUMNS, createGeneratedProject } from "../lib/project-generation"
 import { GENERATION_DEPTHS, resolveDepth, serializeDepths } from "../lib/generation-depths"
 import { logAudit } from "../lib/audit"
+import { generationEvents, getRecentStages, type GenerationStageEvent } from "../lib/generation-events"
 
 const router = Router()
+
+/** Счётчик активных SSE-подключений к живому логу генерации — для /health и диагностики. */
+export let activeGenerationSseConnections = 0
 
 const LIST_CURRENCY_BY_RARITY: Record<string, string> = {
   common: "credits",
@@ -344,6 +348,87 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     return res.status(500).json({ error: "Не удалось создать проект, кредиты возвращены" })
   }
 }))
+
+/* ---------------- GET /projects/:id/stream — живой SSE-лог рождения проекта ----------------
+   Фоновый джоб генерации (lib/project-generation.ts) эмитит стадии через generationEvents;
+   этот поток проталкивает их владельцу проекта в реальном времени — страница проекта
+   показывает живой прогресс вместо статичного спиннера. При подключении: снапшот статуса +
+   реплей буферизованных стадий (джоб стартует до подписки клиента, первые стадии могли
+   отыграть раньше). Опрос GET /projects/:id остаётся резервным каналом. Паттерн повторяет
+   GET /notifications/stream. Доступ строго к своему проекту (иначе 404, без утечки чужих id).
+------------------------------------------------------------------------------- */
+router.get("/:id/stream", requireAuth, (req: AuthRequest, res) => {
+  const id = Number(req.params.id)
+  const userId = req.user!.userId
+  if (!Number.isInteger(id)) return res.status(400).json({ error: "Некорректный ID проекта" })
+
+  const project: any = db.prepare(`SELECT user_id, status FROM projects WHERE id = ?`).get(id)
+  // Один и тот же 404 и на несуществующий, и на чужой — не даём энумерировать чужие проекты.
+  if (!project || project.user_id !== userId) {
+    return res.status(404).json({ error: "Проект не найден" })
+  }
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  })
+
+  const send = (event: unknown) => {
+    res.write(`data: ${JSON.stringify(event)}\n\n`)
+  }
+
+  // Снапшот текущего статуса — клиент сразу знает, генерится проект или уже завершён.
+  send({ type: "snapshot", projectId: id, status: project.status })
+
+  // Реплей накопленных стадий (поздний подписчик получает лог, а не пустоту).
+  const buffered = getRecentStages(id)
+  for (const evt of buffered) send(evt)
+
+  const bufferedTerminal = buffered.some((e) => e.stage === "ready" || e.stage === "failed")
+
+  // Если генерация уже завершилась к моменту подписки, а терминальной стадии в буфере нет
+  // (буфер протух/джоб был до перезапуска сервера) — синтезируем терминал из БД и закрываем.
+  if (project.status !== "generating" && !bufferedTerminal) {
+    const errorRow: any =
+      project.status === "failed"
+        ? db.prepare(`SELECT generation_error FROM projects WHERE id = ?`).get(id)
+        : null
+    send({
+      type: "stage",
+      projectId: id,
+      stage: project.status === "failed" ? "failed" : "ready",
+      label: project.status === "failed" ? "Ошибка генерации" : "Приложение готово",
+      progress: 1,
+      error: errorRow?.generation_error || undefined,
+      at: Date.now(),
+    })
+    return res.end()
+  }
+  // Терминал уже был отдан из буфера — закрываемся, не подписываемся зря.
+  if (bufferedTerminal) return res.end()
+
+  const channel = `gen:${id}`
+  const onStage = (evt: GenerationStageEvent) => {
+    send(evt)
+    if (evt.stage === "ready" || evt.stage === "failed") {
+      cleanup()
+      res.end()
+    }
+  }
+
+  const heartbeat = setInterval(() => res.write(": ping\n\n"), 15_000)
+  const cleanup = () => {
+    clearInterval(heartbeat)
+    generationEvents.off(channel, onStage)
+    activeGenerationSseConnections--
+  }
+
+  activeGenerationSseConnections++
+  generationEvents.on(channel, onStage)
+  req.on("close", cleanup)
+})
 
 /* ---------------- POST /projects/:id/publish-github — публикация в GitHub пользователя ----------------
    Требует, чтобы пользователь подключил GitHub для публикации (GET /auth/github/publish/connect,
