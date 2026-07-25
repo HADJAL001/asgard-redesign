@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { Navbar } from "./navbar"
+import { LivePulseBar } from "./live-pulse-bar"
 import { OnboardingTutorial } from "./OnboardingTutorial"
 import { OnboardingPrologue } from "./OnboardingPrologue"
 import { AiUsageWidget } from "./AiUsageWidget"
@@ -193,6 +194,9 @@ export function DashboardView() {
           <p className="mt-1 text-[14px]" style={{ color: "rgba(255,255,255,0.4)" }}>
             Обзор системы и активности
           </p>
+          <div className="mt-5">
+            <LivePulseBar />
+          </div>
         </header>
 
         {/* Подтверждение переноса демо-вселенной */}

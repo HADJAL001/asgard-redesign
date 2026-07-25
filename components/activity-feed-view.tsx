@@ -3,10 +3,15 @@
 import { useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { Hammer, Coins, Trophy, Loader2, Sparkles, type LucideIcon } from "lucide-react"
 import { Navbar } from "./navbar"
+import { LivePulseBar } from "./live-pulse-bar"
 import { useActivityStore, type ActivityEvent } from "@/lib/store/activity-store"
 import { useTranslation } from "@/lib/i18n/use-translation"
+
+/** Интервал «живого тикера» — как в notifications-store: тихий поллинг раз в ~20с. */
+const PULSE_POLL_MS = 20_000
 
 const DEFAULT_AVATAR =
   "data:image/svg+xml;utf8," +
@@ -46,13 +51,17 @@ function timeLabelFor(raw: string): string {
   return `${diffD} ${diffD % 10 === 1 && diffD % 100 !== 11 ? "день" : "дней"} назад`
 }
 
-function EventCard({ item }: { item: ActivityEvent }) {
+function EventCard({ item, reduce }: { item: ActivityEvent; reduce: boolean }) {
   const Icon = TYPE_ICON[item.type] ?? Sparkles
   const color = TYPE_COLOR[item.type] ?? "#6A6A8A"
   const name = item.actor.displayName || item.actor.username
 
   return (
-    <article
+    <motion.article
+      layout={!reduce}
+      initial={reduce ? { opacity: 0 } : { opacity: 0, y: -14, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: reduce ? 0.2 : 0.42, ease: [0.16, 1, 0.3, 1] }}
       className="rounded-lg p-4 transition-colors"
       style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = color)}
@@ -86,18 +95,37 @@ function EventCard({ item }: { item: ActivityEvent }) {
           </p>
         </div>
       </div>
-    </article>
+    </motion.article>
   )
 }
 
 export function ActivityFeedView() {
   const { t } = useTranslation()
-  const { events, nextCursor, loading, loadingMore, error, fetchFeed, loadMore } = useActivityStore()
+  const reduce = useReducedMotion() ?? false
+  const { events, nextCursor, loading, loadingMore, error, fetchFeed, loadMore, refresh } = useActivityStore()
 
   useEffect(() => {
     fetchFeed()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Живой тикер: тихо подтягиваем новые события раз в ~20с. Пауза, когда вкладка
+  // скрыта (не жжём сеть в фоне), и мгновенный refresh при возврате на вкладку.
+  useEffect(() => {
+    const tick = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return
+      void refresh()
+    }
+    const id = window.setInterval(tick, PULSE_POLL_MS)
+    const onVis = () => {
+      if (document.visibilityState === "visible") void refresh()
+    }
+    document.addEventListener("visibilitychange", onVis)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener("visibilitychange", onVis)
+    }
+  }, [refresh])
 
   return (
     <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: "#FFFFFF" }}>
@@ -109,6 +137,10 @@ export function ActivityFeedView() {
           <p className="mt-1 text-[14px]" style={{ color: "rgba(255,255,255,0.4)" }}>
             {t("activityFeed.subtitle")}
           </p>
+        </div>
+
+        <div className="mt-6">
+          <LivePulseBar />
         </div>
 
         {loading && events.length === 0 && (
@@ -137,9 +169,11 @@ export function ActivityFeedView() {
 
         {events.length > 0 && (
           <div className="mt-8 flex flex-col gap-3">
-            {events.map((item) => (
-              <EventCard key={item.id} item={item} />
-            ))}
+            <AnimatePresence initial={false}>
+              {events.map((item) => (
+                <EventCard key={item.id} item={item} reduce={reduce} />
+              ))}
+            </AnimatePresence>
           </div>
         )}
 
