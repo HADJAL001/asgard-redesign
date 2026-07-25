@@ -18,11 +18,22 @@
 
 import { useEffect, useState } from "react"
 import { X, Sparkles, Wand2, PenLine, Loader2, ArrowRight, ArrowLeft, Check, Coins } from "lucide-react"
-import { useOsgardStore } from "@/lib/store/osgard-store"
-import { COLORS } from "@/lib/economy"
+import { useOsgardStore, type OsgardArtifact } from "@/lib/store/osgard-store"
+import { COLORS, RARITY, RARITY_CHAIN } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { apiClient } from "@/lib/api-client"
 import { UpgradeNudgeModal, useUpgradeNudge } from "./UpgradeNudgeModal"
+import { GenerationStages } from "./GenerationStages"
+import { ProjectArtifactReveal, type RevealRarityMeta } from "./ProjectArtifactReveal"
+
+/** rarityMeta для reveal строится из реальной экономики — знание таксономии
+ *  (mythic=фольга, legendary=сияние) живёт здесь, а не в переиспользуемом компоненте. */
+const REVEAL_RARITY_META: Record<string, RevealRarityMeta> = Object.fromEntries(
+  RARITY_CHAIN.map((k) => {
+    const r = RARITY[k]
+    return [k, { label: r.label, color: r.color, symbol: r.symbol, glow: k === "mythic", shine: k === "legendary" }]
+  }),
+)
 
 type Theme = {
   id: string
@@ -80,6 +91,8 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
   const [error, setError] = useState<string | null>(null)
   /** true, пока идёт фоновая генерация файлов реального приложения (после создания проекта). */
   const [generatingApp, setGeneratingApp] = useState(false)
+  /** Данные для ритуала раскрытия артефактов — заполняются, когда проект готов. */
+  const [reveal, setReveal] = useState<{ projectId: number; name: string; description?: string; artifacts: OsgardArtifact[] } | null>(null)
   /** Каталог глубин генерации + выбранная глубина (по умолчанию бесплатная quick). */
   const [depths, setDepths] = useState<DepthOption[]>([])
   const [depthId, setDepthId] = useState<DepthOption["id"]>("quick")
@@ -106,6 +119,8 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
 
   const totalSteps = 3
   const progress = (step / totalSteps) * 100
+  /** Мастер занят ритуалом (генерация или раскрытие) — прячем шаги, прогресс-бар и футер. */
+  const busy = generatingApp || !!reveal
 
   function goNext() {
     setError(null)
@@ -146,7 +161,18 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
           trackGeneration()
 
           if (finalProject?.status === "ready") {
-            onCreated(finalProject.id)
+            // Момент магии: если вместе с проектом родились артефакты — показываем
+            // ритуал раскрытия, а не молча закрываем мастер. onDone продолжит в onCreated.
+            if (res.artifacts && res.artifacts.length > 0) {
+              setReveal({
+                projectId: finalProject.id,
+                name: finalProject.name,
+                description: finalProject.description,
+                artifacts: res.artifacts,
+              })
+            } else {
+              onCreated(finalProject.id)
+            }
           } else if (finalProject?.status === "failed") {
             setError(finalProject.generationError || t("projectWizard.generationFailed"))
           } else {
@@ -206,25 +232,48 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
         </div>
 
         {/* Progress bar */}
-        <div className="mt-4">
-          <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ backgroundColor: COLORS.border }}>
-            <div
-              className="h-full rounded-full transition-all duration-300"
-              style={{ width: `${progress}%`, backgroundColor: COLORS.accent }}
-            />
+        {!busy && (
+          <div className="mt-4">
+            <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ backgroundColor: COLORS.border }}>
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${progress}%`, backgroundColor: COLORS.accent }}
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-between text-[11px]" style={{ color: COLORS.label }}>
+              <span>{t("projectWizard.stepOf", { step, total: totalSteps })}</span>
+              <span>
+                {step === 1 && t("projectWizard.step1Label")}
+                {step === 2 && t("projectWizard.step2Label")}
+                {step === 3 && t("projectWizard.step3Label")}
+              </span>
+            </div>
           </div>
-          <div className="mt-2 flex items-center justify-between text-[11px]" style={{ color: COLORS.label }}>
-            <span>{t("projectWizard.stepOf", { step, total: totalSteps })}</span>
-            <span>
-              {step === 1 && t("projectWizard.step1Label")}
-              {step === 2 && t("projectWizard.step2Label")}
-              {step === 3 && t("projectWizard.step3Label")}
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* Step content */}
         <div className="mt-6 min-h-[220px]">
+          {reveal ? (
+            <ProjectArtifactReveal
+              projectName={reveal.name}
+              projectDescription={reveal.description}
+              artifacts={reveal.artifacts}
+              rarityMeta={REVEAL_RARITY_META}
+              onDone={() => onCreated(reveal.projectId)}
+            />
+          ) : generatingApp ? (
+            <div>
+              <p className="flex items-center gap-2 text-[14px] font-medium" style={{ color: COLORS.text }}>
+                <Wand2 size={16} strokeWidth={1.75} style={{ color: COLORS.accent }} />
+                {t("projectWizard.aiWillGenerate", {
+                  name: name || "…",
+                  theme: theme?.label || t("projectWizard.noTheme"),
+                })}
+              </p>
+              <GenerationStages done={false} />
+            </div>
+          ) : (
+          <>
           {step === 1 && (
             <div>
               <label className="text-[13px] font-medium" style={{ color: COLORS.text }}>
@@ -437,17 +486,10 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
                 </div>
               )}
 
-              {mode === "ai" && !generatingApp && (
+              {mode === "ai" && (
                 <p className="mt-4 flex items-center gap-2 text-[12px]" style={{ color: COLORS.label }}>
                   <Wand2 size={14} strokeWidth={1.75} />
                   {t("projectWizard.aiWillGenerate", { name: name || "…", theme: theme?.label || t("projectWizard.noTheme") })}
-                </p>
-              )}
-
-              {generatingApp && (
-                <p className="mt-4 flex items-center gap-2 text-[12px]" style={{ color: COLORS.accent }}>
-                  <Loader2 size={14} className="animate-spin" />
-                  {t("projectWizard.generatingApp")}
                 </p>
               )}
             </div>
@@ -458,9 +500,12 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
               {error}
             </p>
           )}
+          </>
+          )}
         </div>
 
         {/* Footer buttons */}
+        {!busy && (
         <div className="mt-6 flex items-center justify-between gap-3">
           <button
             type="button"
@@ -509,6 +554,7 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
             </button>
           )}
         </div>
+        )}
       </div>
     </div>
     </>

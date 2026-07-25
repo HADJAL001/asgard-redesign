@@ -32,6 +32,12 @@ export interface RevealArtifact {
 export interface RevealRarityMeta {
   label: string
   color: string
+  /** Символ редкости (○ ◇ ◆ ★ ∞) — усиливает «ощутимость» тира. */
+  symbol?: string
+  /** Высший тир (mythic-подобный): голографическая фольга на имени + сильное свечение. */
+  glow?: boolean
+  /** Предвысший тир (legendary-подобный): золотое сияние. */
+  shine?: boolean
 }
 
 export interface ProjectArtifactRevealProps {
@@ -86,6 +92,14 @@ export function ProjectArtifactReveal({
 
   const fallbackMeta: RevealRarityMeta = Object.values(rarityMeta)[0] ?? { label: "", color: "#9CA3AF" }
 
+  // «Лучшая находка» — артефакт с наибольшей суммой статов. Получает подсветку,
+  // чтобы в каскаде рождения был явный герой момента.
+  const bestId = artifacts.length
+    ? artifacts.reduce((best, a) =>
+        a.power + a.defense + a.magic + a.speed > best.power + best.defense + best.magic + best.speed ? a : best,
+      ).id
+    : null
+
   return (
     <div className="flex flex-col items-center gap-5 text-center">
       {/* Проект — источник */}
@@ -129,18 +143,58 @@ export function ProjectArtifactReveal({
         {artifacts.map((a, i) => {
           const Icon = TYPE_ICON[a.type] || Sparkles
           const meta = rarityMeta[a.rarity] || fallbackMeta
+          const isBest = a.id === bestId
+          // Свечение иконки пропорционально тиру: высший — двойное, легендарный — золотое.
+          const iconGlow = meta.glow
+            ? `0 0 18px ${meta.color}, inset 0 0 12px ${meta.color}55`
+            : meta.shine
+              ? `0 0 14px ${meta.color}88`
+              : `0 0 8px ${meta.color}44`
+          const statSum = a.power + a.defense + a.magic + a.speed
           return (
             <motion.div
               key={a.id}
               initial={reduce ? false : { opacity: 0, y: 16, scale: 0.9 }}
               animate={showArtifacts ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 16, scale: 0.9 }}
               transition={{ duration: 0.4, delay: reduce ? 0 : i * 0.12, ease: [0.16, 1, 0.3, 1] }}
-              className="flex flex-col items-center gap-1.5 rounded-xl p-3"
-              style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${meta.color}33` }}
+              className="relative flex flex-col items-center gap-1.5 rounded-xl p-3"
+              style={{
+                background: "rgba(255,255,255,0.03)",
+                border: `1px solid ${meta.color}${isBest ? "aa" : "33"}`,
+                boxShadow: isBest ? `0 0 20px ${meta.color}33` : "none",
+              }}
             >
-              <Icon size={18} strokeWidth={1.5} style={{ color: meta.color }} />
-              <span className="text-[11px] font-medium text-white/85 truncate w-full text-center">{a.name}</span>
-              <span className="text-[10px]" style={{ color: meta.color }}>{meta.label}</span>
+              {isBest && (
+                <span
+                  className="absolute -top-2 right-2 rounded-full px-1.5 py-px text-[8px] font-semibold uppercase tracking-wide"
+                  style={{ background: meta.color, color: "#0A1128" }}
+                >
+                  ★ находка
+                </span>
+              )}
+              <span
+                className="flex size-9 items-center justify-center rounded-lg"
+                style={{ border: `1px solid ${meta.color}`, boxShadow: iconGlow }}
+              >
+                <Icon size={18} strokeWidth={1.5} style={{ color: meta.color }} />
+              </span>
+              <span
+                className={`text-[11px] font-medium truncate w-full text-center ${meta.glow ? "rarity-mythic-foil" : ""}`}
+                style={
+                  meta.shine
+                    ? { color: meta.color, textShadow: `0 0 12px ${meta.color}66` }
+                    : { color: "rgba(255,255,255,0.85)" }
+                }
+              >
+                {a.name}
+              </span>
+              <span className="flex items-center gap-1 text-[10px]" style={{ color: meta.color }}>
+                {meta.symbol && <span aria-hidden>{meta.symbol}</span>}
+                {meta.label}
+              </span>
+              <span className="premium-num text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+                {statSum} ⚡
+              </span>
             </motion.div>
           )
         })}
