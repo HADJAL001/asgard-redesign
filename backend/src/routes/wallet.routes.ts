@@ -8,6 +8,7 @@ import { TwoFAService } from "../services/twofa.service"
 import { SolanaService } from "../services/solana.service"
 import { transferSchema } from "../validators/transfer.validator"
 import { logAudit } from "../lib/audit"
+import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
 
 const router = Router()
 const solanaService = new SolanaService()
@@ -85,40 +86,63 @@ router.post("/convert", requireAuth, (req: AuthRequest, res) => {
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
   if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
 
-  if (wallet[from] < amt) {
-    return res.status(400).json({ error: "Недостаточно средств" })
-  }
-
+  /* Курс/комиссия детерминированы (не зависят от текущего баланса) — считаем до
+     транзакции. from/to прошли whitelist CURRENCIES, поэтому интерполяция
+     ${from}/${to} в SQL безопасна (не свободный пользовательский ввод). */
   const amountAfterFee = amt * (1 - CONVERT_FEE)
   const usdValue = amountAfterFee * RATE_TO_USD[from as CurrencyKey]
   const received = usdValue / RATE_TO_USD[to as CurrencyKey]
+  const now = Date.now()
+  const userId = req.user!.userId
+  const idemKey = normalizeIdemKey(req.header("Idempotency-Key") ?? (req.body as any)?.idempotencyKey)
 
-  const newFrom = wallet[from] - amt
-  const newTo = wallet[to] + received
+  try {
+    const opResult = runEconomyOp({
+      userId,
+      scope: "wallet_convert",
+      idemKey,
+      mutate: () => {
+        /* Списание и начисление — ОДНИМ условным UPDATE в транзакции. Прежде это
+           были два отдельных стейтмента поверх баланса, прочитанного ВНЕ
+           транзакции: параллельные конвертации могли уйти в минус (TOCTOU), а
+           падение между шагами оставляло частичное состояние. WHERE ${from} >= amt
+           делает списание авторитетным; changes!==1 → недостаточно средств. */
+        const upd = db
+          .prepare(
+            `UPDATE wallets SET ${from} = ${from} - ?, ${to} = ${to} + ?, updated_at = ?
+             WHERE user_id = ? AND ${from} >= ?`,
+          )
+          .run(amt, received, now, userId, amt)
+        if (upd.changes !== 1) {
+          throw new EconomyError("Недостаточно средств", 400)
+        }
 
-  db.prepare(`UPDATE wallets SET ${from} = ?, ${to} = ?, updated_at = ? WHERE user_id = ?`).run(
-    newFrom,
-    newTo,
-    Date.now(),
-    req.user!.userId,
-  )
+        db.prepare(
+          `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+           VALUES (?, 'convert', ?, ?, ?, ?, 'done')`,
+        ).run(userId, `${from} → ${to}`, "Обмен валют", amt, from)
 
-  db.prepare(
-    `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-     VALUES (?, 'convert', ?, ?, ?, ?, 'done')`,
-  ).run(req.user!.userId, `${from} → ${to}`, "Обмен валют", amt, from)
+        const updatedWallet = db
+          .prepare(
+            `SELECT credits, shards, crystals, timecoin, cash_usd, updated_at as updatedAt
+             FROM wallets WHERE user_id = ?`,
+          )
+          .get(userId)
 
-  const updatedWallet = db
-    .prepare(
-      `SELECT credits, shards, crystals, timecoin, cash_usd, updated_at as updatedAt
-       FROM wallets WHERE user_id = ?`,
-    )
-    .get(req.user!.userId)
+        return {
+          wallet: updatedWallet,
+          conversion: { from, to, amountSent: amt, amountReceived: received, fee: CONVERT_FEE },
+        }
+      },
+    })
 
-  res.json({
-    wallet: updatedWallet,
-    conversion: { from, to, amountSent: amt, amountReceived: received, fee: CONVERT_FEE },
-  })
+    return res.json(opResult.result)
+  } catch (err) {
+    if (err instanceof EconomyError) {
+      return res.status(err.status).json({ error: err.message })
+    }
+    throw err
+  }
 })
 
 /* ================================================================

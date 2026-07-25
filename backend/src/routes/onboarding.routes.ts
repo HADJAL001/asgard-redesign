@@ -2,6 +2,7 @@ import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { logAudit } from "../lib/audit"
+import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
 
 const router = Router()
 
@@ -125,20 +126,55 @@ router.get("/economy-map-reward", requireAuth, (req: AuthRequest, res) => {
 
 /* POST — забрать одноразовую награду за прохождение обучения. */
 router.post("/economy-map-reward", requireAuth, (req: AuthRequest, res) => {
-  const u: any = db.prepare(`SELECT economy_map_reward_claimed FROM users WHERE id = ?`).get(req.user!.userId)
+  const userId = req.user!.userId
+  const idemKey = normalizeIdemKey(req.header("Idempotency-Key") ?? (req.body as any)?.idempotencyKey)
+
+  const u: any = db.prepare(`SELECT economy_map_reward_claimed FROM users WHERE id = ?`).get(userId)
   if (!u) return res.status(404).json({ error: "Пользователь не найден", code: "USER_NOT_FOUND" })
+  /* Дешёвая предпроверка (быстрый 400 без транзакции). Авторитетная защита от
+     двойного получения — условный UPDATE флага внутри mutate. */
   if (u.economy_map_reward_claimed) {
     return res.status(400).json({ error: "Награда за обучение уже получена", code: "ALREADY_CLAIMED" })
   }
-  const now = Date.now()
-  db.prepare(`UPDATE wallets SET credits = credits + ?, updated_at = ? WHERE user_id = ?`).run(ECONOMY_MAP_REWARD_CREDITS, now, req.user!.userId)
-  db.prepare(`UPDATE users SET economy_map_reward_claimed = 1 WHERE id = ?`).run(req.user!.userId)
-  db.prepare(
-    `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-     VALUES (?, 'onboarding_reward', 'Обучение: Карта экономики', 'Академия OSGARD', ?, 'credits', 'done')`,
-  ).run(req.user!.userId, ECONOMY_MAP_REWARD_CREDITS)
-  logAudit(req.user!.userId, "credit", ECONOMY_MAP_REWARD_CREDITS, "economy_map_reward", {})
-  res.json({ ok: true, credits: ECONOMY_MAP_REWARD_CREDITS })
+
+  try {
+    const opResult = runEconomyOp({
+      userId,
+      scope: "onboarding_economy_reward",
+      idemKey,
+      mutate: () => {
+        /* Авторитетный «захват» награды: перевод флага 0→1 условным UPDATE.
+           Прежде флаг читался и проверялся ВНЕ транзакции, а начисление шло
+           тремя отдельными записями → двойной клик/гонка = двойная награда и
+           частичное состояние. changes!==1 → уже получено (кто-то опередил). */
+        const claim = db
+          .prepare(`UPDATE users SET economy_map_reward_claimed = 1 WHERE id = ? AND economy_map_reward_claimed = 0`)
+          .run(userId)
+        if (claim.changes !== 1) {
+          throw new EconomyError("Награда за обучение уже получена", 400, { code: "ALREADY_CLAIMED" })
+        }
+        const now = Date.now()
+        db.prepare(`UPDATE wallets SET credits = credits + ?, updated_at = ? WHERE user_id = ?`).run(ECONOMY_MAP_REWARD_CREDITS, now, userId)
+        db.prepare(
+          `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+           VALUES (?, 'onboarding_reward', 'Обучение: Карта экономики', 'Академия OSGARD', ?, 'credits', 'done')`,
+        ).run(userId, ECONOMY_MAP_REWARD_CREDITS)
+        return { ok: true, credits: ECONOMY_MAP_REWARD_CREDITS }
+      },
+    })
+
+    if (!opResult.replayed) {
+      logAudit(userId, "credit", ECONOMY_MAP_REWARD_CREDITS, "economy_map_reward", {})
+    }
+    return res.json(opResult.result)
+  } catch (err) {
+    if (err instanceof EconomyError) {
+      const body: Record<string, unknown> = { error: err.message }
+      if (err.payload && typeof err.payload === "object") Object.assign(body, err.payload)
+      return res.status(err.status).json(body)
+    }
+    throw err
+  }
 })
 
 export default router

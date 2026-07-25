@@ -2,6 +2,7 @@ import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { asyncHandler } from "../utils/async-handler"
+import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
 import {
   emptyStyleVector,
   updateStyleVector,
@@ -316,42 +317,61 @@ router.post("/rental/rent", requireAuth, (req: AuthRequest, res) => {
   if (twinRow.user_id === renterId) return res.status(400).json({ error: "Нельзя арендовать своего близнеца" })
 
   const totalPrice = Math.round(twinRow.rental_price_tc * daysNum * 100) / 100
+  const idemKey = normalizeIdemKey(req.header("Idempotency-Key") ?? (req.body as any)?.idempotencyKey)
 
-  // Атомарное условное списание вместо SELECT-then-UPDATE — исключает гонку
-  // при параллельных запросах на аренду от одного пользователя.
-  const debit = db
-    .prepare(`UPDATE wallets SET timecoin = timecoin - ? WHERE user_id = ? AND timecoin >= ?`)
-    .run(totalPrice, renterId, totalPrice)
-  if (debit.changes !== 1) {
-    return res.status(400).json({ error: "Недостаточно TimeCoin для аренды" })
+  try {
+    const opResult = runEconomyOp({
+      userId: renterId,
+      scope: "twin_rental",
+      idemKey,
+      mutate: () => {
+        const now = Date.now()
+        const endsAt = now + daysNum * 86_400_000
+
+        /* Условное списание у арендатора (гонко-безопасно). Прежде списание и
+           начисление владельцу/доход/вставка аренды шли ЧЕТЫРЬМЯ отдельными
+           стейтментами без транзакции: падение после списания уничтожало TC
+           (арендатор списан, владелец не получил). Теперь всё в одной транзакции. */
+        const debit = db
+          .prepare(`UPDATE wallets SET timecoin = timecoin - ? WHERE user_id = ? AND timecoin >= ?`)
+          .run(totalPrice, renterId, totalPrice)
+        if (debit.changes !== 1) {
+          throw new EconomyError("Недостаточно TimeCoin для аренды", 400)
+        }
+
+        db.prepare(`UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?`).run(totalPrice, twinRow.user_id)
+        db.prepare(`UPDATE user_twins SET total_rental_income = total_rental_income + ? WHERE id = ?`).run(totalPrice, twinRow.id)
+
+        const info = db
+          .prepare(
+            `INSERT INTO twin_rentals (twin_id, owner_id, renter_id, days, total_price_tc, status, started_at, ends_at, created_at)
+             VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
+          )
+          .run(twinRow.id, twinRow.user_id, renterId, daysNum, totalPrice, now, endsAt, now)
+
+        return {
+          rental: {
+            id: Number(info.lastInsertRowid),
+            twinId: twinRow.id,
+            ownerId: twinRow.user_id,
+            renterId,
+            days: daysNum,
+            totalPriceTc: totalPrice,
+            status: "active",
+            startedAt: now,
+            endsAt,
+          },
+        }
+      },
+    })
+
+    return res.status(opResult.replayed ? 200 : 201).json(opResult.result)
+  } catch (err) {
+    if (err instanceof EconomyError) {
+      return res.status(err.status).json({ error: err.message })
+    }
+    throw err
   }
-
-  const now = Date.now()
-  const endsAt = now + daysNum * 86_400_000
-
-  db.prepare(`UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?`).run(totalPrice, twinRow.user_id)
-  db.prepare(`UPDATE user_twins SET total_rental_income = total_rental_income + ? WHERE id = ?`).run(totalPrice, twinRow.id)
-
-  const info = db
-    .prepare(
-      `INSERT INTO twin_rentals (twin_id, owner_id, renter_id, days, total_price_tc, status, started_at, ends_at, created_at)
-       VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
-    )
-    .run(twinRow.id, twinRow.user_id, renterId, daysNum, totalPrice, now, endsAt, now)
-
-  res.status(201).json({
-    rental: {
-      id: Number(info.lastInsertRowid),
-      twinId: twinRow.id,
-      ownerId: twinRow.user_id,
-      renterId,
-      days: daysNum,
-      totalPriceTc: totalPrice,
-      status: "active",
-      startedAt: now,
-      endsAt,
-    },
-  })
 })
 
 /* ---------------- GET /twin/rentals/mine — аренды, где я арендатор ---------------- */
