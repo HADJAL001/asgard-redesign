@@ -32,6 +32,7 @@ import { COLORS, badgeIcon, RARITY, ARTIFACT_TYPES, STAT_META, type ArtifactType
 import { fmtTC, fmtUSD } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { API_BASE_URL } from "@/lib/api-client"
+import { useProjectGenerationStream } from "@/hooks/useProjectGenerationStream"
 
 type ArtifactStatus = "kept" | "listed" | "sold"
 
@@ -92,6 +93,14 @@ export function ProjectDetailView({ projectId }: Props) {
     return () => clearCurrentProject()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
+
+  // Живой лог генерации (SSE): пока проект в статусе 'generating', слушаем стадии
+  // рождения приложения; на терминале (ready/failed) подтягиваем свежий проект +
+  // артефакты — страница обновляется без ручного релоада. Опрос остаётся резервом.
+  const isGenerating = currentProject?.status === "generating"
+  const genStream = useProjectGenerationStream(projectId, isGenerating, () => {
+    fetchProject(projectId, { skipAuthRedirect: true })
+  })
 
   useEffect(() => {
     const connected = searchParams.get("githubPublishConnected")
@@ -289,11 +298,49 @@ export function ProjectDetailView({ projectId }: Props) {
         {/* Status banners: генерация приложения, деплой, публикация */}
         {currentProject.status === "generating" && (
           <div
-            className="mt-6 flex items-center gap-3 rounded-xl px-4 py-3"
+            className="mt-6 rounded-xl px-4 py-3"
             style={{ backgroundColor: "rgba(0,212,255,0.06)", border: `1px solid ${COLORS.accent}` }}
           >
-            <Loader2 size={16} className="animate-spin" style={{ color: COLORS.accent, flexShrink: 0 }} />
-            <p className="text-[13px]">{t("projectWizard.generatingApp")}</p>
+            <div className="flex items-center gap-3">
+              <Loader2 size={16} className="animate-spin" style={{ color: COLORS.accent, flexShrink: 0 }} />
+              <p className="text-[13px]">{genStream.latest?.label ?? t("projectWizard.generatingApp")}</p>
+            </div>
+
+            {/* Полоса прогресса — грубая оценка по текущей стадии рождения приложения. */}
+            <div
+              className="mt-2 h-1.5 w-full overflow-hidden rounded-full"
+              style={{ backgroundColor: "rgba(0,212,255,0.12)" }}
+            >
+              <div
+                className="h-full rounded-full transition-all duration-500 ease-out"
+                style={{
+                  width: `${Math.round((genStream.progress || 0.05) * 100)}%`,
+                  backgroundColor: COLORS.accent,
+                }}
+              />
+            </div>
+
+            {/* Живой лог стадий: пройденные — с галочкой, текущая — со спиннером. */}
+            {genStream.stages.length > 0 && (
+              <ul className="mt-3 space-y-1.5">
+                {genStream.stages.map((s) => {
+                  const isCurrent = genStream.latest?.stage === s.stage && !genStream.done
+                  return (
+                    <li key={s.stage} className="flex items-center gap-2 text-[12px]" style={{ color: COLORS.label }}>
+                      {isCurrent ? (
+                        <Loader2 size={13} className="animate-spin" style={{ color: COLORS.accent, flexShrink: 0 }} />
+                      ) : (
+                        <CheckCircle2 size={13} style={{ color: COLORS.green, flexShrink: 0 }} />
+                      )}
+                      <span>
+                        {s.label}
+                        {typeof s.fileCount === "number" ? ` · ${s.fileCount}` : ""}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
           </div>
         )}
         {currentProject.status === "failed" && currentProject.generationError && (
