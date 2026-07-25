@@ -155,6 +155,10 @@ export function DashboardView() {
       const raw = localStorage.getItem("osgard_demo_converted")
       if (raw) {
         const d = JSON.parse(raw)
+        // Однократное чтение внешнего состояния (localStorage) при монтировании:
+        // читать его во время рендера нельзя — это ломает SSR-гидратацию Next.js,
+        // поэтому setState в эффекте здесь корректен (правило — ложное срабатывание).
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setDemoSaved({ artifacts: Number(d.artifacts) || 0, bonus: Number(d.bonus) || 0 })
         localStorage.removeItem("osgard_demo_converted")
       }
