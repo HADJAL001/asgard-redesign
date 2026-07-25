@@ -31,8 +31,19 @@ export type MiniArtifact = {
 
 export function ArtifactMiniCard({ a, tcUsdPrice }: { a: MiniArtifact; tcUsdPrice: number }) {
   const TypeIcon = ARTIFACT_TYPES[safeType(a.type)].Icon
-  const rarity = RARITY[safeRarity(a.rarity)]
+  const rarityKey = safeRarity(a.rarity)
+  const rarity = RARITY[rarityKey]
   const stats = { power: a.power, defense: a.defense, magic: a.magic, speed: a.speed }
+
+  // Редкость, которую видно телом: мифик — голографическая фольга на имени,
+  // легендарка — золотое свечение. Обычные тиры остаются спокойными.
+  const isMythic = rarityKey === "mythic"
+  const isLegendary = rarityKey === "legendary"
+  const iconGlow = isMythic
+    ? `0 0 18px ${rarity.color}, inset 0 0 12px ${rarity.color}55`
+    : isLegendary
+      ? `0 0 14px ${rarity.color}88`
+      : "none"
 
   const isTimecoin = a.listCurrency === "timecoin"
   const priceLabel = isTimecoin ? fmtTC(a.price) : `${a.price.toLocaleString("ru-RU")} ${a.listCurrency}`
@@ -40,7 +51,7 @@ export function ArtifactMiniCard({ a, tcUsdPrice }: { a: MiniArtifact; tcUsdPric
 
   return (
     <article
-      className="flex flex-col rounded-xl p-5 transition-all duration-200"
+      className="premium-card flex flex-col rounded-xl p-5"
       style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = rarity.color
@@ -52,7 +63,7 @@ export function ArtifactMiniCard({ a, tcUsdPrice }: { a: MiniArtifact; tcUsdPric
       <div className="flex items-start justify-between">
         <span
           className="flex size-12 items-center justify-center rounded-xl"
-          style={{ border: `1px solid ${rarity.color}` }}
+          style={{ border: `1px solid ${rarity.color}`, boxShadow: iconGlow }}
         >
           <TypeIcon size={24} strokeWidth={1.25} style={{ color: rarity.color }} />
         </span>
@@ -74,7 +85,16 @@ export function ArtifactMiniCard({ a, tcUsdPrice }: { a: MiniArtifact; tcUsdPric
         )}
       </div>
 
-      <h3 className="mt-4 truncate text-[16px] font-medium">{a.name}</h3>
+      <h3
+        className={`mt-4 truncate text-[16px] font-medium ${isMythic ? "rarity-mythic-foil" : ""}`}
+        style={
+          isLegendary
+            ? { color: rarity.color, textShadow: `0 0 16px ${rarity.color}66` }
+            : undefined
+        }
+      >
+        {a.name}
+      </h3>
       <div className="mt-1 flex items-center gap-2 text-[12px]">
         <span style={{ color: COLORS.label }}>{ARTIFACT_TYPES[safeType(a.type)].label}</span>
         <span style={{ color: COLORS.border }}>·</span>
@@ -91,14 +111,14 @@ export function ArtifactMiniCard({ a, tcUsdPrice }: { a: MiniArtifact; tcUsdPric
             style={{ border: `1px solid ${COLORS.border}` }}
           >
             <span style={{ color: COLORS.label }}>{s.label}</span>
-            <span>{stats[s.key]}</span>
+            <span className="premium-num">{stats[s.key]}</span>
           </div>
         ))}
       </div>
 
       {a.status !== "sold" && (
         <div className="mt-auto flex flex-col pt-5">
-          <span className="text-[15px] font-medium" style={{ color: COLORS.accent }}>
+          <span className="premium-num text-[16px] font-medium" style={{ color: COLORS.accent }}>
             {priceLabel}
           </span>
           {usdEstimate && (

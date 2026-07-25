@@ -66,6 +66,19 @@
   --eg-glass-bg: rgba(255, 255, 255, 0.04);
   --eg-glass-border: rgba(255, 255, 255, 0.08);
   --eg-glow-gold: 0 0 24px rgb(var(--color-gold-rgb) / 0.35);
+
+  /* ── Premium motion & materiality (Фаза 0: единый «вес» интерфейса) ── */
+  /* Один канонический easing на все входы/hover — чтобы движение читалось как */
+  /* дорогой, физичный, а не «резиновый». Длительности тоже сведены к шкале.   */
+  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-enter: 0.4s;
+  --dur-hover: 0.2s;
+  /* Navy-tinted тень — карточки «лежат» на тёмном фоне, а не парят в вакууме. */
+  --shadow-card: 0 8px 32px rgb(10 17 40 / 0.35);
+  --shadow-card-hover: 0 14px 48px rgb(10 17 40 / 0.5), 0 0 28px rgb(var(--color-gold-rgb) / 0.18);
+  /* Тонкое плёночное зерно поверх карточек — «материал», а не плоский цвет. */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 @keyframes eg-float {
@@ -79,6 +92,83 @@
 @keyframes eg-pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.55; transform: scale(1.5); }
+}
+
+/* ===== Premium foundation utilities (Фаза 0) =====================
+   Единый «словарь» дороговизны: материальность карточек, честные
+   скелетоны загрузки, serif-числа и «фольга» редкости. На эти классы
+   опираются все последующие фазы (reveal, экономика, дашборд).       */
+
+/* Материальная карточка: navy-тень в покое, золотое свечение при hover,
+   плёночное зерно поверх (::after). Плавность — по каноническому easing. */
+.premium-card {
+  position: relative;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  transition: transform var(--dur-hover) var(--ease-premium),
+              box-shadow var(--dur-hover) var(--ease-premium),
+              border-color var(--dur-hover) var(--ease-premium);
+}
+.premium-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-card-hover);
+}
+.premium-card::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background-image: var(--grain); background-size: 120px 120px;
+  opacity: 0.04; mix-blend-mode: overlay; pointer-events: none; z-index: 1;
+}
+
+/* Скелетон загрузки — «дышащий» шиммер вместо крутилки: интерфейс выглядит
+   уже построенным, скорость воспринимается выше. */
+@keyframes onw-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  border-radius: 0.6rem;
+  background: linear-gradient(100deg,
+    rgb(255 255 255 / 3%) 20%,
+    rgb(255 255 255 / 8%) 40%,
+    rgb(255 255 255 / 3%) 60%);
+  background-size: 200% 100%;
+  animation: onw-shimmer 1.4s var(--ease-out-soft) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}
+
+/* Serif-числа: ранги, статы, суммы — сразу читаются «премиально», отделяют
+   ценностные величины от служебного текста (который остаётся на Inter). */
+.premium-num {
+  font-family: var(--font-cormorant), var(--font-space), serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+/* Редкость, которую видно телом. Легендарка «дышит» золотым шиммером,
+   мифик — голографическая фольга с медленным переливом. Уважает reduced-motion. */
+@keyframes onw-foil {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+.rarity-legendary-shine {
+  background: linear-gradient(110deg,
+    transparent 20%, rgb(241 196 15 / 0.35) 45%, rgb(247 224 94 / 0.55) 50%,
+    rgb(241 196 15 / 0.35) 55%, transparent 80%);
+  background-size: 220% 100%;
+  animation: onw-foil 3.2s linear infinite;
+}
+.rarity-mythic-foil {
+  background: linear-gradient(115deg,
+    #E74C3C 0%, #F7E05E 20%, #4A7A9C 40%, #9B59B6 60%, #E74C3C 80%, #F7E05E 100%);
+  background-size: 300% 100%;
+  animation: onw-foil 5s linear infinite;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 10px rgb(231 76 60 / 0.4));
+}
+@media (prefers-reduced-motion: reduce) {
+  .rarity-legendary-shine, .rarity-mythic-foil { animation: none; }
 }
 
 * { border-color: var(--border); outline-color: color-mix(in srgb, var(--ring) 50%, transparent); }
