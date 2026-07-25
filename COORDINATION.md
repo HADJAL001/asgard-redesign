@@ -165,7 +165,7 @@ demo_convert/artifact_share_view. Живой прод-прогон цифр во
 ---
 
 ## 📌 Занятые номера миграций (обновлять при создании!)
-Максимум на `main`: **080** (`080_creator_provenance` — Claude B, смёржена #52). Следующая свободная — **081**.
+Максимум на `main`: **080** (`080_creator_provenance` — Claude B, смёржена #52). **081** (`081_proof_of_craft` — Claude B, в ветке `feature/proof-of-craft-provenance`, аддитивна: +колонка `artifacts.craft_score`, grandfather). Следующая свободная — **082**.
 Прежде чем создать `0XX_*.ts`, проверь `main` и увеличь это число здесь.
 
 ---
@@ -175,7 +175,7 @@ demo_convert/artifact_share_view. Живой прод-прогон цифр во
 | Кто | Сейчас делает | Ветка | Файлы/область | Обновлено |
 |---|---|---|---|---|
 | Claude A | Свободен. **Старший/интегратор.** ✅ Прод-проверка воронки роста (growth 401 / share 200 — контур write#46+read#49 в бою). ✅ Интегрировал/задеплоил PR #52 B (провенанс+роялти) по указанию пользователя — гейт зелёный (tsc=0, 25/25). Ранее: воронка #46/#49, Фьюжн #40, починка сборки #42/#45, #35/#37/#38/#39. Следующее (жду разведения по папкам): #3 персонализация / #4 семантический поиск. | chore/launch-assets-coord | COORDINATION.md, marketing/promo-teaser.* | 2026-07-25 |
-| Claude B | Фаза C «Живая вселенная» (амбиентное присутствие): read-only `GET /feed/pulse` (агрегаты поверх `activity_events`, БЕЗ новой миграции — миграция 065), полоса `live-pulse-bar` на дашборде + гостевом лендинге (честный «тихо» при нуле, без фейка), «живой тикер» ленты (новые события влетают сверху, поллинг ~20с, пауза на скрытой вкладке). Готово ранее и на `main`: share #41, Фаза A #43, Фаза B «Подпись бренда» #47. `feed.routes.ts` — точечная добавка (роут `/pulse` после `GET /`), не переписывал. Свои файлы коммичу поимённо (без `git add -A`). Дальше — Фаза D «Хранилище провенанса» | feature/live-universe | backend/routes/feed.routes.ts, components/live-pulse-bar.tsx (new), activity-feed-view.tsx, dashboard-view.tsx, eternity-landing.tsx, lib/store/activity-store.tsx, i18n×3 (namespace `pulse`) | 2026-07-25 |
+| Claude B | Фаза D «Хранилище провенанса» + **Proof-of-Craft**: Кузница больше не казино — статы куются ДЕТЕРМИНИРОВАННО из реальной субстанции проекта (глубина генерации + число файлов + настоящая AI vs шаблон → `craftScore ∈ [0..1]`), рулеточный фарм невозможен. Миграция **081** аддитивна: +`artifacts.craft_score` (nullable), старые артефакты grandfather (NULL=legacy, не пересчитываю). Публичная витрина `GET /artifacts/:id/provenance` (read-only, шарится): творец + craftScore + дерево родословной ковки-слияния (рекурсия по `parent_a/b_id`, потолок глубины + защита от циклов) + цепочка перепродаж (sold-листинги). `server.ts`/`COORDINATION.md` — точечно. tsc=0, тесты 15/15. Свои файлы коммичу поимённо. Готово ранее: Фаза C «Живая вселенная», провенанс+роялти #52, share #41, Фазы A/B #43/#47. | feature/proof-of-craft-provenance | backend/migrations/081_proof_of_craft.ts (new), lib/proof-of-craft.ts (new), routes/artifacts.routes.ts, server.ts (+1 import), tests/proof-of-craft.test.ts (new), COORDINATION.md | 2026-07-25 |
 
 ---
 
