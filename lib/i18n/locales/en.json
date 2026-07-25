@@ -31,6 +31,7 @@
     "docs": "Docs",
     "economyMap": "Economy Map",
     "pricing": "Pricing",
+    "developer": "API Keys",
     "admin": "Admin",
     "wallet": "Wallet",
     "notifications": "Notifications",
@@ -43,7 +44,9 @@
     "guest": "Guest",
     "logout": "Log out",
     "menuTitle": "MENU",
-    "homeAria": "OSGARD NEW WORLD — Home"
+    "homeAria": "OSGARD NEW WORLD — Home",
+    "about": "About",
+    "room": "Secret Room"
   },
   "landing": {
     "navHomeAria": "OSGARD — Home",
@@ -191,7 +194,6 @@
     "exchangeFailed": "Failed to complete conversion",
     "timecoinNoConvert": "TimeCoin cannot be converted. Only exchange purchase for $ or artifact sales."
   },
-
   "stake": {
     "title": "TimeCoin Staking",
     "subtitle": "Lock ∞, earn yield, and reduce market fees",
@@ -261,7 +263,6 @@
       }
     }
   },
-
   "artifacts": {
     "title": "My Artifacts",
     "subtitle": "Collection of crafted digital artifacts",
@@ -282,6 +283,7 @@
     "title": "Marketplace",
     "subtitle": "Buy and sell digital artifacts",
     "mySales": "My sales",
+    "auctions": "Auctions",
     "lotsForSale": "Lots for sale",
     "foundByFilters": "Found with filters",
     "totalVolume": "Total volume",
@@ -310,7 +312,26 @@
     "cancel": "Cancel",
     "price": "Price",
     "buyFor": "Buy for {{amount}}",
-    "buyFailed": "Failed to buy artifact"
+    "buyFailed": "Failed to buy artifact",
+    "trendBelow": "below market",
+    "trendAbove": "above market",
+    "trendFair": "at market",
+    "trendHint": "Compared to the median price of active listings of the same rarity and currency"
+  },
+  "drops": {
+    "seasonLabel": "Season \"{{season}}\"",
+    "price": "Price",
+    "remaining": "{{n}} of {{total}} left",
+    "claimBtn": "Claim",
+    "claimedBtn": "Claimed",
+    "soldOut": "Sold out",
+    "ended": "Ended",
+    "leftDH": "{{d}}d {{h}}h",
+    "leftHM": "{{h}}h {{m}}m",
+    "leftM": "{{m}}m",
+    "claimedMsg": "Artifact added to your collection",
+    "already": "You have already claimed this drop",
+    "claimFailed": "Failed to claim the drop"
   },
   "activityFeed": {
     "title": "Activity Feed",
@@ -444,7 +465,7 @@
     "statusCancelled": "Cancelled"
   },
   "projects": {
-    "title": "My Projects",
+    "title": "My World",
     "subtitle": "Manage OSGARD universes and artifact collections",
     "createBtn": "Create Project",
     "createAiBtn": "Create with AI",
@@ -557,6 +578,11 @@
     "descriptionLabel": "Project description",
     "descriptionPlaceholder": "Briefly describe your universe…",
     "aiWillGenerate": "AI will generate the project \"{{name}}\" in the \"{{theme}}\" theme",
+    "depthLabel": "Generation depth",
+    "depthCost": "{{cost}} cr.",
+    "depthFree": "Free",
+    "balance": "Balance: {{balance}} cr.",
+    "insufficientCredits": "Not enough credits: need {{cost}}, you have {{balance}}",
     "noTheme": "no theme",
     "cancel": "Cancel",
     "back": "Back",
@@ -633,7 +659,33 @@
     "deploying": "Deploying…",
     "deployed": "Project deployed:",
     "deployRequestFailed": "Failed to start deployment",
-    "exportZip": "Export ZIP"
+    "exportZip": "Export ZIP",
+    "backToProject": "Back to project",
+    "liveRunTab": "Run",
+    "liveRunHint": "Run the app right in your browser — WebContainer installs dependencies and boots a dev server, no deployment needed.",
+    "liveRunStart": "Run",
+    "liveRunRestart": "Restart",
+    "liveRunBooting": "Booting the runtime…",
+    "liveRunInstalling": "Installing dependencies and starting the dev server…",
+    "liveRunOpenTab": "Open in new tab",
+    "liveRunTabAria": "Live project run",
+    "liveRunFailed": "Failed to run the app",
+    "liveRunNoIsolation": "Live run requires cross-origin isolation. Reload /projects/:id/live — if isolation is still unavailable, the COOP/COEP headers did not apply.",
+    "verifyBuild": "Verify build",
+    "verifyBuildHint": "Full next build in an isolated Docker container (not just a syntax check)",
+    "verifyBuildOk": "Build succeeded",
+    "verifyBuildErrors": "Build finished with errors",
+    "verifyBuildSkipped": "Check skipped: Docker unavailable on the server",
+    "verifyBuildFailed": "Failed to start build verification"
+  },
+  "playground": {
+    "pythonTitle": "Python playground",
+    "pythonHint": "Real CPython in the browser via Pyodide (WASM) — code actually runs, no server.",
+    "run": "Run",
+    "loadingRuntime": "Loading the Python runtime…",
+    "output": "Output",
+    "outputEmpty": "Program output will appear here",
+    "clear": "Clear"
   },
   "onboarding": {
     "closeAria": "Close onboarding",
@@ -728,5 +780,3 @@
     "inDevelopmentText": "Live support is still being built. For answers, check the Docs or the Tavern (community)."
   }
 }
-
-

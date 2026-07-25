@@ -346,6 +346,10 @@ export interface ProjectActionResult {
   project?: OsgardProject
   artifacts?: OsgardArtifact[]
   aiConfigured?: boolean
+  /** Глубина генерации, по которой создан проект (quick | standard | deep). */
+  depth?: string
+  /** Списанные за генерацию кредиты (0 для quick). */
+  costCredits?: number
   error?: string
 }
 
@@ -471,7 +475,7 @@ export interface OsgardStoreState {
   fetchArtifacts: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
 
   /** POST /artifacts/forge — создать новый артефакт (name, type, опционально привязать к projectId). */
-  forgeArtifact: (name: string, type: string, projectId?: number) => Promise<ForgeActionResult>
+  forgeArtifact: (name: string, type: string, projectId?: number, currency?: string) => Promise<ForgeActionResult>
 
   /** POST /artifacts/generate-ai — AI-генерация уникального артефакта (Grok → DeepSeek → fallback). */
   generateAiArtifact: (hint?: string) => Promise<AiArtifactActionResult>
@@ -500,10 +504,12 @@ export interface OsgardStoreState {
   fetchProject: (id: number, opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   /** POST /projects — создать проект вручную (name, description?, badge?). */
   createProject: (name: string, description?: string, badge?: string) => Promise<ProjectActionResult>
-  /** POST /projects/generate — запускает асинхронную генерацию реального приложения (name, hint?).
+  /** POST /projects/generate — запускает асинхронную генерацию реального приложения (name, hint?, depth?).
+   *  depth ("quick"|"standard"|"deep") выбирает глубину: quick бесплатна и идёт по дневной квоте,
+   *  standard/deep списывают кредиты и включают полную AI-генерацию / bypass кеша соответственно.
    *  Отвечает немедленно (HTTP 202) проектом со статусом 'generating' — прогресс отслеживается
    *  через pollProjectStatus/fetchProject, а не через этот единственный вызов. */
-  generateProject: (name: string, hint?: string) => Promise<ProjectActionResult>
+  generateProject: (name: string, hint?: string, depth?: string) => Promise<ProjectActionResult>
   /** Опрашивает GET /projects/:id, пока project.status не станет 'ready'/'failed' (или не истечёт таймаут). */
   pollProjectStatus: (id: number, opts?: { intervalMs?: number; timeoutMs?: number }) => Promise<OsgardProject | null>
   /** GET /projects/:id/files — файлы сгенерированного приложения. */
@@ -958,10 +964,10 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   },
 
   /* ---- action: POST /artifacts/forge — создать новый артефакт ---- */
-  forgeArtifact: async (name, type, projectId) => {
+  forgeArtifact: async (name, type, projectId, currency) => {
     set({ loading: true, error: null })
     try {
-      const res = await apiClient.post<{ artifact: OsgardArtifact }>("/artifacts/forge", { name, type, projectId })
+      const res = await apiClient.post<{ artifact: OsgardArtifact }>("/artifacts/forge", { name, type, projectId, currency })
 
       set((s) => ({
         artifacts: [res.artifact, ...s.artifacts],
@@ -1151,14 +1157,16 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
      Отвечает немедленно (HTTP 202): проект уже создан со status='generating' и стартовыми
      артефактами, но файлы приложения ещё генерируются в фоне на сервере. Вызывающий код
      (визард) должен продолжить через pollProjectStatus, а не считать проект готовым сразу. */
-  generateProject: async (name, hint) => {
+  generateProject: async (name, hint, depth) => {
     set({ loading: true, error: null })
     try {
       const res = await apiClient.post<{
         project: OsgardProject
         artifacts: OsgardArtifact[]
         aiConfigured: boolean
-      }>("/projects/generate", { name, hint })
+        depth?: string
+        costCredits?: number
+      }>("/projects/generate", { name, hint, depth })
 
       set((s) => ({
         projects: [res.project, ...s.projects],
@@ -1168,12 +1176,18 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
 
       // синхронизация артефактов пользователя (стартовые артефакты проекта уже созданы на сервере)
       await get().fetchArtifacts()
+      // платная генерация списала кредиты на сервере — подтягиваем актуальный баланс кошелька
+      if (res.costCredits && res.costCredits > 0) {
+        await get().fetchWallet()
+      }
 
       return {
         success: true,
         project: res.project,
         artifacts: res.artifacts,
         aiConfigured: res.aiConfigured,
+        depth: res.depth,
+        costCredits: res.costCredits,
       }
     } catch (err) {
       const message = extractErrorMessage(err, "Не удалось сгенерировать проект")

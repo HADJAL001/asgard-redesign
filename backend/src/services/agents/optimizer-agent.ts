@@ -13,8 +13,8 @@ import type { GeneratedFile, OptimizationCategory, OptimizationSuggestion, Optim
    проект, только точечные патчи.
    ================================================================ */
 
-const MAX_AUTO_APPLY = 3
-const PREVIEW_CHARS = 800
+const MAX_AUTO_APPLY = 10
+const PREVIEW_CHARS = 2000
 
 function allFiles(input: OptimizerAgentInput): GeneratedFile[] {
   return [...input.frontend.files, ...input.backend.files, ...input.tests.files]
@@ -25,7 +25,7 @@ function findFile(input: OptimizerAgentInput, path: string): GeneratedFile | und
 }
 
 function buildReviewPrompt(input: OptimizerAgentInput): string {
-  const files = allFiles(input).slice(0, 15)
+  const files = allFiles(input).slice(0, 60)
   const listing = files
     .map((f) => `--- ${f.path} ---\n${f.content.slice(0, PREVIEW_CHARS)}${f.content.length > PREVIEW_CHARS ? "\n...(обрезано)" : ""}`)
     .join("\n\n")
@@ -50,8 +50,8 @@ ${listing}
   ]
 }
 Требования:
-- От 1 до 8 предложений, только по файлам из списка выше.
-- autoApply: true — только для предложений, которые безопасно применить точечным изменением файла, не ломая остальной проект (максимум 3 таких).
+- Не экономь на количестве предложений — перечисли все реальные возможности оптимизации, которые находишь в этих файлах, а не только самые очевидные.
+- autoApply: true — только для предложений, которые безопасно применить точечным изменением файла, не ломая остальной проект.
 Ответь только JSON.`
 }
 
@@ -87,7 +87,7 @@ function normalizeCategory(c: any): OptimizationCategory {
 }
 
 async function applyAiSuggestions(input: OptimizerAgentInput): Promise<OptimizedArtifact | null> {
-  const review = await generateReview<{ suggestions?: RawSuggestion[] }>(buildReviewPrompt(input), 3000, "optimizer-agent")
+  const review = await generateReview<{ suggestions?: RawSuggestion[] }>(buildReviewPrompt(input), 6000, "optimizer-agent")
   const rawSuggestions = Array.isArray(review?.suggestions) ? review!.suggestions! : []
 
   const valid = rawSuggestions.filter(
@@ -99,10 +99,9 @@ async function applyAiSuggestions(input: OptimizerAgentInput): Promise<Optimized
      на свой независимый файл, общих данных между вызовами нет — тот же приём,
      что уже используется в generateFilesFromManifest (base-agent.ts). Кандидаты
      на автоприменение отбираются заранее (autoApply===true, не больше
-     MAX_AUTO_APPLY), а не по ходу цикла с уменьшением бюджета по факту успеха —
-     buildReviewPrompt и так просит AI помечать autoApply:true не более чем у 3
-     предложений, так что на практике кандидатов ровно столько же, сколько
-     бюджета, и наблюдаемое поведение не меняется. */
+     MAX_AUTO_APPLY) — AI теперь не ограничен в промпте числом autoApply-предложений,
+     так что этот срез — единственный бэкстоп против одновременной перезаписи
+     слишком большого числа файлов за один проход. */
   const candidates = valid.filter((s) => s.autoApply === true).slice(0, MAX_AUTO_APPLY)
   const candidateSet = new Set(candidates)
 
@@ -192,7 +191,7 @@ function heuristicSuggestions(input: OptimizerAgentInput): OptimizationSuggestio
     }
   }
 
-  return suggestions.slice(0, 10)
+  return suggestions.slice(0, 40)
 }
 
 export class OptimizerAgent extends BaseAgent<OptimizerAgentInput, OptimizedArtifact> {

@@ -15,10 +15,11 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Editor from "@monaco-editor/react"
-import { FileCode2, Save, Loader2, AlertTriangle, CheckCircle2 } from "lucide-react"
+import { FileCode2, Save, Loader2, AlertTriangle, CheckCircle2, Hammer } from "lucide-react"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
+import { apiClient } from "@/lib/api-client"
 
 type Props = {
   projectId: number
@@ -44,6 +45,8 @@ export function ProjectFileEditor({ projectId }: Props) {
   const [saveErrors, setSaveErrors] = useState<string[]>([])
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const [saveFailure, setSaveFailure] = useState<string | null>(null)
+  const [verifying, setVerifying] = useState(false)
+  const [verifyResult, setVerifyResult] = useState<{ ok: boolean; skipped: boolean; logs: string } | null>(null)
 
   useEffect(() => {
     Promise.resolve().then(() => setLoadingFiles(true))
@@ -104,6 +107,22 @@ export function ProjectFileEditor({ projectId }: Props) {
       }
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleVerifyBuild() {
+    if (verifying) return
+    setVerifying(true)
+    setVerifyResult(null)
+    try {
+      const res = await apiClient.post<{ ok: boolean; skipped: boolean; logs: string }>(
+        `/projects/${projectId}/verify-build`,
+      )
+      setVerifyResult({ ok: res.ok, skipped: res.skipped, logs: res.logs || "" })
+    } catch (err: any) {
+      setVerifyResult({ ok: false, skipped: false, logs: err?.message || t("projectDetail.verifyBuildFailed") })
+    } finally {
+      setVerifying(false)
     }
   }
 
@@ -170,6 +189,17 @@ export function ProjectFileEditor({ projectId }: Props) {
             )}
             <button
               type="button"
+              onClick={handleVerifyBuild}
+              disabled={verifying}
+              title={t("projectDetail.verifyBuildHint")}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors disabled:opacity-40"
+              style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+            >
+              {verifying ? <Loader2 size={13} className="animate-spin" /> : <Hammer size={13} strokeWidth={1.75} />}
+              {t("projectDetail.verifyBuild")}
+            </button>
+            <button
+              type="button"
               onClick={handleSave}
               disabled={!dirty || saving}
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-opacity disabled:opacity-40"
@@ -206,6 +236,36 @@ export function ProjectFileEditor({ projectId }: Props) {
           <div className="flex items-start gap-2 px-4 py-3 text-[12px]" style={{ borderTop: `1px solid ${COLORS.border}`, color: COLORS.amber }}>
             <AlertTriangle size={14} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 1 }} />
             <pre className="whitespace-pre-wrap font-sans">{saveErrors.join("\n")}</pre>
+          </div>
+        )}
+
+        {verifyResult && (
+          <div
+            className="flex items-start gap-2 px-4 py-3 text-[12px]"
+            style={{
+              borderTop: `1px solid ${COLORS.border}`,
+              color: verifyResult.skipped ? COLORS.label : verifyResult.ok ? COLORS.green : COLORS.red,
+            }}
+          >
+            {verifyResult.ok && !verifyResult.skipped ? (
+              <CheckCircle2 size={14} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 1 }} />
+            ) : (
+              <AlertTriangle size={14} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 1 }} />
+            )}
+            <div className="min-w-0">
+              <p className="font-medium">
+                {verifyResult.skipped
+                  ? t("projectDetail.verifyBuildSkipped")
+                  : verifyResult.ok
+                    ? t("projectDetail.verifyBuildOk")
+                    : t("projectDetail.verifyBuildErrors")}
+              </p>
+              {!verifyResult.ok && verifyResult.logs && (
+                <pre className="mt-1.5 max-h-[220px] overflow-auto whitespace-pre-wrap font-mono text-[11px]" style={{ color: COLORS.label }}>
+                  {verifyResult.logs}
+                </pre>
+              )}
+            </div>
           </div>
         )}
       </div>

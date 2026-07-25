@@ -18,6 +18,17 @@ function getApr(days: number): number {
 
 const MARKET_FEE = 0.02 // комиссия рынка при досрочном/обычном снятии, идёт в базу
 
+/* Максимальная сумма одного стейка зависит от тарифа подписки: стейкинг доступен
+   всем залогиненным (минимум крошечный — 0.001 на фронте), но потолок растёт с
+   тарифом — чем дороже подписка, тем больше можно застейкать. */
+const STAKE_MAX_BY_PLAN: Record<string, number> = {
+  free: 100,
+  pro: 1_000,
+  supreme: 5_000,
+  duo: 20_000,
+  elite: 100_000,
+}
+
 /* ---------------- GET /stakes ---------------- */
 router.get("/", requireAuth, (req: AuthRequest, res) => {
   const stakes = db
@@ -48,6 +59,17 @@ router.post("/", requireAuth, (req: AuthRequest, res) => {
   if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
   if (wallet.timecoin < amountTc) {
     return res.status(400).json({ error: "Недостаточно TimeCoin" })
+  }
+
+  const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(req.user!.userId)
+  const plan = (userRow?.plan as string) || "free"
+  const maxStake = STAKE_MAX_BY_PLAN[plan] ?? STAKE_MAX_BY_PLAN.free
+  if (amountTc > maxStake) {
+    return res.status(400).json({
+      error: `Ваш тариф (${plan}) позволяет стейкать до ${maxStake} ∞ за раз. Повысьте тариф, чтобы стейкать больше.`,
+      code: "STAKE_LIMIT",
+      maxStake,
+    })
   }
 
   const apr = getApr(stakeDays)

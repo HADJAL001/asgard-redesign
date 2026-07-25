@@ -7,7 +7,31 @@ import { createActivityEvent } from "../lib/activity"
 const router = Router()
 
 const CURRENCIES = ["credits", "shards", "crystals", "timecoin", "cash_usd"]
-const MARKET_FEE = 0.05 /* комиссия маркетплейса при продаже, 5% с продавца */
+const MARKET_FEE = 0.05 /* базовая комиссия маркетплейса при продаже, 5% с продавца */
+
+/* Комиссия снижается тарифом подписки И активным стейком (привилегия стейкинга —
+   «до 1% вместо 5%»). Берём наименьшую из двух ставок. */
+const PLAN_FEE: Record<string, number> = { free: 0.05, pro: 0.04, supreme: 0.03, duo: 0.02, elite: 0.01 }
+function marketFeeRateFor(sellerId: number): number {
+  const u: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(sellerId)
+  const staked: any = db
+    .prepare(`SELECT COALESCE(SUM(amount_tc), 0) AS s FROM stakes WHERE user_id = ? AND status = 'active'`)
+    .get(sellerId)
+  let rate = PLAN_FEE[(u?.plan as string) || "free"] ?? MARKET_FEE
+  const s = Number(staked?.s || 0)
+  if (s >= 1000) rate = Math.min(rate, 0.01)
+  else if (s >= 100) rate = Math.min(rate, 0.02)
+  return rate
+}
+
+/* Buyback & burn: доля платформенной комиссии (в TimeCoin) сжигается — реальная
+   дефляция от активности рынка (растит tc_market_state.burned честными числами). */
+const BURN_SHARE_OF_FEE = 0.5
+
+/* Реферальный revenue-share: пригласивший продавца получает долю комиссии с ЕГО
+   продаж (в TimeCoin) — пассивный доход за приведённых активных креаторов, из
+   платформенной части комиссии, а не из кармана продавца. */
+const REFERRAL_REVSHARE_OF_FEE = 0.1
 
 /* Порог «крупной продажи» для попадания в Зал Славы, per-currency
    (примерно эквивалент $50 по курсам из wallet.routes.ts RATE_TO_USD). */
@@ -112,9 +136,20 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
   if (!artifact) return res.status(404).json({ error: "Артефакт не найден" })
 
   const now = Date.now()
-  const fee = listing.price * MARKET_FEE
+  const feeRate = marketFeeRateFor(listing.seller_id)
+  const fee = listing.price * feeRate
   const sellerReceives = listing.price - fee
   const isLargeSale = listing.price >= (HOF_MIN_PRICE[currency] ?? Infinity)
+
+  /* Гейт Зала Славы: попасть в него можно, только если продавец выполнил хотя бы
+     один квест из walli_quests (миграция 012 сеет 5 стартовых типов при первом
+     GET /walli/quests). Крупная продажа без выполненных квестов проходит как
+     обычно — просто не попадает в Зал Славы. Читаем синхронно (better-sqlite3),
+     до открытия транзакции. */
+  const sellerHasCompletedQuest = !!db
+    .prepare(`SELECT 1 FROM walli_quests WHERE user_id = ? AND completed = 1 LIMIT 1`)
+    .get(listing.seller_id)
+  const qualifiesForHof = isLargeSale && sellerHasCompletedQuest
 
   db.exec("BEGIN IMMEDIATE")
   try {
@@ -127,6 +162,27 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
     db.prepare(
       `UPDATE wallets SET ${currency} = ${currency} + ?, updated_at = ? WHERE user_id = ?`,
     ).run(sellerReceives, now, listing.seller_id)
+
+    /* Buyback & burn: доля комиссии в TimeCoin сжигается → реальная дефляция. */
+    if (currency === "timecoin") {
+      const burn = fee * BURN_SHARE_OF_FEE
+      if (burn > 0) db.prepare(`UPDATE tc_market_state SET burned = burned + ? WHERE id = 1`).run(burn)
+
+      /* Реферальный revenue-share: пригласившему продавца — доля комиссии. */
+      const seller: any = db.prepare(`SELECT referred_by FROM users WHERE id = ?`).get(listing.seller_id)
+      const revShare = fee * REFERRAL_REVSHARE_OF_FEE
+      if (seller?.referred_by && revShare > 0) {
+        db.prepare(`UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`).run(revShare, now, seller.referred_by)
+        db.prepare(
+          `INSERT INTO referrals (referrer_id, referee_id, reward_amount, status) VALUES (?, ?, ?, 'active')
+           ON CONFLICT(referrer_id, referee_id) DO UPDATE SET reward_amount = reward_amount + ?, status = 'active'`,
+        ).run(seller.referred_by, listing.seller_id, Math.round(revShare), Math.round(revShare))
+        db.prepare(
+          `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+           VALUES (?, 'referral', 'Реф-доход с продажи', ?, ?, 'timecoin', 'done')`,
+        ).run(seller.referred_by, `Реферал #${listing.seller_id}`, revShare)
+      }
+    }
 
     /* Передаём артефакт покупателю */
     db.prepare(`UPDATE artifacts SET owner_id = ?, status = 'kept' WHERE id = ?`).run(
@@ -149,8 +205,9 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
        VALUES (?, 'sale', ?, ?, ?, ?, 'done')`,
     ).run(listing.seller_id, artifact.name, `Покупатель #${req.user!.userId}`, sellerReceives, currency)
 
-    /* Записываем в Зал Славы, только если продажа крупная (порог по валюте) */
-    if (isLargeSale) {
+    /* Записываем в Зал Славы, только если продажа крупная (порог по валюте)
+       И продавец выполнил хотя бы один квест (гейт по walli_quests). */
+    if (qualifiesForHof) {
       db.prepare(
         `INSERT INTO hall_of_fame (artifact_id, artifact_name, type, rarity, architect, price, achieved_at)
          SELECT ?, ?, ?, ?, u.username, ?, ?
@@ -184,7 +241,7 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
     metadata: { name: artifact.name, rarity: artifact.rarity, price: listing.price, currency },
   })
 
-  if (isLargeSale) {
+  if (qualifiesForHof) {
     createActivityEvent({
       userId: listing.seller_id,
       type: "hof_entry",

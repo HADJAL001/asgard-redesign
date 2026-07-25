@@ -1,10 +1,14 @@
 import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
+import { notificationEvents, getUnreadCount } from "../lib/notifications"
 
 const router = Router()
 
 const PAGE_SIZE = 50
+
+/** Счётчик активных SSE-подключений — для /health и диагностики нагрузки. */
+export let activeNotificationSseConnections = 0
 
 type ActorRow = {
   id: number
@@ -84,6 +88,50 @@ router.post("/read-all", requireAuth, (req: AuthRequest, res) => {
   const userId = req.user!.userId
   db.prepare(`UPDATE notifications SET read = 1 WHERE user_id = ? AND read = 0`).run(userId)
   res.json({ success: true })
+})
+
+/* ================================================================
+   GET /notifications/stream — SSE-поток уведомлений текущего пользователя.
+   ----------------------------------------------------------------
+   При подключении сразу отдаём снапшот (текущий счётчик непрочитанных),
+   затем проталкиваем каждое новое уведомление этого пользователя в
+   реальном времени (createNotification → notificationEvents "notify").
+   Клиент (lib/store/notifications-store) инкрементит бейдж и добавляет
+   уведомление в список без опроса. Heartbeat раз в 15с держит соединение.
+   ================================================================ */
+router.get("/stream", requireAuth, (req: AuthRequest, res) => {
+  const userId = req.user!.userId
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  })
+
+  const send = (event: unknown) => {
+    res.write(`data: ${JSON.stringify(event)}\n\n`)
+  }
+
+  // Снапшот при подключении — чтобы бейдж синхронизировался мгновенно, ещё до первого события.
+  send({ type: "snapshot", unreadCount: getUnreadCount(userId) })
+
+  const onNotify = (payload: { userId: number; notification: unknown; unreadCount: number }) => {
+    // Доставляем только уведомления этого пользователя (шина общая на всех).
+    if (payload.userId !== userId) return
+    send({ type: "notification", notification: payload.notification, unreadCount: payload.unreadCount })
+  }
+
+  const heartbeat = setInterval(() => res.write(": ping\n\n"), 15_000)
+  const cleanup = () => {
+    clearInterval(heartbeat)
+    notificationEvents.off("notify", onNotify)
+    activeNotificationSseConnections--
+  }
+
+  activeNotificationSseConnections++
+  notificationEvents.on("notify", onNotify)
+  req.on("close", cleanup)
 })
 
 export default router

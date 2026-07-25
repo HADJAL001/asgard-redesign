@@ -1,15 +1,12 @@
 "use client"
 
 import dynamic from "next/dynamic"
+import { PageLoader } from "@/components/osgard-loader"
 
 const ForgeView = dynamic(
   () => import("@/components/forge-view").then((m) => m.ForgeView),
   {
-    loading: () => (
-      <div className="flex items-center justify-center py-32" style={{ color: "#6A6A8A" }}>
-        Загрузка…
-      </div>
-    ),
+    loading: () => <PageLoader />,
     ssr: false,
   }
 )

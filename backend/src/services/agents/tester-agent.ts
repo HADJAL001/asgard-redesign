@@ -36,7 +36,7 @@ function isFrontendPage(path: string): boolean {
 function buildTestPlan(input: TesterAgentInput): TestPlanEntry[] {
   const plan: TestPlanEntry[] = []
 
-  const backendRoutes = input.backend.files.filter((f) => /^routes\/[\w\-]+\.ts$/.test(f.path)).slice(0, 5)
+  const backendRoutes = input.backend.files.filter((f) => /^routes\/[\w\-]+\.ts$/.test(f.path))
   for (const f of backendRoutes) {
     plan.push({
       testPath: `tests/unit/${slug(f.path)}.test.ts`,
@@ -47,7 +47,7 @@ function buildTestPlan(input: TesterAgentInput): TestPlanEntry[] {
     })
   }
 
-  const frontendPages = input.frontend.files.filter((f) => isFrontendPage(f.path)).slice(0, 3)
+  const frontendPages = input.frontend.files.filter((f) => isFrontendPage(f.path))
   for (const f of frontendPages) {
     plan.push({
       testPath: `e2e/${slug(f.path)}.spec.ts`,
@@ -58,7 +58,7 @@ function buildTestPlan(input: TesterAgentInput): TestPlanEntry[] {
     })
   }
 
-  return plan.slice(0, 8)
+  return plan
 }
 
 function buildFilePrompt(entry: TestPlanEntry): string {
@@ -133,7 +133,7 @@ export class TesterAgent extends BaseAgent<TesterAgentInput, TestArtifact> {
     const files = await generateFilesFromManifest({
       manifest,
       filePrompt: (entry) => buildFilePrompt(planByPath.get(entry.path)!),
-      fileMaxTokens: 3000,
+      fileMaxTokens: 4000,
       logLabel: "tester-agent",
     })
 

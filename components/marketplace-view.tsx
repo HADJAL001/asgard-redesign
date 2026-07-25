@@ -24,8 +24,10 @@
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Store, Boxes, TrendingUp, Coins, Loader2, Check, X } from "lucide-react"
+import { Search, Store, Boxes, TrendingUp, TrendingDown, Minus, Coins, Loader2, Check, X, Gavel } from "lucide-react"
 import { Navbar } from "./navbar"
+import { PremiumBackground } from "./premium-bg"
+import { SectionHelp } from "./section-help"
 import { useOsgardStore, type MarketListing } from "@/lib/store/osgard-store"
 import {
   COLORS,
@@ -37,6 +39,7 @@ import {
 } from "@/lib/economy"
 import { fmtTC, fmtUSD } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
+import { DropBanner } from "@/components/drop-banner"
 
 /** Приведение произвольной строки типа/редкости к безопасному ключу с фолбэком. */
 function safeType(t: string): ArtifactType {
@@ -51,6 +54,42 @@ function formatPrice(price: number, currency: string): string {
   if (currency === "timecoin") return fmtTC(price)
   if (currency === "cash_usd") return fmtUSD(price)
   return `${price.toLocaleString("ru-RU")} ${currency}`
+}
+
+/* ----------------------------------------------------------------
+   Рыночный тренд лота — честный сигнал «дорого/дёшево», считается
+   целиком на фронте, без обращения к бэкенду. Для каждого сочетания
+   (редкость + валюта) берём медиану цен активных лотов; цену
+   конкретного лота сравниваем с этой медианой:
+     - ниже медианы более чем на 12 % → «ниже рынка» (выгодно, зелёный);
+     - выше медианы более чем на 12 % → «выше рынка» (дорого, красный);
+     - иначе → «по рынку» (нейтрально).
+   Медиана устойчива к выбросам (в отличие от среднего), поэтому один
+   гипер-дорогой лот не искажает сигнал для остальных. Порог 12 % и
+   требование минимум 3 лотов в группе отсекают шум на редких выборках.
+   ---------------------------------------------------------------- */
+type Trend = "below" | "above" | "fair" | "none"
+
+const TREND_BAND = 0.12
+const TREND_MIN_SAMPLE = 3
+
+function median(nums: number[]): number {
+  if (nums.length === 0) return 0
+  const s = [...nums].sort((a, b) => a - b)
+  const mid = Math.floor(s.length / 2)
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2
+}
+
+/** key = `${rarity}|${currency}` — цены разных валют несопоставимы. */
+function trendKey(l: MarketListing): string {
+  return `${l.rarity}|${l.currency}`
+}
+
+function classifyTrend(price: number, med: number, sample: number): Trend {
+  if (med <= 0 || sample < TREND_MIN_SAMPLE) return "none"
+  if (price <= med * (1 - TREND_BAND)) return "below"
+  if (price >= med * (1 + TREND_BAND)) return "above"
+  return "fair"
 }
 
 export function MarketplaceView() {
@@ -88,13 +127,44 @@ export function MarketplaceView() {
 
   const volume = marketplaceListings.reduce((s, l) => s + l.price, 0)
 
+  /* Медиана цен по каждой группе (редкость+валюта) — база для трендов.
+     Считаем по всему активному рынку, а не по отфильтрованному срезу:
+     сигнал «выше/ниже рынка» должен отражать весь рынок, а не текущий фильтр. */
+  const trendStats = useMemo(() => {
+    const groups = new Map<string, number[]>()
+    for (const l of marketplaceListings) {
+      const k = trendKey(l)
+      const arr = groups.get(k)
+      if (arr) arr.push(l.price)
+      else groups.set(k, [l.price])
+    }
+    const stats = new Map<string, { med: number; sample: number }>()
+    for (const [k, prices] of groups) stats.set(k, { med: median(prices), sample: prices.length })
+    return stats
+  }, [marketplaceListings])
+
+  const trendOf = useCallback(
+    (l: MarketListing): Trend => {
+      const s = trendStats.get(trendKey(l))
+      return s ? classifyTrend(l.price, s.med, s.sample) : "none"
+    },
+    [trendStats],
+  )
+
   const handleBuy = useCallback((l: MarketListing) => setBuying(l), [])
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #160B24 100%)", color: COLORS.text }}>
+    <div className="relative overflow-hidden min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #160B24 100%)", color: COLORS.text }}>
+      <PremiumBackground variant="market" />
       <Navbar />
+      <SectionHelp
+        title={"Маркетплейс"}
+        what={"Маркетплейс — рынок цифровых артефактов. Здесь покупают и продают артефакты за валюты OSGARD. Фильтруйте по типу, редкости и цене, находите выгодные предложения."}
+        goals={[{"goal":"Купить артефакт","steps":["Найдите артефакт через поиск или фильтры","Откройте карточку","Нажмите «Купить» — цена спишется с кошелька"]},{"goal":"Продать свой артефакт","steps":["Перейдите в «Мои продажи»","Выставьте артефакт с ценой и валютой","Он появится в общем каталоге"]}]}
+        tour={[{"title":"Поиск и фильтры","text":"Ищите по названию/продавцу и сужайте выбор по типу, редкости и диапазону цен."},{"title":"Мои продажи","text":"Кнопка справа вверху — управляйте своими лотами: выставляйте и снимайте с продажи."}]}
+      />
 
-      <main className="mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
+      <main className="relative z-10 mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-[32px] font-semibold leading-tight">{t("marketplace.title")}</h1>
@@ -102,25 +172,36 @@ export function MarketplaceView() {
               {t("marketplace.subtitle")}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => router.push("/my-sales")}
-            className="inline-flex items-center gap-2 self-start rounded-lg px-4 py-2.5 text-[14px] transition-colors sm:self-auto"
-            style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = COLORS.accent
-              e.currentTarget.style.borderColor = COLORS.accent
-              e.currentTarget.style.color = COLORS.bg
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent"
-              e.currentTarget.style.borderColor = COLORS.border
-              e.currentTarget.style.color = COLORS.text
-            }}
-          >
-            <Store size={16} strokeWidth={1.75} />
-            {t("marketplace.mySales")}
-          </button>
+          <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => router.push("/auctions")}
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[14px] transition-transform hover:scale-[1.03]"
+              style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
+            >
+              <Gavel size={16} strokeWidth={1.75} />
+              {t("marketplace.auctions")}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/my-sales")}
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[14px] transition-colors"
+              style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = COLORS.accent
+                e.currentTarget.style.borderColor = COLORS.accent
+                e.currentTarget.style.color = COLORS.bg
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent"
+                e.currentTarget.style.borderColor = COLORS.border
+                e.currentTarget.style.color = COLORS.text
+              }}
+            >
+              <Store size={16} strokeWidth={1.75} />
+              {t("marketplace.mySales")}
+            </button>
+          </div>
         </div>
 
         {/* Metrics */}
@@ -137,6 +218,9 @@ export function MarketplaceView() {
             </div>
           ))}
         </div>
+
+        {/* Активный сезонный дроп */}
+        <DropBanner t={t} />
 
         {/* Controls */}
         <div className="mt-8 flex flex-col gap-4">
@@ -211,7 +295,7 @@ export function MarketplaceView() {
         ) : (
           <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {shown.map((l) => (
-              <MarketCard key={l.id} l={l} onBuy={handleBuy} t={t} />
+              <MarketCard key={l.id} l={l} onBuy={handleBuy} trend={trendOf(l)} t={t} />
             ))}
           </div>
         )}
@@ -245,13 +329,36 @@ function Chip({ active, onClick, children, color }: { active: boolean; onClick: 
   )
 }
 
+/** Мелкий бейдж рыночного тренда лота (выгодно / дорого / по рынку). */
+function TrendBadge({ trend, t }: { trend: Trend; t: (key: string, vars?: Record<string, string | number>) => string }) {
+  if (trend === "none") return null
+  const cfg =
+    trend === "below"
+      ? { Icon: TrendingDown, color: COLORS.green, label: t("marketplace.trendBelow") }
+      : trend === "above"
+        ? { Icon: TrendingUp, color: COLORS.red, label: t("marketplace.trendAbove") }
+        : { Icon: Minus, color: COLORS.label, label: t("marketplace.trendFair") }
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
+      style={{ border: `1px solid ${cfg.color}55`, color: cfg.color, backgroundColor: `${cfg.color}12` }}
+      title={t("marketplace.trendHint")}
+    >
+      <cfg.Icon size={11} strokeWidth={2} />
+      {cfg.label}
+    </span>
+  )
+}
+
 const MarketCard = memo(function MarketCard({
   l,
   onBuy,
+  trend,
   t,
 }: {
   l: MarketListing
   onBuy: (l: MarketListing) => void
+  trend: Trend
   t: (key: string, vars?: Record<string, string | number>) => string
 }) {
   const TypeIcon = ARTIFACT_TYPES[safeType(l.artifactType)].Icon
@@ -306,8 +413,11 @@ const MarketCard = memo(function MarketCard({
       </div>
 
       <div className="mt-auto flex items-center justify-between pt-5">
-        <span className="text-[17px] font-medium" style={{ color: COLORS.accent }}>
-          {formatPrice(l.price, l.currency)}
+        <span className="flex flex-col gap-1">
+          <span className="text-[17px] font-medium" style={{ color: COLORS.accent }}>
+            {formatPrice(l.price, l.currency)}
+          </span>
+          <TrendBadge trend={trend} t={t} />
         </span>
         <button
           type="button"

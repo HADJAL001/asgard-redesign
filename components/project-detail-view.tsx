@@ -22,7 +22,7 @@ import { createElement, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   ArrowLeft, Hammer, Boxes, TrendingUp, Coins, Loader2, Trash2, Store, Archive, CheckCircle2,
-  Rocket, Download, ExternalLink, AlertTriangle, Code2, Link2,
+  Rocket, Download, ExternalLink, AlertTriangle, Code2, Link2, Play,
 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { ProjectFileEditor } from "./project-file-editor"
@@ -73,7 +73,7 @@ export function ProjectDetailView({ projectId }: Props) {
     error,
   } = useOsgardStore()
 
-  const [tab, setTab] = useState<"artifacts" | "files">("artifacts")
+  const [tab, setTab] = useState<"artifacts" | "files" | "run">("artifacts")
   const [publishing, setPublishing] = useState(false)
   const [publishResult, setPublishResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [deploying, setDeploying] = useState(false)
@@ -414,9 +414,35 @@ export function ProjectDetailView({ projectId }: Props) {
               <Code2 size={14} strokeWidth={1.75} />
               {t("projectDetail.filesTab")}
             </button>
+            <button
+              type="button"
+              onClick={() => setTab("run")}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium transition-colors"
+              style={{
+                color: tab === "run" ? COLORS.accent : COLORS.label,
+                borderBottom: `2px solid ${tab === "run" ? COLORS.accent : "transparent"}`,
+              }}
+            >
+              <Play size={14} strokeWidth={1.75} />
+              {t("projectDetail.liveRunTab")}
+            </button>
           </div>
 
-          {tab === "files" ? (
+          {tab === "run" ? (
+            <div className="mt-6 flex flex-col items-center gap-4 rounded-2xl px-6 py-16 text-center" style={{ backgroundColor: COLORS.card, border: `1px dashed ${COLORS.border}` }}>
+              <Play size={32} strokeWidth={1.25} style={{ color: COLORS.accent }} />
+              <p className="max-w-[460px] text-[14px]" style={{ color: COLORS.label }}>{t("projectDetail.liveRunHint")}</p>
+              <button
+                type="button"
+                onClick={() => router.push(`/projects/${projectId}/live`)}
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90"
+                style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
+              >
+                <Play size={16} strokeWidth={1.75} />
+                {t("projectDetail.liveRunStart")}
+              </button>
+            </div>
+          ) : tab === "files" ? (
             <div className="mt-6">
               <ProjectFileEditor projectId={projectId} />
             </div>

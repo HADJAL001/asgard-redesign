@@ -12,18 +12,18 @@
 import { useState } from "react"
 import { X } from "lucide-react"
 import JarvisChat from "@/components/JarvisChat"
+import { GuestJarvisHint } from "@/components/GuestJarvisHint"
 import { useAuth } from "@/lib/auth-store"
-import { useReadonlyMode } from "@/lib/readonly-mode"
 import { AvatarOrb } from "@/components/ui/AvatarOrb"
 
 export function JarvisFloatingWidget() {
   const [open, setOpen] = useState(false)
+  const [guestHintOpen, setGuestHintOpen] = useState(false)
   const { isAuthenticated } = useAuth()
-  const { triggerPaywall } = useReadonlyMode()
 
   function handleToggle() {
     if (!isAuthenticated) {
-      triggerPaywall("ДЖАРВИС")
+      setGuestHintOpen((v) => !v)
       return
     }
     setOpen((v) => !v)
@@ -31,6 +31,10 @@ export function JarvisFloatingWidget() {
 
   return (
     <>
+      {guestHintOpen && !isAuthenticated && (
+        <GuestJarvisHint onClose={() => setGuestHintOpen(false)} />
+      )}
+
       {open && isAuthenticated && (
         <div
           style={{
@@ -50,7 +54,7 @@ export function JarvisFloatingWidget() {
       <button
         type="button"
         onClick={handleToggle}
-        aria-label={open ? "Закрыть ДЖАРВИС" : "Открыть ДЖАРВИС"}
+        aria-label={open || guestHintOpen ? "Закрыть ДЖАРВИС" : "Открыть ДЖАРВИС"}
         style={{
           position: "fixed",
           right: 24,

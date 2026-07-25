@@ -25,6 +25,8 @@ import { COLORS, badgeIcon } from "@/lib/economy"
 import { fmtTC } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { ProjectCreateWizard } from "./project-create-wizard"
+import { PremiumBackground } from "./premium-bg"
+import { SectionHelp } from "./section-help"
 
 export function ProjectsView() {
   const { t } = useTranslation()
@@ -62,10 +64,23 @@ export function ProjectsView() {
   }
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
+    <div className="relative min-h-screen overflow-hidden font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
+      <PremiumBackground variant="ideas" />
       <Navbar />
+      <SectionHelp
+        title="Мой мир — проекты"
+        what="Здесь живут ваши проекты — реальные приложения, сгенерированные ИИ, и связанные с ними артефакты. Проект можно открыть, отредактировать код, запустить вживую и задеплоить."
+        goals={[
+          { goal: "Создать проект с ИИ", steps: ["Нажмите «Создать с AI»", "Опишите идею словами", "ИИ сгенерирует настоящий код и артефакты"] },
+          { goal: "Открыть и запустить проект", steps: ["Кликните по карточке проекта", "Вкладки: Артефакты · Файлы · Запуск", "Во вкладке «Запуск» приложение стартует в браузере"] },
+        ]}
+        tour={[
+          { target: "projects-create-ai", title: "Создать с AI", text: "Главная кнопка: опишите любую идею — VPN, маркетплейс, игру — ИИ соберёт реальный проект." },
+          { title: "Карточки проектов", text: "Ниже появятся ваши миры. Клик по карточке открывает проект: код, живой запуск и артефакты." },
+        ]}
+      />
 
-      <main className="mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
+      <main className="relative z-10 mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-center gap-3">
             <span className="flex size-10 items-center justify-center rounded-lg" style={{ border: `1px solid ${COLORS.border}` }}>
@@ -93,6 +108,7 @@ export function ProjectsView() {
             </button>
             <button
               type="button"
+              data-tour="projects-create-ai"
               onClick={openAiWizard}
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90"
               style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}

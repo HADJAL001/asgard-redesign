@@ -25,14 +25,16 @@ import {
   Map,
   GitBranch,
   CreditCard,
+  KeyRound,
   Plug,
   Menu,
+  HelpCircle,
   X,
   type LucideIcon,
 } from "lucide-react"
 
 import { useOsgard } from "@/lib/store/osgard-store"
-import { useNotificationsStore } from "@/lib/store/notifications-store"
+import { useNotificationsStore, useNotificationStream } from "@/lib/store/notifications-store"
 import { useAuth } from "@/lib/auth-store"
 import { CURRENCIES, CURRENCY_ORDER, formatCurrencyAmount } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
@@ -67,6 +69,9 @@ export const NAV: NavItem[] = [
   { key: "nav.docs", href: "/docs", Icon: BookOpen },
   { key: "nav.economyMap", href: "/docs/economy-map", Icon: Map },
   { key: "nav.pricing", href: "/pricing", Icon: CreditCard },
+  { key: "nav.developer", href: "/developer", Icon: KeyRound },
+  { key: "nav.room", href: "/room", Icon: Lock },
+  { key: "nav.about", href: "/about", Icon: HelpCircle },
 ]
 
 /** Разделы, которые остаются в основной строке шапки — остальное уходит в боковое меню. */
@@ -340,6 +345,9 @@ export function Navbar() {
   const { unreadCount, fetchUnreadCount } = useNotificationsStore()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
+  // Real-time push уведомлений (SSE). Опрос ниже остаётся резервом на случай обрыва потока.
+  useNotificationStream(isAuthenticated)
+
   useEffect(() => {
     if (!isAuthenticated) return
     fetchUnreadCount({ skipAuthRedirect: true })
@@ -434,6 +442,17 @@ export function Navbar() {
           <Menu size={16} strokeWidth={1.75} aria-hidden="true" />
           <span className="hidden sm:inline">{t("nav.more")}</span>
         </button>
+        {/* Справка — что за платформа, кому нужна, инвестиции (заметный акцент) */}
+        <Link
+          href="/about"
+          aria-label={t("nav.about")}
+          aria-current={isActive("/about") ? "page" : undefined}
+          className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/5"
+          style={{ color: "var(--color-gold)", border: "1px solid var(--color-gold)" }}
+        >
+          <HelpCircle size={16} strokeWidth={1.9} aria-hidden="true" />
+          <span className="hidden sm:inline">{t("nav.about")}</span>
+        </Link>
         <div
           className="hidden items-center gap-1 rounded-full p-1 lg:flex"
           style={{ border: `1px solid ${isActive("/wallet") ? "var(--color-gold)" : "#2A2A3E"}` }}

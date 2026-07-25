@@ -21,12 +21,12 @@ import type {
    2. AI-обзор (deepReview) — контекстные находки, которые regex не
       ловит; получает список уже найденного эвристикой, чтобы не
       дублировать.
-   До 3 самых серьёзных находок (сначала critical) патчатся реальной
-   AI-перезаписью файла; остальные остаются рекомендациями.
+   До MAX_AUTO_FIX самых серьёзных находок (сначала critical) патчатся
+   реальной AI-перезаписью файла; остальные остаются рекомендациями.
    ================================================================ */
 
-const MAX_AUTO_FIX = 3
-const PREVIEW_CHARS = 800
+const MAX_AUTO_FIX = 10
+const PREVIEW_CHARS = 2000
 
 interface HeuristicFinding {
   file: string
@@ -140,7 +140,7 @@ const VALID_VULNS: VulnerabilityKind[] = ["sqli", "xss", "csrf", "auth", "secret
 const VALID_SEVERITIES: SecuritySeverity[] = ["low", "medium", "high", "critical"]
 
 function buildReviewPrompt(input: SecurityAgentInput, alreadyFound: HeuristicFinding[]): string {
-  const files = [...input.backend.files, ...input.frontend.files].slice(0, 15)
+  const files = [...input.backend.files, ...input.frontend.files].slice(0, 60)
   const listing = files
     .map((f) => `--- ${f.path} ---\n${f.content.slice(0, PREVIEW_CHARS)}${f.content.length > PREVIEW_CHARS ? "\n...(обрезано)" : ""}`)
     .join("\n\n")
@@ -167,11 +167,12 @@ ${listing}
     }
   ]
 }
+Перечисли ВСЕ найденные уязвимости, не ограничивай себя количеством — от этого зависит реальная безопасность проекта.
 Если новых уязвимостей нет — верни {"findings": []}. Ответь только JSON.`
 }
 
 async function deepReview(input: SecurityAgentInput, heuristic: HeuristicFinding[]): Promise<SecurityFinding[] | null> {
-  const review = await generateReview<{ findings?: RawFinding[] }>(buildReviewPrompt(input, heuristic), 3000, "security-agent")
+  const review = await generateReview<{ findings?: RawFinding[] }>(buildReviewPrompt(input, heuristic), 6000, "security-agent")
   if (review === null) return null
 
   const raw = Array.isArray(review.findings) ? review.findings : []

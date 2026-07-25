@@ -13,6 +13,8 @@ import {
 } from "recharts"
 import { TrendingUp, TrendingDown, ArrowUpDown, ArrowRightLeft, Infinity as InfinityIcon, Boxes } from "lucide-react"
 import { Navbar } from "./navbar"
+import { PremiumBackground } from "./premium-bg"
+import { SectionHelp } from "./section-help"
 import { TCMarketPanel } from "./tc-market-panel"
 import { useOsgard } from "@/lib/store/osgard-store"
 import {
@@ -129,10 +131,17 @@ export function ExchangeView() {
   }
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0D0D1A 100%)", color: "#FFFFFF" }}>
+    <div className="relative overflow-hidden min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0D0D1A 100%)", color: "#FFFFFF" }}>
+      <PremiumBackground variant="coins" />
       <Navbar />
+      <SectionHelp
+        title={"Биржа OSGARD"}
+        what={"Биржа — рынок TimeCoin. Цена формируется реальными сделками. Здесь можно купить TimeCoin за доллары или продать, посмотреть график и стакан заявок."}
+        goals={[{"goal":"Купить TimeCoin","steps":["Справа выберите «Купить»","Укажите сумму в долларах","Подтвердите — TimeCoin зачислится в кошелёк"]},{"goal":"Следить за рынком","steps":["График показывает динамику цены","Стакан заявок — активные предложения покупки/продажи"]}]}
+        tour={[{"title":"График цены","text":"Динамика TimeCoin по периодам: день, неделя, месяц, год. Цена — по реальным сделкам."},{"title":"Купить / Продать","text":"Панель справа: выберите направление, сумму и тип ордера (рыночный или лимитный)."}]}
+      />
 
-      <main className="mx-auto max-w-[1400px] px-6 py-8">
+      <main className="relative z-10 mx-auto max-w-[1400px] px-6 py-8">
         {/* Header */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>

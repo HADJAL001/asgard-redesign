@@ -1,5 +1,16 @@
+import { createHash } from "node:crypto"
 import { callClaudeRaw, callDeepSeekRaw, callGrokRaw, extractJson, isAiConfigured } from "./ai-router"
 import { captureError } from "../lib/sentry"
+import { durableCache } from "./agents/durable-cache"
+
+/* Кеш результата генерации по (name, hint): одинаковый промпт → готовый набор
+   файлов без повторной дорогой цепочки AI-вызовов. durableCache (SQLite) переживает
+   рестарт — повторная/похожая генерация не начинается с нуля (требование владельца).
+   Кешируем ТОЛЬКО успешные ai-результаты, не fallback. TTL 24ч. */
+const APP_CACHE_TTL_SECONDS = 24 * 60 * 60
+function appCacheKey(name: string, hint?: string): string {
+  return `app-generator:${createHash("sha256").update(JSON.stringify({ name, hint: hint ?? "" })).digest("hex")}`
+}
 
 /* ================================================================
    OSGARD · App Generator Service
@@ -170,14 +181,16 @@ function buildManifestPrompt(name: string, hint?: string): string {
 }
 
 Требования:
-- От 1 до 6 файлов, обязательно включи "app/page.tsx".
-- Пути только внутри app/ или components/, расширение .tsx.
+- Обязательно включи "app/page.tsx". Не экономь на количестве файлов и компонентов —
+  раскладывай интерфейс так, как это сделал бы опытный frontend-разработчик на реальном
+  проекте (отдельные компоненты, hooks/, lib/ для клиентской логики).
+- Пути только внутри app/, components/, hooks/ или lib/; расширение .tsx или .ts.
 - Описание purpose — 1 короткое предложение на русском.
 Ответь только JSON.`
 }
 
 async function generateManifest(name: string, hint?: string): Promise<ManifestEntry[] | null> {
-  const text = await callAnyProvider(buildManifestPrompt(name, hint), 2048)
+  const text = await callAnyProvider(buildManifestPrompt(name, hint), 4096)
   if (!text) return null
 
   const parsed = extractJson(text)
@@ -186,9 +199,9 @@ async function generateManifest(name: string, hint?: string): Promise<ManifestEn
   const entries: ManifestEntry[] = rawFiles
     .filter((f: any) => f && typeof f.path === "string" && typeof f.purpose === "string")
     .map((f: any) => ({ path: f.path.replace(/^\/+/, ""), purpose: f.purpose }))
-    .filter((f: ManifestEntry) => /^(app|components)\/[\w\-/]+\.tsx$/.test(f.path))
+    .filter((f: ManifestEntry) => /^(app|components|hooks|lib)\/[\w\-/]+\.tsx?$/.test(f.path))
     .filter((f: ManifestEntry) => !RESERVED_PATHS.has(f.path.toLowerCase()))
-    .slice(0, 6)
+    .slice(0, 40)
 
   if (!entries.some((f) => f.path === "app/page.tsx")) {
     entries.unshift({ path: "app/page.tsx", purpose: "Главная страница приложения" })
@@ -214,7 +227,9 @@ ${fileList}
 - Валидный TypeScript/TSX, готовый к сборке Next.js App Router (используй "use client" только если нужны хуки/интерактивность).
 - Стилизация через Tailwind CSS классы.
 - Импорты компонентов из "./ComponentName" или "@/components/ComponentName" — точно соответствуй путям из списка выше.
-- Никаких внешних API-запросов, только статичный контент и React state.
+- Приложение собирается через "next build" со статическим экспортом (output: "export") —
+  без серверных API-роутов и Server Actions. Обращения к внешним API возможны только
+  клиентски (компонент с "use client" + fetch/useEffect), не через серверные компоненты.
 - Верни ТОЛЬКО код в одном \`\`\`tsx блоке, без пояснений до или после.`
 }
 
@@ -240,13 +255,28 @@ function fallbackPageContent(name: string, hint?: string): string {
  * Никогда не бросает исключение — при любой ошибке/отсутствии AI возвращает
  * минимальный рабочий статический проект (source: "fallback").
  */
-export async function generateApp(name: string, hint?: string): Promise<AppGenerationResult> {
+export async function generateApp(
+  name: string,
+  hint?: string,
+  options?: { bypassCache?: boolean },
+): Promise<AppGenerationResult> {
   const template = staticTemplateFiles(name)
 
   if (!isAiConfigured()) {
     return {
       files: [...template, { path: "app/page.tsx", content: fallbackPageContent(name, hint) }],
       source: "fallback",
+    }
+  }
+
+  // Кеш: одинаковый промпт → готовый результат без повторной генерации.
+  // При bypassCache (глубокая генерация) чтение кеша пропускаем — гарантируем
+  // свежий результат с нуля, хотя записать его в кеш всё равно можем.
+  const cacheKey = appCacheKey(name, hint)
+  if (!options?.bypassCache) {
+    const cached = durableCache.get<GeneratedAppFile[]>(cacheKey)
+    if (cached && cached.length > 0) {
+      return { files: cached, source: "ai" }
     }
   }
 
@@ -266,7 +296,11 @@ export async function generateApp(name: string, hint?: string): Promise<AppGener
       files.push({ path: "app/page.tsx", content: fallbackPageContent(name, hint) })
     }
 
-    return { files: [...template, ...files], source: files.length > 0 ? "ai" : "fallback" }
+    const source: "ai" | "fallback" = files.length > 0 ? "ai" : "fallback"
+    const allFiles = [...template, ...files]
+    // Кешируем только реальный ai-результат, чтобы не «залипал» fallback.
+    if (source === "ai") durableCache.set(cacheKey, allFiles, APP_CACHE_TTL_SECONDS)
+    return { files: allFiles, source }
   } catch (err) {
     captureError("[app-generator] generation failed, falling back:", err)
     return {

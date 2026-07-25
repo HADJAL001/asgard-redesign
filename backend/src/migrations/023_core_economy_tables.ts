@@ -82,8 +82,10 @@ export function runCoreEconomyTablesMigration() {
   if (!marketExists) {
     const TC_START_PRICE = 12.4
     const TC_MINTED = 900_000
-    const TC_BURNED_BASE = 96_400
-    const TC_STAKED_BASE = 240_000
+    /* Без выдуманной «сетевой активности»: сожжено/застейкано стартуют с 0 и растут
+       только от реальных операций (см. init-db.ts — тот же принцип). */
+    const TC_BURNED_BASE = 0
+    const TC_STAKED_BASE = 0
 
     db.prepare(
       `INSERT INTO tc_market_state (id, price, minted, burned, staked) VALUES (1, ?, ?, ?, ?)`,

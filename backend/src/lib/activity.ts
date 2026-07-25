@@ -1,6 +1,6 @@
 import db from "./db"
 
-export type ActivityType = "artifact_crafted" | "artifact_sold" | "hof_entry"
+export type ActivityType = "artifact_crafted" | "artifact_sold" | "hof_entry" | "drop_claimed"
 
 /** Записывает публичное событие в глобальную ленту активности. */
 export function createActivityEvent(params: {

@@ -50,6 +50,14 @@ class TaskCancelledError extends Error {
   }
 }
 
+/** Точка возобновления цепочки: с какой стадии продолжать, уже готовые артефакты
+ *  (история для findArtifactContent) и вход этой стадии (выход предыдущей). */
+interface ResumePoint {
+  stageIndex: number
+  artifacts: Artifact[]
+  current: any
+}
+
 function acquireSlot(): Promise<void> {
   if (runningCount < MAX_CONCURRENT_TASKS) {
     runningCount++
@@ -124,24 +132,89 @@ export class ChainManager {
   }
 
   /** Перезапускает ранее упавшую задачу с тем же taskId, используя исходный input.
-      Переиспользует существующую запись/канал событий вместо создания новой задачи. */
+      Возобновляет с ПОСЛЕДНЕЙ успешно завершённой стадии (чекпоинт), а не с нуля:
+      артефакты завершённых стадий персистятся в БД на границе шага, поэтому уже
+      сделанную работу (тяжёлые AI-стадии) переигрывать не нужно. Если завершённых
+      стадий нет или история не сходится — полный перезапуск (прежнее поведение). */
   retry(userId: number, taskId: string): boolean {
-    const row: any = db.prepare(`SELECT status, input FROM generation_tasks WHERE id = ? AND user_id = ?`).get(taskId, userId)
+    const row: any = db.prepare(`SELECT status, input, artifacts FROM generation_tasks WHERE id = ? AND user_id = ?`).get(taskId, userId)
     if (!row || row.status !== "failed") return false
 
     const input = JSON.parse(row.input)
     cancelledTasks.delete(taskId)
-    this.persist(taskId, {
-      status: "queued",
-      progress: 0,
-      current_step: firstAgentType(this.stages),
-      artifacts: "[]",
-      result: null,
-      error: null,
-    })
 
-    void this.run(taskId, userId, input)
+    let persisted: Artifact[] = []
+    try {
+      persisted = row.artifacts ? JSON.parse(row.artifacts) : []
+    } catch {
+      persisted = []
+    }
+    const resume = this.computeResumePoint(persisted)
+
+    if (resume) {
+      this.persist(taskId, {
+        status: "queued",
+        progress: Math.round((resume.stageIndex / this.stages.length) * 100),
+        current_step: this.stepLabelAt(resume.stageIndex),
+        // artifacts НЕ сбрасываем — они и есть чекпоинт
+        result: null,
+        error: null,
+      })
+      void this.run(taskId, userId, input, resume)
+    } else {
+      this.persist(taskId, {
+        status: "queued",
+        progress: 0,
+        current_step: firstAgentType(this.stages),
+        artifacts: "[]",
+        result: null,
+        error: null,
+      })
+      void this.run(taskId, userId, input)
+    }
     return true
+  }
+
+  /** Метка стадии (типы агентов группы через "+") — для current_step в БД. */
+  private stepLabelAt(i: number): string {
+    const stage = this.stages[i]
+    if (!stage) return ""
+    const group = Array.isArray(stage) ? stage : [stage]
+    return group.map((a) => a.type).join("+")
+  }
+
+  /** По персистентным артефактам вычисляет, с какой стадии продолжать. Артефакты
+      уложены строго в порядке стадий (по одному на агента, группы — подряд),
+      персист происходит только после ПОЛНОГО завершения стадии — значит N готовых
+      артефактов покрывают ровно целые стадии. current восстанавливается как выход
+      последней завершённой стадии (в точности как в run()). Несовпадение типов
+      (напр. пайплайн поменялся между запусками) → null = полный перезапуск. */
+  private computeResumePoint(persisted: Artifact[]): ResumePoint | null {
+    if (!Array.isArray(persisted) || persisted.length === 0) return null
+
+    let consumed = 0
+    let resumeStageIndex = 0
+    let current: any = undefined
+
+    for (let i = 0; i < this.stages.length; i++) {
+      const stage = this.stages[i]
+      const group = Array.isArray(stage) ? stage : [stage]
+      if (consumed + group.length > persisted.length) break
+
+      const stageArtifacts = persisted.slice(consumed, consumed + group.length)
+      if (!group.every((a, idx) => stageArtifacts[idx]?.type === a.type)) return null
+
+      current =
+        group.length === 1
+          ? stageArtifacts[0].content
+          : Object.fromEntries(group.map((a, idx) => [a.type, stageArtifacts[idx].content]))
+      consumed += group.length
+      resumeStageIndex = i + 1
+    }
+
+    // Ничего целиком не завершено, либо (теоретически) завершено всё — старт с нуля.
+    if (resumeStageIndex === 0 || resumeStageIndex >= this.stages.length) return null
+    return { stageIndex: resumeStageIndex, artifacts: persisted.slice(0, consumed), current }
   }
 
   private persist(taskId: string, patch: Record<string, any>) {
@@ -154,22 +227,29 @@ export class ChainManager {
     )
   }
 
-  private async run(taskId: string, userId: number, input: any) {
+  private async run(taskId: string, userId: number, input: any, resumeFrom?: ResumePoint) {
     await acquireSlot()
     const channel = `task:${taskId}`
     const deadline = Date.now() + TASK_TIMEOUT_MS
     const startedAt = Date.now()
-    const artifacts: Artifact[] = []
+    const artifacts: Artifact[] = resumeFrom ? [...resumeFrom.artifacts] : []
 
     try {
       if (cancelledTasks.has(taskId)) throw new TaskCancelledError()
 
-      this.persist(taskId, { status: "processing", current_step: firstAgentType(this.stages) })
+      const startIndex = resumeFrom?.stageIndex ?? 0
+      this.persist(taskId, { status: "processing", current_step: this.stepLabelAt(startIndex) || firstAgentType(this.stages) })
       pipelineEvents.emit(channel, { type: "task_start", taskId })
 
-      let current: any = input
+      // При возобновлении переигрываем step_done уже готовых стадий, чтобы
+      // переподключившийся SSE-клиент увидел завершённые шаги как выполненные.
+      if (resumeFrom) {
+        for (const a of artifacts) pipelineEvents.emit(channel, { type: "step_done", step: a.type, artifact: a })
+      }
 
-      for (let i = 0; i < this.stages.length; i++) {
+      let current: any = resumeFrom ? resumeFrom.current : input
+
+      for (let i = startIndex; i < this.stages.length; i++) {
         if (cancelledTasks.has(taskId)) throw new TaskCancelledError()
 
         const stage = this.stages[i]

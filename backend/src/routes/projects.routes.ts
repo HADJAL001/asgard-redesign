@@ -3,21 +3,16 @@ import { Octokit } from "@octokit/rest"
 import archiver from "archiver"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
-import { localFallbackGeneration, isAiConfigured, type AiArtifactSuggestion } from "../services/ai-generator"
-import { generateApp, validateGeneratedFiles, GeneratedAppFile } from "../services/app-generator"
+import { isAiConfigured } from "../services/ai-generator"
+import { validateGeneratedFiles, GeneratedAppFile } from "../services/app-generator"
 import { runNetlifyDeployJob, isNetlifyConfigured } from "../services/netlify-deploy"
-import {
-  detectTheme,
-  findBestTemplate,
-  saveTemplateFromGeneration,
-  incrementTemplateUsage,
-  estimateTokensSaved,
-  type MatchedTemplate,
-} from "../services/template-store"
-import { adaptTemplate } from "../services/template-adapter"
+import { verifyBuildInSandbox } from "../services/sandbox.service"
 import { decrypt } from "../utils/encryption"
 import { asyncHandler } from "../utils/async-handler"
 import { captureError } from "../lib/sentry"
+import { PROJECT_SELECT_COLUMNS, createGeneratedProject } from "../lib/project-generation"
+import { GENERATION_DEPTHS, resolveDepth, serializeDepths } from "../lib/generation-depths"
+import { logAudit } from "../lib/audit"
 
 const router = Router()
 
@@ -28,19 +23,6 @@ const LIST_CURRENCY_BY_RARITY: Record<string, string> = {
   legendary: "crystals",
   mythic: "timecoin",
 }
-
-function computePrice(a: { power: number; defense: number; magic: number; speed: number }): number {
-  const statSum = a.power + a.defense + a.magic + a.speed
-  return Math.round(statSum * 5) // базовая цена common-артефакта без спроса
-}
-
-function randomStat(): number {
-  return 10 + Math.floor(Math.random() * 30)
-}
-
-const PROJECT_SELECT_COLUMNS = `id, name, description, badge, artifact_count as artifactCount, sold, income,
-       status, generation_error as generationError, ai_source as aiSource, created_at as createdAt,
-       deploy_status as deployStatus, deploy_error as deployError, live_url as liveUrl`
 
 /* Дневные лимиты генераций проектов по тарифу (users.plan). null = без лимита. */
 const DAILY_GENERATION_LIMITS: Record<string, number | null> = {
@@ -62,8 +44,11 @@ router.get("/generation-limits", requireAuth, (req: AuthRequest, res) => {
   const dailyLimit = DAILY_GENERATION_LIMITS[plan] ?? DAILY_GENERATION_LIMITS.free
 
   const todayStart = getTodayStartMs()
+  // Квоту тратят только бесплатные (quick) генерации; платные (standard/deep) — нет.
   const { count } = db
-    .prepare(`SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND created_at >= ?`)
+    .prepare(
+      `SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND created_at >= ? AND generation_depth = 'quick'`,
+    )
     .get(req.user!.userId, todayStart) as { count: number }
 
   res.json({
@@ -71,7 +56,13 @@ router.get("/generation-limits", requireAuth, (req: AuthRequest, res) => {
     dailyLimit,
     used: count,
     remaining: dailyLimit === null ? null : Math.max(0, dailyLimit - count),
+    depths: serializeDepths(),
   })
+})
+
+/* ---------------- GET /projects/generation-depths — каталог уровней глубины ---------------- */
+router.get("/generation-depths", requireAuth, (_req: AuthRequest, res) => {
+  res.json({ depths: serializeDepths() })
 })
 
 /* ---------------- GET /projects/mine — список проектов пользователя ---------------- */
@@ -248,191 +239,109 @@ router.post("/", requireAuth, (req: AuthRequest, res) => {
   res.status(201).json({ project })
 })
 
-function insertStarterArtifacts(
-  userId: number,
-  projectId: number,
-  artifacts: Array<{ name: string; type: string }>,
-  now: number,
-) {
-  const insertArtifact = db.prepare(
-    `INSERT INTO artifacts (owner_id, project_id, name, type, rarity, level, power, defense, magic, speed, status, views_24h, supply, price, list_currency, created_at)
-     VALUES (?, ?, ?, ?, 'common', 1, ?, ?, ?, ?, 'kept', 0, 1, ?, 'credits', ?)`,
-  )
-
-  let count = 0
-  for (const a of artifacts) {
-    const power = randomStat()
-    const defense = randomStat()
-    const magic = randomStat()
-    const speed = randomStat()
-    const price = computePrice({ power, defense, magic, speed })
-
-    insertArtifact.run(userId, projectId, a.name, a.type, power, defense, magic, speed, price, now)
-    count += 1
-  }
-
-  db.prepare(`UPDATE projects SET artifact_count = ? WHERE id = ?`).run(count, projectId)
-}
-
-/** Асинхронный джоб генерации реального приложения — вызывается fire-and-forget сразу
- *  после ответа клиенту. Никогда не бросает наружу: любая ошибка помечает проект failed.
- *
- *  Если синхронно (в POST /generate) был найден подходящий шаблон той же темы — вместо
- *  полной AI-генерации (манифест + файлы, дорого по токенам) делается один короткий
- *  bounded-вызов адаптации (adaptTemplate), а остальные файлы шаблона переиспользуются
- *  байт-в-байт. Иначе — обычная полная генерация (generateApp), и при её успехе через AI
- *  результат сохраняется как новый шаблон для будущих проектов той же темы. */
-async function runAppGenerationJob(
-  projectId: number,
-  name: string,
-  hint: string | undefined,
-  quick: { description: string; badge: string; artifacts: AiArtifactSuggestion[] },
-  template: MatchedTemplate | null,
-) {
-  try {
-    let files: GeneratedAppFile[]
-    let source: string
-    let description = quick.description
-    let badge = quick.badge
-    let artifactNames: string[] | null = null
-
-    if (template) {
-      const adapted = await adaptTemplate(template, name, hint)
-      files = adapted.files
-      source = adapted.source
-      description = adapted.description
-      badge = adapted.badge
-      artifactNames = adapted.artifactNames
-
-      incrementTemplateUsage(template.id, estimateTokensSaved(template.files.length))
-    } else {
-      const result = await generateApp(name, hint)
-      files = result.files
-      source = result.source
-
-      if (result.source === "ai") {
-        saveTemplateFromGeneration({
-          name,
-          hint,
-          description: quick.description,
-          badge: quick.badge,
-          manifest: files.map((f) => ({ path: f.path, purpose: f.path })),
-          files,
-          artifactTypes: quick.artifacts,
-        })
-      }
-    }
-
-    const errors = validateGeneratedFiles(files)
-
-    const insertFile = db.prepare(
-      `INSERT INTO project_files (project_id, path, content, updated_at)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(project_id, path) DO UPDATE SET content = excluded.content, updated_at = excluded.updated_at`,
-    )
-    const now = Date.now()
-    for (const file of files) {
-      insertFile.run(projectId, file.path, file.content, now)
-    }
-
-    db.prepare(
-      `UPDATE projects SET status = 'ready', ai_source = ?, generation_error = ?, description = ?, badge = ? WHERE id = ?`,
-    ).run(source, errors.length > 0 ? errors.join("\n") : null, description, badge, projectId)
-
-    if (artifactNames) {
-      const rows = db
-        .prepare(`SELECT id FROM artifacts WHERE project_id = ? ORDER BY id ASC`)
-        .all(projectId) as Array<{ id: number }>
-      const renameArtifact = db.prepare(`UPDATE artifacts SET name = ? WHERE id = ?`)
-      rows.forEach((row, i) => {
-        if (artifactNames![i]) renameArtifact.run(artifactNames![i], row.id)
-      })
-    }
-  } catch (err: any) {
-    captureError("[projects.generate] app generation job failed:", err)
-    db.prepare(`UPDATE projects SET status = 'failed', generation_error = ? WHERE id = ?`).run(
-      err?.message || "Неизвестная ошибка генерации",
-      projectId,
-    )
-  }
-}
-
 /* ---------------- POST /projects/generate — генерация реального приложения ----------------
    Принимает { name, hint? }. Сразу создаёт проект (status='generating') вместе со стартовыми
    артефактами (детерминированный локальный рандомайзер — экономика не завязана на AI) и
    отвечает немедленно. Реальная генерация файлов приложения (AI, дольше и дороже по токенам)
    запускается fire-and-forget и обновляет projects.status по завершении — фронтенд опрашивает
-   GET /projects/:id, а не ждёт один долгий запрос.
+   GET /projects/:id, а не ждёт один долгий запрос. Ядро генерации вынесено в общий сервис
+   lib/project-generation.ts (его же переиспользует публичный B2B API).
 ------------------------------------------------------------------------------- */
 router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const { name, hint } = req.body || {}
+  const userId = req.user!.userId
 
   if (!name || typeof name !== "string" || !name.trim()) {
     return res.status(400).json({ error: "Укажите название проекта" })
   }
 
-  const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(req.user!.userId)
-  const plan = userRow?.plan || "free"
-  const dailyLimit = DAILY_GENERATION_LIMITS[plan] ?? DAILY_GENERATION_LIMITS.free
+  const depth = resolveDepth(req.body?.depth)
+  const depthCfg = GENERATION_DEPTHS[depth]
+  const safeHint = typeof hint === "string" ? hint : undefined
 
-  if (dailyLimit !== null) {
-    const todayStart = getTodayStartMs()
-    const { count } = db
-      .prepare(`SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND created_at >= ?`)
-      .get(req.user!.userId, todayStart) as { count: number }
+  /* --- Бесплатная (quick) генерация: расход дневной квоты тарифа --- */
+  if (depthCfg.countsAgainstQuota) {
+    const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
+    const plan = userRow?.plan || "free"
+    const dailyLimit = DAILY_GENERATION_LIMITS[plan] ?? DAILY_GENERATION_LIMITS.free
 
-    if (count >= dailyLimit) {
-      return res.status(429).json({
-        error: `Дневной лимит генераций (${dailyLimit}) для тарифа "${plan}" исчерпан. Попробуйте завтра или улучшите тариф.`,
-        plan,
-        dailyLimit,
-        used: count,
-      })
+    if (dailyLimit !== null) {
+      const todayStart = getTodayStartMs()
+      const { count } = db
+        .prepare(
+          `SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND created_at >= ? AND generation_depth = 'quick'`,
+        )
+        .get(userId, todayStart) as { count: number }
+
+      if (count >= dailyLimit) {
+        return res.status(429).json({
+          error: `Дневной лимит быстрых генераций (${dailyLimit}) для тарифа "${plan}" исчерпан. Попробуйте завтра, улучшите тариф или выберите платную глубину.`,
+          plan,
+          dailyLimit,
+          used: count,
+        })
+      }
+    }
+
+    try {
+      const { project, artifacts } = createGeneratedProject({ userId, name, hint: safeHint, depth })
+      return res.status(202).json({ project, artifacts, depth, costCredits: 0, aiConfigured: isAiConfigured() })
+    } catch (err) {
+      captureError("[projects.generate] error:", err)
+      return res.status(500).json({ error: "Не удалось создать проект" })
     }
   }
 
+  /* --- Платная глубина (standard/deep): честное списание кредитов --- */
+  const cost = depthCfg.credits
+  const wallet = db.prepare(`SELECT credits FROM wallets WHERE user_id = ?`).get(userId) as
+    | { credits: number }
+    | undefined
+  if (!wallet) return res.status(402).json({ error: "Кошелёк не найден", code: "NO_WALLET" })
+  if (wallet.credits < cost) {
+    return res.status(402).json({
+      error: `Недостаточно кредитов для глубины «${depthCfg.label}». Требуется ${cost}, доступно ${wallet.credits}.`,
+      code: "INSUFFICIENT_CREDITS",
+      required: cost,
+      available: wallet.credits,
+    })
+  }
+
+  const now = Date.now()
+  db.exec("BEGIN IMMEDIATE")
   try {
-    const trimmedName = name.trim()
-    const safeHint = typeof hint === "string" ? hint : undefined
-
-    const { theme, keywords } = detectTheme(trimmedName, safeHint)
-    const template = findBestTemplate(theme, keywords)
-
-    const quick: { description: string; badge: string; artifacts: AiArtifactSuggestion[] } = template
-      ? {
-          description: template.description || `${trimmedName} — проект в теме «${template.theme}».`,
-          badge: template.badge || "sparkles",
-          artifacts: template.artifactTypes,
-        }
-      : localFallbackGeneration(trimmedName, safeHint)
-
-    const now = Date.now()
-
-    const projectInfo = db
-      .prepare(
-        `INSERT INTO projects (user_id, name, description, badge, artifact_count, sold, income, status, template_id, created_at)
-         VALUES (?, ?, ?, ?, 0, 0, 0, 'generating', ?, ?)`,
-      )
-      .run(req.user!.userId, trimmedName, quick.description, quick.badge, template?.id ?? null, now)
-
-    const projectId = Number(projectInfo.lastInsertRowid)
-    insertStarterArtifacts(req.user!.userId, projectId, quick.artifacts, now)
-
-    const project = db.prepare(`SELECT ${PROJECT_SELECT_COLUMNS} FROM projects WHERE id = ?`).get(projectId)
-    const artifacts = db
-      .prepare(
-        `SELECT id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
-                status, views_24h as views24h, supply, price, list_currency as listCurrency, created_at as createdAt
-         FROM artifacts WHERE project_id = ? ORDER BY created_at DESC`,
-      )
-      .all(projectId)
-
-    res.status(202).json({ project, artifacts, aiConfigured: isAiConfigured() })
-
-    void runAppGenerationJob(projectId, trimmedName, safeHint, quick, template)
+    const fresh = db.prepare(`SELECT credits FROM wallets WHERE user_id = ?`).get(userId) as { credits: number }
+    if (fresh.credits < cost) {
+      db.exec("ROLLBACK")
+      return res.status(402).json({ error: "Недостаточно кредитов", code: "INSUFFICIENT_CREDITS" })
+    }
+    db.prepare(`UPDATE wallets SET credits = credits - ?, updated_at = ? WHERE user_id = ?`).run(cost, now, userId)
+    db.prepare(
+      `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+       VALUES (?, 'project_generation', ?, 'OSGARD', ?, 'credits', 'done')`,
+    ).run(userId, `Генерация (${depthCfg.label}): ${name.trim()}`, cost)
+    db.exec("COMMIT")
   } catch (err) {
+    db.exec("ROLLBACK")
+    throw err
+  }
+  logAudit(userId, "debit", cost, "project_generation", { depth, name: name.trim() })
+
+  try {
+    const { project, artifacts } = createGeneratedProject({ userId, name, hint: safeHint, depth })
+    return res.status(202).json({ project, artifacts, depth, costCredits: cost, aiConfigured: isAiConfigured() })
+  } catch (err) {
+    /* Синхронный сбой создания — честно возвращаем кредиты. */
+    db.exec("BEGIN IMMEDIATE")
+    try {
+      db.prepare(`UPDATE wallets SET credits = credits + ?, updated_at = ? WHERE user_id = ?`).run(cost, Date.now(), userId)
+      db.exec("COMMIT")
+    } catch {
+      db.exec("ROLLBACK")
+    }
+    logAudit(userId, "credit", cost, "project_generation_refund", { depth })
     captureError("[projects.generate] error:", err)
-    res.status(500).json({ error: "Не удалось создать проект" })
+    return res.status(500).json({ error: "Не удалось создать проект, кредиты возвращены" })
   }
 }))
 
@@ -559,6 +468,37 @@ router.post("/:id/deploy-netlify", requireAuth, asyncHandler(async (req: AuthReq
   res.status(202).json({ project: updated })
 
   void runNetlifyDeployJob(id)
+}))
+
+/* ---------------- POST /projects/:id/verify-build — реальная проверка сборки в Docker-песочнице ----------------
+   В отличие от инлайн-валидации при сохранении файла (ts.transpileModule — только
+   синтаксис), здесь запускается полноценный `next build` в изолированном контейнере.
+   Занимает секунды, поэтому await прямо в запросе (клиент показывает спиннер). */
+router.post("/:id/verify-build", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+  const id = Number(req.params.id)
+  const project: any = db.prepare(`SELECT id, user_id FROM projects WHERE id = ?`).get(id)
+
+  if (!project) return res.status(404).json({ error: "Проект не найден" })
+  if (project.user_id !== req.user!.userId) {
+    return res.status(403).json({ error: "Нет доступа к этому проекту" })
+  }
+
+  const files = db
+    .prepare(`SELECT path, content FROM project_files WHERE project_id = ?`)
+    .all(id) as Array<{ path: string; content: string }>
+
+  if (files.length === 0) {
+    return res.status(400).json({ error: "У проекта нет файлов для проверки" })
+  }
+
+  const result = await verifyBuildInSandbox(files, { logLabel: `verify-build-${id}` })
+  res.json({
+    ok: result.ok,
+    skipped: result.skipped,
+    timedOut: result.timedOut,
+    durationMs: result.durationMs,
+    logs: result.logs.slice(-8000), // хвост лога сборки, без гигантских выводов
+  })
 }))
 
 /* ---------------- PATCH /projects/:id — обновить название/описание/бейдж ---------------- */

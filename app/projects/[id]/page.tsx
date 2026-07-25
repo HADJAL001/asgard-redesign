@@ -1,13 +1,10 @@
 import dynamic from "next/dynamic"
+import { PageLoader } from "@/components/osgard-loader"
 
 const ProjectDetailView = dynamic(
   () => import("@/components/project-detail-view").then((m) => m.ProjectDetailView),
   {
-    loading: () => (
-      <div className="flex items-center justify-center py-32" style={{ color: "#6A6A8A" }}>
-        Загрузка…
-      </div>
-    ),
+    loading: () => <PageLoader />,
   }
 )
 

@@ -28,8 +28,9 @@ import {
   ChevronRight,
   type LucideIcon,
 } from "lucide-react"
-import { Infinity as InfinityIcon, Lock, DollarSign } from "lucide-react"
+import { Infinity as InfinityIcon, Lock, DollarSign, Brain } from "lucide-react"
 import { Navbar } from "./navbar"
+import { PremiumBackground } from "./premium-bg"
 import { ArtifactMiniCard } from "./artifact-mini-card"
 import { useOsgard, useOsgardStore } from "@/lib/store/osgard-store"
 import { formatTokens } from "@/lib/economy"
@@ -125,10 +126,11 @@ export function ProfileView() {
   }
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0A1628 100%)", color: "#FFFFFF" }}>
+    <div className="relative overflow-hidden min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0A1628 100%)", color: "#FFFFFF" }}>
+      <PremiumBackground variant="gold" />
       <Navbar />
 
-      <main className="mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
+      <main className="relative z-10 mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
         {/* Title */}
         <div>
           <h1 className="text-[32px] font-semibold leading-tight">Профиль</h1>
@@ -144,14 +146,30 @@ export function ProfileView() {
             className="flex shrink-0 items-center justify-center rounded-2xl p-6"
             style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
           >
-            <Image
-              src={user?.avatarUrl || AVATAR || "/placeholder.svg"}
-              alt={displayName}
-              width={128}
-              height={128}
-              className="size-32 rounded-full object-cover"
-              style={{ border: "2px solid #2A2A3E" }}
-            />
+            {user?.avatarUrl ? (
+              <Image
+                src={user.avatarUrl}
+                alt={displayName}
+                width={128}
+                height={128}
+                className="size-32 rounded-full object-cover"
+                style={{ border: "2px solid #2A2A3E" }}
+              />
+            ) : (
+              /* Нет фото — вместо стокового человека показываем «мозг»: намёк на
+                 интеллект/архитектора. Премиальный градиент + мягкое свечение. */
+              <div
+                className="flex size-32 items-center justify-center rounded-full"
+                style={{
+                  background: "radial-gradient(circle at 35% 30%, #1b2440, #0b1020)",
+                  border: "2px solid rgba(201,168,76,0.45)",
+                  boxShadow: "0 0 28px 4px rgba(201,168,76,0.22), inset 0 0 22px rgba(120,180,255,0.14)",
+                }}
+                aria-label={displayName}
+              >
+                <Brain size={58} strokeWidth={1.25} style={{ color: "#E6C868", filter: "drop-shadow(0 0 10px rgba(230,200,104,0.5))" }} />
+              </div>
+            )}
           </div>
 
           {/* Info card */}

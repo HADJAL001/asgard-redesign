@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, GitBranch, Play, Pencil, Trash2, Loader2 } from "lucide-react"
 import { Navbar } from "./navbar"
+import { SnakeBackground } from "./snake-bg"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { orchestratorApi } from "@/lib/orchestrator/api"
@@ -60,10 +61,11 @@ export function OrchestratorView() {
   }
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
+    <div className="relative overflow-hidden min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
+      <SnakeBackground />
       <Navbar />
 
-      <main className="mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
+      <main className="relative z-10 mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-center gap-3">
             <span className="flex size-10 items-center justify-center rounded-lg" style={{ border: `1px solid ${COLORS.border}` }}>

@@ -25,11 +25,16 @@ import { Lock, Unlock, Percent, ShieldCheck, Infinity as InfinityIcon, Sparkles,
 import { Navbar } from "./navbar"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { COLORS, formatTokens } from "@/lib/economy"
-import { STAKE_TERMS, MIN_STAKE, UP, DAY_MS, fmtTC, fmtUSD, type StakeTerm } from "@/lib/tc-market"
+import { STAKE_TERMS, UP, DAY_MS, fmtTC, fmtUSD, type StakeTerm } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
-
+import { PremiumBackground } from "./premium-bg"
+import { SectionHelp } from "./section-help"
 
 const PURPLE = "#9B59B6"
+
+/* Минимальный стейк снижен до 0.001 ∞ — стейкинг доступен любому залогиненному
+   пользователю (потолок по сумме растёт с тарифом подписки — enforced на бэкенде). */
+const MIN_STAKE = 0.001
 
 function daysLeft(endTs: number, now: number): number {
   return Math.max(0, Math.ceil((endTs - now) / DAY_MS))
@@ -108,10 +113,23 @@ export function StakeView() {
   }
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0F0F1A 100%)", color: COLORS.text }}>
+    <div className="relative min-h-screen overflow-hidden font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0F0F1A 100%)", color: COLORS.text }}>
+      <PremiumBackground variant="coins" />
       <Navbar />
+      <SectionHelp
+        title="Стейкинг TimeCoin"
+        what="Стейкинг — вы блокируете TimeCoin на срок и получаете доход (APR). Чем дольше срок — тем выше ставка. Плюс сниженная комиссия маркета и привилегии. Доступен всем: минимум 0.001 ∞."
+        goals={[
+          { goal: "Начать зарабатывать", steps: ["Выберите срок: 30 / 90 / 180 дней", "Введите сумму (минимум 0.001 ∞)", "Нажмите «Застейкать»"] },
+          { goal: "Увеличить лимит стейка", steps: ["Максимум суммы зависит от тарифа подписки", "Чем дороже тариф — тем больше можно застейкать за раз"] },
+        ]}
+        tour={[
+          { target: "stake-amount", title: "Сумма стейка", text: "Введите, сколько TimeCoin заблокировать. Минимум — 0.001 ∞. Максимум растёт с вашим тарифом." },
+          { target: "stake-btn", title: "Застейкать", text: "Подтвердите — TimeCoin заблокируется на выбранный срок и начнёт приносить доход по APR." },
+        ]}
+      />
 
-      <main className="mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
+      <main className="relative z-10 mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
         <div>
           <h1 className="flex items-center gap-2 text-[32px] font-semibold leading-tight">
             <Lock size={26} strokeWidth={1.75} style={{ color: PURPLE }} aria-hidden="true" />
@@ -191,6 +209,7 @@ export function StakeView() {
               </div>
               <input
                 id="stake-amt"
+                data-tour="stake-amount"
                 inputMode="decimal"
                 value={amount}
                 onChange={(e) => { setAmount(e.target.value.replace(/[^0-9.]/g, "")); setNotice(null) }}
@@ -223,6 +242,7 @@ export function StakeView() {
 
             <button
               type="button"
+              data-tour="stake-btn"
               onClick={doStake}
               disabled={!canStake || submitting || loading}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"

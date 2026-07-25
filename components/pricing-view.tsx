@@ -318,6 +318,10 @@ export function PricingView() {
   const [currentPlan, setCurrentPlan] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null)
+  const [ykBusy, setYkBusy] = useState<string | null>(null)
+  const [ykEmailPlan, setYkEmailPlan] = useState<PlanDef | null>(null)
+  const [ykEmailInput, setYkEmailInput] = useState("")
+  const [ykEmailError, setYkEmailError] = useState<string | null>(null)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const clickedAnyPlanRef = useRef(false)
 
@@ -390,6 +394,63 @@ export function PricingView() {
       setLoading(false)
       setCheckoutPlan(null)
     }
+  }
+
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+  /* Оплата из России через ЮKassa (карты РФ, СБП, SberPay). Отдельная от
+     Stripe кнопка — редиректит на confirmation_url ЮKassa, подписка активируется
+     после webhook payment.succeeded (см. backend/routes/yookassa.routes.ts).
+
+     Для чека 54-ФЗ нужен email покупателя: если он есть в профиле — платим
+     сразу; если нет — открываем модалку сбора email (иначе боевой платёж с
+     подключённой онлайн-кассой ЮKassa отклонит). */
+  function startYookassa(plan: PlanDef) {
+    if (!plan.stripePlan) return
+    if (!user) {
+      setNotice({ ok: false, text: "Войдите или зарегистрируйтесь для оформления подписки" })
+      return
+    }
+    if (user.email) {
+      void payYookassa(plan)
+    } else {
+      setYkEmailInput("")
+      setYkEmailError(null)
+      setYkEmailPlan(plan)
+    }
+  }
+
+  async function payYookassa(plan: PlanDef, email?: string) {
+    if (!plan.stripePlan) return
+    setYkBusy(plan.stripePlan)
+    setNotice(null)
+
+    try {
+      const res = await apiClient.post<{ url?: string }>("/yookassa/create-payment", {
+        plan: plan.stripePlan,
+        ...(email ? { email } : {}),
+      })
+      if (res.url) {
+        window.location.assign(res.url)
+      } else {
+        setNotice({ ok: false, text: "ЮKassa не вернула ссылку на оплату" })
+      }
+    } catch (err: any) {
+      setNotice({ ok: false, text: err?.message || "Оплата через ЮKassa временно недоступна" })
+    } finally {
+      setYkBusy(null)
+    }
+  }
+
+  function submitYookassaEmail() {
+    const email = ykEmailInput.trim()
+    if (!EMAIL_RE.test(email)) {
+      setYkEmailError("Введите корректный email — на него придёт чек")
+      return
+    }
+    const plan = ykEmailPlan
+    setYkEmailPlan(null)
+    if (plan) void payYookassa(plan, email)
   }
 
   /* ── Addon-подписки: ДЖАРВИС / ВАЛЛИ Premium ── */
@@ -531,6 +592,109 @@ export function PricingView() {
   return (
     <div className="min-h-screen font-sans" style={{ background: `linear-gradient(180deg, ${BG} 0%, #0F0F1A 100%)`, color: "#FFFFFF" }}>
       <Navbar />
+
+      {/* ── Модалка сбора email для чека ЮKassa (54-ФЗ) ── */}
+      {ykEmailPlan && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Email для чека"
+          onClick={() => setYkEmailPlan(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 10000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.6)",
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 400,
+              background: CARD,
+              border: `1px solid ${BORDER}`,
+              borderRadius: 16,
+              padding: 24,
+            }}
+          >
+            <h3 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 6px" }}>
+              Email для чека
+            </h3>
+            <p style={{ fontSize: 13, color: LABEL, margin: "0 0 16px", lineHeight: 1.5 }}>
+              По закону 54-ФЗ на оплату нужен чек. Укажите email — мы пришлём его туда.
+              Тариф: <strong style={{ color: "#fff" }}>{ykEmailPlan.name}</strong>.
+            </p>
+            <input
+              type="email"
+              inputMode="email"
+              autoFocus
+              value={ykEmailInput}
+              onChange={(e) => {
+                setYkEmailInput(e.target.value)
+                if (ykEmailError) setYkEmailError(null)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submitYookassaEmail()
+              }}
+              placeholder="you@example.com"
+              style={{
+                width: "100%",
+                padding: "11px 14px",
+                borderRadius: 10,
+                border: `1px solid ${ykEmailError ? "rgba(239,68,68,0.6)" : BORDER}`,
+                background: "rgba(255,255,255,0.03)",
+                color: "#fff",
+                fontSize: 14,
+                outline: "none",
+              }}
+            />
+            {ykEmailError && (
+              <div style={{ color: "#F87171", fontSize: 12, marginTop: 6 }}>{ykEmailError}</div>
+            )}
+            <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+              <button
+                type="button"
+                onClick={() => setYkEmailPlan(null)}
+                style={{
+                  flex: 1,
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                  border: `1px solid ${BORDER}`,
+                  background: "transparent",
+                  color: LABEL,
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={submitYookassaEmail}
+                disabled={ykBusy !== null}
+                style={{
+                  flex: 2,
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: "#06B6D4",
+                  color: "#001014",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                Перейти к оплате
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="mx-auto max-w-[1200px] px-6 py-14 md:px-10 md:py-20">
 
@@ -703,6 +867,20 @@ export function PricingView() {
                       {isBusy ? <Loader2 size={15} className="animate-spin" /> : null}
                       {plan.cta}
                       {!isBusy && <ChevronRight size={14} />}
+                    </button>
+                  )}
+
+                  {/* Оплата из России — отдельная кнопка ЮKassa (карты РФ / СБП / SberPay) */}
+                  {!isActive && plan.stripePlan && (
+                    <button
+                      type="button"
+                      onClick={() => startYookassa(plan)}
+                      disabled={ykBusy !== null}
+                      className="flex items-center justify-center gap-2 w-full rounded-xl py-2.5 mt-2 text-[13px] font-medium transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ background: "transparent", border: `1px solid ${plan.color}30`, color: LABEL }}
+                    >
+                      {ykBusy === plan.stripePlan ? <Loader2 size={14} className="animate-spin" /> : null}
+                      Оплатить из России (ЮKassa)
                     </button>
                   )}
                 </div>

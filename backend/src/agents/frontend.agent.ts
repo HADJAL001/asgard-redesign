@@ -24,11 +24,11 @@ import {
    которых (конфиги, layout, globals.css) собирается детерминированно
    из DesignSystem/ProjectSchema (без AI — они не нуждаются в
    творчестве и не должны ломаться из-за отсутствия API-ключей), а
-   контент страниц (файлы page.tsx внутри app) генерируется по одному AI-вызову
-   на страницу (первые MAX_AI_PAGES — иначе одна генерация могла бы
-   уйти в минуты и упереться в лимиты токенов). Тот же принцип
-   "манифест/скелет отдельно, контент файла — отдельным сырым
-   вызовом" уже применяется в services/app-generator.ts.
+   контент КАЖДОЙ страницы (файлы page.tsx внутри app) генерируется
+   собственным AI-вызовом, все страницы — параллельно (Promise.all),
+   без потолка по количеству. Тот же принцип "манифест/скелет отдельно,
+   контент файла — отдельным сырым вызовом" уже применяется в
+   services/app-generator.ts.
    ================================================================ */
 
 export interface FrontendAgentInput {
@@ -36,8 +36,7 @@ export interface FrontendAgentInput {
   design: DesignSystem
 }
 
-const MAX_AI_PAGES = 5
-const PAGE_MAX_TOKENS = 2048
+const PAGE_MAX_TOKENS = 4096
 
 function slugify(name: string): string {
   const base = name
@@ -191,49 +190,49 @@ export default config
     return this.withCache(input, () => this.generateFrontend(input))
   }
 
+  private async generatePageFile(
+    page: PageEntry,
+    input: FrontendAgentInput,
+  ): Promise<{ file: FrontendArtifact["files"][number]; source: PipelineArtifactSource | null }> {
+    const prompt = this.buildPagePrompt(page, input)
+    let code: string | null = null
+    let source: PipelineArtifactSource | null = null
+
+    try {
+      const claudeText = await callClaudeApi(prompt, PAGE_MAX_TOKENS)
+      code = claudeText ? extractCodeBlock(claudeText) : null
+      if (code) source = "claude"
+    } catch (err) {
+      captureError(`[agents] ${this.role} Claude page call failed:`, err)
+    }
+
+    if (!code) {
+      try {
+        code = await callDeepSeek<string>(prompt, extractCodeBlock, "agent-frontend-page", PAGE_MAX_TOKENS)
+        if (code) source = "deepseek"
+      } catch (err) {
+        captureError(`[agents] ${this.role} DeepSeek page call failed:`, err)
+      }
+    }
+
+    return { file: { path: routeToFilePath(page.route), content: code ?? fallbackPageContent(page) }, source }
+  }
+
   private async generateFrontend(input: FrontendAgentInput): Promise<PipelineArtifact<FrontendArtifact>> {
     const scaffold = this.buildScaffoldFiles(input)
-    const aiPages = input.schema.pages.slice(0, MAX_AI_PAGES)
-    const restPages = input.schema.pages.slice(MAX_AI_PAGES)
 
-    let usedSource: PipelineArtifactSource | null = null
-    const pageFiles: FrontendArtifact["files"] = []
-
-    for (const page of aiPages) {
-      const prompt = this.buildPagePrompt(page, input)
-      let code: string | null = null
-
-      try {
-        const claudeText = await callClaudeApi(prompt, PAGE_MAX_TOKENS)
-        code = claudeText ? extractCodeBlock(claudeText) : null
-        if (code) usedSource = usedSource ?? "claude"
-      } catch (err) {
-        captureError(`[agents] ${this.role} Claude page call failed:`, err)
-      }
-
-      if (!code) {
-        try {
-          code = await callDeepSeek<string>(prompt, extractCodeBlock, "agent-frontend-page", PAGE_MAX_TOKENS)
-          if (code) usedSource = usedSource ?? "deepseek"
-        } catch (err) {
-          captureError(`[agents] ${this.role} DeepSeek page call failed:`, err)
-        }
-      }
-
-      pageFiles.push({ path: routeToFilePath(page.route), content: code ?? fallbackPageContent(page) })
-    }
-
-    for (const page of restPages) {
-      pageFiles.push({ path: routeToFilePath(page.route), content: fallbackPageContent(page) })
-    }
+    const results = await Promise.all(input.schema.pages.map((page) => this.generatePageFile(page, input)))
+    const pageFiles = results.map((r) => r.file)
+    const usedSource = results.find((r) => r.source !== null)?.source ?? null
+    const templateOnlyCount = results.filter((r) => r.source === null).length
 
     const data: FrontendArtifact = {
       files: [...scaffold, ...pageFiles],
       componentsGenerated: [],
       pagesGenerated: input.schema.pages.map((p) => p.route),
       notes:
-        restPages.length > 0
-          ? `AI-генерация применена к первым ${MAX_AI_PAGES} страницам, остальные ${restPages.length} — по шаблону.`
+        templateOnlyCount > 0
+          ? `AI недоступен для ${templateOnlyCount} из ${input.schema.pages.length} страниц — использован шаблон.`
           : "",
     }
 

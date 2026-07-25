@@ -6,6 +6,7 @@ import os from "node:os"
 import archiver from "archiver"
 import db from "../lib/db"
 import { captureError } from "../lib/sentry"
+import { buildNextStaticExport, isDockerAvailable } from "./sandbox.service"
 
 /* ================================================================
    OSGARD · Netlify Deploy Service
@@ -15,10 +16,16 @@ import { captureError } from "../lib/sentry"
    сгенерированного Next.js-приложения (output:'export') на Netlify.
 
    Джоб (fire-and-forget, тот же паттерн что app-generator):
-   собрать project_files во временную директорию → npm install →
-   next build (даёт статический out/) → зазипованный out/ →
-   Netlify REST API (создать сайт при первом деплое, иначе — новый
-   деплой на существующий сайт) → сохранить live_url.
+   собрать project_files → сборка (npm install + next build → out/)
+   в ИЗОЛИРОВАННОЙ Docker-песочнице (sandbox.service), а не на хосте →
+   зазипованный out/ → Netlify REST API (создать сайт при первом
+   деплое, иначе новый деплой на существующий) → сохранить live_url.
+
+   Сборка сгенерированного ИИ кода на хосте (старое поведение) — это
+   исполнение недоверенного кода в процессе бэкенда. Теперь основной
+   путь — контейнер; хостовая сборка остаётся лишь как fallback, если
+   Docker-демон недоступен (чтобы деплой не падал полностью там, где
+   Docker не поднят — например в облаке без DinD).
    ================================================================ */
 
 const execFileAsync = promisify(execFile)
@@ -147,14 +154,8 @@ export async function runNetlifyDeployJob(projectId: number) {
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), `osgard-deploy-${projectId}-`))
 
   try {
-    await writeProjectFiles(workDir, files)
-    await runCommand("npm", ["install", "--no-audit", "--no-fund"], workDir)
-    // Бэкенд сам обычно запущен с NODE_ENV=development (ts-node-dev) — без явного
-    // override дочерний `next build` наследует это и смешивает dev/prod-рантаймы
-    // Next.js при статическом экспорте (TypeError: useContext null на prerender).
-    await runCommand("npx", ["next", "build"], workDir, { NODE_ENV: "production" })
+    const outDir = await buildStaticOut(projectId, files, workDir)
 
-    const outDir = path.join(workDir, "out")
     const zipPath = path.join(os.tmpdir(), `osgard-deploy-${projectId}-${Date.now()}.zip`)
     await zipDirectory(outDir, zipPath)
 
@@ -180,6 +181,39 @@ export async function runNetlifyDeployJob(projectId: number) {
   } finally {
     await fs.rm(workDir, { recursive: true, force: true })
   }
+}
+
+/**
+ * Собирает статический out/ проекта. Основной путь — изолированная Docker-песочница
+ * (недоверенный сгенерированный код не исполняется в процессе бэкенда). Если демон
+ * Docker недоступен — падаем на прежнюю хостовую сборку (execFile), чтобы деплой не
+ * ломался в окружениях без Docker. Возвращает абсолютный путь к готовой out/.
+ */
+async function buildStaticOut(
+  projectId: number,
+  files: Array<{ path: string; content: string }>,
+  workDir: string,
+): Promise<string> {
+  if (await isDockerAvailable()) {
+    const build = await buildNextStaticExport(files, workDir, {
+      timeoutMs: BUILD_TIMEOUT_MS + 3 * 60 * 1000, // install + build внутри контейнера — даём запас
+      logLabel: `netlify-deploy-${projectId}`,
+    })
+    if (!build.ok || !build.outDir) {
+      const tail = build.logs.slice(-2000)
+      throw new Error(`Сборка в песочнице не удалась${build.timedOut ? " (таймаут)" : ""}:\n${tail}`)
+    }
+    return build.outDir
+  }
+
+  // Fallback: хостовая сборка (Docker не поднят).
+  await writeProjectFiles(workDir, files)
+  await runCommand("npm", ["install", "--no-audit", "--no-fund"], workDir)
+  // Бэкенд сам обычно запущен с NODE_ENV=development (ts-node-dev) — без явного
+  // override дочерний `next build` наследует это и смешивает dev/prod-рантаймы
+  // Next.js при статическом экспорте (TypeError: useContext null на prerender).
+  await runCommand("npx", ["next", "build"], workDir, { NODE_ENV: "production" })
+  return path.join(workDir, "out")
 }
 
 export { isNetlifyConfigured }

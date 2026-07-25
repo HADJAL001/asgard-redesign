@@ -9,7 +9,7 @@
    Хранит состояние в localStorage (ключ "osgard_demo_v2").
    ================================================================ */
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import {
   Sparkles,
@@ -20,7 +20,6 @@ import {
   Skull,
   Cog,
   Crown,
-  Zap,
   Shield,
   Gem,
   Swords,
@@ -28,38 +27,16 @@ import {
   RefreshCw,
 } from "lucide-react"
 import { PremiumModal } from "./PremiumModal"
-
-/* ---- типы ---- */
-interface DemoArtifact {
-  id: string
-  name: string
-  type: string
-  rarity: "common" | "uncommon" | "rare" | "epic" | "legendary"
-  level: number
-  power: number
-  defense: number
-  magic: number
-  speed: number
-  price: number
-}
-
-interface DemoProject {
-  name: string
-  description: string
-  badge: string
-  artifactCount: number
-  artifacts: DemoArtifact[]
-  generatedAt: number
-}
-
-interface DemoSessionV2 {
-  projects: DemoProject[]
-  generationsUsed: number
-  expiresAt: number
-}
-
-const STORAGE_KEY = "osgard_demo_v2"
-const MAX_GENERATIONS = 3
+import { ProjectArtifactReveal } from "./ProjectArtifactReveal"
+import { useDemoGenerate } from "@/hooks/useDemoGenerate"
+import {
+  loadSession,
+  STORAGE_KEY,
+  MAX_GENERATIONS,
+  type DemoArtifact,
+  type DemoProject,
+  type DemoSessionV2,
+} from "@/lib/demo-client"
 
 /* ---- темы ---- */
 const THEMES = [
@@ -84,21 +61,6 @@ const TYPE_ICON: Record<string, typeof Sparkles> = {
   neural: Cpu, crystal: Gem, weapon: Swords, shield: Shield, artifact: Sparkles,
 }
 
-function loadSession(): DemoSessionV2 {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const d = JSON.parse(raw) as DemoSessionV2
-      if (d.expiresAt > Date.now()) return d
-    }
-  } catch { /* ignore */ }
-  return { projects: [], generationsUsed: 0, expiresAt: Date.now() + 86400_000 }
-}
-
-function saveSession(s: DemoSessionV2) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch { /* ignore */ }
-}
-
 /* ================================================================ */
 export interface DemoProjectModalProps {
   open: boolean
@@ -110,74 +72,27 @@ export interface DemoProjectModalProps {
 export function DemoProjectModal({ open, onClose, onLimitReached }: DemoProjectModalProps) {
   const [name, setName] = useState("")
   const [theme, setTheme] = useState(THEMES[0])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [session, setSession] = useState<DemoSessionV2>(() => ({ projects: [], generationsUsed: 0, expiresAt: 0 }))
-  const [lastResult, setLastResult] = useState<DemoProject | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
 
-  /* Загружаем сессию при открытии */
+  const { session, remaining, loading, error, lastResult, generate, reset } = useDemoGenerate({ onLimitReached })
+
+  /* Сбрасываем локальную ошибку валидации при открытии */
   useEffect(() => {
-    if (open) Promise.resolve().then(() => setSession(loadSession()))
+    if (open) Promise.resolve().then(() => setFormError(null))
   }, [open])
 
-  const remaining = MAX_GENERATIONS - session.generationsUsed
+  const displayError = formError || error
 
-  const handleGenerate = useCallback(async () => {
-    if (!name.trim()) { setError("Введи название своей вселенной"); return }
-    if (remaining <= 0) { onLimitReached(session); return }
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      const res = await fetch("/api/demo/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), hint: theme.hint }),
-      })
-
-      if (!res.ok) {
-        if (res.status === 429) { onLimitReached(session); return }
-        const j = await res.json().catch(() => ({}))
-        setError(j.error || "Ошибка генерации. Попробуй ещё раз.")
-        return
-      }
-
-      const data = await res.json()
-      const newProject: DemoProject = {
-        name: data.project.name,
-        description: data.project.description,
-        badge: data.project.badge,
-        artifactCount: data.artifacts.length,
-        artifacts: data.artifacts,
-        generatedAt: Date.now(),
-      }
-
-      const updated: DemoSessionV2 = {
-        projects: [newProject, ...session.projects],
-        generationsUsed: session.generationsUsed + 1,
-        expiresAt: session.expiresAt > Date.now() ? session.expiresAt : Date.now() + 86400_000,
-      }
-      saveSession(updated)
-      setSession(updated)
-      setLastResult(newProject)
-
-      if (updated.generationsUsed >= MAX_GENERATIONS) {
-        setTimeout(() => onLimitReached(updated), 1800)
-      }
-    } catch {
-      setError("Сервер недоступен. Попробуй позже.")
-    } finally {
-      setLoading(false)
-    }
-  }, [name, theme, remaining, session, onLimitReached])
+  const handleGenerate = () => {
+    if (!name.trim()) { setFormError("Введи название своей вселенной"); return }
+    setFormError(null)
+    generate(name.trim(), theme.hint)
+  }
 
   const handleReset = () => {
-    try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
-    setSession({ projects: [], generationsUsed: 0, expiresAt: Date.now() + 86400_000 })
-    setLastResult(null)
+    reset()
     setName("")
-    setError(null)
+    setFormError(null)
   }
 
   return (
@@ -226,19 +141,19 @@ export function DemoProjectModal({ open, onClose, onLimitReached }: DemoProjectM
           <input
             type="text"
             value={name}
-            onChange={(e) => { setName(e.target.value); setError(null) }}
+            onChange={(e) => { setName(e.target.value); setFormError(null) }}
             onKeyDown={(e) => e.key === "Enter" && !loading && handleGenerate()}
             placeholder="Например: Мой AI-арсенал"
             disabled={loading}
             className="w-full rounded-2xl px-4 py-3.5 text-[15px] text-white placeholder-white/25 outline-none transition-all duration-200"
             style={{
               background: "rgba(255,255,255,0.04)",
-              border: error ? "1px solid rgba(239,68,68,0.5)" : "1px solid rgba(255,255,255,0.1)",
+              border: displayError ? "1px solid rgba(239,68,68,0.5)" : "1px solid rgba(255,255,255,0.1)",
             }}
             onFocus={(e) => { e.currentTarget.style.border = "1px solid rgba(6,182,212,0.4)" }}
-            onBlur={(e) => { e.currentTarget.style.border = error ? "1px solid rgba(239,68,68,0.5)" : "1px solid rgba(255,255,255,0.1)" }}
+            onBlur={(e) => { e.currentTarget.style.border = displayError ? "1px solid rgba(239,68,68,0.5)" : "1px solid rgba(255,255,255,0.1)" }}
           />
-          {error && <p className="mt-2 text-[12px]" style={{ color: "#F87171" }}>{error}</p>}
+          {displayError && <p className="mt-2 text-[12px]" style={{ color: "#F87171" }}>{displayError}</p>}
         </div>
 
         {/* Выбор темы */}

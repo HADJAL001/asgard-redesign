@@ -23,6 +23,8 @@ import {
   BarChart3,
 } from "lucide-react"
 import { Navbar } from "./navbar"
+import { PremiumBackground } from "./premium-bg"
+import { SectionHelp } from "./section-help"
 import { useOsgard } from "@/lib/store/osgard-store"
 import { COLORS, EMISSION_SERIES, PLATFORM_FEE, formatTokens } from "@/lib/economy"
 import { TC_TOTAL_CAP, UP, DOWN } from "@/lib/tc-market"
@@ -78,12 +80,19 @@ export function EconomyView() {
 
   return (
     <div
-      className="min-h-screen font-sans"
+      className="relative overflow-hidden min-h-screen font-sans"
       style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0F0F1A 100%)", color: COLORS.text }}
     >
+      <PremiumBackground variant="coins" />
       <Navbar />
+      <SectionHelp
+        title={"Экономика TimeCoin"}
+        what={"Экономика — сводка по TimeCoin: цена, капитализация, в обороте, застейкано, сожжено и лимит эмиссии. Дефляционная модель: цена формируется рынком."}
+        goals={[{"goal":"Понять модель","steps":["Смотрите цену и капитализацию сверху","Эмиссия ограничена лимитом — дефляционная модель","Графики показывают историю курса и оборот"]}]}
+        tour={[{"title":"Ключевые метрики","text":"Цена, объём, капитализация, оборот, стейкинг и сожжено — всё по реальным данным сети."},{"title":"Графики","text":"Ниже — история курса TimeCoin и объём в обороте во времени."}]}
+      />
 
-      <main className="mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
+      <main className="relative z-10 mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
         <div>
           <h1 className="text-[32px] font-semibold leading-tight">Экономика</h1>
           <p className="mt-1 text-[14px]" style={{ color: "rgba(255,255,255,0.4)" }}>

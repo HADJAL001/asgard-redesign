@@ -1,8 +1,11 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Zap, Gem, Diamond, Infinity as InfinityIcon, DollarSign } from "lucide-react"
+import { ArrowLeft, Zap, Gem, Diamond, Infinity as InfinityIcon, DollarSign, Gift, Check, Loader2 } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/use-translation"
+import { apiClient } from "@/lib/api-client"
+import { SectionHelp } from "./section-help"
 
 /* Palette: bg #0A0A0F · card #14141E · accent #00D4FF · label #6A6A8A · border #2A2A3E */
 
@@ -17,11 +20,59 @@ const STEPS = [
 export function EconomyMapView() {
   const { t } = useTranslation()
 
+  const [rewardClaimed, setRewardClaimed] = useState<boolean | null>(null)
+  const [rewardCredits, setRewardCredits] = useState(40)
+  const [claiming, setClaiming] = useState(false)
+  const [rewardMsg, setRewardMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    apiClient
+      .get<{ claimed: boolean; credits: number }>("/onboarding/economy-map-reward", { skipAuthRedirect: true })
+      .then((r) => {
+        setRewardClaimed(r.claimed)
+        setRewardCredits(r.credits)
+      })
+      .catch(() => setRewardClaimed(null)) // гость/ошибка — просто прячем блок
+  }, [])
+
+  async function claimReward() {
+    if (claiming) return
+    setClaiming(true)
+    setRewardMsg(null)
+    try {
+      const r = await apiClient.post<{ ok: boolean; credits: number }>("/onboarding/economy-map-reward")
+      setRewardClaimed(true)
+      setRewardMsg(`+${r.credits} кредитов зачислено. Добро пожаловать в экономику!`)
+    } catch (err: any) {
+      if (err?.data?.code === "ALREADY_CLAIMED") {
+        setRewardClaimed(true)
+      } else {
+        setRewardMsg(err?.message || "Не удалось получить награду")
+      }
+    } finally {
+      setClaiming(false)
+    }
+  }
+
   return (
     <div
       className="min-h-screen px-6 py-12"
       style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0F0F1A 100%)" }}
     >
+      <SectionHelp
+        title="Карта экономики OSGARD"
+        what="Экономика OSGARD — это лестница из пяти валют: от стартовых кредитов до реальных денег. Каждая ступень — шаг доверия миру. Пройдите обучение и заберите награду."
+        goals={[
+          { goal: "Понять путь денег", steps: ["Кредиты — за активность", "Шарды и кристаллы — за артефакты", "TimeCoin — валюта с рыночной ценой", "Доллары — вывод в реальные деньги"] },
+          { goal: "Забрать награду за обучение", steps: ["Пролистайте пять ступеней", "Внизу нажмите «Забрать награду»", "Кредиты зачислятся один раз"] },
+        ]}
+        tour={[
+          { title: "1. Кредиты", text: "Стартовая валюта — зарабатывается за активность: онбординг, посты, ежедневные действия." },
+          { title: "2–3. Шарды и кристаллы", text: "Обмениваются на артефакты начального и качественного уровня, открывают премиум-усиления." },
+          { title: "4. TimeCoin", text: "Валюта с реальной рыночной стоимостью: стейкинг, продажа на бирже, вывод." },
+          { title: "5. Доллары", text: "Финальная ступень: TimeCoin конвертируется в реальные деньги. Это и есть цель лестницы." },
+        ]}
+      />
       <div className="mx-auto max-w-3xl">
         <Link
           href="/docs"
@@ -80,6 +131,39 @@ export function EconomyMapView() {
         >
           {t("docsEconomyMap.ladderCaption")}
         </p>
+
+        {/* Награда за прохождение обучения (одноразовая) */}
+        {rewardClaimed !== null && (
+          <div
+            className="mb-8 flex flex-col items-center gap-3 rounded-2xl p-6 text-center"
+            style={{ background: "linear-gradient(135deg, rgba(201,168,76,0.12), rgba(15,18,30,0.6))", border: "1px solid rgba(201,168,76,0.35)" }}
+          >
+            <Gift size={26} style={{ color: "#E6C868" }} />
+            <p className="text-[15px] font-semibold text-white">Награда за изучение экономики</p>
+            {rewardClaimed ? (
+              <p className="inline-flex items-center gap-1.5 text-[13px]" style={{ color: "#4CD980" }}>
+                <Check size={15} /> Награда получена — спасибо, что разобрался!
+              </p>
+            ) : (
+              <>
+                <p className="max-w-md text-[13px]" style={{ color: "rgba(255,255,255,0.6)" }}>
+                  Прошёл лестницу валют? Забери {rewardCredits} кредитов на старт.
+                </p>
+                <button
+                  type="button"
+                  onClick={claimReward}
+                  disabled={claiming}
+                  className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-[14px] font-semibold transition-transform hover:scale-[1.03] disabled:opacity-50"
+                  style={{ background: "linear-gradient(135deg, #E6C868, #C69B2E)", color: "#1a1405" }}
+                >
+                  {claiming ? <Loader2 size={16} className="animate-spin" /> : <Gift size={16} />}
+                  Забрать {rewardCredits} кредитов
+                </button>
+              </>
+            )}
+            {rewardMsg && <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.6)" }}>{rewardMsg}</p>}
+          </div>
+        )}
 
         <div
           className="rounded-xl p-4 text-center text-[13px]"

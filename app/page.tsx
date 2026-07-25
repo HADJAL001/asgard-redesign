@@ -1,6 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
+import { PageLoader } from "@/components/osgard-loader"
 import { useEffect } from "react"
 import { Infinity as InfinityIcon } from "lucide-react"
 
@@ -10,11 +11,7 @@ import { captureReferralCode } from "@/lib/referral"
 const EternityLanding = dynamic(
   () => import("@/components/eternity-landing").then((m) => m.EternityLanding),
   {
-    loading: () => (
-      <div className="flex items-center justify-center py-32" style={{ color: "#6A6A8A" }}>
-        Загрузка…
-      </div>
-    ),
+    loading: () => <PageLoader />,
     ssr: false,
   }
 )

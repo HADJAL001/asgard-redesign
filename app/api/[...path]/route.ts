@@ -48,10 +48,12 @@ function clearSessionCookies(res: NextResponse) {
 async function forwardToBackend(
   pathStr: string,
   req: NextRequest,
-  opts: { authToken?: string | null; bodyOverride?: string } = {},
+  opts: { authToken?: string | null; bodyOverride?: string; methodOverride?: string } = {},
 ) {
   const targetUrl = new URL(`${BACKEND_URL}/${pathStr}`)
   req.nextUrl.searchParams.forEach((v, k) => targetUrl.searchParams.set(k, v))
+
+  const method = opts.methodOverride || req.method
 
   const forwardHeaders: Record<string, string> = {
     "content-type": req.headers.get("content-type") || "application/json",
@@ -66,14 +68,14 @@ async function forwardToBackend(
   }
 
   let body = opts.bodyOverride
-  if (body === undefined && req.method !== "GET" && req.method !== "HEAD") {
+  if (body === undefined && method !== "GET" && method !== "HEAD") {
     body = await req.text()
   }
 
   const upstream = await fetch(targetUrl.toString(), {
-    method: req.method,
+    method,
     headers: forwardHeaders,
-    body,
+    body: method === "GET" || method === "HEAD" ? undefined : body,
   })
 
   const contentType = upstream.headers.get("content-type") || "application/json"
@@ -142,7 +144,7 @@ async function handleAuthSession(req: NextRequest) {
     return NextResponse.json({ error: "token required" }, { status: 400 })
   }
 
-  const me = await forwardToBackend("auth/me", req, { authToken: token, bodyOverride: "" })
+  const me = await forwardToBackend("auth/me", req, { authToken: token, methodOverride: "GET" })
   if (me.status !== 200 || !me.json) {
     return NextResponse.json(me.json ?? { error: "Invalid token" }, { status: me.status || 401 })
   }
@@ -191,6 +193,7 @@ async function handleGithubPublishConnect(req: NextRequest) {
 const ORCHESTRATOR_STREAM_RE = /^orchestrator\/stream\/[^/]+$/
 const GENERATION_STREAM_RE = /^task\/[^/]+\/stream$/
 const TC_MARKET_STREAM_RE = /^tc-market\/stream$/
+const NOTIFICATIONS_STREAM_RE = /^notifications\/stream$/
 
 /**
  * SSE-эндпоинт выполнения цепочки нельзя пропускать через forwardToBackend —
@@ -313,6 +316,10 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
   }
   if (req.method === "GET" && TC_MARKET_STREAM_RE.test(pathStr)) {
     return handleOrchestratorStream(pathStr, req, accessToken, { requireAuth: false })
+  }
+  if (req.method === "GET" && NOTIFICATIONS_STREAM_RE.test(pathStr)) {
+    // Персональный поток — требует авторизации (токен из httpOnly cookie).
+    return handleOrchestratorStream(pathStr, req, accessToken)
   }
 
   try {

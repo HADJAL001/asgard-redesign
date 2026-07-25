@@ -48,23 +48,30 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs }: HotspotProps) 
       <Html
         transform
         occlude={[occludeRef as unknown as RefObject<Object3D>]}
-        distanceFactor={2.6}
+        distanceFactor={3.4}
         className="platform-hotspot-rise"
         style={{ animationDelay: `${delayMs}ms` }}
       >
+        {/* Компактнее и «на поверхности» глобуса: круглый бейдж-иконка + стеклянная
+            пилюля, сильнее блюр и тоньше — чипы не выпирают, а будто вписаны в сферу. */}
         <button
           type="button"
           onClick={() => router.push(hotspot.href)}
-          className="group flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium backdrop-blur-md transition-all hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
+          className="group flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 text-[11px] font-semibold backdrop-blur-xl transition-all hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
           style={{
-            borderColor: `${hotspot.color}66`,
-            background: "rgba(10, 10, 15, 0.72)",
+            borderColor: `${hotspot.color}55`,
+            background: "rgba(8, 10, 18, 0.55)",
             color: "#FFFFFF",
-            boxShadow: `0 0 16px ${hotspot.color}33`,
+            boxShadow: `0 0 14px ${hotspot.color}2e, inset 0 0 10px ${hotspot.color}1f`,
           }}
         >
-          <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: hotspot.color }} />
-          <span className="whitespace-nowrap">{hotspot.label}</span>
+          <span
+            className="flex size-5 shrink-0 items-center justify-center rounded-full"
+            style={{ background: `radial-gradient(circle at 35% 30%, ${hotspot.color}, ${hotspot.color}55)`, boxShadow: `0 0 8px ${hotspot.color}88` }}
+          >
+            <Icon className="h-3 w-3" style={{ color: "#0b1020" }} strokeWidth={2.4} />
+          </span>
+          <span className="whitespace-nowrap tracking-tight">{hotspot.label}</span>
         </button>
       </Html>
     </group>

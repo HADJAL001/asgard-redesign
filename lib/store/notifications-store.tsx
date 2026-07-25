@@ -10,6 +10,7 @@
      POST /notifications/read-all     → отметить все как прочитанные
    ================================================================ */
 
+import { useEffect } from "react"
 import { create } from "zustand"
 import { apiClient, ApiError } from "@/lib/api-client"
 
@@ -47,6 +48,10 @@ type NotificationsStoreState = {
   fetchUnreadCount: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   markRead: (id: number) => Promise<void>
   markAllRead: () => Promise<void>
+  /** Применяет пришедшее по SSE уведомление: добавляет в список (с дедупом по id) и обновляет счётчик. */
+  applyIncoming: (n: AppNotification, unreadCount: number) => void
+  /** Синхронизирует счётчик непрочитанных из снапшота SSE. */
+  setUnreadCount: (unreadCount: number) => void
 }
 
 export const useNotificationsStore = create<NotificationsStoreState>((set, get) => ({
@@ -103,4 +108,77 @@ export const useNotificationsStore = create<NotificationsStoreState>((set, get) 
       set({ error: extractErrorMessage(err, "Не удалось отметить уведомления прочитанными") })
     }
   },
+
+  applyIncoming: (n, unreadCount) =>
+    set((s) => ({
+      notifications: s.notifications.some((x) => x.id === n.id) ? s.notifications : [n, ...s.notifications],
+      unreadCount,
+    })),
+
+  setUnreadCount: (unreadCount) => set({ unreadCount }),
 }))
+
+/* ================================================================
+   useNotificationStream — SSE-подписка на GET /api/notifications/stream.
+   ----------------------------------------------------------------
+   Держит одно EventSource-соединение, пока enabled=true (авторизован),
+   и обновляет стор в реальном времени. Реконнект с линейным бэкоффом,
+   как в tc-market-panel.tsx. Опрос unread-count в навбаре остаётся
+   резервным каналом, если SSE недоступен (прокси/прокладка).
+   ================================================================ */
+export function useNotificationStream(enabled: boolean) {
+  const applyIncoming = useNotificationsStore((s) => s.applyIncoming)
+  const setUnreadCount = useNotificationsStore((s) => s.setUnreadCount)
+
+  useEffect(() => {
+    if (!enabled) return
+
+    let source: EventSource | null = null
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined
+    let attempts = 0
+    let closed = false
+
+    const connect = () => {
+      source = new EventSource("/api/notifications/stream", { withCredentials: true })
+
+      source.onopen = () => {
+        attempts = 0
+      }
+
+      source.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data) as {
+            type?: string
+            notification?: AppNotification
+            unreadCount?: number
+          }
+          if (msg.type === "snapshot") {
+            setUnreadCount(msg.unreadCount ?? 0)
+          } else if (msg.type === "notification" && msg.notification) {
+            applyIncoming(msg.notification, msg.unreadCount ?? 0)
+          }
+        } catch {
+          /* игнорируем некорректный кадр */
+        }
+      }
+
+      source.onerror = () => {
+        source?.close()
+        source = null
+        if (closed) return
+        attempts += 1
+        const delay = Math.min(30_000, 1000 * attempts)
+        reconnectTimer = setTimeout(connect, delay)
+      }
+    }
+
+    connect()
+
+    return () => {
+      closed = true
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      source?.close()
+      source = null
+    }
+  }, [enabled, applyIncoming, setUnreadCount])
+}

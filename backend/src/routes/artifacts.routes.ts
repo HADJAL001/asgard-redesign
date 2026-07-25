@@ -74,9 +74,20 @@ router.get("/mine", requireAuth, (req: AuthRequest, res) => {
   res.json({ artifacts })
 })
 
+/* Ковка за ЛЮБУЮ монету, но слабее: чем дешевле/слабее валюта, тем ниже
+   множитель характеристик. TimeCoin даёт полную силу (×1.0), а базовые валюты —
+   доступный вход с более слабым артефактом. Ключи совпадают с колонками wallets
+   (whitelisted — безопасно подставлять в SQL-имя колонки). */
+const FORGE_CURRENCIES: Record<string, { cost: number; statMult: number }> = {
+  credits: { cost: 200, statMult: 0.4 },
+  shards: { cost: 80, statMult: 0.6 },
+  crystals: { cost: 30, statMult: 0.85 },
+  timecoin: { cost: FORGE_COST_TC, statMult: 1.0 },
+}
+
 /* ---------------- POST /artifacts/forge ---------------- */
 router.post("/forge", requireAuth, (req: AuthRequest, res) => {
-  let { name, type, projectId } = req.body || {}
+  let { name, type, projectId, currency } = req.body || {}
 
   if (!name || typeof name !== "string" || !name.trim()) {
     return res.status(400).json({ error: "Укажите название артефакта" })
@@ -100,18 +111,22 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
     resolvedProjectId = project.id
   }
 
+  const forgeCurrency = typeof currency === "string" && FORGE_CURRENCIES[currency] ? currency : "timecoin"
+  const { cost: forgeCost, statMult } = FORGE_CURRENCIES[forgeCurrency]
+
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
   if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
-  if (wallet.timecoin < FORGE_COST_TC) {
-    logAudit(req.user!.userId, "rejected", FORGE_COST_TC, "insufficient_balance", { action: "forge" })
-    return res.status(400).json({ error: `Недостаточно TimeCoin (нужно ${FORGE_COST_TC})` })
+  if ((wallet[forgeCurrency] ?? 0) < forgeCost) {
+    logAudit(req.user!.userId, "rejected", forgeCost, "insufficient_balance", { action: "forge", currency: forgeCurrency })
+    return res.status(400).json({ error: `Недостаточно средств (нужно ${forgeCost} ${forgeCurrency})` })
   }
 
-  /* Случайная генерация характеристик нового артефакта */
-  const power = 10 + Math.floor(Math.random() * 30)
-  const defense = 10 + Math.floor(Math.random() * 30)
-  const magic = 10 + Math.floor(Math.random() * 30)
-  const speed = 10 + Math.floor(Math.random() * 30)
+  /* Случайная генерация характеристик — масштабируется силой валюты (слабее монета → слабее артефакт) */
+  const roll = () => 10 + Math.floor(Math.random() * 30)
+  const power = Math.max(1, Math.round(roll() * statMult))
+  const defense = Math.max(1, Math.round(roll() * statMult))
+  const magic = Math.max(1, Math.round(roll() * statMult))
+  const speed = Math.max(1, Math.round(roll() * statMult))
   const rarity = "common"
   const level = 1
   const supply = 1
@@ -120,8 +135,8 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
   const price = computePrice({ power, defense, magic, speed, rarity, views_24h: 0, supply })
 
   db.prepare(
-    `UPDATE wallets SET timecoin = timecoin - ?, updated_at = ? WHERE user_id = ?`,
-  ).run(FORGE_COST_TC, now, req.user!.userId)
+    `UPDATE wallets SET ${forgeCurrency} = ${forgeCurrency} - ?, updated_at = ? WHERE user_id = ?`,
+  ).run(forgeCost, now, req.user!.userId)
 
   const info = db
     .prepare(
@@ -150,9 +165,9 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
 
   db.prepare(
     `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-     VALUES (?, 'forge', ?, 'Кузница Артефактов', ?, 'timecoin', 'done')`,
-  ).run(req.user!.userId, name, FORGE_COST_TC)
-  logAudit(req.user!.userId, "debit", FORGE_COST_TC, "artifact_forge", { name })
+     VALUES (?, 'forge', ?, 'Кузница Артефактов', ?, ?, 'done')`,
+  ).run(req.user!.userId, name, forgeCost, forgeCurrency)
+  logAudit(req.user!.userId, "debit", forgeCost, "artifact_forge", { name, currency: forgeCurrency })
 
   const artifact = db
     .prepare(

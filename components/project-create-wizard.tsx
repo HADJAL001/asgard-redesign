@@ -16,11 +16,12 @@
    Использует useOsgardStore(): createProject(), generateProject()
    ================================================================ */
 
-import { useState } from "react"
-import { X, Sparkles, Wand2, PenLine, Loader2, ArrowRight, ArrowLeft, Check } from "lucide-react"
+import { useEffect, useState } from "react"
+import { X, Sparkles, Wand2, PenLine, Loader2, ArrowRight, ArrowLeft, Check, Coins } from "lucide-react"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
+import { apiClient } from "@/lib/api-client"
 import { UpgradeNudgeModal, useUpgradeNudge } from "./UpgradeNudgeModal"
 
 type Theme = {
@@ -31,6 +32,16 @@ type Theme = {
 }
 
 const CUSTOM_THEME_ID = "custom"
+
+/** Публичный каталог глубин генерации (GET /projects/generation-depths). Внутренние флаги
+ *  (forceAi/bypassCache) сервер не отдаёт — здесь только то, что видит пользователь. */
+type DepthOption = {
+  id: "quick" | "standard" | "deep"
+  label: string
+  description: string
+  credits: number
+  countsAgainstQuota: boolean
+}
 
 const THEMES: Theme[] = [
   { id: "scifi", label: "Sci-Fi", hint: "научно-фантастическая вселенная, космос, технологии будущего", badge: "rocket" },
@@ -56,6 +67,7 @@ type Props = {
 export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated }: Props) {
   const { t } = useTranslation()
   const { createProject, generateProject, pollProjectStatus } = useOsgardStore()
+  const wallet = useOsgardStore((s) => s.wallet)
   const { nudgeOpen, closeNudge, trackGeneration, usageData } = useUpgradeNudge()
 
   const [step, setStep] = useState(1)
@@ -68,6 +80,29 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
   const [error, setError] = useState<string | null>(null)
   /** true, пока идёт фоновая генерация файлов реального приложения (после создания проекта). */
   const [generatingApp, setGeneratingApp] = useState(false)
+  /** Каталог глубин генерации + выбранная глубина (по умолчанию бесплатная quick). */
+  const [depths, setDepths] = useState<DepthOption[]>([])
+  const [depthId, setDepthId] = useState<DepthOption["id"]>("quick")
+
+  // Каталог глубин — реальные тарифы из бэкенда (не хардкод), подтягиваем один раз при монтировании.
+  useEffect(() => {
+    let cancelled = false
+    apiClient
+      .get<{ depths: DepthOption[] }>("/projects/generation-depths")
+      .then((res) => {
+        if (!cancelled && Array.isArray(res.depths)) setDepths(res.depths)
+      })
+      .catch(() => {
+        /* каталог необязателен — при недоступности остаётся дефолтная quick-генерация */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const selectedDepth = depths.find((d) => d.id === depthId) ?? null
+  const depthCost = selectedDepth?.credits ?? 0
+  const insufficientCredits = depthCost > 0 && wallet.credits < depthCost
 
   const totalSteps = 3
   const progress = (step / totalSteps) * 100
@@ -93,9 +128,15 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
     setSubmitting(true)
     try {
       if (mode === "ai") {
+        // Платная глубина требует достаточного баланса — проверяем до запроса, чтобы не ловить 402.
+        if (insufficientCredits) {
+          setError(t("projectWizard.insufficientCredits", { cost: depthCost, balance: wallet.credits }))
+          setSubmitting(false)
+          return
+        }
         // POST /projects/generate отвечает сразу (проект уже создан, status='generating'),
         // а реальные файлы приложения генерируются в фоне на сервере — опрашиваем статус.
-        const res = await generateProject(name.trim(), theme?.hint)
+        const res = await generateProject(name.trim(), theme?.hint, depthId)
         if (res.success && res.project) {
           setGeneratingApp(true)
           const finalProject = await pollProjectStatus(res.project.id)
@@ -338,6 +379,64 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
                 </div>
               )}
 
+              {mode === "ai" && depths.length > 0 && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[13px] font-medium" style={{ color: COLORS.text }}>
+                      {t("projectWizard.depthLabel")}
+                    </label>
+                    <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: COLORS.label }}>
+                      <Coins size={12} strokeWidth={1.75} />
+                      {t("projectWizard.balance", { balance: wallet.credits })}
+                    </span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {depths.map((d) => {
+                      const active = depthId === d.id
+                      const tooExpensive = d.credits > 0 && wallet.credits < d.credits
+                      return (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => setDepthId(d.id)}
+                          className="flex flex-col items-start gap-1 rounded-lg p-3 text-left transition-colors"
+                          style={{
+                            border: `1px solid ${active ? COLORS.accent : COLORS.border}`,
+                            backgroundColor: active ? "rgba(0,212,255,0.06)" : "transparent",
+                            opacity: tooExpensive && !active ? 0.55 : 1,
+                          }}
+                        >
+                          <span className="text-[13px] font-medium" style={{ color: active ? COLORS.accent : COLORS.text }}>
+                            {d.label}
+                          </span>
+                          <span className="text-[11px] leading-snug" style={{ color: COLORS.label }}>
+                            {d.description}
+                          </span>
+                          <span
+                            className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium"
+                            style={{ color: d.credits > 0 ? COLORS.amber : COLORS.green }}
+                          >
+                            {d.credits > 0 ? (
+                              <>
+                                <Coins size={11} strokeWidth={2} />
+                                {t("projectWizard.depthCost", { cost: d.credits })}
+                              </>
+                            ) : (
+                              t("projectWizard.depthFree")
+                            )}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {insufficientCredits && (
+                    <p className="mt-2 text-[12px]" style={{ color: COLORS.red }}>
+                      {t("projectWizard.insufficientCredits", { cost: depthCost, balance: wallet.credits })}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {mode === "ai" && !generatingApp && (
                 <p className="mt-4 flex items-center gap-2 text-[12px]" style={{ color: COLORS.label }}>
                   <Wand2 size={14} strokeWidth={1.75} />
@@ -388,7 +487,7 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || (mode === "ai" && insufficientCredits)}
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90 disabled:opacity-60"
               style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
             >

@@ -31,6 +31,7 @@
     "docs": "Документация",
     "economyMap": "Карта экономики",
     "pricing": "Тарифы",
+    "developer": "API-ключи",
     "admin": "Админка",
     "wallet": "Кошелёк",
     "notifications": "Уведомления",
@@ -43,7 +44,9 @@
     "guest": "Гость",
     "logout": "Выйти",
     "menuTitle": "МЕНЮ",
-    "homeAria": "OSGARD NEW WORLD — главная"
+    "homeAria": "OSGARD NEW WORLD — главная",
+    "about": "Справка",
+    "room": "Тайная комната"
   },
   "landing": {
     "navHomeAria": "OSGARD — главная",
@@ -191,7 +194,6 @@
     "exchangeFailed": "Не удалось выполнить конвертацию",
     "timecoinNoConvert": "TimeCoin нельзя конвертировать. Только покупка на бирже за $ или продажа артефактов."
   },
-
   "stake": {
     "title": "Стейкинг TimeCoin",
     "subtitle": "Блокируйте ∞, получайте доход и снижайте комиссию маркета",
@@ -269,7 +271,6 @@
       "failed": "Не удалось сгенерировать артефакт"
     }
   },
-
   "artifacts": {
     "title": "Мои артефакты",
     "subtitle": "Коллекция созданных цифровых артефактов",
@@ -290,6 +291,7 @@
     "title": "Маркетплейс",
     "subtitle": "Покупка и продажа цифровых артефактов",
     "mySales": "Мои продажи",
+    "auctions": "Аукционы",
     "lotsForSale": "Лотов в продаже",
     "foundByFilters": "Найдено по фильтрам",
     "totalVolume": "Суммарный объём",
@@ -318,7 +320,26 @@
     "cancel": "Отмена",
     "price": "Цена",
     "buyFor": "Купить за {{amount}}",
-    "buyFailed": "Не удалось купить артефакт"
+    "buyFailed": "Не удалось купить артефакт",
+    "trendBelow": "ниже рынка",
+    "trendAbove": "выше рынка",
+    "trendFair": "по рынку",
+    "trendHint": "Сравнение с медианной ценой активных лотов той же редкости и валюты"
+  },
+  "drops": {
+    "seasonLabel": "Сезон «{{season}}»",
+    "price": "Цена",
+    "remaining": "Осталось {{n}} из {{total}}",
+    "claimBtn": "Забрать",
+    "claimedBtn": "Забрано",
+    "soldOut": "Тираж исчерпан",
+    "ended": "Завершён",
+    "leftDH": "{{d}} д {{h}} ч",
+    "leftHM": "{{h}} ч {{m}} мин",
+    "leftM": "{{m}} мин",
+    "claimedMsg": "Артефакт добавлен в вашу коллекцию",
+    "already": "Вы уже забрали этот дроп",
+    "claimFailed": "Не удалось забрать дроп"
   },
   "activityFeed": {
     "title": "Лента активности",
@@ -452,7 +473,7 @@
     "statusCancelled": "Отменена"
   },
   "projects": {
-    "title": "Мои проекты",
+    "title": "Мой мир",
     "subtitle": "Управляйте вселенными и коллекциями артефактов OSGARD",
     "createBtn": "Создать проект",
     "createAiBtn": "Создать с AI",
@@ -565,6 +586,11 @@
     "descriptionLabel": "Описание проекта",
     "descriptionPlaceholder": "Кратко опишите вашу вселенную…",
     "aiWillGenerate": "AI сгенерирует проект «{{name}}» в теме «{{theme}}»",
+    "depthLabel": "Глубина генерации",
+    "depthCost": "{{cost}} кр.",
+    "depthFree": "Бесплатно",
+    "balance": "Баланс: {{balance}} кр.",
+    "insufficientCredits": "Недостаточно кредитов: нужно {{cost}}, на балансе {{balance}}",
     "noTheme": "без темы",
     "cancel": "Отмена",
     "back": "Назад",
@@ -641,7 +667,33 @@
     "deploying": "Деплой выполняется…",
     "deployed": "Проект задеплоен:",
     "deployRequestFailed": "Не удалось запустить деплой",
-    "exportZip": "Экспорт в ZIP"
+    "exportZip": "Экспорт в ZIP",
+    "backToProject": "К проекту",
+    "liveRunTab": "Запуск",
+    "liveRunHint": "Запустите приложение прямо в браузере — WebContainer поставит зависимости и поднимет dev-сервер, без деплоя.",
+    "liveRunStart": "Запустить",
+    "liveRunRestart": "Перезапустить",
+    "liveRunBooting": "Поднимаем среду выполнения…",
+    "liveRunInstalling": "Устанавливаем зависимости и запускаем dev-сервер…",
+    "liveRunOpenTab": "Открыть в новой вкладке",
+    "liveRunTabAria": "Живой запуск проекта",
+    "liveRunFailed": "Не удалось запустить приложение",
+    "liveRunNoIsolation": "Живой запуск требует кросс-origin изоляции страницы. Обновите страницу /projects/:id/live — если изоляция всё ещё недоступна, значит COOP/COEP заголовки не применились.",
+    "verifyBuild": "Проверить сборку",
+    "verifyBuildHint": "Полноценный next build в изолированном Docker-контейнере (не только проверка синтаксиса)",
+    "verifyBuildOk": "Сборка прошла успешно",
+    "verifyBuildErrors": "Сборка завершилась с ошибками",
+    "verifyBuildSkipped": "Проверка пропущена: Docker недоступен на сервере",
+    "verifyBuildFailed": "Не удалось запустить проверку сборки"
+  },
+  "playground": {
+    "pythonTitle": "Python-песочница",
+    "pythonHint": "Настоящий CPython в браузере через Pyodide (WASM) — код реально исполняется, без сервера.",
+    "run": "Запустить",
+    "loadingRuntime": "Загрузка Python-рантайма…",
+    "output": "Вывод",
+    "outputEmpty": "Здесь появится вывод программы",
+    "clear": "Очистить"
   },
   "onboarding": {
     "closeAria": "Закрыть онбординг",
@@ -736,5 +788,3 @@
     "inDevelopmentText": "Живая поддержка ещё дорабатывается. За ответами — в Документацию или в Таверну (сообщество)."
   }
 }
-
-

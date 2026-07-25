@@ -3,9 +3,12 @@ import db from "../lib/db"
 
 const router = Router()
 
-/* ---------------- GET /hall-of-fame ---------------- */
+/* ---------------- GET /hall-of-fame ----------------
+   Зал Славы — только топ-100 крупнейших продаж (жёсткий кап 100:
+   витрина «лучших из лучших», не полный лог). Запросить больше нельзя,
+   даже передав больший ?limit — сознательное продуктовое решение. */
 router.get("/", (req, res) => {
-  const limit = Math.min(Number(req.query.limit) || 50, 200)
+  const limit = Math.min(Number(req.query.limit) || 100, 100)
 
   const items = db
     .prepare(

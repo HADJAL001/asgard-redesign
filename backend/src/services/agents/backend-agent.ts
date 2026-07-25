@@ -12,7 +12,7 @@ import type { BackendAgentInput, BackendArtifact, GeneratedFile, ProjectSchema, 
    остального бэкенда OSGARD) + JWT-авторизация (jsonwebtoken + bcryptjs).
    ================================================================ */
 
-const PATH_PATTERN = /^(server\.ts|db\/[\w\-]+\.(sql|ts)|middleware\/[\w\-]+\.ts|routes\/[\w\-]+\.ts)$/
+const PATH_PATTERN = /^(server\.ts|db\/[\w\-/]+\.(sql|ts)|middleware\/[\w\-/]+\.ts|routes\/[\w\-/]+\.ts|services\/[\w\-/]+\.ts|controllers\/[\w\-/]+\.ts|models\/[\w\-/]+\.ts|lib\/[\w\-/]+\.ts|utils\/[\w\-/]+\.ts|types\/[\w\-/]+\.ts)$/
 
 function buildManifestPrompt(input: BackendAgentInput): string {
   const { schema } = input
@@ -34,7 +34,9 @@ ${authRequired ? `Требуется JWT-авторизация. Роли: ${(sc
   ]
 }
 Требования:
-- От 3 до 10 файлов, обязательно включи "server.ts" и "db/schema.sql".
+- Обязательно включи "server.ts" и "db/schema.sql". Не экономь на количестве файлов —
+  раскладывай логику по services/, controllers/, models/, lib/, utils/, types/ так,
+  как это сделал бы опытный backend-разработчик на реальном проекте такого масштаба.
 - ${authRequired ? 'Обязательно включи "middleware/auth.ts" (проверка JWT) и "routes/auth.ts" (register/login).' : "Middleware авторизации не нужен."}
 - По одному файлу routes/<entity>.ts на каждую сущность схемы (имя файла — snake/kebab-case имени сущности).
 Ответь только JSON.`
@@ -303,10 +305,10 @@ export class BackendAgent extends BaseAgent<BackendAgentInput, BackendArtifact> 
   async execute(input: BackendAgentInput): Promise<BackendArtifact> {
     const files = await generateFileSet({
       manifestPrompt: buildManifestPrompt(input),
-      maxEntries: 10,
+      maxEntries: 60,
       pathPattern: PATH_PATTERN,
       filePrompt: (entry, manifest) => buildFilePrompt(input, manifest, entry),
-      fileMaxTokens: 6000,
+      fileMaxTokens: 8000,
       logLabel: "backend-agent",
     })
 

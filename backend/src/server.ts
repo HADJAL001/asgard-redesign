@@ -202,6 +202,10 @@ import leaderboardRoutes from "./routes/leaderboard.routes"
 import hallOfFameRoutes from "./routes/halloffame.routes"
 import transactionsRoutes from "./routes/transactions.routes"
 import onboardingRoutes from "./routes/onboarding.routes"
+import secretRoomRoutes from "./routes/secret-room.routes"
+import dropsRoutes from "./routes/drops.routes"
+import auctionsRoutes from "./routes/auctions.routes"
+import { partnerAdminRouter, partnerPublicRouter } from "./routes/partner.routes"
 import referralRoutes from "./routes/referral.routes"
 import jarvisRoutes from "./routes/jarvis.routes"
 import jarvisShopRoutes from "./routes/jarvis-shop.routes"
@@ -260,6 +264,8 @@ import "./migrations/039_walli_items_index"
 import "./migrations/040_orchestrator_jarvis_templates"
 import walliRoutes from "./routes/walli.routes"
 import demoRoutes from "./routes/demo.routes"
+import demoCodeRoutes from "./routes/demo-code.routes"
+import yookassaRoutes from "./routes/yookassa.routes"
 import adminRoutes from "./routes/admin.routes"
 import billingDashboardRoutes from "./routes/billing-dashboard.routes"
 import promoRoutes from "./routes/promo.routes"
@@ -290,6 +296,13 @@ import { runAnalyticsEventsMigration } from "./migrations/066_analytics_events"
 import "./migrations/067_hall_of_fame_index"
 import { runRefreshTokensMigration } from "./migrations/068_refresh_tokens"
 import { RefreshTokenService } from "./lib/refresh-tokens"
+import "./migrations/075_yookassa_payments"
+import "./migrations/069_economy_map_reward"
+import "./migrations/070_secret_room"
+import "./migrations/071_market_drops"
+import "./migrations/072_auctions"
+import "./migrations/073_api_keys"
+import "./migrations/074_generation_depth"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
@@ -453,6 +466,11 @@ app.use("/users", usersRoutes)
 app.use("/push", pushRoutes)
 app.use("/transactions", transactionsRoutes)
 app.use("/onboarding", onboardingRoutes)
+app.use("/secret-room", secretRoomRoutes)
+app.use("/drops", dropsRoutes)
+app.use("/auctions", auctionsRoutes)
+app.use("/api-keys", partnerAdminRouter)
+app.use("/v1", partnerPublicRouter)
 app.use("/referral", referralRoutes)
 app.use("/subscription", subscriptionRoutes)
 app.use("/addons", addonsRoutes)
@@ -466,6 +484,8 @@ app.use("/analytics", analyticsRoutes)
 app.use("/posts", communityRoutes)
 app.use("/api/tc", tcRoutes)
 app.use("/walli", walliRoutes)
+app.use("/demo/code", demoCodeRoutes)
+app.use("/yookassa", yookassaRoutes)
 app.use("/demo", demoRoutes)
 app.use("/admin", adminRoutes)
 app.use("/billing-dashboard", billingDashboardRoutes)

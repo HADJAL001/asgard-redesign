@@ -112,7 +112,7 @@ function getSubscription(userId: number): SubscriptionRow | undefined {
     | undefined
 }
 
-function upsertSubscription(userId: number, fields: Partial<SubscriptionRow>) {
+export function upsertSubscription(userId: number, fields: Partial<SubscriptionRow>) {
   const existing = getSubscription(userId)
   const now = Date.now()
 

@@ -31,6 +31,7 @@
     "docs": "Құжаттама",
     "economyMap": "Экономика картасы",
     "pricing": "Тарифтер",
+    "developer": "API-кілттер",
     "admin": "Әкімшілік",
     "wallet": "Әмиян",
     "notifications": "Хабарламалар",
@@ -43,7 +44,9 @@
     "guest": "Қонақ",
     "logout": "Шығу",
     "menuTitle": "МӘЗІР",
-    "homeAria": "OSGARD NEW WORLD — басты бет"
+    "homeAria": "OSGARD NEW WORLD — басты бет",
+    "about": "Анықтама",
+    "room": "Құпия бөлме"
   },
   "landing": {
     "navHomeAria": "OSGARD — басты бет",
@@ -191,7 +194,6 @@
     "exchangeFailed": "Конвертация орындалмады",
     "timecoinNoConvert": "TimeCoin айырбастауға болмайды. Тек биржада $ үшін сатып алу немесе артефактілерді сату."
   },
-
   "stake": {
     "title": "TimeCoin стейкингі",
     "subtitle": "∞ блоктаңыз, табыс алыңыз және маркет комиссиясын азайтыңыз",
@@ -261,7 +263,6 @@
       }
     }
   },
-
   "artifacts": {
     "title": "Менің артефакттарым",
     "subtitle": "Жасалған цифрлық артефакттар жинағы",
@@ -282,6 +283,7 @@
     "title": "Маркетплейс",
     "subtitle": "Цифрлық артефакттарды сатып алу және сату",
     "mySales": "Менің сатылымдарым",
+    "auctions": "Аукциондар",
     "lotsForSale": "Сатылымдағы лоттар",
     "foundByFilters": "Сүзгілер бойынша табылды",
     "totalVolume": "Жалпы көлем",
@@ -310,7 +312,26 @@
     "cancel": "Бас тарту",
     "price": "Баға",
     "buyFor": "{{amount}} үшін сатып алу",
-    "buyFailed": "Артефакт сатып алынбады"
+    "buyFailed": "Артефакт сатып алынбады",
+    "trendBelow": "нарықтан төмен",
+    "trendAbove": "нарықтан жоғары",
+    "trendFair": "нарық бойынша",
+    "trendHint": "Дәл сондай сиректік пен валютадағы белсенді лоттардың медианалық бағасымен салыстыру"
+  },
+  "drops": {
+    "seasonLabel": "«{{season}}» маусымы",
+    "price": "Бағасы",
+    "remaining": "{{total}} ішінен {{n}} қалды",
+    "claimBtn": "Алу",
+    "claimedBtn": "Алынды",
+    "soldOut": "Тираж бітті",
+    "ended": "Аяқталды",
+    "leftDH": "{{d}} к {{h}} сағ",
+    "leftHM": "{{h}} сағ {{m}} мин",
+    "leftM": "{{m}} мин",
+    "claimedMsg": "Артефакт коллекцияңызға қосылды",
+    "already": "Сіз бұл дропты бұрын алғансыз",
+    "claimFailed": "Дропты алу мүмкін болмады"
   },
   "activityFeed": {
     "title": "Белсенділік лентасы",
@@ -444,7 +465,7 @@
     "statusCancelled": "Бас тартылды"
   },
   "projects": {
-    "title": "Менің жобаларым",
+    "title": "Менің әлемім",
     "subtitle": "OSGARD әлемдері мен артефакт жинақтарын басқарыңыз",
     "createBtn": "Жоба құру",
     "createAiBtn": "AI арқылы құру",
@@ -557,6 +578,11 @@
     "descriptionLabel": "Жоба сипаттамасы",
     "descriptionPlaceholder": "Әлеміңізді қысқаша сипаттаңыз…",
     "aiWillGenerate": "AI «{{theme}}» тақырыбында «{{name}}» жобасын жасайды",
+    "depthLabel": "Генерация тереңдігі",
+    "depthCost": "{{cost}} кр.",
+    "depthFree": "Тегін",
+    "balance": "Баланс: {{balance}} кр.",
+    "insufficientCredits": "Кредит жеткіліксіз: {{cost}} қажет, баланста {{balance}}",
     "noTheme": "тақырыпсыз",
     "cancel": "Бас тарту",
     "back": "Артқа",
@@ -633,7 +659,33 @@
     "deploying": "Деплой орындалуда…",
     "deployed": "Жоба деплой жасалды:",
     "deployRequestFailed": "Деплойды бастау мүмкін болмады",
-    "exportZip": "ZIP экспорттау"
+    "exportZip": "ZIP экспорттау",
+    "backToProject": "Жобаға оралу",
+    "liveRunTab": "Іске қосу",
+    "liveRunHint": "Қосымшаны браузерде тікелей іске қосыңыз — WebContainer тәуелділіктерді орнатып, dev-серверді көтереді, деплойсыз.",
+    "liveRunStart": "Іске қосу",
+    "liveRunRestart": "Қайта қосу",
+    "liveRunBooting": "Орындау ортасын көтерудеміз…",
+    "liveRunInstalling": "Тәуелділіктерді орнатып, dev-серверді іске қосудамыз…",
+    "liveRunOpenTab": "Жаңа қойындыда ашу",
+    "liveRunTabAria": "Жобаны тікелей іске қосу",
+    "liveRunFailed": "Қосымшаны іске қосу мүмкін болмады",
+    "liveRunNoIsolation": "Тікелей іске қосу бет үшін кросс-origin оқшаулауды талап етеді. /projects/:id/live бетін жаңартыңыз — оқшаулау әлі де қолжетімсіз болса, COOP/COEP тақырыптары қолданылмаған.",
+    "verifyBuild": "Құрастыруды тексеру",
+    "verifyBuildHint": "Оқшауланған Docker контейнерінде толық next build (тек синтаксисті тексеру емес)",
+    "verifyBuildOk": "Құрастыру сәтті өтті",
+    "verifyBuildErrors": "Құрастыру қателермен аяқталды",
+    "verifyBuildSkipped": "Тексеру өткізілмеді: серверде Docker қолжетімсіз",
+    "verifyBuildFailed": "Құрастыруды тексеруді бастау мүмкін болмады"
+  },
+  "playground": {
+    "pythonTitle": "Python алаңы",
+    "pythonHint": "Браузердегі нағыз CPython — Pyodide (WASM) арқылы, код серверсіз шынайы орындалады.",
+    "run": "Іске қосу",
+    "loadingRuntime": "Python орындау ортасы жүктелуде…",
+    "output": "Шығыс",
+    "outputEmpty": "Мұнда бағдарлама шығысы пайда болады",
+    "clear": "Тазарту"
   },
   "onboarding": {
     "closeAria": "Онбордингті жабу",
@@ -728,5 +780,3 @@
     "inDevelopmentText": "Тікелей қолдау әлі дайындалуда. Жауап алу үшін Құжаттамаға немесе Тавернаға (қауымдастық) өтіңіз."
   }
 }
-
-

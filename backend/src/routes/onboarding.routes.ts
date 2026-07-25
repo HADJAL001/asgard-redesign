@@ -113,4 +113,32 @@ router.post("/step", requireAuth, (req: AuthRequest, res) => {
   })
 })
 
+/* ---------------- Награда за обучающую презентацию «Карта экономики» ---------------- */
+const ECONOMY_MAP_REWARD_CREDITS = 40
+
+/* GET — узнать, получена ли награда (для состояния кнопки на фронте). */
+router.get("/economy-map-reward", requireAuth, (req: AuthRequest, res) => {
+  const u: any = db.prepare(`SELECT economy_map_reward_claimed FROM users WHERE id = ?`).get(req.user!.userId)
+  if (!u) return res.status(404).json({ error: "Пользователь не найден", code: "USER_NOT_FOUND" })
+  res.json({ claimed: !!u.economy_map_reward_claimed, credits: ECONOMY_MAP_REWARD_CREDITS })
+})
+
+/* POST — забрать одноразовую награду за прохождение обучения. */
+router.post("/economy-map-reward", requireAuth, (req: AuthRequest, res) => {
+  const u: any = db.prepare(`SELECT economy_map_reward_claimed FROM users WHERE id = ?`).get(req.user!.userId)
+  if (!u) return res.status(404).json({ error: "Пользователь не найден", code: "USER_NOT_FOUND" })
+  if (u.economy_map_reward_claimed) {
+    return res.status(400).json({ error: "Награда за обучение уже получена", code: "ALREADY_CLAIMED" })
+  }
+  const now = Date.now()
+  db.prepare(`UPDATE wallets SET credits = credits + ?, updated_at = ? WHERE user_id = ?`).run(ECONOMY_MAP_REWARD_CREDITS, now, req.user!.userId)
+  db.prepare(`UPDATE users SET economy_map_reward_claimed = 1 WHERE id = ?`).run(req.user!.userId)
+  db.prepare(
+    `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+     VALUES (?, 'onboarding_reward', 'Обучение: Карта экономики', 'Академия OSGARD', ?, 'credits', 'done')`,
+  ).run(req.user!.userId, ECONOMY_MAP_REWARD_CREDITS)
+  logAudit(req.user!.userId, "credit", ECONOMY_MAP_REWARD_CREDITS, "economy_map_reward", {})
+  res.json({ ok: true, credits: ECONOMY_MAP_REWARD_CREDITS })
+})
+
 export default router

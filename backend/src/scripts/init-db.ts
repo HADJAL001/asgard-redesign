@@ -175,8 +175,11 @@ CREATE INDEX IF NOT EXISTS idx_stakes_user ON stakes(user_id);
 /* ---------------- Seed baseline TC market state ---------------- */
 const TC_START_PRICE = 12.4
 const TC_MINTED = 900_000
-const TC_BURNED_BASE = 96_400
-const TC_STAKED_BASE = 240_000
+/* Ранее здесь были выдуманные «сетевые» показатели активности (сожжено/застейкано),
+   создававшие иллюзию оживлённой экономики. Реальной активности нет — стартуем с 0,
+   дальше burned/staked растут только от настоящих операций (сжигание/стейкинг). */
+const TC_BURNED_BASE = 0
+const TC_STAKED_BASE = 0
 
 const marketExists = db.prepare(`SELECT id FROM tc_market_state WHERE id = 1`).get()
 if (!marketExists) {

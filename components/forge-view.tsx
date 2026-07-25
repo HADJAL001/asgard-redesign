@@ -5,8 +5,9 @@ import { Hammer, Loader2, Sparkles, Coins, Archive, Star, Zap } from "lucide-rea
 import { Navbar } from "./navbar"
 import { useOsgardStore, type OsgardArtifact } from "@/lib/store/osgard-store"
 import { COLORS, RARITY, ARTIFACT_TYPES, STAT_META, type ArtifactType, type Rarity } from "@/lib/economy"
-import { fmtTC, fmtUSD } from "@/lib/tc-market"
+import { fmtTC } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
+import { SectionHelp } from "./section-help"
 
 const TYPE_KEYS = Object.keys(ARTIFACT_TYPES) as ArtifactType[]
 
@@ -25,6 +26,16 @@ function usePrefersReducedMotion(): boolean {
 
 /** Фиксированная стоимость создания артефакта (см. backend/artifacts.routes.ts FORGE_COST_TC). */
 const FORGE_COST_TC = 50
+
+/* Ковка за любую монету, но слабее (зеркалит FORGE_CURRENCIES на бэкенде):
+   слабее/дешевле валюта → ниже множитель характеристик артефакта. */
+const FORGE_CURRENCIES = [
+  { id: "credits", label: "Кредиты", cost: 200, mult: 0.4, color: "#00D4FF" },
+  { id: "shards", label: "Шарды", cost: 80, mult: 0.6, color: "#B57BFF" },
+  { id: "crystals", label: "Кристаллы", cost: 30, mult: 0.85, color: "#5AC8FA" },
+  { id: "timecoin", label: "TimeCoin", cost: FORGE_COST_TC, mult: 1.0, color: "#F1C40F" },
+] as const
+type ForgeCurrencyId = (typeof FORGE_CURRENCIES)[number]["id"]
 
 /** Стоимость AI-генерации артефакта (см. backend/artifacts.routes.ts AI_GENERATE_COST_TC = FORGE_COST_TC). */
 const AI_GENERATE_COST_TC = FORGE_COST_TC
@@ -71,7 +82,6 @@ export function ForgeView() {
   const {
     wallet,
     fetchWallet,
-    tcPrice,
     fetchTcState,
     artifacts,
     fetchArtifacts,
@@ -86,6 +96,7 @@ export function ForgeView() {
 
   const [name, setName] = useState("")
   const [type, setType] = useState<ArtifactType>("neural")
+  const [forgeCurrency, setForgeCurrency] = useState<ForgeCurrencyId>("timecoin")
   const [projectId, setProjectId] = useState<number | "">("")
   const [submitting, setSubmitting] = useState(false)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
@@ -152,7 +163,10 @@ export function ForgeView() {
   }, [])
 
   const TypeIcon = ARTIFACT_TYPES[type].Icon
-  const canForge = name.trim().length > 0 && wallet.timecoin >= FORGE_COST_TC
+  const selCurrency = FORGE_CURRENCIES.find((c) => c.id === forgeCurrency)!
+  const forgeCost = selCurrency.cost
+  const forgeBalance = (wallet as unknown as Record<string, number>)[forgeCurrency] ?? 0
+  const canForge = name.trim().length > 0 && forgeBalance >= forgeCost
 
   // Кинематографический эффект при создании
   const [forging, setForging] = useState(false)
@@ -176,7 +190,7 @@ export function ForgeView() {
     await new Promise((r) => setTimeout(r, 400))
 
     try {
-      const res = await forgeArtifact(name.trim(), type, projectId === "" ? undefined : projectId)
+      const res = await forgeArtifact(name.trim(), type, projectId === "" ? undefined : projectId, forgeCurrency)
       if (res.success && res.artifact) {
         setForgePhase("reveal")
         setResult(res.artifact)
@@ -222,6 +236,21 @@ export function ForgeView() {
   return (
     <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
       <Navbar />
+      <SectionHelp
+        title="Кузница артефактов"
+        what="Кузница — место, где вы создаёте артефакты. У каждого есть тип, редкость и характеристики (сила / защита / магия / скорость). Артефакт можно оставить, усилить или продать на маркетплейсе."
+        goals={[
+          { goal: "Создать первый артефакт", steps: ["Введите название", "Выберите тип", "Выберите валюту ковки", "Нажмите «Создать»"] },
+          { goal: "Сэкономить на входе", steps: ["Куйте за кредиты или шарды — дешевле", "Но артефакт будет слабее (меньше статы)", "TimeCoin даёт полную силу ×1.0"] },
+          { goal: "Получить уникальный артефакт", steps: ["Используйте AI-Генератор ниже", "ИИ придумает имя, лор и визуальный стиль"] },
+        ]}
+        tour={[
+          { target: "forge-name", title: "Название артефакта", text: "Придумайте имя — например «Клинок Бесконечности». Оно будет отображаться в коллекции и на маркете." },
+          { target: "forge-type", title: "Тип артефакта", text: "Выберите тип: нейросеть, кристалл, оружие, щит или артефакт. От типа зависит иконка и восприятие." },
+          { target: "forge-currency", title: "Валюта ковки", text: "Выберите монету. Чем дешевле/слабее монета — тем слабее артефакт, но тем доступнее вход. TimeCoin = полная сила." },
+          { target: "forge-create", title: "Создание", text: "Нажмите — артефакт выкуется, характеристики определятся случайно с учётом силы выбранной валюты." },
+        ]}
+      />
 
       {/* ===== КИНЕМАТОГРАФИЧЕСКИЙ ЭФФЕКТ КУЗНИЦЫ ===== */}
       {forging && (
@@ -456,8 +485,7 @@ export function ForgeView() {
         <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
           {[
             { n: fmtTC(wallet.timecoin), l: t("forge.yourBalance"), Icon: Coins, c: "#F1C40F" },
-            { n: fmtTC(FORGE_COST_TC), l: t("forge.creationCost"), Icon: Hammer, c: COLORS.accent },
-            { n: fmtUSD(FORGE_COST_TC * tcPrice.price), l: t("forge.inUsd"), Icon: Sparkles, c: COLORS.green },
+            { n: `${forgeCost} ${selCurrency.label}`, l: t("forge.creationCost"), Icon: Hammer, c: selCurrency.color },
             { n: `${artifacts.length}`, l: t("forge.artifactsInCollection"), Icon: Archive, c: "#9B59B6" },
           ].map((m) => (
             <div key={m.l} className="rounded-xl p-5" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
@@ -483,6 +511,7 @@ export function ForgeView() {
               </label>
               <input
                 id="forge-name"
+                data-tour="forge-name"
                 type="text"
                 value={name}
                 onChange={(e) => { setName(e.target.value); setNotice(null) }}
@@ -494,7 +523,7 @@ export function ForgeView() {
             {/* Type */}
             <div className="mt-5">
               <p className="mb-2 text-[13px]" style={{ color: COLORS.label }}>{t("forge.artifactType")}</p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2" data-tour="forge-type">
                 {TYPE_KEYS.map((k) => {
                   const active = type === k
                   const Icon = ARTIFACT_TYPES[k].Icon
@@ -541,6 +570,41 @@ export function ForgeView() {
               </div>
             )}
 
+            {/* Валюта ковки — любая монета, но слабее */}
+            <div className="mt-5" data-tour="forge-currency">
+              <p className="mb-2 text-[13px]" style={{ color: COLORS.label }}>
+                Валюта ковки <span style={{ color: "rgba(255,255,255,0.35)" }}>· дешевле монета — слабее артефакт</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {FORGE_CURRENCIES.map((c) => {
+                  const active = forgeCurrency === c.id
+                  const bal = (wallet as unknown as Record<string, number>)[c.id] ?? 0
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setForgeCurrency(c.id)}
+                      aria-pressed={active}
+                      className="rounded-lg px-3 py-2 text-left text-[12px] transition-colors"
+                      style={{
+                        border: `1px solid ${active ? c.color : COLORS.border}`,
+                        backgroundColor: active ? `${c.color}14` : "transparent",
+                        color: active ? c.color : "rgba(255,255,255,0.7)",
+                      }}
+                    >
+                      <span className="block font-medium">{c.label}</span>
+                      <span className="block" style={{ color: COLORS.label }}>
+                        {c.cost} · ×{c.mult} силы
+                      </span>
+                      <span className="block text-[11px]" style={{ color: bal >= c.cost ? COLORS.green : COLORS.red }}>
+                        баланс {bal}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
             {/* Rarity info (сервер решает сам) */}
             <div className="mt-5 rounded-lg p-4 text-[13px]" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}` }}>
               <p style={{ color: COLORS.label }}>
@@ -553,31 +617,32 @@ export function ForgeView() {
             <div className="mt-4 space-y-2 rounded-lg p-4 text-[13px]" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}` }}>
               <div className="flex items-center justify-between">
                 <span style={{ color: COLORS.label }}>{t("forge.creationCost")}</span>
-                <span>{fmtTC(FORGE_COST_TC)}</span>
+                <span>{forgeCost} {selCurrency.label}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span style={{ color: COLORS.label }}>{t("forge.yourBalanceLabel")}</span>
-                <span style={{ color: wallet.timecoin >= FORGE_COST_TC ? COLORS.green : COLORS.red }}>
-                  {fmtTC(wallet.timecoin)}
+                <span style={{ color: forgeBalance >= forgeCost ? COLORS.green : COLORS.red }}>
+                  {forgeBalance} {selCurrency.label}
                 </span>
               </div>
               <div className="flex items-center justify-between pt-1" style={{ borderTop: `1px solid ${COLORS.border}` }}>
                 <span>{t("forge.remainingAfter")}</span>
                 <span className="text-[15px] font-medium" style={{ color: "#FFFFFF" }}>
-                  {fmtTC(Math.max(0, wallet.timecoin - FORGE_COST_TC))}
+                  {Math.max(0, forgeBalance - forgeCost)} {selCurrency.label}
                 </span>
               </div>
             </div>
 
             <button
               type="button"
+              data-tour="forge-create"
               onClick={doForge}
               disabled={!canForge || submitting}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
             >
               {submitting && <Loader2 size={16} className="animate-spin" />}
-              {t("forge.createBtn", { amount: fmtTC(FORGE_COST_TC) })}
+              {t("forge.createBtn", { amount: `${forgeCost} ${selCurrency.label}` })}
             </button>
 
             {notice && (

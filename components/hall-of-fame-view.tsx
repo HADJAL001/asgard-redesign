@@ -202,14 +202,8 @@ export function HallOfFameView() {
             {t("hallOfFame.subtitle")}
           </p>
 
-          {/* Summary counts */}
+          {/* Summary — БЕЗ общего числа участников (не раскрываем размер платформы) */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 text-[13px]">
-            <span
-              className="rounded-full px-4 py-2"
-              style={{ border: `1px solid ${GOLD}44`, color: GOLD, backgroundColor: "rgba(255,215,0,0.04)" }}
-            >
-              {t("hallOfFame.totalArchitects", { count: ranked.length })}
-            </span>
             {HOF_TIER_ORDER.slice()
               .reverse()
               .map((t) => (
@@ -219,7 +213,7 @@ export function HallOfFameView() {
                   style={{ border: `1px solid ${HOF_TIERS[t].color}44`, color: HOF_TIERS[t].color }}
                 >
                   <span aria-hidden="true">{HOF_TIERS[t].symbol}</span>
-                  {HOF_TIERS[t].label}: {counts[t]}
+                  {HOF_TIERS[t].label}
                 </span>
               ))}
           </div>
@@ -249,7 +243,6 @@ export function HallOfFameView() {
                 >
                   {f.symbol && <span aria-hidden="true">{f.symbol}</span>}
                   {f.label}
-                  {typeof f.count === "number" && <span style={{ opacity: 0.7 }}>({f.count})</span>}
                 </button>
               )
             })}
