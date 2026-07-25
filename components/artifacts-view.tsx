@@ -112,7 +112,11 @@ export function ArtifactsView() {
     <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #1A1A1A 100%)", color: COLORS.text }}>
       <Navbar />
       <FusionModal open={fusionOpen} onClose={() => setFusionOpen(false)} />
-      <ArtifactCertificate artifact={certArtifact} onClose={() => setCertArtifact(null)} />
+      <ArtifactCertificate
+        artifact={certArtifact}
+        provenanceHref={certArtifact ? `/vault?artifact=${certArtifact.id}` : undefined}
+        onClose={() => setCertArtifact(null)}
+      />
 
       <main className="mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">

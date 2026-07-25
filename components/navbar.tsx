@@ -29,6 +29,7 @@ import {
   Plug,
   Menu,
   HelpCircle,
+  Gem,
   X,
   type LucideIcon,
 } from "lucide-react"
@@ -64,6 +65,7 @@ export const NAV: NavItem[] = [
   { key: "nav.stake", href: "/stake", Icon: Lock },
   { key: "nav.twin", href: "/twin", Icon: Sparkle },
   { key: "nav.economy", href: "/economy", Icon: BarChart3 },
+  { key: "nav.vault", href: "/vault", Icon: Gem },
   { key: "nav.referral", href: "/referral", Icon: Users },
   { key: "nav.messages", href: "/messages", Icon: MessageCircle },
   { key: "nav.docs", href: "/docs", Icon: BookOpen },
