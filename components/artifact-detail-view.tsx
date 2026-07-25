@@ -26,6 +26,7 @@ import {
   Package,
   GitBranch,
   Crown,
+  Share2,
   type LucideIcon,
 } from "lucide-react"
 
@@ -160,6 +161,30 @@ export function ArtifactDetailView({ id }: { id: number }) {
                   Зал славы · {HOF_TIERS[tier].label}
                 </div>
               )}
+
+              {/* Виральный шеринг: navigator.share на мобиле, копирование на десктопе.
+                 Ссылка ведёт на публичную страницу с авто-OG-карточкой (opengraph-image). */}
+              <button
+                type="button"
+                onClick={async () => {
+                  const url = `${window.location.origin}/artifact/${id}`
+                  try {
+                    if (typeof navigator !== "undefined" && navigator.share) {
+                      await navigator.share({ title: `${base.name} — OSGARD`, url })
+                    } else {
+                      await navigator.clipboard.writeText(url)
+                      setToast("Ссылка скопирована")
+                    }
+                  } catch {
+                    /* пользователь отменил шеринг — не ошибка */
+                  }
+                }}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90"
+                style={{ border: `1px solid ${RARITY[rarity].color}`, color: RARITY[rarity].color }}
+              >
+                <Share2 size={14} strokeWidth={1.75} aria-hidden="true" />
+                Поделиться артефактом
+              </button>
             </div>
 
             {/* Price + premium upgrade */}

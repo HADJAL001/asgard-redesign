@@ -196,6 +196,7 @@ import walletRoutes from "./routes/wallet.routes"
 import tcMarketRoutes, { getTcMarketSseConnections } from "./routes/tcmarket.routes"
 import stakesRoutes from "./routes/stakes.routes"
 import artifactsRoutes from "./routes/artifacts.routes"
+import shareRoutes from "./routes/share.routes"
 import marketplaceRoutes from "./routes/marketplace.routes"
 import projectsRoutes from "./routes/projects.routes"
 import leaderboardRoutes from "./routes/leaderboard.routes"
@@ -487,6 +488,7 @@ app.use("/wallet", walletRoutes)
 app.use("/tc-market", tcMarketRoutes)
 app.use("/stakes", stakesRoutes)
 app.use("/artifacts", artifactsRoutes)
+app.use("/share", shareRoutes) // публичные share-эндпоинты (без auth) для OG-карточек
 app.use("/marketplace", marketplaceRoutes)
 app.use("/projects", projectsRoutes)
 app.use("/leaderboard", leaderboardRoutes)
