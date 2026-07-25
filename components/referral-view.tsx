@@ -153,7 +153,7 @@ export default function ReferralView() {
   }, [authLoading, isAuthenticated, fetchStats])
 
   const referralLink = stats?.referralCode
-    ? `https://osgard.com/?ref=${stats.referralCode}`
+    ? `https://osgardnewworld.com/?ref=${stats.referralCode}`
     : ""
 
   const handleCopy = async () => {
