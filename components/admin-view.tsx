@@ -54,6 +54,9 @@ type AdminLog = {
   id: number
   action: string
   meta: Record<string, any> | null
+  ip: string | null
+  userAgent: string | null
+  status: number | null
   createdAt: number
   admin: { id: number; username: string }
   target: { id: number; username: string } | null
@@ -644,19 +647,20 @@ export function AdminView() {
                     <th className="pb-3 pr-4 font-medium">Админ</th>
                     <th className="pb-3 pr-4 font-medium">Действие</th>
                     <th className="pb-3 pr-4 font-medium">Цель</th>
+                    <th className="pb-3 pr-4 font-medium">IP</th>
                     <th className="pb-3 pr-4 font-medium">Детали</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y" style={{ borderColor: BORDER }}>
                   {loadingLogs ? (
                     <tr>
-                      <td colSpan={5} className="py-6 text-center" style={{ color: LABEL }}>
+                      <td colSpan={6} className="py-6 text-center" style={{ color: LABEL }}>
                         Загрузка…
                       </td>
                     </tr>
                   ) : logs.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-6 text-center" style={{ color: LABEL }}>
+                      <td colSpan={6} className="py-6 text-center" style={{ color: LABEL }}>
                         Записей пока нет
                       </td>
                     </tr>
@@ -677,6 +681,9 @@ export function AdminView() {
                         </td>
                         <td className="py-3 pr-4" style={{ color: "rgba(255,255,255,0.7)" }}>
                           {l.target ? l.target.username : "—"}
+                        </td>
+                        <td className="py-3 pr-4" style={{ color: "rgba(255,255,255,0.5)" }}>
+                          <span title={l.userAgent ?? undefined}>{l.ip ?? "—"}</span>
                         </td>
                         <td className="py-3 pr-4" style={{ color: "rgba(255,255,255,0.5)" }}>
                           {l.meta ? JSON.stringify(l.meta) : "—"}

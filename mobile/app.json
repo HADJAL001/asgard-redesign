@@ -87,6 +87,9 @@
       [
         "expo-build-properties",
         {
+          "ios": {
+            "networkInspector": false
+          },
           "android": {
             "packagingOptions": {
               "pickFirst": ["**/libc++_shared.so"]

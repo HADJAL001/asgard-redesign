@@ -20,6 +20,7 @@ export interface User {
   is_verified?: boolean;
   twofa_secret?: string | null;
   twofa_enabled?: boolean;
+  twofa_backup_codes?: string | null;
   nonce?: number;
   role?: string;
   banned?: boolean | number;

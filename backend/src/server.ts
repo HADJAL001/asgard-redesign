@@ -131,6 +131,11 @@ app.use(
   }),
 ) // сжимаем ответы > 1KB
 
+/* Активная кибероборона: блоклист-guard отсекает уже заблокированные IP
+   (honeypot-попадания / превышение порога подозрительности) как можно раньше. */
+import { ipBlocklistGuard, mountHoneypots } from "./middleware/threat-defense"
+app.use(ipBlocklistGuard)
+
 /* Stripe webhook требует "сырое" (raw) тело запроса для проверки подписи,
    поэтому монтируем его ДО express.json(), с express.raw() именно для этого пути. */
 import subscriptionRoutes from "./routes/subscription.routes"
@@ -220,6 +225,7 @@ import "./migrations/006_jarvis_shop"
 import "./migrations/007_feedback"
 import { runTcConvertMigration } from "./migrations/008_tc_convert"
 import { run2FAMigration } from "./migrations/009_2fa"
+import { run2FABackupCodesMigration } from "./migrations/070_2fa_backup_codes"
 import { runNonceMigration } from "./migrations/010_nonce"
 import { runIndexesMigration } from "./migrations/011_indexes"
 import { runWalliSystemMigration } from "./migrations/012_walli_system"
@@ -233,6 +239,7 @@ import "./migrations/019_ensure_transactions_columns"
 import "./migrations/020_ensure_artifacts_schema"
 import "./migrations/021_post_likes"
 import "./migrations/022_admin_logs"
+import "./migrations/069_admin_logs_ip_ua"
 import "./migrations/023_core_economy_tables"
 import "./migrations/024_ensure_projects_schema"
 import "./migrations/025_ai_artifacts"
@@ -333,6 +340,9 @@ runTcConvertMigration()
 /* Гарантируем наличие колонок twofa_secret и twofa_enabled при старте сервера. */
 run2FAMigration()
 
+/* Гарантируем наличие колонки twofa_backup_codes (резервные коды 2FA) при старте сервера. */
+run2FABackupCodesMigration()
+
 /* Гарантируем наличие таблицы notifications (лайки/комментарии к постам) при старте сервера. */
 runNotificationsMigration()
 
@@ -424,6 +434,9 @@ db.prepare(`UPDATE generation_tasks SET status = 'failed', error = 'Генера
 
 
 
+// Honeypot-ловушки монтируются до реальных роутов: попадание блокирует IP.
+mountHoneypots(app)
+
 app.use("/auth", authRoutes)
 app.use("/auth", oauthRoutes)
 app.use("/wallet", walletRoutes)
@@ -495,6 +508,11 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 
   res.status(err.status || 500).json({ error: err.message || "Internal server error" })
 })
+
+/* Security preflight: в проде отказываемся стартовать со слабыми/дефолтными
+   секретами (JWT/ENCRYPTION_KEY). В dev/test — только предупреждение. */
+import { assertProductionSecrets } from "./lib/security-preflight"
+assertProductionSecrets()
 
 const server = app.listen(PORT, () => {
   console.log(`OSGARD backend listening on http://localhost:${PORT}`)

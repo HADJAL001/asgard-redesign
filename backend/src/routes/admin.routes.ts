@@ -1,10 +1,13 @@
 import { Router } from "express"
 import { AdminController } from "../controllers/admin.controller"
 import { requireAdmin } from "../middleware/admin.middleware"
+import { adminAuditMiddleware } from "../lib/admin-audit"
 
 const router = Router()
 
 router.use(requireAdmin)
+// Автоматический аудит всех админ-запросов (предохранитель поверх ручных логов).
+router.use(adminAuditMiddleware)
 
 router.get("/stats", AdminController.stats)
 router.get("/users", AdminController.listUsers)
