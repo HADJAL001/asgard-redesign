@@ -1,5 +1,5 @@
-import { CalendarView } from "@/components/calendar-view"
+import { MentorBookingView } from "@/components/mentor-booking-view"
 
 export default function CalendarPage() {
-  return <CalendarView />
+  return <MentorBookingView />
 }

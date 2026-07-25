@@ -591,4 +591,199 @@ router.post("/certification/:id/revoke", requireAdmin, (req: AuthRequest, res) =
   res.json({ certificate: serializeCertificate(updated!, holderNameOf(row.user_id)) })
 })
 
+/* ================================================================
+   MENTOR SESSIONS — «Встреча с создателями» (Фаза 4)
+   ================================================================
+   «Одна встреча с создателями» — капируемая привилегия ВЕРХНЕГО тира
+   `founder_circle`: ≤1 слот в календарный месяц (period_ym='YYYY-MM').
+   Лимит гарантируется НА УРОВНЕ БД (partial-unique index в миграции
+   085 по (user_id, period_ym) для не-canceled) → гонка двух request'ов
+   упрётся в UNIQUE, а не проскочит обе.
+
+   Уведомления — только в ПРИВАТНЫЙ канал `notifications` (не в
+   публичную ленту activity_events): факт запроса встречи с создателями
+   — личные данные пользователя, их нельзя транслировать в общий фид.
+   ================================================================ */
+
+/** Текущий календарный месяц в UTC как 'YYYY-MM' — ключ месячного лимита слотов. */
+function currentPeriodYm(): string {
+  const now = new Date()
+  const y = now.getUTCFullYear()
+  const m = String(now.getUTCMonth() + 1).padStart(2, "0")
+  return `${y}-${m}`
+}
+
+type MentorSessionRow = {
+  id: number
+  user_id: number
+  tier: string
+  status: string
+  source: string
+  requested_slot: string | null
+  period_ym: string
+  notes: string | null
+  confirmed_at: number | null
+  confirmed_by: number | null
+  completed_at: number | null
+  created_at: number
+  updated_at: number
+}
+
+function serializeMentorSession(row: MentorSessionRow) {
+  return {
+    id: row.id,
+    tier: row.tier,
+    status: row.status,
+    source: row.source,
+    requestedSlot: row.requested_slot,
+    periodYm: row.period_ym,
+    notes: row.notes,
+    confirmedAt: row.confirmed_at,
+    completedAt: row.completed_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+/* ================================================================
+   POST /academy/mentor/request   body: { requestedSlot?, notes? }
+   Guard: активная запись тира founder_circle (иначе 403).
+   Лимит: ≤1 не-отменённый слот в текущем period_ym (иначе 409).
+   ================================================================ */
+router.post(
+  "/mentor/request",
+  requireAuth,
+  requireEnrollment("founder_circle"),
+  (req: AuthRequest, res) => {
+    const userId = req.user!.userId
+    const enrollment = getEnrollment(userId)!
+    const periodYm = currentPeriodYm()
+
+    const requestedSlot =
+      typeof req.body?.requestedSlot === "string" ? req.body.requestedSlot.trim().slice(0, 200) : null
+    const notes = typeof req.body?.notes === "string" ? req.body.notes.trim().slice(0, 1000) : null
+
+    try {
+      const info = db
+        .prepare(
+          `INSERT INTO mentor_sessions (user_id, tier, status, source, requested_slot, period_ym, notes)
+           VALUES (?, ?, 'requested', 'subscription', ?, ?, ?)`,
+        )
+        .run(userId, enrollment.tier, requestedSlot || null, periodYm, notes)
+
+      const row = db
+        .prepare(`SELECT * FROM mentor_sessions WHERE id = ?`)
+        .get(Number(info.lastInsertRowid)) as MentorSessionRow
+
+      db.prepare(
+        `INSERT INTO notifications (user_id, actor_id, type, entity_type, entity_id, text)
+         VALUES (?, NULL, 'mentor', 'mentor_session', ?, ?)`,
+      ).run(
+        userId,
+        row.id,
+        "Заявка на встречу с создателями принята. Мы подтвердим слот и свяжемся с вами.",
+      )
+
+      return res.status(201).json({ session: serializeMentorSession(row) })
+    } catch (err: any) {
+      // partial-unique index (user_id, period_ym) WHERE status != 'canceled' —
+      // атомарная защита от второго слота в том же месяце.
+      const msg = String(err?.code || err?.message || "")
+      if (msg.includes("SQLITE_CONSTRAINT") || msg.includes("UNIQUE")) {
+        return res.status(409).json({
+          error: "В этом месяце у вас уже есть слот встречи с создателями. Новый доступен со следующего месяца.",
+          code: "MENTOR_SLOT_TAKEN",
+          periodYm,
+        })
+      }
+      captureError("[academy/mentor/request] insert failed:", err)
+      return res.status(500).json({ error: "Не удалось создать заявку на встречу. Попробуйте позже." })
+    }
+  },
+)
+
+/* ================================================================
+   GET /academy/mentor/my   (свои сессии — новые сверху)
+   Доступно любому авторизованному (не-circle просто получит пусто).
+   ================================================================ */
+router.get("/mentor/my", requireAuth, (req: AuthRequest, res) => {
+  const userId = req.user!.userId
+  const rows = db
+    .prepare(`SELECT * FROM mentor_sessions WHERE user_id = ? ORDER BY created_at DESC`)
+    .all(userId) as MentorSessionRow[]
+
+  const periodYm = currentPeriodYm()
+  const hasActiveThisMonth = rows.some((r) => r.period_ym === periodYm && r.status !== "canceled")
+
+  res.json({
+    sessions: rows.map(serializeMentorSession),
+    periodYm,
+    canRequest: !hasActiveThisMonth,
+  })
+})
+
+/* ================================================================
+   POST /academy/mentor/:id/confirm   (создатель/админ подтверждает слот)
+   ================================================================ */
+router.post("/mentor/:id/confirm", requireAdmin, (req: AuthRequest, res) => {
+  const adminId = req.user!.userId
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: "Некорректный id сессии" })
+  }
+
+  const row = db.prepare(`SELECT * FROM mentor_sessions WHERE id = ?`).get(id) as MentorSessionRow | undefined
+  if (!row) return res.status(404).json({ error: "Сессия не найдена" })
+  if (row.status === "canceled" || row.status === "completed") {
+    return res.status(400).json({ error: `Сессию нельзя подтвердить из статуса '${row.status}'.` })
+  }
+
+  const now = Date.now()
+  db.prepare(
+    `UPDATE mentor_sessions SET status = 'confirmed', confirmed_at = ?, confirmed_by = ?, updated_at = ? WHERE id = ?`,
+  ).run(now, adminId, now, id)
+
+  db.prepare(
+    `INSERT INTO notifications (user_id, actor_id, type, entity_type, entity_id, text)
+     VALUES (?, ?, 'mentor', 'mentor_session', ?, ?)`,
+  ).run(row.user_id, adminId, id, "Ваша встреча с создателями подтверждена. Детали слота придут отдельно.")
+
+  logAudit(adminId, "credit", 0, "academy_mentor_confirmed", { sessionId: id, holderUserId: row.user_id })
+
+  const updated = db.prepare(`SELECT * FROM mentor_sessions WHERE id = ?`).get(id) as MentorSessionRow
+  res.json({ session: serializeMentorSession(updated) })
+})
+
+/* ================================================================
+   POST /academy/mentor/:id/complete   (встреча состоялась)
+   ================================================================ */
+router.post("/mentor/:id/complete", requireAdmin, (req: AuthRequest, res) => {
+  const adminId = req.user!.userId
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: "Некорректный id сессии" })
+  }
+
+  const row = db.prepare(`SELECT * FROM mentor_sessions WHERE id = ?`).get(id) as MentorSessionRow | undefined
+  if (!row) return res.status(404).json({ error: "Сессия не найдена" })
+  if (row.status !== "confirmed") {
+    return res.status(400).json({ error: "Завершить можно только подтверждённую встречу." })
+  }
+
+  const now = Date.now()
+  db.prepare(
+    `UPDATE mentor_sessions SET status = 'completed', completed_at = ?, updated_at = ? WHERE id = ?`,
+  ).run(now, now, id)
+
+  db.prepare(
+    `INSERT INTO notifications (user_id, actor_id, type, entity_type, entity_id, text)
+     VALUES (?, ?, 'mentor', 'mentor_session', ?, ?)`,
+  ).run(row.user_id, adminId, id, "Встреча с создателями завершена. Спасибо, что строите с OSGARD.")
+
+  logAudit(adminId, "credit", 0, "academy_mentor_completed", { sessionId: id, holderUserId: row.user_id })
+
+  const updated = db.prepare(`SELECT * FROM mentor_sessions WHERE id = ?`).get(id) as MentorSessionRow
+  res.json({ session: serializeMentorSession(updated) })
+})
+
 export default router
