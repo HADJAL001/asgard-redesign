@@ -16,11 +16,16 @@ import db from './db';
  */
 
 const TOKEN_BYTES = 48;                          // 384 бита энтропии
-const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;  // 7 дней (скользящее окно)
+const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;  // 7 дней (скользящее окно каждого токена)
+/* Абсолютный потолок сессии: даже при регулярной ротации семья не живёт дольше
+   этого срока — по истечении требуется полноценный релогин. Ограничивает окно
+   эксплуатации украденной, но ещё не задетектированной цепочки. */
+const ABSOLUTE_SESSION_MS = Number(process.env.REFRESH_ABSOLUTE_MS ?? 30 * 24 * 60 * 60 * 1000);
 /* Grace-окно: короткий интервал после отзыва, в течение которого повторный
    приход того же токена считается безобидной гонкой/ретраем сети, а не
-   кражей. Иначе двойной клик или ретрай оффлайн-очереди убивал бы сессию. */
-const GRACE_PERIOD_MS = 60 * 1000;
+   кражей. Иначе двойной клик или ретрай оффлайн-очереди убивал бы сессию.
+   Настраивается через env (тесты выставляют 0, чтобы проверить детекцию reuse). */
+const GRACE_PERIOD_MS = Number(process.env.REFRESH_GRACE_MS ?? 60 * 1000);
 
 export type RotateResult =
   | { status: 'ok'; userId: number; refreshToken: string }
@@ -88,6 +93,19 @@ export class RefreshTokenService {
       }
 
       if (row.expires_at < Date.now()) {
+        return { status: 'expired' };
+      }
+
+      // Абсолютный потолок сессии: возраст семьи считаем по самому раннему
+      // токену цепочки. Старше лимита — принудительный релогин (отзываем семью).
+      const birth = db
+        .prepare(`SELECT MIN(created_at) AS m FROM refresh_tokens WHERE family_id = ?`)
+        .get(row.family_id) as { m: number | null };
+      if (birth?.m && Date.now() - birth.m > ABSOLUTE_SESSION_MS) {
+        db.prepare(
+          `UPDATE refresh_tokens SET revoked = 1, revoked_at = ?
+           WHERE family_id = ? AND revoked = 0`,
+        ).run(Date.now(), row.family_id);
         return { status: 'expired' };
       }
 
