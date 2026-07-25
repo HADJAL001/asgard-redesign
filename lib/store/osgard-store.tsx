@@ -536,7 +536,7 @@ export interface OsgardStoreState {
   /** GET /wallet/tc-balance — загружает tcReserveBalance и tcUserBalance. */
   fetchTcBalance: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   /** POST /api/tc/withdraw — конвертирует ∞ в TC на Solana-адрес. Проверяет баланс перед запросом. nonce — текущий nonce пользователя (обязателен, защита от replay-атак; получить через GET /api/tc/nonce). */
-  convertToTc: (amount: number, solanaAddress: string, nonce: number, twofaToken?: string) => Promise<{ success: boolean; txId?: string; error?: string }>
+  convertToTc: (amount: number, solanaAddress: string, nonce: number, twofaToken?: string) => Promise<{ success: boolean; txId?: string; error?: string; code?: string }>
   /** POST /api/tc/deposit — принимает on-chain txSignature и зачисляет ∞. */
   convertFromTc: (txSignature: string, amount: number) => Promise<{ success: boolean; error?: string }>
 
@@ -1459,8 +1459,11 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       return { success: true, txId: data.signature }
     } catch (err: unknown) {
       const msg = extractErrorMessage(err, "Не удалось выполнить конвертацию ∞ → TC")
+      // Пробрасываем code ответа (напр. TWOFA_REQUIRED) — UI показывает по нему
+      // осмысленный CTA вместо сырого текста ошибки.
+      const code = err instanceof ApiError ? (err.data?.code as string | undefined) : undefined
       set({ error: msg })
-      return { success: false, error: msg }
+      return { success: false, error: msg, code }
     } finally {
       set({ loading: false })
     }

@@ -94,7 +94,7 @@ export function WalletView() {
     if (typeof window !== "undefined") return localStorage.getItem("osgard_solana_address") ?? ""
     return ""
   })
-  const [withdrawNotice, setWithdrawNotice] = useState<{ ok: boolean; text: string } | null>(null)
+  const [withdrawNotice, setWithdrawNotice] = useState<{ ok: boolean; text: string; action?: { href: string; label: string } } | null>(null)
   const [withdrawBusy, setWithdrawBusy] = useState(false)
   const [twofaToken, setTwofaToken] = useState("")
 
@@ -184,6 +184,13 @@ export function WalletView() {
         setWithdrawNotice({ ok: true, text: res.txId ? `Отправлено. tx: ${res.txId.slice(0, 12)}…` : "Запрос на вывод отправлен" })
         setWithdrawAmount("")
         setTwofaToken("")
+      } else if (res.code === "TWOFA_REQUIRED") {
+        // Вывод требует 2FA — вместо сырой ошибки ведём пользователя её включить.
+        setWithdrawNotice({
+          ok: false,
+          text: res.error ?? "Для вывода средств включите двухфакторную аутентификацию (2FA).",
+          action: { href: "/settings", label: "Включить 2FA →" },
+        })
       } else {
         setWithdrawNotice({ ok: false, text: res.error ?? "Ошибка вывода" })
       }
@@ -616,6 +623,11 @@ export function WalletView() {
             {withdrawNotice && (
               <p className="mt-3 text-[13px]" role="status" style={{ color: withdrawNotice.ok ? COLORS.green : COLORS.red }}>
                 {withdrawNotice.text}
+                {withdrawNotice.action && (
+                  <Link href={withdrawNotice.action.href} className="ml-2 font-medium underline" style={{ color: "#00D4FF" }}>
+                    {withdrawNotice.action.label}
+                  </Link>
+                )}
               </p>
             )}
 
