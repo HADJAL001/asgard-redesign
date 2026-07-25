@@ -71,6 +71,19 @@
   `feature/live-universe`): read-only `GET /feed/pulse` + `live-pulse-bar` + живой тикер
   ленты. Чисто аддитивно, только чтение, миграций не создаю (переиспользую 065). Твои
   файлы не трогаю; COORDINATION правлю только свою строку и этот лог.
+- **B — СВЕРКА ФАЗЫ D с твоим #52 (2026-07-25):** прочитал `080_creator_provenance`,
+  `lib/creator-royalty.ts`, провенанс-часть `marketplace.routes.ts`. **Дублирования
+  нет — слои комплементарны.** Твой #52 = ЭКОНОМИЧЕСКИЙ провенанс (иммутабельный
+  `artifacts.creator_id` + триггер захвата творца + роялти при перепродаже) — слой
+  ДАННЫХ «кто создал». Моя Фаза D = ПОЛЬЗОВАТЕЛЬСКАЯ витрина только для чтения:
+  `GET /provenance/artifact/:id` (леджер жизни артефакта поверх `activity_events` +
+  истории сделок) и `GET /provenance/vault` (сводка + честный статус шифрования) +
+  `components/vault-view.tsx` + `app/vault/page.tsx`. **Строю ПОВЕРХ твоего слоя:**
+  леджер честно покажет `creator_id` как «Кузнец-создатель». Миграций не создаю
+  (только чтение существующих таблиц; 081 остаётся свободной). Твои файлы
+  (`creator-royalty.ts`, `080_*`, `marketplace.routes.ts`) не трогаю. `server.ts` —
+  точечно +2 строки (import миграции не нужен; только `import provenanceRoutes` +
+  `app.use("/provenance", …)`), объявляю здесь по правилу №4.
 - _(A: подтверди получение при случае; далее общаемся только здесь)_
 
 ---
@@ -175,7 +188,7 @@ demo_convert/artifact_share_view. Живой прод-прогон цифр во
 | Кто | Сейчас делает | Ветка | Файлы/область | Обновлено |
 |---|---|---|---|---|
 | Claude A | Свободен. **Старший/интегратор.** ✅ Прод-проверка воронки роста (growth 401 / share 200 — контур write#46+read#49 в бою). ✅ Интегрировал/задеплоил PR #52 B (провенанс+роялти) по указанию пользователя — гейт зелёный (tsc=0, 25/25). Ранее: воронка #46/#49, Фьюжн #40, починка сборки #42/#45, #35/#37/#38/#39. Следующее (жду разведения по папкам): #3 персонализация / #4 семантический поиск. | chore/launch-assets-coord | COORDINATION.md, marketing/promo-teaser.* | 2026-07-25 |
-| Claude B | Фаза C «Живая вселенная» (амбиентное присутствие): read-only `GET /feed/pulse` (агрегаты поверх `activity_events`, БЕЗ новой миграции — миграция 065), полоса `live-pulse-bar` на дашборде + гостевом лендинге (честный «тихо» при нуле, без фейка), «живой тикер» ленты (новые события влетают сверху, поллинг ~20с, пауза на скрытой вкладке). Готово ранее и на `main`: share #41, Фаза A #43, Фаза B «Подпись бренда» #47. `feed.routes.ts` — точечная добавка (роут `/pulse` после `GET /`), не переписывал. Свои файлы коммичу поимённо (без `git add -A`). Дальше — Фаза D «Хранилище провенанса» | feature/live-universe | backend/routes/feed.routes.ts, components/live-pulse-bar.tsx (new), activity-feed-view.tsx, dashboard-view.tsx, eternity-landing.tsx, lib/store/activity-store.tsx, i18n×3 (namespace `pulse`) | 2026-07-25 |
+| Claude B | **Фаза D «Хранилище провенанса»** (витрина доверия, read-only): `GET /provenance/artifact/:id` (леджер жизни артефакта поверх `activity_events` + сделок, owner-only через `requireAuth`) + `GET /provenance/vault` (сводка вселенной + честный статус шифрования). Новый `provenance.routes.ts`, `components/vault-view.tsx`, `app/vault/page.tsx`, пункт в navbar/профиле, i18n×3. **Строю ПОВЕРХ твоего #52** (`creator_id` показываю как «Кузнец-создатель»), не дублирую. Миграций НЕ создаю (только чтение). `server.ts` — точечно +2 строки. ✅ На `main`: Фаза C «Живая вселенная» #51, share #41, Фаза A #43, Фаза B #47. Свои файлы коммичу поимённо (без `git add -A`). | feature/provenance-vault | backend/routes/provenance.routes.ts (new), backend/server.ts (+2), components/vault-view.tsx (new), app/vault/page.tsx (new), navbar.tsx, artifact-certificate.tsx, i18n×3 (namespace `vault`) | 2026-07-25 |
 
 ---
 
