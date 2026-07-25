@@ -10,6 +10,7 @@ import {
   computeForgeBonus,
   type EquippedArtifactStats,
 } from "../lib/forge-loadout"
+import { fuseStats, fusedRarity, fusionHint, MUTATION_CHANCE } from "../lib/artifact-fusion"
 
 const router = Router()
 
@@ -549,6 +550,93 @@ router.post("/:id/premium-upgrade", requireAuth, (req: AuthRequest, res) => {
     cost,
   })
 })
+
+/* ---------------- POST /artifacts/fuse ----------------
+   Скрещивание двух своих артефактов → AI-потомок. Родители «сжигаются»
+   (status='fused'), потомок наследует смешанные статы + новый lore/визуал;
+   ~15% шанс мутации (буст статов + редкость на ступень вверх). Цена слияния —
+   сами артефакты-родители (сток против инфляции), доп. TC не берём. */
+router.post("/fuse", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+  const userId = req.user!.userId
+  const aId = Number(req.body?.artifactAId)
+  const bId = Number(req.body?.artifactBId)
+
+  if (!Number.isInteger(aId) || !Number.isInteger(bId) || aId <= 0 || bId <= 0) {
+    return res.status(400).json({ error: "Укажите artifactAId и artifactBId" })
+  }
+  if (aId === bId) {
+    return res.status(400).json({ error: "Нельзя слить артефакт сам с собой" })
+  }
+
+  const loadOwned = (id: number): any =>
+    db.prepare(`SELECT * FROM artifacts WHERE id = ? AND owner_id = ?`).get(id, userId)
+
+  const a = loadOwned(aId)
+  const b = loadOwned(bId)
+  if (!a || !b) return res.status(404).json({ error: "Артефакт не найден или не ваш", code: "ARTIFACT_NOT_FOUND" })
+  if (a.status !== "kept" || b.status !== "kept") {
+    return res.status(409).json({ error: "Оба артефакта должны быть свободны (не на продаже)", code: "ARTIFACT_BUSY" })
+  }
+
+  // Мутация и AI-контент — ДО транзакции (генерация асинхронна; внутри
+  // BEGIN IMMEDIATE нельзя await).
+  const mutate = Math.random() < MUTATION_CHANCE
+  const hint = fusionHint(a, b)
+  let generated = await generateAiArtifactContent(hint)
+  const nameExists = (name: string): boolean => !!db.prepare(`SELECT id FROM artifacts WHERE name = ?`).get(name)
+  let attempts = 1
+  while (nameExists(generated.name) && attempts < AI_UNIQUENESS_MAX_ATTEMPTS) {
+    generated = await generateAiArtifactContent(hint)
+    attempts += 1
+  }
+  let finalName = generated.name
+  if (nameExists(finalName)) finalName = `${generated.name} #${Date.now().toString(36).slice(-4)}`
+
+  const stats = fuseStats(a, b, mutate)
+  const rarity = fusedRarity(a.rarity, b.rarity, mutate)
+  const now = Date.now()
+  const uniqueHash = computeUniqueHash(finalName, now)
+  const price = computePrice({ ...stats, rarity, views_24h: 0, supply: 1 })
+
+  let offspringId: number
+  db.exec("BEGIN IMMEDIATE")
+  try {
+    // Условно «сжигаем» обоих родителей — только если всё ещё kept и наши
+    // (защита от гонки: параллельное второе слияние/листинг того же артефакта).
+    const burnA = db.prepare(`UPDATE artifacts SET status = 'fused' WHERE id = ? AND owner_id = ? AND status = 'kept'`).run(aId, userId)
+    const burnB = db.prepare(`UPDATE artifacts SET status = 'fused' WHERE id = ? AND owner_id = ? AND status = 'kept'`).run(bId, userId)
+    if (burnA.changes !== 1 || burnB.changes !== 1) {
+      db.exec("ROLLBACK")
+      return res.status(409).json({ error: "Артефакт уже используется — обновите список", code: "FUSION_CONFLICT" })
+    }
+    const info = db.prepare(
+      `INSERT INTO artifacts (owner_id, project_id, name, type, rarity, level, power, defense, magic, speed,
+              status, views_24h, supply, price, list_currency, description, lore, ai_visual, source, unique_hash,
+              parent_a_id, parent_b_id, is_mutation)
+       VALUES (?, NULL, ?, 'fused', ?, 1, ?, ?, ?, ?, 'kept', 0, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      userId, finalName, rarity, stats.power, stats.defense, stats.magic, stats.speed,
+      price, LIST_CURRENCY_BY_RARITY[rarity], generated.description, generated.lore, generated.visual,
+      generated.source, uniqueHash, aId, bId, mutate ? 1 : 0,
+    )
+    offspringId = Number(info.lastInsertRowid)
+    db.exec("COMMIT")
+  } catch (e) {
+    db.exec("ROLLBACK")
+    throw e
+  }
+
+  logAudit(userId, "debit", 0, "artifact_fusion", { parents: [aId, bId], offspring: offspringId, mutation: mutate })
+
+  const artifact = db.prepare(
+    `SELECT id, name, type, rarity, level, power, defense, magic, speed, status, price,
+            list_currency as listCurrency, description, lore, ai_visual as aiVisual, source,
+            parent_a_id as parentAId, parent_b_id as parentBId, is_mutation as isMutation, created_at as createdAt
+     FROM artifacts WHERE id = ?`,
+  ).get(offspringId)
+
+  res.status(201).json({ ok: true, mutation: mutate, artifact })
+}))
 
 export default router
 
