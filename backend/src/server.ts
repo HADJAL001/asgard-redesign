@@ -156,6 +156,7 @@ app.use(
 /* Аналогично — отдельный Stripe webhook для «Founders Program» (Академия).
    Свой signing secret STRIPE_WEBHOOK_SECRET_ACADEMY (с фолбэком). За фичефлагом. */
 import academyRoutes from "./routes/academy.routes"
+import certifiedRoutes from "./routes/certified.routes"
 app.use(
   "/academy/webhook",
   express.raw({ type: "application/json" }),
@@ -325,6 +326,7 @@ import "./migrations/080_creator_provenance"
 import "./migrations/081_proof_of_craft"
 import "./migrations/082_artifact_identity"
 import "./migrations/083_founders_program"
+import "./migrations/084_academy_certificates"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
@@ -528,6 +530,7 @@ app.use("/addons", addonsRoutes)
 app.use("/addons/customization", customizationRoutes)
 app.use("/addons/courses", coursesRoutes)
 app.use("/academy", academyRoutes)
+app.use("/certified", certifiedRoutes)
 app.use("/jarvis", jarvisRoutes)
 app.use("/jarvis", jarvisShopRoutes)
 app.use("/twin", twinRoutes)

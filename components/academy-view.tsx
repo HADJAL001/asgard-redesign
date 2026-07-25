@@ -35,6 +35,7 @@ import {
 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { CertificationProgress } from "./certification-progress"
+import { CertifiedCredential } from "./certified-credential"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-store"
 
@@ -245,6 +246,9 @@ export function AcademyView() {
 
         {/* ПРОГРЕСС К СЕРТИФИКАЦИИ («Экзамен делом») — только для авторизованных */}
         <CertificationProgress />
+
+        {/* CREDENTIAL: карта владельца или вход «Получить credential» при готовности */}
+        <CertifiedCredential />
 
         {/* ТИРЫ */}
         <section className="acd-tiers">
