@@ -42,6 +42,22 @@ export function firstProjectOf(userId: number): { id: number } | undefined {
 }
 
 /**
+ * Хард-кап воронки: гость (is_guest=1) имеет право ровно на ОДИН проект.
+ * Авторитетная серверная стена — клиентский UI и «1 гость на IP» уже ограничивают,
+ * но гость с валидным токеном мог бы дёргать создание проекта повторно в обход UI.
+ * Реальные аккаунты (is_guest=0, включая все legacy-строки) → всегда false.
+ * Вызывается в обоих создающих хендлерах (POST /projects, POST /projects/generate)
+ * ДО любых квот/списаний. См. routes/guest.routes.ts, миграция 087.
+ */
+export function guestProjectCapReached(userId: number): boolean {
+  const row = db.prepare(`SELECT is_guest FROM users WHERE id = ?`).get(userId) as
+    | { is_guest?: number }
+    | undefined
+  if (row?.is_guest !== 1) return false
+  return !!db.prepare(`SELECT 1 FROM projects WHERE user_id = ? LIMIT 1`).get(userId)
+}
+
+/**
  * Провижинит лёгкий гость-аккаунт под данный IP: создаёт пользователя
  * (is_guest=1, непроходной password_hash → парольный вход невозможен),
  * помечает guest_ip и заводит кошелёк-заглушку. Возвращает ссылку на гостя.

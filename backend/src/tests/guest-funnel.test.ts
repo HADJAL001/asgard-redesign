@@ -163,6 +163,41 @@ test("claimGuest: переносит проекты и артефакты, ст�
   assert.notEqual(row.claimed_at, null)
 })
 
+/* ---------------- guestProjectCapReached (хард-кап) ---------------- */
+
+test("хард-кап: гость без проекта → создание разрешено (cap не достигнут)", () => {
+  const g = svc.provisionGuest("5.5.5.5")
+  assert.equal(svc.guestProjectCapReached(g.id), false)
+})
+
+test("хард-кап: гость с одним проектом → cap достигнут (второй запрещён)", () => {
+  const g = svc.provisionGuest("5.5.5.5")
+  db.prepare(`INSERT INTO projects (user_id) VALUES (?)`).run(g.id)
+  assert.equal(svc.guestProjectCapReached(g.id), true)
+})
+
+test("хард-кап: реальный аккаунт не ограничен (много проектов → false)", () => {
+  const real = realUser()
+  db.prepare(`INSERT INTO projects (user_id) VALUES (?)`).run(real)
+  db.prepare(`INSERT INTO projects (user_id) VALUES (?)`).run(real)
+  assert.equal(svc.guestProjectCapReached(real), false)
+})
+
+test("хард-кап: после claim гость освобождён — предел уже на реальном не действует", () => {
+  const guest = svc.provisionGuest("5.5.5.5")
+  const real = realUser()
+  db.prepare(`INSERT INTO projects (user_id) VALUES (?)`).run(guest.id)
+  assert.equal(svc.guestProjectCapReached(guest.id), true, "гость с проектом — cap")
+  svc.claimGuest(real, guest.id)
+  // Проект уехал на реальный аккаунт: реальный не ограничен, гость больше без проектов.
+  assert.equal(svc.guestProjectCapReached(real), false, "реальный не ограничен")
+  assert.equal(svc.guestProjectCapReached(guest.id), false, "у гостя проектов не осталось")
+})
+
+test("хард-кап: несуществующий пользователь → false (не гость)", () => {
+  assert.equal(svc.guestProjectCapReached(987654), false)
+})
+
 test("claimGuest: SELF_CLAIM — нельзя забрать самого себя", () => {
   const g = svc.provisionGuest("1.1.1.1")
   const res = svc.claimGuest(g.id, g.id)

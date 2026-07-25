@@ -14,6 +14,7 @@ import { PROJECT_SELECT_COLUMNS, createGeneratedProject } from "../lib/project-g
 import { GENERATION_DEPTHS, resolveDepth, serializeDepths } from "../lib/generation-depths"
 import { logAudit } from "../lib/audit"
 import { generationEvents, getRecentStages, type GenerationStageEvent } from "../lib/generation-events"
+import { guestProjectCapReached } from "../lib/guest-service"
 
 const router = Router()
 
@@ -40,6 +41,16 @@ function getTodayStartMs(): number {
   const now = new Date()
   return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
 }
+
+/* Единый 409-ответ хард-капа гостя (is_guest=1 → максимум один проект).
+   Сама проверка — guestProjectCapReached в lib/guest-service (БД-логика воронки,
+   юнит-тестируемая); здесь остаётся только HTTP-обвязка. Применяется к обоим
+   путям создания (POST /projects и POST /projects/generate) ДО квот/списаний. */
+const GUEST_CAP_RESPONSE = {
+  error:
+    "Гостевой доступ — один бесплатный проект. Зарегистрируйтесь, чтобы создавать больше проектов и открыть доработки.",
+  code: "GUEST_PROJECT_LIMIT",
+} as const
 
 /* ---------------- GET /projects/generation-limits — дневной лимит генераций по тарифу ---------------- */
 router.get("/generation-limits", requireAuth, (req: AuthRequest, res) => {
@@ -228,6 +239,11 @@ router.post("/", requireAuth, (req: AuthRequest, res) => {
     return res.status(400).json({ error: "Укажите название проекта" })
   }
 
+  /* Хард-кап гостя действует и на ручное создание — гость = один проект любым путём. */
+  if (guestProjectCapReached(req.user!.userId)) {
+    return res.status(409).json(GUEST_CAP_RESPONSE)
+  }
+
   const now = Date.now()
   const info = db
     .prepare(
@@ -257,6 +273,11 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
 
   if (!name || typeof name !== "string" || !name.trim()) {
     return res.status(400).json({ error: "Укажите название проекта" })
+  }
+
+  /* Хард-кап гостя: второй проект гостя отклоняется ДО квот/списаний. */
+  if (guestProjectCapReached(userId)) {
+    return res.status(409).json(GUEST_CAP_RESPONSE)
   }
 
   const depth = resolveDepth(req.body?.depth)
