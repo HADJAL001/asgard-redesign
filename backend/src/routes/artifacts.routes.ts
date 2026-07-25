@@ -13,6 +13,7 @@ import {
 } from "../lib/forge-loadout"
 import { fuseStats, fusedRarity, fusionHint, MUTATION_CHANCE } from "../lib/artifact-fusion"
 import { explainCraftScore, deriveCraftedStats, type GenerationDepth } from "../lib/proof-of-craft"
+import { deriveArtifactIdentity, type ArtifactIdentity } from "../lib/artifact-identity"
 
 const router = Router()
 
@@ -237,6 +238,26 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
   const supply = 1
   const now = Date.now()
 
+  // Айдентика: детерминированное «лицо» артефакта из самого приложения
+  // (тип → архетип, редкость → материал, хеш → палитра, реальные сигналы →
+  // честный миф происхождения). Персистим, чтобы витрина провенанса шарилась.
+  const identity = deriveArtifactIdentity({
+    type,
+    name,
+    rarity,
+    craftScore,
+    depth: (craftProject?.generation_depth as GenerationDepth) ?? null,
+    fileCount,
+    aiReal: !!(craftProject?.ai_source && !craftProject?.template_id),
+    seed: `${resolvedProjectId ?? "solo"}:${name}`,
+  })
+  const visualTheme = JSON.stringify({
+    archetype: identity.archetype,
+    material: identity.material,
+    essence: identity.essence,
+    palette: identity.palette,
+  })
+
   const price = computePrice({ power, defense, magic, speed, rarity, views_24h: 0, supply })
 
   db.prepare(
@@ -245,8 +266,8 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
 
   const info = db
     .prepare(
-      `INSERT INTO artifacts (owner_id, project_id, name, type, rarity, level, power, defense, magic, speed, status, views_24h, supply, price, list_currency, craft_score)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'kept', 0, ?, ?, ?, ?)`,
+      `INSERT INTO artifacts (owner_id, project_id, name, type, rarity, level, power, defense, magic, speed, status, views_24h, supply, price, list_currency, craft_score, origin_myth, visual_theme)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'kept', 0, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       req.user!.userId,
@@ -263,6 +284,8 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
       price,
       LIST_CURRENCY_BY_RARITY[rarity],
       crafted.craftScore,
+      identity.originMyth,
+      visualTheme,
     )
 
   if (resolvedProjectId) {
@@ -297,7 +320,7 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
   // Разбор ковки: показываем, ПОЧЕМУ статы такие — вклад каждого честного
   // сигнала в craftScore. Прозрачность Proof-of-Craft как зрелище, не чёрный
   // ящик. Аддитивно: старые клиенты просто игнорируют поле.
-  res.status(201).json({ artifact, craftBreakdown })
+  res.status(201).json({ artifact, craftBreakdown, identity })
 })
 
 /* ---------------- POST /artifacts/generate-ai ----------------
@@ -696,11 +719,46 @@ router.get("/:id/provenance", (req, res) => {
     .prepare(
       `SELECT id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
               craft_score as craftScore, is_mutation as isMutation, status,
-              owner_id as ownerId, creator_id as creatorId, created_at as createdAt
+              owner_id as ownerId, creator_id as creatorId, created_at as createdAt,
+              origin_myth as originMyth, visual_theme as visualTheme
        FROM artifacts WHERE id = ?`,
     )
     .get(id)
   if (!root) return res.status(404).json({ error: "Артефакт не найден" })
+
+  /* Айдентика артефакта для витрины. Новые артефакты несут персистнутую
+     (миграция 082); legacy (NULL) — выводим на лету из того, что известно.
+     Айдентика это ПРЕЗЕНТАЦИЯ, а не заработанная ценность, поэтому вывод на
+     лету честен и не переписывает ничью историю. */
+  let identity: ArtifactIdentity
+  if (root.originMyth && root.visualTheme) {
+    try {
+      const theme = JSON.parse(root.visualTheme)
+      identity = {
+        archetype: theme.archetype,
+        material: theme.material,
+        essence: theme.essence,
+        palette: theme.palette,
+        originMyth: root.originMyth,
+      }
+    } catch {
+      identity = deriveArtifactIdentity({
+        type: root.type,
+        name: root.name,
+        rarity: root.rarity,
+        craftScore: root.craftScore,
+        seed: `${root.projectId ?? "solo"}:${root.name}`,
+      })
+    }
+  } else {
+    identity = deriveArtifactIdentity({
+      type: root.type,
+      name: root.name,
+      rarity: root.rarity,
+      craftScore: root.craftScore, // null → миф в legacy-формулировке
+      seed: `${root.projectId ?? "solo"}:${root.name}`,
+    })
+  }
 
   const userLite = (uid: number | null | undefined) => {
     if (!uid) return null
@@ -773,6 +831,7 @@ router.get("/:id/provenance", (req, res) => {
       status: root.status,
       createdAt: root.createdAt,
     },
+    identity,
     creator: userLite(root.creatorId),
     currentOwner: userLite(root.ownerId),
     lineage,
