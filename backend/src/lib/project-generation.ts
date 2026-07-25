@@ -14,6 +14,7 @@ import { captureError } from "./sentry"
 import { GENERATION_DEPTHS, type GenerationDepth } from "./generation-depths"
 import { createNotification } from "./notifications"
 import { getForgeBonusForUser } from "./forge-loadout"
+import { addArchitectXp } from "./architect-progression"
 
 /* ================================================================
    OSGARD · Общий сервис генерации проектов
@@ -235,6 +236,8 @@ export function createGeneratedProject(params: {
 
   const projectId = Number(projectInfo.lastInsertRowid)
   insertStarterArtifacts(params.userId, projectId, quick.artifacts, now)
+  // «Мастерство Архитектора»: XP за реальную генерацию проекта (аддитивно, no-op при отсутствии колонок).
+  addArchitectXp(params.userId, "project_generated")
 
   const project = db.prepare(`SELECT ${PROJECT_SELECT_COLUMNS} FROM projects WHERE id = ?`).get(projectId)
   const artifacts = db

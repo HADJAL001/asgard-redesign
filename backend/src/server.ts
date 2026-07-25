@@ -219,6 +219,7 @@ import notificationsRoutes from "./routes/notifications.routes"
 import usersRoutes from "./routes/users.routes"
 import pushRoutes from "./routes/push.routes"
 import feedRoutes from "./routes/feed.routes"
+import architectRoutes from "./routes/architect.routes"
 import { runOrderBookMigration } from "./migrations/001_order_book"
 import { runReferralMigration } from "./migrations/002_referral_system"
 import { runPremiumUpgradeMigration } from "./migrations/003_premium_upgrade"
@@ -309,6 +310,7 @@ import "./migrations/072_auctions"
 import "./migrations/073_api_keys"
 import "./migrations/074_generation_depth"
 import "./migrations/076_artifact_loadout"
+import "./migrations/079_architect_mastery"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
@@ -493,6 +495,7 @@ app.use("/leaderboard", leaderboardRoutes)
 app.use("/hall-of-fame", hallOfFameRoutes)
 app.use("/notifications", notificationsRoutes)
 app.use("/feed", feedRoutes)
+app.use("/architect", architectRoutes)
 app.use("/users", usersRoutes)
 app.use("/push", pushRoutes)
 app.use("/transactions", transactionsRoutes)

@@ -202,6 +202,31 @@ export const EMPTY_FORGE_LOADOUT: ForgeLoadout = {
   maxSlots: 3,
 }
 
+/* ---- «Мастерство Архитектора» (Фаза A суперпремиума) ----
+   Статусная лестница самого пользователя. Ортогональна ежедневной
+   награде за вход (та живёт отдельно — daily-стрик): мастерство растёт
+   за РЕАЛЬНЫЕ дела (генерация проекта, ковка, продажа), а не за заход. */
+
+/** Состояние прогрессии архитектора (GET /architect/state → architect). */
+export interface ArchitectState {
+  xp: number
+  tierIndex: number
+  tierKey: string
+  tierName: string
+  nextTierKey: string | null
+  nextTierName: string | null
+  xpIntoTier: number
+  xpForNextTier: number | null
+  progress: number
+}
+
+/** Справочная запись тира (GET /architect/state → tiers). */
+export interface ArchitectTierInfo {
+  key: string
+  name: string
+  minXp: number
+}
+
 /** Запись рейтинга архитекторов (см. GET /leaderboard). */
 export interface LeaderboardEntry {
   userId: number
@@ -550,6 +575,14 @@ export interface OsgardStoreState {
   /** POST /artifacts/:id/unequip — снять артефакт со снаряжения. */
   unequipArtifact: (artifactId: number) => Promise<LoadoutActionResult>
 
+  /* ---- «Мастерство Архитектора» ---- */
+  /** Текущее состояние прогрессии архитектора (null = ещё не загружено). */
+  architect: ArchitectState | null
+  /** Справочник тиров лестницы мастерства (для отрисовки всей шкалы). */
+  architectTiers: ArchitectTierInfo[]
+  /** GET /architect/state — текущий тир + XP + прогресс к следующему тиру. */
+  fetchArchitect: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
+
   /* ---- маркетплейс ---- */
   /** GET /marketplace/listings — список всех активных лотов на продаже. */
   fetchListings: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
@@ -665,6 +698,15 @@ function extractErrorMessage(err: unknown, fallback: string): string {
   return fallback
 }
 
+/** Достаёт машинный код ошибки (напр. "ALREADY_CLAIMED") из тела ответа ApiError, если он есть. */
+function extractErrorCode(err: unknown): string | undefined {
+  if (err instanceof ApiError) {
+    const code = (err.data as { code?: unknown } | undefined)?.code
+    return typeof code === "string" ? code : undefined
+  }
+  return undefined
+}
+
 /* ================================================================
    Store
    ================================================================ */
@@ -679,6 +721,8 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   stakes: [],
   artifacts: [],
   forgeLoadout: EMPTY_FORGE_LOADOUT,
+  architect: null,
+  architectTiers: [],
   marketplaceListings: [],
   leaderboard: [],
   transactions: [],
@@ -1188,6 +1232,19 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     }
   },
 
+  /* ---- fetch: GET /architect/state — «Мастерство Архитектора» ---- */
+  fetchArchitect: async (opts) => {
+    try {
+      const res = await apiClient.get<{ architect: ArchitectState; tiers: ArchitectTierInfo[] }>(
+        "/architect/state",
+        opts,
+      )
+      set({ architect: res.architect, architectTiers: res.tiers ?? [], error: null })
+    } catch (err) {
+      set({ error: extractErrorMessage(err, "Не удалось загрузить прогресс мастерства") })
+    }
+  },
+
   /* ---- fetch: GET /marketplace/listings — все активные лоты маркетплейса ---- */
   fetchListings: async (opts) => {
     try {
@@ -1552,6 +1609,8 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       stakes: [],
       artifacts: [],
       forgeLoadout: EMPTY_FORGE_LOADOUT,
+      architect: null,
+      architectTiers: [],
       marketplaceListings: [],
       leaderboard: [],
       transactions: [],

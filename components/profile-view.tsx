@@ -35,6 +35,7 @@ import { ArtifactMiniCard } from "./artifact-mini-card"
 import { useOsgard, useOsgardStore } from "@/lib/store/osgard-store"
 import { formatTokens } from "@/lib/economy"
 import { UP, DAY_MS } from "@/lib/tc-market"
+import { useTranslation } from "@/lib/i18n/use-translation"
 
 /* ---- Palette ----
    bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E */
@@ -208,6 +209,9 @@ export function ProfileView() {
           ))}
         </section>
 
+        {/* «Мастерство Архитектора» — статусная лестница пользователя (Фаза A) */}
+        <ArchitectMastery />
+
         {/* Tabs */}
         <div className="mt-10 flex gap-8 border-b" style={{ borderColor: "#2A2A3E" }} role="tablist">
           {TABS.map((t) => {
@@ -242,6 +246,99 @@ export function ProfileView() {
         </div>
       </main>
     </div>
+  )
+}
+
+/* ---- «Мастерство Архитектора»: тир + прогресс-бар к следующему тиру ----
+   Данные честные, из GET /architect/state → architect (XP растёт за реальные
+   действия: генерация проекта, ковка, продажа). Prod-safe: при отсутствии
+   колонок бэкенд отдаёт xp=0 / tier «Подмастерье».
+
+   ВАЖНО (обучение против путаницы): это НЕ ежедневная награда за вход — та
+   отдельная петля, выдаёт кредиты за заход. Мастерство — статусная лестница
+   за реальные дела; за новый тир Кузница дарит редкий артефакт-регалию. */
+function ArchitectMastery() {
+  const { t } = useTranslation()
+  const { user } = useAuth()
+  const architect = useOsgardStore((s) => s.architect)
+  const fetchArchitect = useOsgardStore((s) => s.fetchArchitect)
+
+  useEffect(() => {
+    if (user && !architect) fetchArchitect({ skipAuthRedirect: true })
+  }, [user, architect, fetchArchitect])
+
+  if (!architect) return null
+
+  const tierName = architect.tierKey
+    ? t(`architect.tiers.${architect.tierKey}`)
+    : architect.tierName
+  const nextTierName = architect.nextTierKey
+    ? t(`architect.tiers.${architect.nextTierKey}`)
+    : architect.nextTierName
+  const pct = Math.round(Math.max(0, Math.min(1, architect.progress)) * 100)
+  const maxed = architect.nextTierKey === null || architect.xpForNextTier === null
+
+  return (
+    <section
+      className="mt-8 rounded-2xl p-6 md:p-7 premium-card"
+      style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span
+            className="flex size-11 shrink-0 items-center justify-center rounded-xl"
+            style={{ border: "1px solid var(--color-gold)", boxShadow: "0 0 14px rgba(212,175,55,0.28)" }}
+          >
+            <Hammer size={20} strokeWidth={1.6} style={{ color: "var(--color-gold)" }} aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-[12px] uppercase tracking-[0.12em]" style={{ color: "#6A6A8A" }}>
+              {t("architect.title")}
+            </p>
+            <h3 className="serif-title mt-0.5 text-[20px] leading-tight" style={{ color: "var(--color-gold)" }}>
+              {tierName}
+            </h3>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="premium-num text-[20px] font-semibold leading-none">{architect.xp}</div>
+          <div className="mt-1 text-[11px]" style={{ color: "#6A6A8A" }}>
+            {t("architect.tier")}
+          </div>
+        </div>
+      </div>
+
+      {/* Прогресс-бар к следующему тиру */}
+      <div className="mt-5">
+        <div className="h-2.5 w-full overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.06)" }}>
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${maxed ? 100 : pct}%`,
+              background: "linear-gradient(90deg, var(--color-gold), #F0C75E)",
+              boxShadow: "0 0 10px rgba(212,175,55,0.4)",
+              transition: "width 600ms var(--ease-premium)",
+            }}
+          />
+        </div>
+        <p className="mt-2 text-[12px]" style={{ color: "#6A6A8A" }}>
+          {maxed
+            ? t("architect.maxed")
+            : t("architect.toNext", { tier: nextTierName ?? "", xp: architect.xpForNextTier ?? 0 })}
+        </p>
+      </div>
+
+      {/* Обучение против путаницы: чем мастерство отличается от ежедневной награды */}
+      <div
+        className="mt-5 rounded-xl p-3.5"
+        style={{ background: "rgba(212,175,55,0.05)", border: "1px solid rgba(212,175,55,0.18)" }}
+      >
+        <p className="text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.72)" }}>
+          <span style={{ color: "var(--color-gold)" }}>{t("architect.teachTitle")}</span>{" "}
+          {t("architect.teachBody")}
+        </p>
+      </div>
+    </section>
   )
 }
 

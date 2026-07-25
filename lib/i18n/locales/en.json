@@ -788,5 +788,22 @@
   "support": {
     "inDevelopmentTitle": "Section under development",
     "inDevelopmentText": "Live support is still being built. For answers, check the Docs or the Tavern (community)."
+  },
+  "architect": {
+    "title": "Architect Mastery",
+    "tier": "Tier",
+    "xp": "{{xp}} XP",
+    "toNext": "To “{{tier}}” — {{xp}} XP",
+    "maxed": "Top tier reached",
+    "progress": "Progress",
+    "teachTitle": "This is not the daily reward.",
+    "teachBody": "Mastery grows from real work — generating projects, forging and selling artifacts. Each new tier earns you a rare regalia from the Forge. Credits for daily login are a separate reward.",
+    "tiers": {
+      "apprentice": "Apprentice",
+      "smith": "Smith",
+      "architect": "Architect",
+      "magister": "Magister",
+      "legend": "Legend"
+    }
   }
 }
