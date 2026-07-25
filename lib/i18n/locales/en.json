@@ -805,5 +805,17 @@
       "magister": "Magister",
       "legend": "Legend"
     }
+  },
+  "signature": {
+    "title": "Sensory signature",
+    "toggleLabel": "Sound & vibration",
+    "hint": "Quiet tones and a light vibration at key moments — an artifact born, a rare find, a streak milestone. Off by default.",
+    "unsupported": "Your device does not support sound or vibration.",
+    "certificate": "Certificate",
+    "provenanceSeal": "Provenance seal",
+    "born": "Born",
+    "shareCard": "Share card",
+    "power": "Power",
+    "copied": "Copied"
   }
 }

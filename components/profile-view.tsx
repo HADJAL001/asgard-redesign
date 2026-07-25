@@ -36,6 +36,8 @@ import { useOsgard, useOsgardStore } from "@/lib/store/osgard-store"
 import { formatTokens } from "@/lib/economy"
 import { UP, DAY_MS } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
+import { useSignature } from "@/hooks/useSignature"
+import { Volume2 } from "lucide-react"
 
 /* ---- Palette ----
    bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E */
@@ -824,6 +826,8 @@ function SettingsTab() {
         </div>
       </Panel>
 
+      <SensorySignaturePanel />
+
       <div className="flex items-center justify-end gap-3">
         {status === "ok" && (
           <span className="text-[13px]" style={{ color: "#4ADE80" }} role="status">
@@ -859,6 +863,54 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       </label>
       {children}
     </div>
+  )
+}
+
+/* «Сенсорная подпись» — opt-in звук/вибрация (Фаза B). По умолчанию OFF:
+   у текущих пользователей — нулевое изменение. При включении сразу играем
+   короткую превью-«подпись», чтобы пользователь услышал, на что подписался. */
+function SensorySignaturePanel() {
+  const { t } = useTranslation()
+  const { enabled, setEnabled, play, soundSupported, vibrationSupported } = useSignature()
+  const supported = soundSupported || vibrationSupported
+
+  function handleToggle() {
+    const next = !enabled
+    setEnabled(next)
+    // Превью играем только при включении. play() внутри уважает тумблер, но
+    // state обновится асинхронно через подписку — проигрываем cue напрямую.
+    if (next) play("artifactBorn")
+  }
+
+  return (
+    <Panel title={t("signature.title")}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <Volume2 size={18} strokeWidth={1.5} style={{ color: "#6A6A8A", marginTop: 2 }} aria-hidden="true" />
+          <div>
+            <p className="text-[14px]">{t("signature.toggleLabel")}</p>
+            <p className="mt-1 text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.45)", maxWidth: 460 }}>
+              {supported ? t("signature.hint") : t("signature.unsupported")}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          aria-label={t("signature.toggleLabel")}
+          disabled={!supported}
+          onClick={handleToggle}
+          className="relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40"
+          style={{ backgroundColor: enabled ? "var(--color-gold)" : "#2A2A3E" }}
+        >
+          <span
+            className="absolute top-0.5 size-5 rounded-full transition-all"
+            style={{ left: enabled ? "22px" : "2px", backgroundColor: "#FFFFFF" }}
+          />
+        </button>
+      </div>
+    </Panel>
   )
 }
 
