@@ -88,15 +88,26 @@ app.use(helmet({
   }
 }))
 
+/* Preview-деплои Vercel/Railway живут на *.vercel.app / *.railway.app со
+   случайными поддоменами — заранее их не перечислить, поэтому пускаем по
+   вилдкарду. Но в production фронт работает на собственном домене
+   (osgardnewworld.com — уже в ALLOWED_ORIGINS), а с credentials:true широкий
+   вилдкард открыл бы credentialed-CORS ЛЮБОМУ приложению атакующего на
+   *.vercel.app. Поэтому в production вилдкард выключен; реальные прод-домены
+   задаются через CORS_ORIGIN. Аварийный обход (если прод реально живёт на
+   *.vercel.app): CORS_ALLOW_PREVIEW_WILDCARD=true — одна переменная, без
+   правки кода. */
+const ALLOW_PREVIEW_WILDCARD =
+  process.env.NODE_ENV !== "production" || process.env.CORS_ALLOW_PREVIEW_WILDCARD === "true"
+
 app.use(cors({
   origin: (origin, callback) => {
     // разрешаем запросы без origin (мобильные, curl, postman)
     if (!origin) return callback(null, true)
-    // разрешаем vercel.app и заданные origins
+    const isPreviewWildcard = /\.vercel\.app$/.test(origin) || /\.railway\.app$/.test(origin)
     if (
       ALLOWED_ORIGINS.includes(origin) ||
-      /\.vercel\.app$/.test(origin) ||
-      /\.railway\.app$/.test(origin)
+      (ALLOW_PREVIEW_WILDCARD && isPreviewWildcard)
     ) {
       return callback(null, true)
     }
