@@ -38,6 +38,20 @@ const RARITY_CONTRIB_FACTOR = 0.025
 /** Веса редкости (совпадают с RARITY_MULT в artifacts.routes.ts). */
 const RARITY_WEIGHT: Record<string, number> = { common: 1, rare: 2, epic: 3, legendary: 4, mythic: 5 }
 
+/* ----------------------------------------------------------------
+   💎 Рычаг 2 «Живой артефакт»: надетые артефакты дают СКИДКУ на
+   ручную ковку, масштабируемую от их ЧЕСТНОСТИ (craftScore). Так
+   замыкается петля Proof-of-Craft — честно выкованный артефакт даёт
+   реальную выгоду. Скидка жёстко ограничена сверху, а legacy-артефакты
+   (craftScore=NULL) вклада не дают: недоказанный труд не удешевляет ковку.
+   ---------------------------------------------------------------- */
+
+/** Потолок скидки на ручную ковку (доля от базовой цены). */
+export const FORGE_DISCOUNT_CAP = 0.25
+
+/** Вклад одного надетого артефакта в скидку: craftScore × это. */
+const DISCOUNT_CONTRIB_FACTOR = 0.09
+
 export type EquippedArtifactStats = {
   power: number
   defense: number
@@ -45,6 +59,8 @@ export type EquippedArtifactStats = {
   speed: number
   rarity: string
   level: number
+  /** craft_score ∈ [0..1] надетого артефакта. NULL/undefined = legacy (труд не доказан). */
+  craftScore?: number | null
 }
 
 export type ForgeBonus = {
@@ -84,7 +100,7 @@ export function getEquippedArtifacts(userId: number): Array<EquippedArtifactStat
   try {
     return db
       .prepare(
-        `SELECT id, name, type, rarity, level, power, defense, magic, speed
+        `SELECT id, name, type, rarity, level, power, defense, magic, speed, craft_score as craftScore
          FROM artifacts
          WHERE owner_id = ? AND equipped_at IS NOT NULL
          ORDER BY equipped_at DESC
@@ -100,4 +116,43 @@ export function getEquippedArtifacts(userId: number): Array<EquippedArtifactStat
 /** Готовый бонус для генерации у конкретного пользователя. Никогда не бросает. */
 export function getForgeBonusForUser(userId: number): ForgeBonus {
   return computeForgeBonus(getEquippedArtifacts(userId))
+}
+
+export type ForgeDiscount = {
+  /** Число надетых артефактов, из которых посчитана скидка. */
+  equippedCount: number
+  /** Доля скидки на ручную ковку (0..FORGE_DISCOUNT_CAP). */
+  discountRate: number
+}
+
+export const ZERO_FORGE_DISCOUNT: ForgeDiscount = { equippedCount: 0, discountRate: 0 }
+
+/** Нормализует craftScore в [0..1]; NULL/undefined/невалидное → 0 (legacy без вклада). */
+function safeCraftScore(cs: number | null | undefined): number {
+  if (cs == null || Number.isNaN(cs)) return 0
+  return cs < 0 ? 0 : cs > 1 ? 1 : cs
+}
+
+/**
+ * Чистый расчёт скидки на ручную ковку из списка надетых артефактов.
+ * Детерминированный, ограниченный сверху FORGE_DISCOUNT_CAP. Legacy-артефакты
+ * (craftScore=NULL→0) вклада не дают. Монотонно растёт с честностью надетого.
+ */
+export function computeForgeDiscount(equipped: EquippedArtifactStats[]): ForgeDiscount {
+  if (!equipped.length) return { ...ZERO_FORGE_DISCOUNT }
+
+  let raw = 0
+  for (const a of equipped.slice(0, FORGE_MAX_SLOTS)) {
+    raw += safeCraftScore(a.craftScore) * DISCOUNT_CONTRIB_FACTOR
+  }
+
+  return {
+    equippedCount: Math.min(equipped.length, FORGE_MAX_SLOTS),
+    discountRate: Math.min(FORGE_DISCOUNT_CAP, Number(raw.toFixed(4))),
+  }
+}
+
+/** Готовая скидка на ковку у конкретного пользователя. Никогда не бросает. */
+export function getForgeDiscountForUser(userId: number): ForgeDiscount {
+  return computeForgeDiscount(getEquippedArtifacts(userId))
 }

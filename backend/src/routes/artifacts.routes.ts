@@ -9,6 +9,7 @@ import { addArchitectXp } from "../lib/architect-progression"
 import {
   FORGE_MAX_SLOTS,
   computeForgeBonus,
+  getForgeDiscountForUser,
   type EquippedArtifactStats,
 } from "../lib/forge-loadout"
 import { fuseStats, fusedRarity, fusionHint, MUTATION_CHANCE } from "../lib/artifact-fusion"
@@ -210,11 +211,19 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
   const forgeCurrency = typeof currency === "string" && FORGE_CURRENCIES[currency] ? currency : "timecoin"
   const { cost: forgeCost, statMult } = FORGE_CURRENCIES[forgeCurrency]
 
+  /* 💎 Рычаг 2 «Живой артефакт»: надетые артефакты дают скидку на ручную ковку,
+     масштабируемую от их честности (craftScore). Замыкает петлю Proof-of-Craft.
+     Скидка ограничена сверху, legacy-артефакты вклада не дают, цена не падает
+     ниже 1. getForgeDiscountForUser никогда не бросает (пустой лоадаут → 0). */
+  const forgeDiscount = getForgeDiscountForUser(req.user!.userId)
+  const paidCost = Math.max(1, forgeCost - Math.round(forgeCost * forgeDiscount.discountRate))
+  const savedAmount = forgeCost - paidCost
+
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
   if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
-  if ((wallet[forgeCurrency] ?? 0) < forgeCost) {
-    logAudit(req.user!.userId, "rejected", forgeCost, "insufficient_balance", { action: "forge", currency: forgeCurrency })
-    return res.status(400).json({ error: `Недостаточно средств (нужно ${forgeCost} ${forgeCurrency})` })
+  if ((wallet[forgeCurrency] ?? 0) < paidCost) {
+    logAudit(req.user!.userId, "rejected", paidCost, "insufficient_balance", { action: "forge", currency: forgeCurrency })
+    return res.status(400).json({ error: `Недостаточно средств (нужно ${paidCost} ${forgeCurrency})` })
   }
 
   /* Proof-of-Craft: статы выводятся детерминированно из реальной субстанции
@@ -262,7 +271,7 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
 
   db.prepare(
     `UPDATE wallets SET ${forgeCurrency} = ${forgeCurrency} - ?, updated_at = ? WHERE user_id = ?`,
-  ).run(forgeCost, now, req.user!.userId)
+  ).run(paidCost, now, req.user!.userId)
 
   const info = db
     .prepare(
@@ -295,8 +304,14 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
   db.prepare(
     `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
      VALUES (?, 'forge', ?, 'Кузница Артефактов', ?, ?, 'done')`,
-  ).run(req.user!.userId, name, forgeCost, forgeCurrency)
-  logAudit(req.user!.userId, "debit", forgeCost, "artifact_forge", { name, currency: forgeCurrency })
+  ).run(req.user!.userId, name, paidCost, forgeCurrency)
+  logAudit(req.user!.userId, "debit", paidCost, "artifact_forge", {
+    name,
+    currency: forgeCurrency,
+    baseCost: forgeCost,
+    discountRate: forgeDiscount.discountRate,
+    saved: savedAmount,
+  })
 
   const artifact = db
     .prepare(
@@ -320,7 +335,19 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
   // Разбор ковки: показываем, ПОЧЕМУ статы такие — вклад каждого честного
   // сигнала в craftScore. Прозрачность Proof-of-Craft как зрелище, не чёрный
   // ящик. Аддитивно: старые клиенты просто игнорируют поле.
-  res.status(201).json({ artifact, craftBreakdown, identity })
+  res.status(201).json({
+    artifact,
+    craftBreakdown,
+    identity,
+    forgeDiscount: {
+      equippedCount: forgeDiscount.equippedCount,
+      discountRate: forgeDiscount.discountRate,
+      baseCost: forgeCost,
+      paidCost,
+      saved: savedAmount,
+      currency: forgeCurrency,
+    },
+  })
 })
 
 /* ---------------- POST /artifacts/generate-ai ----------------
