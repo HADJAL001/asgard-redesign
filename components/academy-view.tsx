@@ -34,6 +34,7 @@ import {
   Rocket,
 } from "lucide-react"
 import { Navbar } from "./navbar"
+import { CertificationProgress } from "./certification-progress"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-store"
 
@@ -241,6 +242,9 @@ export function AcademyView() {
             </div>
           ))}
         </section>
+
+        {/* ПРОГРЕСС К СЕРТИФИКАЦИИ («Экзамен делом») — только для авторизованных */}
+        <CertificationProgress />
 
         {/* ТИРЫ */}
         <section className="acd-tiers">

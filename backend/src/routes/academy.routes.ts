@@ -19,6 +19,7 @@ import {
 import { asyncHandler } from "../utils/async-handler"
 import { captureError } from "../lib/sentry"
 import { logAudit } from "../lib/audit"
+import { computeEligibility } from "../lib/certification"
 
 /* ================================================================
    OSGARD ACADEMY ROUTES — «Founders Program»
@@ -464,5 +465,25 @@ router.post(
     })
   }),
 )
+
+/* ================================================================
+   GET /academy/certification/eligibility   («Экзамен делом»)
+   Право на credential «OSGARD Certified Vibecoder» не покупается —
+   оно вычисляется из уже накопленных реальных достижений пользователя
+   (тир Архитектора, задеплоенные проекты, craft_score, авторство).
+   Чистое чтение существующих таблиц; доступно любому авторизованному
+   пользователю (прогресс виден до и без активной подписки — это апселл).
+   ================================================================ */
+router.get("/certification/eligibility", requireAuth, (req: AuthRequest, res) => {
+  const userId = req.user!.userId
+  const result = computeEligibility(userId)
+
+  // Активная запись в программе — контекст для фронта (нужна для claim в Фазе 3),
+  // но НЕ обязательна, чтобы увидеть свой прогресс.
+  const enrollment = getEnrollment(userId)
+  const enrolled = !!enrollment && ["active", "trialing"].includes(enrollment.status)
+
+  res.json({ ...result, enrolled })
+})
 
 export default router
