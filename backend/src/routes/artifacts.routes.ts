@@ -12,7 +12,7 @@ import {
   type EquippedArtifactStats,
 } from "../lib/forge-loadout"
 import { fuseStats, fusedRarity, fusionHint, MUTATION_CHANCE } from "../lib/artifact-fusion"
-import { computeCraftScore, deriveCraftedStats, type GenerationDepth } from "../lib/proof-of-craft"
+import { explainCraftScore, deriveCraftedStats, type GenerationDepth } from "../lib/proof-of-craft"
 
 const router = Router()
 
@@ -223,13 +223,14 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
   const fileCount = resolvedProjectId
     ? ((db.prepare(`SELECT COUNT(*) as c FROM project_files WHERE project_id = ?`).get(resolvedProjectId) as any)?.c ?? 0)
     : 0
-  const craftScore = computeCraftScore({
+  const craftBreakdown = explainCraftScore({
     hasProject: !!resolvedProjectId,
     depth: (craftProject?.generation_depth as GenerationDepth) ?? null,
     fileCount,
     aiSource: craftProject?.ai_source ?? null,
     templateId: craftProject?.template_id ?? null,
   })
+  const craftScore = craftBreakdown.craftScore
   const crafted = deriveCraftedStats(craftScore, statMult, `${resolvedProjectId ?? "solo"}:${name}`)
   const { power, defense, magic, speed, rarity } = crafted
   const level = 1
@@ -293,7 +294,10 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
   })
   addArchitectXp(req.user!.userId, "artifact_forged")
 
-  res.status(201).json({ artifact })
+  // Разбор ковки: показываем, ПОЧЕМУ статы такие — вклад каждого честного
+  // сигнала в craftScore. Прозрачность Proof-of-Craft как зрелище, не чёрный
+  // ящик. Аддитивно: старые клиенты просто игнорируют поле.
+  res.status(201).json({ artifact, craftBreakdown })
 })
 
 /* ---------------- POST /artifacts/generate-ai ----------------

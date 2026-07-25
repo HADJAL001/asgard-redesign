@@ -86,19 +86,111 @@ function clamp01(x: number): number {
   return x < 0 ? 0 : x > 1 ? 1 : x
 }
 
-/**
- * Считает craftScore ∈ [0..1] из реальных сигналов проекта.
- * Чистая, детерминированная — одни и те же сигналы дают один результат.
- */
-export function computeCraftScore(signals: CraftSignals): number {
-  if (!signals.hasProject) return NO_PROJECT_CRAFT_CAP
+/* ---------------- Разбор ковки (craft breakdown) ----------------
 
-  const depth = signals.depth && DEPTH_SCORE[signals.depth] !== undefined ? DEPTH_SCORE[signals.depth] : DEPTH_SCORE.quick
-  const files = clamp01((signals.fileCount ?? 0) / FILES_SATURATION)
+   Один сигнал craftScore — чёрный ящик. Чтобы ковка была ПОНЯТНОЙ (а
+   прозрачность Proof-of-Craft — зрелищем, а не магией), раскладываем
+   итоговую честность на слагаемые: сколько каждый честный сигнал внёс.
+   Единый источник правды: computeCraftScore теперь производный отсюда,
+   поэтому разбор не может разойтись с реальным баллом. */
+
+export interface CraftFactor {
+  /** Стабильный ключ сигнала (для фронта/иконок). */
+  key: "depth" | "files" | "ai" | "floor"
+  /** Человекочитаемый заголовок сигнала. */
+  label: string
+  /** Конкретика этой ковки: «deep», «12 файлов», «настоящая AI»… */
+  detail: string
+  /** Вклад в craftScore на шкале 0..100 (round от contribution*100). */
+  points: number
+  /** Максимально возможный вклад этого сигнала на той же шкале. */
+  maxPoints: number
+}
+
+export interface CraftBreakdown {
+  /** Тот же craftScore ∈ [0..1], что и у computeCraftScore. */
+  craftScore: number
+  /** Слагаемые честности, от крупного к мелкому. */
+  factors: CraftFactor[]
+}
+
+const DEPTH_LABEL: Record<GenerationDepth, string> = {
+  quick: "быстрая (шаблон)",
+  standard: "полная AI-генерация",
+  deep: "глубокая (свежий AI)",
+}
+
+/**
+ * Раскладывает craftScore на честные слагаемые. Чистая, детерминированная.
+ * Сумма factor.contribution == craftScore (до клампа), поэтому UI может
+ * честно показать «глубина дала +29, файлы +18, настоящая AI +20».
+ */
+export function explainCraftScore(signals: CraftSignals): CraftBreakdown {
+  // Ковка без проекта: труд не доказан — плоский пол, одно слагаемое.
+  if (!signals.hasProject) {
+    return {
+      craftScore: NO_PROJECT_CRAFT_CAP,
+      factors: [
+        {
+          key: "floor",
+          label: "Ковка без проекта",
+          detail: "труд не доказан — базовый пол честности",
+          points: Math.round(NO_PROJECT_CRAFT_CAP * 100),
+          maxPoints: 100,
+        },
+      ],
+    }
+  }
+
+  const depthKey: GenerationDepth =
+    signals.depth && DEPTH_SCORE[signals.depth] !== undefined ? signals.depth : "quick"
+  const depthRaw = DEPTH_SCORE[depthKey]
+  const filesRaw = clamp01((signals.fileCount ?? 0) / FILES_SATURATION)
   // Настоящая AI-генерация: ai_source задан И это не шаблонный проект.
   const aiReal = signals.aiSource && !signals.templateId ? 1 : 0
 
-  return clamp01(W_DEPTH * depth + W_FILES * files + W_AI * aiReal)
+  const depthContribution = W_DEPTH * depthRaw
+  const filesContribution = W_FILES * filesRaw
+  const aiContribution = W_AI * aiReal
+
+  const fileCount = signals.fileCount ?? 0
+  const factors: CraftFactor[] = [
+    {
+      key: "depth",
+      label: "Глубина генерации",
+      detail: DEPTH_LABEL[depthKey],
+      points: Math.round(depthContribution * 100),
+      maxPoints: Math.round(W_DEPTH * 100),
+    },
+    {
+      key: "files",
+      label: "Объём проекта",
+      detail: `${fileCount} ${fileCount === 1 ? "файл" : "файлов"}${filesRaw >= 1 ? " (насыщение)" : ""}`,
+      points: Math.round(filesContribution * 100),
+      maxPoints: Math.round(W_FILES * 100),
+    },
+    {
+      key: "ai",
+      label: "Происхождение кода",
+      detail: aiReal ? "настоящая AI-генерация" : signals.templateId ? "опёрт на шаблон" : "без AI-подписи",
+      points: Math.round(aiContribution * 100),
+      maxPoints: Math.round(W_AI * 100),
+    },
+  ]
+
+  return {
+    craftScore: clamp01(depthContribution + filesContribution + aiContribution),
+    factors,
+  }
+}
+
+/**
+ * Считает craftScore ∈ [0..1] из реальных сигналов проекта.
+ * Чистая, детерминированная — одни и те же сигналы дают один результат.
+ * Производный от explainCraftScore: балл и его разбор не могут разойтись.
+ */
+export function computeCraftScore(signals: CraftSignals): number {
+  return explainCraftScore(signals).craftScore
 }
 
 /** Стабильный 32-битный хеш строки (FNV-1a). Даёт воспроизводимый «характер» проекта. */

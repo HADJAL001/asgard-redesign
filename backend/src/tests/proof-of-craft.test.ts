@@ -1,6 +1,6 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeCraftScore, deriveCraftedStats } from '../lib/proof-of-craft';
+import { computeCraftScore, deriveCraftedStats, explainCraftScore } from '../lib/proof-of-craft';
 
 /* ================================================================
    OSGARD · Proof-of-Craft (миграция 081 + lib/proof-of-craft).
@@ -51,6 +51,50 @@ test('craftScore: шаблонный проект (template_id задан) те�
   const real = computeCraftScore({ ...base, templateId: null });
   const templated = computeCraftScore({ ...base, templateId: 5 });
   assert.ok(real > templated, 'настоящая AI-генерация честнее шаблона');
+});
+
+/* ---------------- Часть 1c: explainCraftScore (разбор ковки) ---------------- */
+
+test('разбор: craftScore разбора совпадает с computeCraftScore (единый источник)', () => {
+  const cases = [
+    { hasProject: false },
+    { hasProject: true, depth: 'quick' as const, fileCount: 3, aiSource: null, templateId: 5 },
+    { hasProject: true, depth: 'standard' as const, fileCount: 12, aiSource: 'openai', templateId: null },
+    { hasProject: true, depth: 'deep' as const, fileCount: 40, aiSource: 'anthropic', templateId: null },
+  ];
+  for (const c of cases) {
+    assert.equal(explainCraftScore(c).craftScore, computeCraftScore(c), `рассинхрон на ${JSON.stringify(c)}`);
+  }
+});
+
+test('разбор: ковка без проекта — одно слагаемое floor', () => {
+  const b = explainCraftScore({ hasProject: false });
+  assert.equal(b.factors.length, 1);
+  assert.equal(b.factors[0].key, 'floor');
+  assert.equal(b.factors[0].points, 15);
+});
+
+test('разбор: с проектом — три сигнала depth/files/ai, вклад ≤ максимума', () => {
+  const b = explainCraftScore({ hasProject: true, depth: 'deep', fileCount: 40, aiSource: 'openai', templateId: null });
+  assert.deepEqual(b.factors.map((f) => f.key), ['depth', 'files', 'ai']);
+  for (const f of b.factors) assert.ok(f.points <= f.maxPoints, `${f.key}: ${f.points} > ${f.maxPoints}`);
+  // deep+насыщение+настоящая AI → каждый сигнал на максимум.
+  assert.deepEqual(b.factors.map((f) => f.maxPoints), [45, 35, 20]);
+  assert.deepEqual(b.factors.map((f) => f.points), [45, 35, 20]);
+});
+
+test('разбор: шаблонный проект обнуляет вклад AI-сигнала', () => {
+  const b = explainCraftScore({ hasProject: true, depth: 'standard', fileCount: 10, aiSource: 'openai', templateId: 7 });
+  const ai = b.factors.find((f) => f.key === 'ai')!;
+  assert.equal(ai.points, 0);
+  assert.equal(ai.detail, 'опёрт на шаблон');
+});
+
+test('разбор: глубже генерация → больше вклад сигнала depth (монотонность)', () => {
+  const depthPoints = (d: 'quick' | 'standard' | 'deep') =>
+    explainCraftScore({ hasProject: true, depth: d, fileCount: 10, aiSource: 'openai', templateId: null })
+      .factors.find((f) => f.key === 'depth')!.points;
+  assert.ok(depthPoints('quick') < depthPoints('standard') && depthPoints('standard') < depthPoints('deep'));
 });
 
 /* ---------------- Часть 1b: deriveCraftedStats ---------------- */
