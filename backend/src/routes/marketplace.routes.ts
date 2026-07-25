@@ -3,6 +3,7 @@ import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { logAudit } from "../lib/audit"
 import { createActivityEvent } from "../lib/activity"
+import { addArchitectXp } from "../lib/architect-progression"
 
 const router = Router()
 
@@ -240,6 +241,7 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
     text: `продал артефакт «${artifact.name}»`,
     metadata: { name: artifact.name, rarity: artifact.rarity, price: listing.price, currency },
   })
+  addArchitectXp(listing.seller_id, "artifact_sold")
 
   if (qualifiesForHof) {
     createActivityEvent({

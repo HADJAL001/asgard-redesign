@@ -12,7 +12,7 @@ import db from "./db"
    остаётся резервным каналом на случай обрыва SSE.
    ================================================================ */
 
-export type NotificationType = "like" | "comment" | "generation_ready" | "generation_failed"
+export type NotificationType = "like" | "comment" | "generation_ready" | "generation_failed" | "architect"
 
 /** Единый шинный эмиттер уведомлений. Событие "notify" несёт { userId, notification }.
  *  Много SSE-подключений (по одному на активную вкладку) → поднимаем лимит слушателей. */

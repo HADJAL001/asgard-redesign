@@ -5,6 +5,7 @@ import { generateAiArtifactContent, computeUniqueHash, ARTIFACT_RARITIES } from 
 import { asyncHandler } from "../utils/async-handler"
 import { logAudit } from "../lib/audit"
 import { createActivityEvent } from "../lib/activity"
+import { addArchitectXp } from "../lib/architect-progression"
 import {
   FORGE_MAX_SLOTS,
   computeForgeBonus,
@@ -273,6 +274,7 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
     text: `выковал артефакт «${name}»`,
     metadata: { name, rarity },
   })
+  addArchitectXp(req.user!.userId, "artifact_forged")
 
   res.status(201).json({ artifact })
 })
@@ -373,6 +375,7 @@ router.post("/generate-ai", requireAuth, asyncHandler(async (req: AuthRequest, r
     text: `сгенерировал ИИ-артефакт «${finalName}»`,
     metadata: { name: finalName, rarity },
   })
+  addArchitectXp(req.user!.userId, "artifact_forged")
 
   res.status(201).json({ artifact, aiSource: generated.source })
 }))
