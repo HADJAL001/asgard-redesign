@@ -395,6 +395,100 @@ export class AdminController {
     }
   }
 
+  // ===== GET /admin/analytics/growth?days= =====
+  // Дашборд серверной петли роста поверх событий, которые пишет lib/analytics.ts
+  // (register/login/demo_convert/artifact_share_view, см. #46). Это НАДЁЖНЫЕ
+  // серверные события: фиксируются в момент действия, их не теряет блокировщик/
+  // оффлайн, в отличие от клиентского POST /analytics/event.
+  //
+  // Важно: analytics_events.created_at ВСЕГДА хранится как INTEGER unix ms (и
+  // серверный track(), и клиентский приёмник пишут Date.now()), поэтому здесь
+  // normalizedTs() не нужен — сравниваем и делим на 1000 напрямую.
+  //
+  // K-фактор виральности здесь НЕ считаем: честной атрибуции «переход по share →
+  // регистрация» нет (share_click пишется на фронте, связь с конкретной
+  // регистрацией не прослеживается). Отдаём то, что реально измеримо: охват
+  // share (сколько раз открыли публичные карточки) и долю реферальных
+  // регистраций (meta.referred у события register).
+  static async growth(req: AuthRequest, res: Response) {
+    try {
+      const days = Math.min(365, Math.max(1, parseInt(String(req.query.days ?? "30"), 10) || 30))
+      const sinceMs = Date.now() - days * 86400000
+      const EVENTS = "('register','login','demo_convert','artifact_share_view')"
+
+      const totals = db
+        .prepare(
+          `
+          SELECT
+            COUNT(CASE WHEN event_name='register' THEN 1 END) as registrations,
+            COUNT(CASE WHEN event_name='register' AND json_extract(meta,'$.referred') = 1 THEN 1 END) as referredRegistrations,
+            COUNT(CASE WHEN event_name='login' THEN 1 END) as logins,
+            COUNT(DISTINCT CASE WHEN event_name='login' THEN user_id END) as uniqueLoggedInUsers,
+            COUNT(CASE WHEN event_name='demo_convert' THEN 1 END) as demoConversions,
+            COUNT(CASE WHEN event_name='artifact_share_view' THEN 1 END) as shareViews,
+            COUNT(DISTINCT CASE WHEN event_name='artifact_share_view' THEN json_extract(meta,'$.artifactId') END) as uniqueSharedArtifacts
+          FROM analytics_events
+          WHERE created_at >= ? AND event_name IN ${EVENTS}
+        `,
+        )
+        .get(sinceMs) as {
+        registrations: number
+        referredRegistrations: number
+        logins: number
+        uniqueLoggedInUsers: number
+        demoConversions: number
+        shareViews: number
+        uniqueSharedArtifacts: number
+      }
+
+      // Дневной ряд для графика (по UTC-дню события). DESC — свежее сверху.
+      const daily = db
+        .prepare(
+          `
+          SELECT
+            date(created_at / 1000, 'unixepoch') as day,
+            COUNT(CASE WHEN event_name='register' THEN 1 END) as registrations,
+            COUNT(CASE WHEN event_name='login' THEN 1 END) as logins,
+            COUNT(CASE WHEN event_name='demo_convert' THEN 1 END) as demoConversions,
+            COUNT(CASE WHEN event_name='artifact_share_view' THEN 1 END) as shareViews
+          FROM analytics_events
+          WHERE created_at >= ? AND event_name IN ${EVENTS}
+          GROUP BY day
+          ORDER BY day DESC
+        `,
+        )
+        .all(sinceMs) as {
+        day: string
+        registrations: number
+        logins: number
+        demoConversions: number
+        shareViews: number
+      }[]
+
+      res.json({
+        success: true,
+        growth: {
+          days,
+          totals: {
+            registrations: totals.registrations,
+            referredRegistrations: totals.referredRegistrations,
+            // доля регистраций, пришедших по реферальной ссылке
+            referralRate: totals.registrations > 0 ? totals.referredRegistrations / totals.registrations : 0,
+            logins: totals.logins,
+            uniqueLoggedInUsers: totals.uniqueLoggedInUsers,
+            demoConversions: totals.demoConversions,
+            shareViews: totals.shareViews,
+            uniqueSharedArtifacts: totals.uniqueSharedArtifacts,
+          },
+          daily,
+        },
+      })
+    } catch (error: any) {
+      captureError("Admin growth error:", error)
+      res.status(500).json({ error: "Internal server error" })
+    }
+  }
+
   // ===== GET /admin/logs?page=&limit= =====
   static async listLogs(req: AuthRequest, res: Response) {
     try {
