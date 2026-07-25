@@ -1,0 +1,93 @@
+name: security-scan
+
+# OSGARD · Автоматическое сканирование безопасности.
+# Три вида проверок:
+#   1. npm audit по трём пакетам (root/backend/mobile) — известные CVE в зависимостях.
+#   2. CodeQL (statyc analysis) по JS/TS — инъекции, небезопасные паттерны.
+#   3. Проверка на случайно закоммиченные секреты (gitleaks).
+# Запуск: на PR, на push в main и еженедельно по расписанию (регулярный пентест-цикл).
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    # Каждый понедельник в 06:17 UTC (нестандартная минута — не пиковая нагрузка).
+    - cron: "17 6 * * 1"
+
+# Минимальные права по умолчанию; CodeQL-джобе выдаём security-events отдельно.
+permissions:
+  contents: read
+
+jobs:
+  npm-audit:
+    name: npm audit (${{ matrix.dir }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dir: "."
+            name: root
+          - dir: "backend"
+            name: backend
+          - dir: "mobile"
+            name: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Полный отчёт (для видимости в логах) — не валит сборку сам по себе.
+      - name: Аудит (полный отчёт, информативно)
+        working-directory: ${{ matrix.dir }}
+        run: npm audit --audit-level=low || true
+
+      # Гейт по critical. Пока advisory (continue-on-error): на момент внедрения
+      # в дереве есть незакрытые critical/high в транзитивных зависимостях
+      # (см. SECURITY.md → «Известные уязвимости»). Dependabot поднимает фиксы;
+      # после расчистки бэклога снять continue-on-error, сделав гейт блокирующим.
+      - name: Аудит (гейт по critical, advisory)
+        working-directory: ${{ matrix.dir }}
+        continue-on-error: true
+        run: npm audit --audit-level=critical
+
+  codeql:
+    name: CodeQL (JS/TS)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Инициализация CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # config-file исключает два запроса с системными ложными
+          # срабатываниями для этого репозитория (кастомный rate limiter,
+          # криптопроверка TOTP). Прочие security-запросы активны.
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Анализ CodeQL
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
+
+  secret-scan:
+    name: Поиск утёкших секретов (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

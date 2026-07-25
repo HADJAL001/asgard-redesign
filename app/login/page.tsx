@@ -33,6 +33,9 @@ function LoginPageInner() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  // Второй шаг входа: бэкенд запросил код 2FA (TOTP или резервный код).
+  const [twofaRequired, setTwofaRequired] = useState(false)
+  const [twofaCode, setTwofaCode] = useState("")
   const [loading, setLoading] = useState(false)
   const nextPath = searchParams.get("next") || "/"
   const oauthError = searchParams.get("oauthError")
@@ -70,22 +73,29 @@ function LoginPageInner() {
       }
     }
 
+    if (mode === "login" && twofaRequired && !twofaCode.trim()) {
+      setError("Введите код двухфакторной аутентификации")
+      return
+    }
+
     setLoading(true)
     let result
     if (mode === "login") {
-      // Определяем: если введён email (содержит @) — передаём как email, иначе как username
+      // Email (содержит @) или username — auth-store сам разложит по нужным полям.
+      // twofaCode передаём только на втором шаге (когда бэкенд его запросил).
       const input = username.trim()
-      if (input.includes("@")) {
-        result = await login(input, password)
-      } else {
-        // Пробуем как username — передаём username в поле email для совместимости со старым бэкендом
-        // auth-store отправит { username: input, password }
-        result = await login(input, password)
-      }
+      result = await login(input, password, twofaRequired ? twofaCode.trim() : undefined)
     } else {
       result = await register(username.trim(), email.trim(), password)
     }
     setLoading(false)
+
+    // Бэкенд запросил второй фактор — показываем поле кода и ждём повторной отправки.
+    if (result.twofaRequired) {
+      setTwofaRequired(true)
+      setError(null)
+      return
+    }
 
     if (!result.ok) {
       setError(result.message || "Что-то пошло не так")
@@ -125,6 +135,8 @@ function LoginPageInner() {
               onClick={() => {
                 setMode("login")
                 setError(null)
+                setTwofaRequired(false)
+                setTwofaCode("")
               }}
               className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
                 mode === "login" ? "bg-[#00D4FF] text-black" : "text-[#6A6A8A] hover:text-white"
@@ -137,6 +149,8 @@ function LoginPageInner() {
               onClick={() => {
                 setMode("register")
                 setError(null)
+                setTwofaRequired(false)
+                setTwofaCode("")
               }}
               className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
                 mode === "register" ? "bg-[#00D4FF] text-black" : "text-[#6A6A8A] hover:text-white"
@@ -211,6 +225,28 @@ function LoginPageInner() {
               </div>
             )}
 
+            {mode === "login" && twofaRequired && (
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="twofaCode" className="text-xs font-medium text-[#6A6A8A]">
+                  Код 2FA
+                </label>
+                <input
+                  id="twofaCode"
+                  type="text"
+                  inputMode="text"
+                  autoComplete="one-time-code"
+                  autoFocus
+                  value={twofaCode}
+                  onChange={(e) => setTwofaCode(e.target.value)}
+                  placeholder="123456 или резервный код"
+                  className="rounded-lg border border-[#2A2A3E] bg-[#0A0A0F] px-3 py-2.5 text-sm text-white outline-none placeholder:text-[#6A6A8A]/60 focus:border-[#00D4FF] focus:ring-1 focus:ring-[#00D4FF]"
+                />
+                <p className="text-[11px] text-[#6A6A8A]">
+                  Введите 6-значный код из приложения-аутентификатора или один из резервных кодов.
+                </p>
+              </div>
+            )}
+
             {error && (
               <div className="rounded-lg border border-[#F87171]/30 bg-[#F87171]/10 px-3 py-2 text-sm text-[#F87171]">
                 {error}
@@ -223,7 +259,7 @@ function LoginPageInner() {
               className="mt-2 flex items-center justify-center gap-2 rounded-lg bg-[#00D4FF] py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-60"
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {mode === "login" ? "Войти" : "Создать аккаунт"}
+              {mode === "login" ? (twofaRequired ? "Подтвердить код" : "Войти") : "Создать аккаунт"}
             </button>
           </form>
 
@@ -239,6 +275,8 @@ function LoginPageInner() {
             onClick={() => {
               setMode(mode === "login" ? "register" : "login")
               setError(null)
+              setTwofaRequired(false)
+              setTwofaCode("")
             }}
             className="text-[#00D4FF] hover:underline"
           >

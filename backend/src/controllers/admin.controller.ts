@@ -2,16 +2,7 @@ import { Response } from "express"
 import db from "../lib/db"
 import { AuthRequest } from "../middleware/authMiddleware"
 import { captureError } from "../lib/sentry"
-
-function logAdminAction(adminId: number, action: string, targetUserId: number | null, meta?: Record<string, any>) {
-  try {
-    db.prepare(
-      `INSERT INTO admin_logs (admin_id, action, target_user_id, meta, created_at) VALUES (?, ?, ?, ?, ?)`,
-    ).run(adminId, action, targetUserId, meta ? JSON.stringify(meta) : null, Date.now())
-  } catch (error) {
-    captureError("Admin log write error:", error)
-  }
-}
+import { recordAdminAction } from "../lib/admin-audit"
 
 export class AdminController {
   // ===== GET /admin/stats =====
@@ -125,7 +116,7 @@ export class AdminController {
       }
 
       db.prepare(`UPDATE users SET role = ? WHERE id = ?`).run(role, id)
-      logAdminAction(req.user!.userId, "set_role", id, { role })
+      recordAdminAction(req, "set_role", id, { role })
       res.json({ success: true })
     } catch (error: any) {
       captureError("Admin setRole error:", error)
@@ -153,7 +144,7 @@ export class AdminController {
       }
 
       db.prepare(`UPDATE users SET banned = ? WHERE id = ?`).run(banned ? 1 : 0, id)
-      logAdminAction(req.user!.userId, "set_banned", id, { banned })
+      recordAdminAction(req, "set_banned", id, { banned })
       res.json({ success: true })
     } catch (error: any) {
       captureError("Admin setBanned error:", error)
@@ -188,7 +179,7 @@ export class AdminController {
         `UPDATE wallets SET credits = MAX(0, credits + ?), timecoin = MAX(0, timecoin + ?), updated_at = ? WHERE user_id = ?`,
       ).run(creditsNum, timecoinNum, Date.now(), id)
 
-      logAdminAction(req.user!.userId, "grant_tokens", id, { credits: creditsNum, timecoin: timecoinNum, reason })
+      recordAdminAction(req, "grant_tokens", id, { credits: creditsNum, timecoin: timecoinNum, reason })
 
       res.json({ success: true })
     } catch (error: any) {
@@ -412,7 +403,7 @@ export class AdminController {
       const offset = (page - 1) * limit
 
       const rows = db.prepare(`
-        SELECT l.id, l.action, l.meta, l.created_at,
+        SELECT l.id, l.action, l.meta, l.created_at, l.ip, l.user_agent, l.status,
                a.id as admin_id, a.username as admin_username,
                t.id as target_id, t.username as target_username
         FROM admin_logs l
@@ -428,6 +419,9 @@ export class AdminController {
         id: r.id,
         action: r.action,
         meta: r.meta ? JSON.parse(r.meta) : null,
+        ip: r.ip ?? null,
+        userAgent: r.user_agent ?? null,
+        status: r.status ?? null,
         createdAt: r.created_at,
         admin: { id: r.admin_id, username: r.admin_username },
         target: r.target_id ? { id: r.target_id, username: r.target_username } : null,
