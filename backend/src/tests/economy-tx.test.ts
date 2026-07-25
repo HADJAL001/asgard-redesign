@@ -1,3 +1,7 @@
+// ПЕРВОЙ строкой: форсирует DB_PATH=:memory: до загрузки lib/db (импорты
+// исполняются по порядку). Иначе под общим `npm test` db-синглтон открыл бы
+// боевую ./data/osgard.db с FK idempotency_keys→users. См. helpers/use-memory-db.
+import "./helpers/use-memory-db"
 import { test } from "node:test"
 import assert from "node:assert/strict"
 
@@ -13,10 +17,10 @@ import assert from "node:assert/strict"
      • без ключа операция атомарна, но каждый вызов исполняется;
      • normalizeIdemKey нормализует/отбраковывает вход.
 
-   Запуск: DB_PATH=:memory: (см. команду) — db-синглтон поднимается
-   на изолированной in-memory БД, не трогая рабочий файл. CJS-вывод
-   tsx не поддерживает top-level await, поэтому импорты статические,
-   а DB_PATH задаётся окружением процесса ещё до их исполнения.
+   Изоляция БД: helpers/use-memory-db (импорт первой строкой) форсирует
+   DB_PATH=:memory: до загрузки lib/db — db-синглтон поднимается на
+   изолированной in-memory БД независимо от способа запуска (`npm test`
+   или точечный прогон), не трогая рабочий файл ./data/osgard.db.
    ================================================================ */
 
 import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
