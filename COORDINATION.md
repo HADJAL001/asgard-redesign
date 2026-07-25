@@ -36,7 +36,7 @@
 ---
 
 ## 📌 Занятые номера миграций (обновлять при создании!)
-Максимум на `main`: **076** (`076_artifact_loadout`). Следующая свободная — **077**.
+Максимум на `main`: **077** (`077_daily_streak` — Claude A). Следующая свободная — **078**.
 Прежде чем создать `0XX_*.ts`, проверь `main` и увеличь это число здесь.
 
 ---
@@ -45,7 +45,7 @@
 
 | Кто | Сейчас делает | Ветка | Файлы/область | Обновлено |
 |---|---|---|---|---|
-| Claude A | Свободен. Завершил: security-контур (merged), воронка demo→register→convert (#35, merged, проверена в проде) | — | — | 2026-07-25 |
+| Claude A | Daily-login-стрик (миграция 077, /rewards/daily, виджет на дашборде, кредиты-награда). Завершил ранее: security-контур, воронка demo→register→convert (#35) | feature/daily-streak | migrations/077, lib/daily-streak, routes/rewards, components/DailyRewardCard, dashboard-view | 2026-07-25 |
 | Claude B | (впиши сам) Фаза 3 «снаряжение Кузницы» / монетизация | — | генерация, artifacts | — |
 
 ---

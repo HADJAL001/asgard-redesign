@@ -20,6 +20,7 @@ import { Navbar } from "./navbar"
 import { OnboardingTutorial } from "./OnboardingTutorial"
 import { OnboardingPrologue } from "./OnboardingPrologue"
 import { AiUsageWidget } from "./AiUsageWidget"
+import { DailyRewardCard } from "./DailyRewardCard"
 import { apiClient } from "@/lib/api-client"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { useAuth } from "@/lib/auth-store"
@@ -215,6 +216,9 @@ export function DashboardView() {
             </button>
           </div>
         )}
+
+        {/* Ежедневная награда (стрик-удержание) */}
+        <DailyRewardCard />
 
         {/* Metrics */}
         <section className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
