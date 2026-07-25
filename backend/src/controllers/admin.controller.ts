@@ -559,6 +559,140 @@ export class AdminController {
       res.status(500).json({ error: "Internal server error" })
     }
   }
+
+  // ===== GET /admin/analytics/integrity?days= =====
+  /* Целостность экономики (#6): read-only детектор wash-trading для приложения с
+     деньгами. Считает подозрительные паттерны поверх УЖЕ существующих таблиц маркета/
+     аукционов/ордербука — ничего не мутирует, write-логику не трогает. Сигналы честные
+     и раздельные (не смешиваем уровни): само-сделка и washTradingRate — на уровне ПРОДАЖ;
+     реципрокные пары — на уровне ПАР юзеров; пинг-понг — на уровне АРТЕФАКТОВ. Плюс
+     сырьё (топ-20) для ручной проверки аудитором. Окно — `days` (1..365, по умолч. 30). */
+  static async integrity(req: AuthRequest, res: Response) {
+    try {
+      const days = Math.min(365, Math.max(1, parseInt(String(req.query.days ?? "30"), 10) || 30))
+      const sinceMs = Date.now() - days * 86400000
+
+      // Проданные лоты маркета в окне — знаменатель для доль.
+      const soldListings = (
+        db.prepare(`SELECT COUNT(*) c FROM marketplace_listings WHERE status='sold' AND sold_at >= ?`).get(sinceMs) as {
+          c: number
+        }
+      ).c
+
+      // Само-сделка: продавец = покупатель. Легитимно невозможно → чистый сигнал накрутки.
+      const selfDeals = (
+        db
+          .prepare(
+            `SELECT COUNT(*) c FROM marketplace_listings
+             WHERE status='sold' AND sold_at >= ? AND buyer_id IS NOT NULL AND buyer_id = seller_id`,
+          )
+          .get(sinceMs) as { c: number }
+      ).c
+
+      // Реципрокные пары (round-trip wash): неупорядоченная пара (lo,hi) продавала
+      // артефакты В ОБЕ стороны (A→B и B→A) внутри окна — классическая круговая накрутка.
+      const reciprocalPairs = db
+        .prepare(
+          `WITH sold AS (
+             SELECT seller_id AS s, buyer_id AS b FROM marketplace_listings
+             WHERE status='sold' AND sold_at >= ? AND buyer_id IS NOT NULL AND buyer_id <> seller_id
+           )
+           SELECT MIN(s, b) AS userA, MAX(s, b) AS userB, COUNT(*) AS trades
+           FROM sold
+           GROUP BY MIN(s, b), MAX(s, b)
+           HAVING SUM(CASE WHEN s < b THEN 1 ELSE 0 END) > 0
+              AND SUM(CASE WHEN s > b THEN 1 ELSE 0 END) > 0
+           ORDER BY trades DESC
+           LIMIT 20`,
+        )
+        .all(sinceMs) as { userA: number; userB: number; trades: number }[]
+
+      // Пинг-понг: один и тот же артефакт перепродан ≥3× за окно (искусственный объём/цена).
+      const pingPong = db
+        .prepare(
+          `SELECT artifact_id AS artifactId, COUNT(*) AS sales FROM marketplace_listings
+           WHERE status='sold' AND sold_at >= ?
+           GROUP BY artifact_id HAVING sales >= 3
+           ORDER BY sales DESC LIMIT 20`,
+        )
+        .all(sinceMs) as { artifactId: number; sales: number }[]
+
+      // Ордербук: само-кросс TC (одна сторона и купила, и продала) — фейковый объём торгов.
+      const selfCrossTrades = (
+        db
+          .prepare(
+            `SELECT COUNT(*) c FROM tc_trades
+             WHERE ts >= ? AND buyer_id IS NOT NULL AND buyer_id = seller_id`,
+          )
+          .get(sinceMs) as { c: number }
+      ).c
+
+      // Аукцион: shill-ставка — продавец бидует собственный лот, разгоняя цену.
+      const shillBids = (
+        db
+          .prepare(
+            `SELECT COUNT(*) c FROM auction_bids b JOIN auctions a ON a.id = b.auction_id
+             WHERE b.created_at >= ? AND b.bidder_id = a.seller_id`,
+          )
+          .get(sinceMs) as { c: number }
+      ).c
+
+      // Честная СДЕЛКО-уровневая доля: продажа помечена, если это само-сделка ИЛИ входит
+      // в реципрокную пару ИЛИ её артефакт — пинг-понг. Единый запрос, без двойного счёта.
+      const flaggedSales = (
+        db
+          .prepare(
+            `WITH sold AS (
+               SELECT artifact_id, seller_id, buyer_id FROM marketplace_listings
+               WHERE status='sold' AND sold_at >= ?
+             ),
+             recip AS (
+               SELECT MIN(seller_id, buyer_id) lo, MAX(seller_id, buyer_id) hi FROM sold
+               WHERE buyer_id IS NOT NULL AND buyer_id <> seller_id
+               GROUP BY MIN(seller_id, buyer_id), MAX(seller_id, buyer_id)
+               HAVING SUM(CASE WHEN seller_id < buyer_id THEN 1 ELSE 0 END) > 0
+                  AND SUM(CASE WHEN seller_id > buyer_id THEN 1 ELSE 0 END) > 0
+             ),
+             ping AS (
+               SELECT artifact_id FROM sold GROUP BY artifact_id HAVING COUNT(*) >= 3
+             )
+             SELECT COUNT(*) c FROM sold s
+             WHERE (s.buyer_id IS NOT NULL AND s.buyer_id = s.seller_id)
+                OR EXISTS (SELECT 1 FROM recip r WHERE r.lo = MIN(s.seller_id, s.buyer_id) AND r.hi = MAX(s.seller_id, s.buyer_id))
+                OR EXISTS (SELECT 1 FROM ping p WHERE p.artifact_id = s.artifact_id)`,
+          )
+          .get(sinceMs) as { c: number }
+      ).c
+
+      res.json({
+        success: true,
+        integrity: {
+          days,
+          totals: {
+            soldListings,
+            selfDeals,
+            selfDealRate: soldListings > 0 ? selfDeals / soldListings : 0,
+            reciprocalPairs: reciprocalPairs.length,
+            pingPongArtifacts: pingPong.length,
+            selfCrossTrades,
+            shillBids,
+            flaggedSales,
+            // Доля продаж маркета с хотя бы одним wash-сигналом. Честный сделко-уровневый
+            // показатель (см. запрос flaggedSales), а НЕ сумма разноуровневых счётчиков.
+            washTradingRate: soldListings > 0 ? flaggedSales / soldListings : 0,
+          },
+          // Сырьё для ручной проверки аудитором (топ-20 по каждому вектору).
+          suspects: {
+            reciprocalPairs,
+            pingPongArtifacts: pingPong,
+          },
+        },
+      })
+    } catch (error: any) {
+      captureError("Admin integrity error:", error)
+      res.status(500).json({ error: "Internal server error" })
+    }
+  }
 }
 
 // users.created_at / transactions.created_at на факте хранятся как TEXT
