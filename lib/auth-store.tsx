@@ -3,6 +3,30 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { apiClient, ApiError, getStoredUser, setStoredUser } from "./api-client"
+import { convertDemoSession } from "./demo-client"
+
+/* После успешного входа/регистрации переносим демо-вселенную гостя (localStorage)
+   в его аккаунт. DRY + best-effort: вызывается из ВСЕХ auth-путей (register/login/
+   OAuth), поэтому ни одна точка входа не теряет демо-данные. Результат кладём во
+   флаг osgard_demo_converted — дашборд покажет подтверждение «вселенная сохранена».
+   Ошибки/отсутствие данных не мешают входу. */
+async function runDemoConversion() {
+  try {
+    const r = await convertDemoSession()
+    if (r.converted > 0) {
+      try {
+        localStorage.setItem(
+          "osgard_demo_converted",
+          JSON.stringify({ artifacts: r.converted, projects: r.projects, bonus: r.bonus }),
+        )
+      } catch {
+        /* ignore storage errors */
+      }
+    }
+  } catch {
+    /* best-effort — не блокируем вход */
+  }
+}
 import { clearReferralCode, getReferralCode } from "./referral"
 
 /* ================================================================
@@ -123,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setStoredUser(data.user)
       setUser(data.user)
+      await runDemoConversion()
       return { ok: true }
     } catch (err: any) {
       return { ok: false, message: err?.message || "Не удалось выполнить вход" }
@@ -140,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearReferralCode()
       setStoredUser(data.user)
       setUser(data.user)
+      await runDemoConversion()
       return { ok: true }
     } catch (err: any) {
       return { ok: false, message: err?.message || "Не удалось зарегистрироваться" }
@@ -155,6 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       )
       setStoredUser(data.user)
       setUser(data.user)
+      await runDemoConversion()
       return { ok: true }
     } catch (err: any) {
       return { ok: false, message: err?.message || "Не удалось выполнить вход" }

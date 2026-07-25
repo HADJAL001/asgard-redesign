@@ -52,6 +52,52 @@ export function saveSession(s: DemoSessionV2) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch { /* ignore */ }
 }
 
+export function clearSession() {
+  try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
+}
+
+export interface ConvertDemoResult {
+  converted: number   // сколько артефактов перенесено в аккаунт
+  projects: number    // сколько вселенных перенесено
+  bonus: number       // начисленный бонус TC (одноразовый)
+}
+
+/**
+ * Переносит демо-вселенные из localStorage в реальный аккаунт через
+ * POST /api/demo/convert. Вызывать СРАЗУ после успешной регистрации/входа —
+ * авторизация идёт по httpOnly-cookie сессии (proxy подставляет Bearer).
+ *
+ * Best-effort: если демо-данных нет — тихо возвращает нули; при сетевой ошибке
+ * localStorage НЕ очищаем (можно повторить при следующем входе), возвращаем нули.
+ * На успехе очищаем сессию, чтобы не сконвертировать повторно.
+ */
+export async function convertDemoSession(): Promise<ConvertDemoResult> {
+  const empty: ConvertDemoResult = { converted: 0, projects: 0, bonus: 0 }
+
+  let session: DemoSessionV2
+  try { session = loadSession() } catch { return empty }
+  if (!session.projects || session.projects.length === 0) return empty
+
+  try {
+    const res = await fetch("/api/demo/convert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ projects: session.projects }),
+    })
+    if (!res.ok) return empty
+    const data = await res.json().catch(() => ({} as any))
+    clearSession()
+    return {
+      converted: Number(data.artifactsConverted) || 0,
+      projects: Number(data.projectsConverted) || 0,
+      bonus: Number(data.bonusTokens) || 0,
+    }
+  } catch {
+    return empty
+  }
+}
+
 export type GenerateDemoProjectResult =
   | { ok: true; project: DemoProject }
   | { ok: false; limitReached: true }
