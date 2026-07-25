@@ -235,12 +235,19 @@ router.post('/withdraw', rateLimit(60_000, 10), requireAuth, async (req: Request
 
     if (twoFaUser.twofa_enabled) {
       if (!twofa_token) {
-        return res.status(403).json({ error: 'Требуется код 2FA (поле twofa_token)' });
+        return res.status(403).json({ error: 'Требуется код 2FA (поле twofa_token)', code: 'TWOFA_TOKEN_REQUIRED' });
       }
       const valid2FA = TwoFAService.verifyToken(twoFaUser.twofa_secret!, String(twofa_token));
       if (!valid2FA) {
-        return res.status(403).json({ error: 'Неверный код 2FA' });
+        return res.status(403).json({ error: 'Неверный код 2FA', code: 'TWOFA_INVALID' });
       }
+    } else if (process.env.REQUIRE_2FA_WITHDRAWAL !== 'false') {
+      // Денежный путь: без включённой 2FA вывод запрещён. Направляем на подключение
+      // (POST /auth/2fa/setup → /auth/2fa/verify). Аварийный тумблер: REQUIRE_2FA_WITHDRAWAL=false.
+      return res.status(403).json({
+        error: 'Для вывода средств необходимо включить 2FA: /auth/2fa/setup → /auth/2fa/verify',
+        code: 'TWOFA_REQUIRED',
+      });
     }
 
     // 2. Баланс казны (TC) — сетевой вызов, поэтому ДО открытия транзакции
