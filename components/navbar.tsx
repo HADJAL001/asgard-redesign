@@ -31,6 +31,7 @@ import {
   HelpCircle,
   Gem,
   GraduationCap,
+  BadgeCheck,
   X,
   type LucideIcon,
 } from "lucide-react"
@@ -73,6 +74,7 @@ export const NAV: NavItem[] = [
   { key: "nav.economyMap", href: "/docs/economy-map", Icon: Map },
   { key: "nav.pricing", href: "/pricing", Icon: CreditCard },
   { key: "nav.academy", href: "/academy", Icon: GraduationCap },
+  { key: "nav.certified", href: "/certified", Icon: BadgeCheck },
   { key: "nav.developer", href: "/developer", Icon: KeyRound },
   { key: "nav.room", href: "/room", Icon: Lock },
   { key: "nav.about", href: "/about", Icon: HelpCircle },

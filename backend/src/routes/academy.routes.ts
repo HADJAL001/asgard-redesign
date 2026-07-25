@@ -20,6 +20,15 @@ import { asyncHandler } from "../utils/async-handler"
 import { captureError } from "../lib/sentry"
 import { logAudit } from "../lib/audit"
 import { computeEligibility } from "../lib/certification"
+import { requireAdmin } from "../middleware/admin.middleware"
+import {
+  getActiveCertificate,
+  getCertificateById,
+  issueCertificate,
+  revokeCertificate,
+  serializeCertificate,
+  holderNameOf,
+} from "../lib/certificate"
 
 /* ================================================================
    OSGARD ACADEMY ROUTES — «Founders Program»
@@ -484,6 +493,102 @@ router.get("/certification/eligibility", requireAuth, (req: AuthRequest, res) =>
   const enrolled = !!enrollment && ["active", "trialing"].includes(enrollment.status)
 
   res.json({ ...result, enrolled })
+})
+
+/* ================================================================
+   GET /academy/certification/my   (свой credential, если выдан)
+   Приватный: владелец видит свой сертификат с полным снимком.
+   ================================================================ */
+router.get("/certification/my", requireAuth, (req: AuthRequest, res) => {
+  const userId = req.user!.userId
+  const cert = getActiveCertificate(userId)
+  if (!cert) return res.json({ certificate: null })
+  res.json({ certificate: serializeCertificate(cert, holderNameOf(userId)) })
+})
+
+/* ================================================================
+   POST /academy/certification/claim   (выпуск credential)
+   Двойной guard: активная запись в программе И «экзамен делом» пройден
+   (computeEligibility().eligible). Иначе 403 — credential не покупается.
+   Идемпотентно: если активный сертификат уже есть — возвращаем его (200),
+   без выпуска второго (partial-unique index — последняя линия защиты).
+   ================================================================ */
+router.post("/certification/claim", requireAuth, (req: AuthRequest, res) => {
+  const userId = req.user!.userId
+
+  // Уже есть активный credential — идемпотентный ответ, не плодим дубли.
+  const existing = getActiveCertificate(userId)
+  if (existing) {
+    return res.status(200).json({
+      certificate: serializeCertificate(existing, holderNameOf(userId)),
+      alreadyIssued: true,
+    })
+  }
+
+  // Guard 1: активная запись в программе (любой тир программы).
+  const enrollment = getEnrollment(userId)
+  const enrolled = !!enrollment && ["active", "trialing"].includes(enrollment.status)
+  if (!enrolled) {
+    return res.status(403).json({
+      error: "Нужна активная запись в программу, чтобы получить credential.",
+      code: "NOT_ENROLLED",
+    })
+  }
+
+  // Guard 2: «экзамен делом» пройден — все критерии выполнены.
+  const eligibility = computeEligibility(userId)
+  if (!eligibility.eligible) {
+    return res.status(403).json({
+      error: "Не все критерии «экзамена делом» выполнены. Credential нельзя купить — только заслужить.",
+      code: "NOT_ELIGIBLE",
+      metCount: eligibility.metCount,
+      totalCount: eligibility.totalCount,
+    })
+  }
+
+  try {
+    const cert = issueCertificate(userId, enrollment!.tier, holderNameOf(userId))
+    logAudit(userId, "credit", 0, "academy_credential_issued", { serial: cert.serial, tier: cert.tier })
+    return res.status(201).json({
+      certificate: serializeCertificate(cert, holderNameOf(userId)),
+      alreadyIssued: false,
+    })
+  } catch (err: any) {
+    // Гонка: partial-unique index не дал второй активный — отдаём существующий.
+    const raced = getActiveCertificate(userId)
+    if (raced) {
+      return res.status(200).json({
+        certificate: serializeCertificate(raced, holderNameOf(userId)),
+        alreadyIssued: true,
+      })
+    }
+    captureError("[academy/certification/claim] issue failed:", err)
+    return res.status(500).json({ error: "Не удалось выпустить credential. Попробуйте позже." })
+  }
+})
+
+/* ================================================================
+   POST /academy/certification/:id/revoke   (отзыв — только админ)
+   body: { reason?: string }. Идемпотентно.
+   ================================================================ */
+router.post("/certification/:id/revoke", requireAdmin, (req: AuthRequest, res) => {
+  const adminId = req.user!.userId
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: "Некорректный id сертификата" })
+  }
+
+  const row = getCertificateById(id)
+  if (!row) return res.status(404).json({ error: "Сертификат не найден" })
+
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 500) : undefined
+  const updated = revokeCertificate(id, adminId, reason)
+  logAudit(adminId, "rejected", 0, "academy_credential_revoked", {
+    serial: row.serial,
+    holderUserId: row.user_id,
+    reason: reason ?? null,
+  })
+  res.json({ certificate: serializeCertificate(updated!, holderNameOf(row.user_id)) })
 })
 
 export default router
