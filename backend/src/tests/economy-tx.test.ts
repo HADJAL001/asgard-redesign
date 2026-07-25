@@ -36,6 +36,7 @@ db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS idx_idem_unique ON idempotency_keys(user_id, scope, idem_key);
   CREATE TABLE IF NOT EXISTS wallets (user_id INTEGER PRIMARY KEY, timecoin INTEGER NOT NULL DEFAULT 0);
   CREATE TABLE IF NOT EXISTS listings (id INTEGER PRIMARY KEY, status TEXT NOT NULL DEFAULT 'active');
+  CREATE TABLE IF NOT EXISTS reward_users (id INTEGER PRIMARY KEY, claimed INTEGER NOT NULL DEFAULT 0);
 `)
 
 function resetWallet(userId: number, balance: number) {
@@ -162,6 +163,33 @@ test("TOCTOU-захват лота: параллельный двойной buy 
   assert.equal(balance(20), 60, "покупатель A списан один раз")
   assert.equal(balance(21), 100, "покупатель B не списан (откат)")
   assert.equal(balance(seller), 40, "продавец получил ровно за одну продажу")
+})
+
+test("double-claim награды: условный UPDATE флага начисляет ровно один раз", () => {
+  /* Модель onboarding /economy-map-reward: авторитетный «захват» награды —
+     перевод флага 0→1 условным UPDATE ... WHERE claimed=0 (changes!==1 → уже
+     получено) ДО начисления. Два параллельных клика → начисление ровно раз. */
+  const uid = 30
+  db.prepare(`INSERT INTO reward_users (id, claimed) VALUES (?, 0)
+              ON CONFLICT(id) DO UPDATE SET claimed=0`).run(uid)
+  resetWallet(uid, 0)
+
+  const claimReward = () =>
+    runEconomyOp({
+      userId: uid,
+      scope: "reward",
+      idemKey: null,
+      mutate: () => {
+        const claim = db.prepare(`UPDATE reward_users SET claimed=1 WHERE id=? AND claimed=0`).run(uid)
+        if (claim.changes !== 1) throw new EconomyError("Уже получено", 400)
+        db.prepare(`UPDATE wallets SET timecoin = timecoin + 50 WHERE user_id = ?`).run(uid)
+        return { ok: true }
+      },
+    })
+
+  assert.equal(claimReward().result.ok, true)
+  assert.throws(claimReward, (e: unknown) => e instanceof EconomyError && (e as EconomyError).status === 400)
+  assert.equal(balance(uid), 50, "награда начислена ровно один раз")
 })
 
 test("EconomyError пробрасывается, ключ не пишется → честный повтор возможен", () => {
