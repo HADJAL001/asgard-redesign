@@ -41,6 +41,31 @@ type ForgeCurrencyId = (typeof FORGE_CURRENCIES)[number]["id"]
 /** Стоимость AI-генерации артефакта (см. backend/artifacts.routes.ts AI_GENERATE_COST_TC = FORGE_COST_TC). */
 const AI_GENERATE_COST_TC = FORGE_COST_TC
 
+/** 1:1 с backend/artifacts.routes.ts DAILY_AI_GENERATION_LIMIT и mobile/types/artifact.ts DAILY_AI_GENERATION_SOFT_LIMIT. */
+const DAILY_AI_GENERATION_SOFT_LIMIT = 3
+
+/** Число AI-сгенерированных артефактов за текущие календарные сутки (локальное время браузера). */
+function countTodayAiGenerated(artifacts: OsgardArtifact[]): number {
+  const now = new Date()
+  return artifacts.filter((a) => {
+    if (!a.source) return false
+    const d = new Date(a.createdAt)
+    return (
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate()
+    )
+  }).length
+}
+
+function pluralizeGenerations(n: number): string {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return "создание"
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return "создания"
+  return "созданий"
+}
+
 /* ---------------- Премиум-усиление (см. backend/artifacts.routes.ts) ----------------
    - Обычное усиление (/evolve): до уровня 5, шанс крита 5%, занимает 24 часа (эмулируется).
    - Премиум усиление (/premium-upgrade): до уровня 10, за TimeCoin, мгновенно.
@@ -262,7 +287,9 @@ export function ForgeView() {
     }
   }
 
-  const canGenerateAi = !aiSubmitting && wallet.timecoin >= AI_GENERATE_COST_TC
+  const todayAiCount = countTodayAiGenerated(artifacts)
+  const aiLimitReached = todayAiCount >= DAILY_AI_GENERATION_SOFT_LIMIT
+  const canGenerateAi = !aiSubmitting && wallet.timecoin >= AI_GENERATE_COST_TC && !aiLimitReached
   const aiResultRarity: Rarity = (aiResult?.rarity as Rarity) || "common"
 
   const resultRarity: Rarity = (result?.rarity as Rarity) || "common"
@@ -804,6 +831,14 @@ export function ForgeView() {
             <p className="mt-1 text-[13px]" style={{ color: "rgba(255,255,255,0.4)" }}>
               {t("forge.aiGenerate.subtitle")}
             </p>
+            <p className="mt-1 text-[12px]" style={{ color: aiLimitReached ? COLORS.red : COLORS.label }}>
+              {aiLimitReached
+                ? t("forge.aiGenerate.limitDepleted")
+                : t("forge.aiGenerate.limitRemaining", {
+                    count: DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount,
+                    noun: pluralizeGenerations(DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount),
+                  })}
+            </p>
 
             <div className="mt-5">
               <input
@@ -820,6 +855,13 @@ export function ForgeView() {
               type="button"
               onClick={doGenerateAi}
               disabled={!canGenerateAi}
+              title={
+                aiLimitReached
+                  ? t("forge.aiGenerate.limitDepleted")
+                  : wallet.timecoin < AI_GENERATE_COST_TC
+                    ? t("forge.aiGenerate.button", { amount: fmtTC(AI_GENERATE_COST_TC) })
+                    : undefined
+              }
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               style={{ backgroundColor: "transparent", border: `1px solid ${COLORS.accent}`, color: COLORS.accent }}
             >
