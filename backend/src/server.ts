@@ -315,6 +315,7 @@ import { runStreakReminders } from "./lib/streak-reminders"
 import { runArtifactFusionMigration } from "./migrations/078_artifact_fusion"
 import { RefreshTokenService } from "./lib/refresh-tokens"
 import { scheduleBackups } from "./lib/db-backup"
+import { scheduleGuestReaper } from "./lib/guest-reaper"
 import "./migrations/075_yookassa_payments"
 import "./migrations/069_economy_map_reward"
 import "./migrations/070_secret_room"
@@ -442,6 +443,10 @@ if (process.env.NODE_ENV !== "test") {
 /* Автоматические онлайн-бэкапы SQLite (point-in-time recovery для экономики).
    BACKUP_DIR должен указывать на персистентный том — см. lib/db-backup.ts. */
 scheduleBackups()
+
+/* Гигиена воронки: периодическая жатва брошенных гостей (is_guest=1 без проекта и
+   без регистрации, старше TTL) — см. lib/guest-reaper.ts. Prod-safe (полный гвард). */
+scheduleGuestReaper()
 
 /* Гарантируем наличие таблицы push_tokens (Expo push-токены мобильного приложения) при старте сервера. */
 runPushTokensMigration()
