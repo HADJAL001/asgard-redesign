@@ -19,10 +19,7 @@ export function OrchestratorPanel({ onSelectNode }: OrchestratorPanelProps) {
   }
 
   return (
-    <aside
-      className="flex w-[220px] shrink-0 flex-col gap-2 rounded-xl p-3"
-      style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
-    >
+    <aside className="eg-surface flex w-[220px] shrink-0 flex-col gap-2 rounded-xl p-3">
       <p className="px-1 text-[11px] font-medium uppercase tracking-wide" style={{ color: COLORS.label }}>
         {t("orchestrator.paletteTitle")}
       </p>

@@ -26,14 +26,14 @@ export function OrchestratorHero() {
 
 const ORCHESTRATOR_HERO_CSS = `
 .orch-hero {
-  background: radial-gradient(120% 140% at 15% 0%, rgba(0,212,255,0.10) 0%, rgba(10,10,15,0) 55%), #0E0E16;
+  background: radial-gradient(120% 140% at 15% 0%, rgb(var(--color-gold-rgb) / 0.10) 0%, rgba(10,10,15,0) 55%), #0E0E16;
   animation: orch-hero-in 0.6s ease-out both;
 }
 .orch-hero-glow {
   position: absolute;
   inset: -40% -10% auto -10%;
   height: 220px;
-  background: radial-gradient(50% 100% at 50% 0%, rgba(0,212,255,0.22) 0%, rgba(74,222,128,0.12) 45%, transparent 75%);
+  background: radial-gradient(50% 100% at 50% 0%, rgb(var(--color-gold-rgb) / 0.22) 0%, rgb(var(--color-gold-rgb) / 0.10) 45%, transparent 75%);
   filter: blur(28px);
   pointer-events: none;
 }
@@ -45,7 +45,7 @@ const ORCHESTRATOR_HERO_CSS = `
   pointer-events: none;
 }
 .orch-hero-title {
-  background: linear-gradient(100deg, #00D4FF 0%, #7DF9C8 35%, #4ADE80 55%, #00D4FF 80%);
+  background: linear-gradient(100deg, var(--eg-gold-1) 0%, var(--eg-gold-2) 35%, var(--eg-gold-3) 55%, var(--eg-gold-1) 80%);
   background-size: 220% auto;
   -webkit-background-clip: text;
   background-clip: text;
