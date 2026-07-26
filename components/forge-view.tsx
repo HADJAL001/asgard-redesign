@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Hammer, Loader2, Sparkles, Coins, Archive, Star, Zap } from "lucide-react"
 import { Navbar } from "./navbar"
-import { useOsgardStore, type OsgardArtifact } from "@/lib/store/osgard-store"
+import { useOsgardStore, type OsgardArtifact, type CraftBreakdown, type ArtifactIdentity } from "@/lib/store/osgard-store"
 import { COLORS, RARITY, ARTIFACT_TYPES, STAT_META, type ArtifactType, type Rarity } from "@/lib/economy"
 import { fmtTC } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
@@ -101,6 +101,9 @@ export function ForgeView() {
   const [submitting, setSubmitting] = useState(false)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [result, setResult] = useState<OsgardArtifact | null>(null)
+  /** Вердикт ковки к последнему result: разбор честности craftScore + нарративная идентичность. */
+  const [craftBreakdown, setCraftBreakdown] = useState<CraftBreakdown | null>(null)
+  const [identity, setIdentity] = useState<ArtifactIdentity | null>(null)
 
   /** AI-Генератор артефактов (см. POST /artifacts/generate-ai) — независимое состояние от ручной ковки. */
   const [aiHint, setAiHint] = useState("")
@@ -192,6 +195,8 @@ export function ForgeView() {
     setForgePhase("charging")
     setNotice(null)
     setResult(null)
+    setCraftBreakdown(null)
+    setIdentity(null)
     setRevealed(null)
 
     /* Запрос уходит СРАЗУ и летит параллельно с анимацией заряда: раньше
@@ -214,6 +219,8 @@ export function ForgeView() {
 
         setForgePhase("reveal")
         setResult(res.artifact)
+        setCraftBreakdown(res.craftBreakdown || null)
+        setIdentity(res.identity || null)
         setNotice({ ok: true, text: `Артефакт «${res.artifact.name}» создан!` })
         setName("")
         await new Promise((r) => setTimeout(r, reduceMotion ? 500 : 1800))
@@ -885,6 +892,49 @@ export function ForgeView() {
                     </span>
                   </div>
                 </div>
+
+                {/* ---- Вердикт ковки: идентичность + честный разбор craftScore ----
+                    Обе фичи уже полностью считает бэкенд (proof-of-craft.ts,
+                    artifact-identity.ts) — здесь они впервые становятся видимы игроку. */}
+                {identity && (
+                  <div className="mt-5 w-full text-center">
+                    <p className="text-[13px]" style={{ color: identity.palette.accent }}>
+                      {identity.archetype} · {identity.material}
+                    </p>
+                    <p className="mt-2 text-[13px] italic" style={{ fontFamily: "var(--font-serif)", color: "rgba(255,255,255,0.75)" }}>
+                      «{identity.originMyth}»
+                    </p>
+                  </div>
+                )}
+
+                {craftBreakdown && (
+                  <div className="eg-inset mt-5 w-full rounded-lg px-4 py-4 text-[13px]">
+                    <div className="flex items-center justify-between">
+                      <span style={{ color: COLORS.label }}>{t("forge.verdict.title")}</span>
+                      <span style={{ color: resultColor }}>{Math.round(craftBreakdown.craftScore * 100)}%</span>
+                    </div>
+                    <div className="mt-3 space-y-2.5">
+                      {craftBreakdown.factors.map((f) => (
+                        <div key={f.key}>
+                          <div className="flex items-center justify-between text-[12px]">
+                            <span style={{ color: "rgba(255,255,255,0.75)" }}>{f.label}</span>
+                            <span style={{ color: COLORS.label }}>{f.detail}</span>
+                          </div>
+                          <div className="relative mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${f.maxPoints > 0 ? Math.min(100, (f.points / f.maxPoints) * 100) : 0}%`,
+                                background: "linear-gradient(90deg, #B8862E, #F1C40F, #FFE9A8)",
+                                transition: reduceMotion ? "none" : "width 0.6s ease-out",
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

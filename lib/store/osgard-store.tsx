@@ -346,10 +346,35 @@ export interface TransferActionResult {
   error?: string
 }
 
+/** Разбор ковки: вклад каждого честного сигнала в craftScore (см. backend proof-of-craft.ts). */
+export interface CraftFactor {
+  key: "depth" | "files" | "ai" | "floor"
+  label: string
+  detail: string
+  points: number
+  maxPoints: number
+}
+
+export interface CraftBreakdown {
+  craftScore: number
+  factors: CraftFactor[]
+}
+
+/** Нарративная идентичность артефакта (см. backend artifact-identity.ts). */
+export interface ArtifactIdentity {
+  archetype: string
+  material: string
+  essence: string
+  palette: { primary: string; accent: string }
+  originMyth: string
+}
+
 /** Результат forgeArtifact — унифицированный ответ для UI. */
 export interface ForgeActionResult {
   success: boolean
   artifact?: OsgardArtifact
+  craftBreakdown?: CraftBreakdown
+  identity?: ArtifactIdentity
   error?: string
 }
 
@@ -1182,7 +1207,11 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   forgeArtifact: async (name, type, projectId, currency) => {
     set({ loading: true, error: null })
     try {
-      const res = await apiClient.post<{ artifact: OsgardArtifact }>("/artifacts/forge", { name, type, projectId, currency })
+      const res = await apiClient.post<{
+        artifact: OsgardArtifact
+        craftBreakdown?: CraftBreakdown
+        identity?: ArtifactIdentity
+      }>("/artifacts/forge", { name, type, projectId, currency })
 
       set((s) => ({
         artifacts: [res.artifact, ...s.artifacts],
@@ -1195,7 +1224,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       // если артефакт привязан к проекту — обновляем artifactCount в списке проектов
       if (projectId) await get().fetchProjects()
 
-      return { success: true, artifact: res.artifact }
+      return { success: true, artifact: res.artifact, craftBreakdown: res.craftBreakdown, identity: res.identity }
     } catch (err) {
       const message = extractErrorMessage(err, "Не удалось создать артефакт")
       set({ loading: false, error: message })
