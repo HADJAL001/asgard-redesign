@@ -444,6 +444,51 @@ export interface RefinementEntry {
   createdAt: number
 }
 
+/* ---- Инженерный вердикт проекта (backend: lib/project-engineering.ts, миграция 091) ----
+   Вердикт производен от отчёта: `verdict` и содержимое `report` разойтись не могут.
+   `verified:false` — проверка НЕ проводилась (legacy-проект или старый бэкенд); это
+   принципиально не то же самое, что `broken`, и в интерфейсе их нельзя смешивать. */
+export type EngineeringVerdict = "passed" | "repaired" | "broken" | "unverified"
+
+export interface EngineeringDefect {
+  rule: string
+  severity: "error" | "warn"
+  file: string
+  message: string
+}
+
+export interface EngineeringCheck {
+  key: string
+  label: string
+  passed: boolean
+  errors: number
+  detail: string
+}
+
+export interface EngineeringRepair {
+  rule: string
+  file: string
+  action: string
+}
+
+export interface EngineeringReport {
+  /** Чем доказан вердикт: разбором кода или реальной сборкой в песочнице. */
+  verifiedBy?: "static" | "sandbox" | "none"
+  checks?: EngineeringCheck[]
+  defects?: EngineeringDefect[]
+  repairs?: EngineeringRepair[]
+  initialErrors?: number
+  analyzedFiles?: number
+  sandbox?: { ok: boolean; skipped: boolean }
+}
+
+export interface ProjectEngineering {
+  verified: boolean
+  verdict: EngineeringVerdict | null
+  report: EngineeringReport | null
+  verifiedAt: number | null
+}
+
 /** Результат refineProject (см. POST /projects/:id/refine, 202). */
 export interface RefineActionResult {
   success: boolean
@@ -669,6 +714,14 @@ export interface OsgardStoreState {
   /** Лента доработок текущего проекта (свежие сверху). */
   currentProjectRefinements: RefinementEntry[]
 
+  /* ---- Инженерный вердикт (домен B, контур генерации, миграция 091) ---- */
+  /** GET /projects/:id/engineering — чем доказана работоспособность приложения. */
+  fetchProjectEngineering: (id: number) => Promise<void>
+  /** Вердикт текущего проекта. null — ещё не загружен или недоступен. */
+  currentProjectEngineering: ProjectEngineering | null
+  /** POST /projects/:id/repair — повторный прогон контура по сохранённым файлам (202). */
+  repairProject: (id: number) => Promise<{ success: boolean; error?: string }>
+
   /* ---- TC Wallet: балансы резерва и пользователя ---- */
   /** Баланс резервного пула TC на Solana (в TC). null — не загружен. */
   tcReserveBalance: number | null
@@ -773,6 +826,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   currentProjectFiles: [],
   currentProjectRefinements: [],
   refinementsRemaining: null,
+  currentProjectEngineering: null,
 
   loading: false,
   error: null,
@@ -1507,6 +1561,33 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     } catch (err) {
       // Лента доработок некритична для страницы проекта — не роняем UI, только лог.
       console.warn("[refinements] fetch failed:", extractErrorMessage(err, "не удалось загрузить доработки"))
+    }
+  },
+
+  /* ---- инженерный вердикт: GET /projects/:id/engineering ---- */
+  fetchProjectEngineering: async (id) => {
+    try {
+      const res = await apiClient.get<ProjectEngineering>(`/projects/${id}/engineering`)
+      set({ currentProjectEngineering: res })
+    } catch (err) {
+      // Старый бэкенд/нет доступа — шаг конвейера честно остаётся «не проверено».
+      set({ currentProjectEngineering: null })
+      console.warn("[engineering] fetch failed:", extractErrorMessage(err, "не удалось загрузить вердикт"))
+    }
+  },
+
+  /* ---- инженерный вердикт: POST /projects/:id/repair (202, работает фоном) ----
+     Проект уходит в 'generating', прогресс идёт тем же SSE-потоком, что и генерация
+     (стадии building/repairing). Поэтому здесь сразу подтягиваем проект: без этого
+     поток не включится и человек смотрел бы на статичный экран. */
+  repairProject: async (id) => {
+    try {
+      await apiClient.post(`/projects/${id}/repair`)
+      await get().fetchProject(id)
+      return { success: true }
+    } catch (err) {
+      // 429 — лимит дорогой ручки, 409 — проект сейчас генерируется. Отдаём как есть.
+      return { success: false, error: extractErrorMessage(err, "Не удалось запустить проверку") }
     }
   },
 

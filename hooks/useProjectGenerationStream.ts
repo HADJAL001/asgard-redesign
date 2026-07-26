@@ -80,17 +80,28 @@ export function useProjectGenerationStream(
   const [state, setState] = useState<StreamState>(INITIAL)
 
   // onTerminal держим в ref, чтобы не пересоздавать EventSource при смене колбэка.
+  // Обновляем ref в эффекте, а не на рендере: мутация ref во время рендера ломает
+  // корректность при повторном/прерванном рендере (react-hooks/refs). Читают его
+  // только асинхронные обработчики потока — то есть уже после коммита.
   const onTerminalRef = useRef(onTerminal)
-  onTerminalRef.current = onTerminal
+  useEffect(() => {
+    onTerminalRef.current = onTerminal
+  }, [onTerminal])
+
+  /* Сброс лога при смене подписки делаем НА РЕНДЕРЕ, а не в эффекте (документированный
+     приём React «adjusting state when a prop changes»). Раньше эффект дважды звал
+     setState(INITIAL) синхронно в теле — это лишний каскадный рендер на каждом
+     подключении (react-hooks/set-state-in-effect). Семантика та же: новая подписка —
+     чистый лист; реконнект внутри одной подписки лог не стирает. */
+  const sessionKey = enabled && Number.isFinite(projectId) ? `on:${projectId}` : "off"
+  const [activeKey, setActiveKey] = useState(sessionKey)
+  if (activeKey !== sessionKey) {
+    setActiveKey(sessionKey)
+    setState(INITIAL)
+  }
 
   useEffect(() => {
-    if (!enabled || !Number.isFinite(projectId)) {
-      setState(INITIAL)
-      return
-    }
-
-    // Новый проект/переподключение — начинаем лог с чистого листа.
-    setState(INITIAL)
+    if (!enabled || !Number.isFinite(projectId)) return
 
     let source: EventSource | null = null
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined
