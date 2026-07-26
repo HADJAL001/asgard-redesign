@@ -61,7 +61,7 @@ export function MySalesView() {
   }
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
+    <div className="eg-page min-h-screen font-sans" style={{ color: COLORS.text }}>
       <Navbar />
 
       <main className="mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
@@ -100,7 +100,7 @@ export function MySalesView() {
             { n: totals.sold, l: "Продано", Icon: TrendingUp },
             { n: formatTokens(totals.revenue), l: "Выручка, токенов", Icon: Coins },
           ].map((m) => (
-            <div key={m.l} className="rounded-xl p-5" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+            <div key={m.l} className="eg-surface premium-card rounded-xl p-5">
               <m.Icon size={16} strokeWidth={1.5} style={{ color: COLORS.label }} />
               <p className="mt-2 text-[24px] font-medium">{m.n}</p>
               <p className="mt-1 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>{m.l}</p>
@@ -131,7 +131,7 @@ export function MySalesView() {
         </div>
 
         {/* Table */}
-        <div className="mt-6 overflow-hidden rounded-xl" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+        <div className="eg-surface mt-6 overflow-hidden rounded-xl">
           <div className="hidden grid-cols-[2fr_1fr_1fr_1fr_1.4fr] gap-4 px-6 py-3.5 text-[11px] font-medium uppercase tracking-[0.14em] md:grid" style={{ color: COLORS.label, borderBottom: `1px solid ${COLORS.border}` }}>
             <span>Артефакт</span>
             <span>Статус</span>

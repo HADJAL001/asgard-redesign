@@ -66,8 +66,8 @@ export function CraftView() {
 
   return (
     <div
-      className="min-h-screen font-sans"
-      style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #160B24 100%)", color: "#FFFFFF" }}
+      className="eg-page eg-page--violet min-h-screen font-sans"
+      style={{ color: "#FFFFFF" }}
     >
       <Navbar />
       <main className="mx-auto max-w-5xl px-6 py-10">
@@ -168,8 +168,7 @@ export function CraftView() {
                 key={a.id}
                 type="button"
                 onClick={() => pick(a)}
-                className="rounded-xl p-4 text-left transition-colors"
-                style={{ backgroundColor: "#0A0A0F", border: `1px solid ${BORDER}` }}
+                className="eg-inset rounded-xl p-4 text-left transition-colors"
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = RARITY[a.rarity].color)}
                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = BORDER)}
               >

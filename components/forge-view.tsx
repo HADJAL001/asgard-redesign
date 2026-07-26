@@ -108,6 +108,9 @@ export function ForgeView() {
   const [aiNotice, setAiNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [aiResult, setAiResult] = useState<OsgardArtifact | null>(null)
 
+  /** Артефакт, уже полученный от сервера, но ещё «в кинематографе» — источник цвета вспышки/раскрытия. */
+  const [revealed, setRevealed] = useState<OsgardArtifact | null>(null)
+
   /** id артефакта, для которого сейчас выполняется премиум-усиление (для disable/spinner на конкретной карточке). */
   const [upgradingId, setUpgradingId] = useState<number | null>(null)
   /** Временный результат усиления для показа бейджа на карточке: { critical, levelGain } на пару секунд. */
@@ -174,39 +177,56 @@ export function ForgeView() {
   const reduceMotion = usePrefersReducedMotion()
   const anim = (value: string) => (reduceMotion ? undefined : value)
 
+  /** Мгновенно свернуть кинематограф (авто-финал или клик «пропустить»). */
+  function closeCinematic() {
+    setForging(false)
+    setForgePhase("idle")
+    setRevealed(null)
+  }
+
   async function doForge() {
-    if (!name.trim()) return
+    if (!name.trim() || submitting) return
+    const forgedName = name.trim()
     setSubmitting(true)
     setForging(true)
     setForgePhase("charging")
     setNotice(null)
     setResult(null)
+    setRevealed(null)
 
-    // Фаза 1: заряжаем (~600ms)
-    await new Promise((r) => setTimeout(r, 600))
-    setForgePhase("burst")
-
-    // Фаза 2: взрыв (~400ms)
-    await new Promise((r) => setTimeout(r, 400))
+    /* Запрос уходит СРАЗУ и летит параллельно с анимацией заряда: раньше
+       кинематограф добавлял ровно 1с к каждой ковке (600мс заряд + 400мс
+       взрыв ДО вызова). Теперь заряд длится минимум столько, сколько нужно
+       глазу, но не дольше самого запроса. */
+    const call = forgeArtifact(forgedName, type, projectId === "" ? undefined : projectId, forgeCurrency)
+    const minCharge = new Promise((r) => setTimeout(r, reduceMotion ? 250 : 900))
 
     try {
-      const res = await forgeArtifact(name.trim(), type, projectId === "" ? undefined : projectId, forgeCurrency)
+      const [res] = await Promise.all([call, minCharge])
       if (res.success && res.artifact) {
+        /* Вспышка окрашивается ФАКТИЧЕСКОЙ редкостью: игрок узнаёт исход
+           в момент удара, а не читает его потом мелким текстом. Раньше
+           «✦ АРТЕФАКТ СОЗДАН ✦» показывалось ещё до ответа сервера — то
+           есть могло соврать при отказе. */
+        setRevealed(res.artifact)
+        setForgePhase("burst")
+        await new Promise((r) => setTimeout(r, reduceMotion ? 200 : 520))
+
         setForgePhase("reveal")
         setResult(res.artifact)
         setNotice({ ok: true, text: `Артефакт «${res.artifact.name}» создан!` })
         setName("")
+        await new Promise((r) => setTimeout(r, reduceMotion ? 500 : 1800))
+        closeCinematic()
       } else {
-        setForgePhase("idle")
-        setForging(false)
+        closeCinematic()
         setNotice({ ok: false, text: res.error || "Не удалось создать артефакт" })
       }
+    } catch {
+      closeCinematic()
+      setNotice({ ok: false, text: "Не удалось создать артефакт" })
     } finally {
       setSubmitting(false)
-      setTimeout(() => {
-        setForging(false)
-        setForgePhase("idle")
-      }, 2000)
     }
   }
 
@@ -233,8 +253,21 @@ export function ForgeView() {
   const resultRarity: Rarity = (result?.rarity as Rarity) || "common"
   const ResultTypeIcon = result ? ARTIFACT_TYPES[(result.type as ArtifactType) in ARTIFACT_TYPES ? (result.type as ArtifactType) : "artifact"].Icon : Sparkles
 
+  /* Цвет кинематографа: пока сервер не ответил — акцент Кузницы; после ответа —
+     цвет ФАКТИЧЕСКОЙ редкости выкованного предмета (dopamine-петля: исход виден
+     в самой вспышке). */
+  const revealRarity: Rarity = (revealed?.rarity as Rarity) || "common"
+  const fxColor = revealed ? RARITY[revealRarity]?.color || COLORS.accent : COLORS.accent
+  const RevealTypeIcon = revealed
+    ? ARTIFACT_TYPES[(revealed.type as ArtifactType) in ARTIFACT_TYPES ? (revealed.type as ArtifactType) : "artifact"].Icon
+    : Sparkles
+  const resultColor = RARITY[resultRarity]?.color || COLORS.border
+
+  /* Корень прозрачный (.eg-page — вуаль вместо глухой заливки): сквозь него
+     дышит общий AmbientBackdrop. Раньше здесь был непрозрачный градиент
+     #0A0A0F→#14141E, который глушил живой фон платформы. */
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
+    <div className="eg-page min-h-screen font-sans" style={{ color: COLORS.text }}>
       <Navbar />
       <SectionHelp
         title="Кузница артефактов"
@@ -252,25 +285,31 @@ export function ForgeView() {
         ]}
       />
 
-      {/* ===== КИНЕМАТОГРАФИЧЕСКИЙ ЭФФЕКТ КУЗНИЦЫ ===== */}
+      {/* ===== КИНЕМАТОГРАФИЧЕСКИЙ ЭФФЕКТ КУЗНИЦЫ =====
+          Три фазы: charging (запрос в полёте) → burst (вспышка ЦВЕТА
+          выпавшей редкости) → reveal (материализация предмета).
+          Клик по оверлею пропускает финал. */}
       {forging && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden"
+          role="status"
+          aria-live="polite"
+          onClick={forgePhase === "reveal" ? closeCinematic : undefined}
+          className={`fixed inset-0 z-50 flex items-center justify-center overflow-hidden ${forgePhase === "reveal" ? "cursor-pointer" : ""}`}
           style={{
-            background: forgePhase === "burst"
-              ? "radial-gradient(ellipse at center, rgba(0,212,255,0.3) 0%, rgba(0,0,0,0.97) 68%)"
-              : "radial-gradient(ellipse at center, rgba(10,20,35,0.95) 0%, rgba(0,0,0,0.94) 75%)",
+            background: forgePhase === "charging"
+              ? "radial-gradient(ellipse at center, rgba(10,20,35,0.95) 0%, rgba(0,0,0,0.94) 75%)"
+              : `radial-gradient(ellipse at center, ${fxColor}4D 0%, rgba(0,0,0,0.97) 68%)`,
             backdropFilter: "blur(6px)",
             transition: "background 0.4s ease",
             animation: forgePhase === "burst" ? anim("forge-shake 0.45s ease-in-out") : undefined,
           }}
         >
-          {/* Кинематографическая вспышка в момент взрыва */}
+          {/* Кинематографическая вспышка в момент взрыва — в цвете редкости */}
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0"
             style={{
-              background: "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(0,212,255,0.35) 35%, transparent 70%)",
+              background: `radial-gradient(circle, rgba(255,255,255,0.95) 0%, ${fxColor}59 35%, transparent 70%)`,
               opacity: 0,
               animation: forgePhase === "burst" ? anim("forge-flash-overlay 0.5s ease-out forwards") : undefined,
             }}
@@ -361,7 +400,7 @@ export function ForgeView() {
                       left: "50%",
                       marginTop: -50,
                       marginLeft: -50,
-                      border: "2px solid rgba(0,212,255,0.8)",
+                      border: `2px solid ${fxColor}CC`,
                       animation: anim("forge-shockwave 0.6s cubic-bezier(0.16,1,0.3,1) 0.08s forwards"),
                       opacity: reduceMotion ? 0 : undefined,
                     }}
@@ -369,17 +408,18 @@ export function ForgeView() {
                 </>
               )}
 
-              {/* Центральный шар */}
+              {/* Центральный шар — в фазе reveal уступает место самому предмету */}
+              {forgePhase !== "reveal" && (
               <div
                 className="relative flex items-center justify-center rounded-full"
                 style={{
                   width: 80,
                   height: 80,
                   background: forgePhase === "burst"
-                    ? "radial-gradient(circle at 35% 35%, #fff, #00D4FF 40%, #0050FF)"
+                    ? `radial-gradient(circle at 35% 35%, #fff, ${fxColor} 40%, #0050FF)`
                     : "radial-gradient(circle at 35% 35%, rgba(0,212,255,0.6), rgba(0,80,255,0.3))",
                   boxShadow: forgePhase === "burst"
-                    ? "0 0 90px 45px rgba(0,212,255,0.85), 0 0 170px 90px rgba(0,212,255,0.4), 0 0 40px 10px rgba(255,255,255,0.9)"
+                    ? `0 0 90px 45px ${fxColor}D9, 0 0 170px 90px ${fxColor}66, 0 0 40px 10px rgba(255,255,255,0.9)`
                     : "0 0 30px 10px rgba(0,212,255,0.4)",
                   transition: "background 0.2s ease, box-shadow 0.2s ease",
                   animation:
@@ -397,11 +437,55 @@ export function ForgeView() {
                   <Sparkles size={36} style={{ color: "#fff" }} />
                 )}
               </div>
+              )}
 
-              {/* Частицы при взрыве */}
+              {/* ---- Материализация предмета (фаза reveal) ----
+                  Взрыв оседает — из него собирается сам артефакт в ореоле
+                  своей редкости. Это и есть «награда глазу» за ковку. */}
+              {forgePhase === "reveal" && revealed && (
+                <div className="forge-materialize relative flex flex-col items-center">
+                  <span
+                    className="forge-halo"
+                    aria-hidden="true"
+                    style={{ background: `radial-gradient(circle, ${fxColor}59 0%, transparent 68%)` }}
+                  />
+                  <span
+                    className="relative flex size-28 items-center justify-center rounded-3xl"
+                    style={{
+                      border: `1px solid ${fxColor}`,
+                      background: `radial-gradient(circle at 40% 30%, ${fxColor}26, rgba(6,7,12,0.85) 70%)`,
+                      boxShadow: `0 0 34px 4px ${fxColor}73, inset 0 0 26px ${fxColor}33`,
+                    }}
+                  >
+                    <RevealTypeIcon size={52} strokeWidth={1.25} style={{ color: fxColor }} aria-hidden="true" />
+                  </span>
+
+                  {/* Оседающие искры цвета редкости */}
+                  {!reduceMotion &&
+                    Array.from({ length: 10 }).map((_, i) => (
+                      <span
+                        key={i}
+                        aria-hidden="true"
+                        className="forge-mote pointer-events-none absolute rounded-full"
+                        style={{
+                          width: i % 3 === 0 ? 3 : 2,
+                          height: i % 3 === 0 ? 3 : 2,
+                          top: 0,
+                          left: `${8 + i * 9}%`,
+                          background: fxColor,
+                          boxShadow: `0 0 6px ${fxColor}`,
+                          animationDelay: `${(i % 5) * 0.34}s`,
+                          "--mote-dx": `${(i % 2 === 0 ? 1 : -1) * (6 + (i % 4) * 5)}px`,
+                        } as React.CSSProperties}
+                      />
+                    ))}
+                </div>
+              )}
+
+              {/* Частицы при взрыве — в палитре выпавшей редкости */}
               {forgePhase === "burst" && !reduceMotion &&
                 Array.from({ length: 18 }).map((_, i) => {
-                  const palette = ["#00D4FF", "#ffffff", "#B57BFF", "#F1C40F"]
+                  const palette = [fxColor, "#ffffff", fxColor, "#F1C40F"]
                   const color = palette[i % palette.length]
                   const big = i % 3 === 0
                   return (
@@ -428,38 +512,52 @@ export function ForgeView() {
                 })}
             </div>
 
-            {/* Текст фазы */}
+            {/* Текст фазы. «Артефакт создан» произносится ТОЛЬКО после ответа
+                сервера (фазы burst/reveal наступают уже с результатом на руках). */}
             <div>
               <p
                 key={forgePhase}
                 className="text-[24px] font-semibold tracking-widest uppercase"
                 style={{
-                  color: forgePhase === "burst" ? "#fff" : "#00D4FF",
+                  color: forgePhase === "charging" ? "#00D4FF" : "#fff",
                   textShadow:
-                    forgePhase === "burst"
-                      ? "0 0 30px rgba(0,212,255,0.9), 0 0 60px rgba(0,212,255,0.5)"
-                      : "0 0 18px rgba(0,212,255,0.35)",
+                    forgePhase === "charging"
+                      ? "0 0 18px rgba(0,212,255,0.35)"
+                      : `0 0 30px ${fxColor}E6, 0 0 60px ${fxColor}80`,
                   letterSpacing: "0.22em",
                   animation: anim("forge-text-pop 0.5s cubic-bezier(0.16,1,0.3,1) both"),
                 }}
               >
-                {forgePhase === "charging" ? "ЗАРЯЖАЕМ КУЗНИЦУ" : forgePhase === "burst" ? "✦  АРТЕФАКТ СОЗДАН  ✦" : "ГОТОВО"}
+                {forgePhase === "charging"
+                  ? "ЗАРЯЖАЕМ КУЗНИЦУ"
+                  : forgePhase === "burst"
+                    ? "✦  АРТЕФАКТ СОЗДАН  ✦"
+                    : RARITY[revealRarity]?.label || "ГОТОВО"}
               </p>
-              <p className="mt-2 text-[13px]" style={{ color: "rgba(255,255,255,0.5)" }}>
-                {forgePhase === "charging" ? "Накапливаем энергию TimeCoin..." : forgePhase === "burst" ? name || "Новый артефакт" : ""}
+              <p className="mt-2 text-[13px]" style={{ color: forgePhase === "reveal" ? fxColor : "rgba(255,255,255,0.5)" }}>
+                {forgePhase === "charging"
+                  ? "Накапливаем энергию TimeCoin..."
+                  : revealed?.name || name || "Новый артефакт"}
               </p>
+              {forgePhase === "reveal" && (
+                <p className="mt-3 text-[11px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.32)" }}>
+                  нажмите, чтобы продолжить
+                </p>
+              )}
             </div>
 
-            {/* Прогресс-бар */}
+            {/* Прогресс-бар — на раскрытии окрашен редкостью */}
             <div className="relative w-48 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
               <div
                 className="h-full rounded-full"
                 style={{
-                  background: "linear-gradient(90deg, #00D4FF, #B57BFF, #00D4FF)",
+                  background: forgePhase === "charging"
+                    ? "linear-gradient(90deg, #00D4FF, #B57BFF, #00D4FF)"
+                    : `linear-gradient(90deg, ${fxColor}, #ffffff, ${fxColor})`,
                   backgroundSize: "220% 100%",
                   width: forgePhase === "charging" ? "60%" : "100%",
                   transition: "width 0.6s ease",
-                  boxShadow: "0 0 12px rgba(0,212,255,0.7)",
+                  boxShadow: `0 0 12px ${forgePhase === "charging" ? "rgba(0,212,255,0.7)" : `${fxColor}B3`}`,
                   animation: anim("forge-progress-shimmer 1.4s linear infinite"),
                 }}
               />
@@ -488,7 +586,7 @@ export function ForgeView() {
             { n: `${forgeCost} ${selCurrency.label}`, l: t("forge.creationCost"), Icon: Hammer, c: selCurrency.color },
             { n: `${artifacts.length}`, l: t("forge.artifactsInCollection"), Icon: Archive, c: "#9B59B6" },
           ].map((m) => (
-            <div key={m.l} className="rounded-xl p-5" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+            <div key={m.l} className="eg-surface premium-card rounded-xl p-5">
               <m.Icon size={18} strokeWidth={1.5} style={{ color: m.c }} aria-hidden="true" />
               <p className="mt-3 text-[22px] font-medium leading-none">{m.n}</p>
               <p className="mt-2 text-[12px]" style={{ color: COLORS.label }}>{m.l}</p>
@@ -499,7 +597,7 @@ export function ForgeView() {
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_0.9fr]">
           {/* ---- Left: creation form + AI-генератор ---- */}
           <div className="flex flex-col gap-6">
-          <section className="rounded-2xl p-6" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+          <section className="eg-surface rounded-2xl p-6">
             <h2 className="text-[16px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLORS.label }}>
               {t("forge.formTitle")}
             </h2>
@@ -606,7 +704,7 @@ export function ForgeView() {
             </div>
 
             {/* Rarity info (сервер решает сам) */}
-            <div className="mt-5 rounded-lg p-4 text-[13px]" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}` }}>
+            <div className="eg-inset mt-5 rounded-lg p-4 text-[13px]">
               <p style={{ color: COLORS.label }}>
                 <Sparkles size={13} strokeWidth={1.75} className="mr-1.5 inline-block align-[-2px]" style={{ color: RARITY.common.color }} aria-hidden="true" />
                 {t("forge.rarityInfo")}
@@ -614,7 +712,7 @@ export function ForgeView() {
             </div>
 
             {/* Cost breakdown */}
-            <div className="mt-4 space-y-2 rounded-lg p-4 text-[13px]" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}` }}>
+            <div className="eg-inset mt-4 space-y-2 rounded-lg p-4 text-[13px]">
               <div className="flex items-center justify-between">
                 <span style={{ color: COLORS.label }}>{t("forge.creationCost")}</span>
                 <span>{forgeCost} {selCurrency.label}</span>
@@ -658,7 +756,7 @@ export function ForgeView() {
           </section>
 
           {/* ---- AI-Генератор артефактов (POST /artifacts/generate-ai) ---- */}
-          <section className="rounded-2xl p-6" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+          <section className="eg-surface rounded-2xl p-6">
             <h2 className="flex items-center gap-2 text-[16px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLORS.label }}>
               <Sparkles size={16} strokeWidth={1.75} style={{ color: COLORS.accent }} aria-hidden="true" />
               {t("forge.aiGenerate.title")}
@@ -696,7 +794,7 @@ export function ForgeView() {
             )}
 
             {aiResult && (
-              <div className="mt-5 rounded-xl px-4 py-4" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${RARITY[aiResultRarity]?.color || COLORS.border}` }}>
+              <div className="eg-inset mt-5 rounded-xl px-4 py-4" style={{ borderColor: RARITY[aiResultRarity]?.color || undefined }}>
                 <div className="flex items-center justify-between">
                   <p className="text-[15px] font-medium">{aiResult.name}</p>
                   <span className="text-[12px]" style={{ color: RARITY[aiResultRarity]?.color || COLORS.label }}>
@@ -725,13 +823,13 @@ export function ForgeView() {
           </div>
 
           {/* ---- Right: result ---- */}
-          <section className="rounded-2xl p-6" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+          <section className="eg-surface rounded-2xl p-6">
             <h2 className="text-[16px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLORS.label }}>
               {t("forge.resultTitle")}
             </h2>
 
             {!result ? (
-              <div className="mt-6 flex flex-col items-center justify-center rounded-xl px-6 py-16 text-center" style={{ backgroundColor: "#0A0A0F", border: `1px dashed ${COLORS.border}` }}>
+              <div className="eg-inset mt-6 flex flex-col items-center justify-center rounded-xl px-6 py-16 text-center" style={{ borderStyle: "dashed" }}>
                 <Hammer size={32} strokeWidth={1.25} style={{ color: COLORS.label }} aria-hidden="true" />
                 <p className="mt-4 text-[14px]" style={{ color: COLORS.label }}>
                   {t("forge.resultEmpty")}
@@ -739,22 +837,28 @@ export function ForgeView() {
               </div>
             ) : (
               <div
-                className="forge-reveal mt-6 flex flex-col items-center rounded-xl px-6 py-10"
+                className="forge-reveal eg-inset mt-6 flex flex-col items-center rounded-xl px-6 py-10"
                 style={{
-                  backgroundColor: "#0A0A0F",
-                  border: `1px solid ${RARITY[resultRarity]?.color || COLORS.border}`,
-                  boxShadow: `0 0 40px 4px ${(RARITY[resultRarity]?.color || COLORS.border)}33`,
+                  borderColor: resultColor,
+                  boxShadow: `0 0 40px 4px ${resultColor}33`,
                 }}
               >
                 <div className="forge-reveal-shine" aria-hidden="true" />
                 <span
-                  className="flex size-24 items-center justify-center rounded-2xl"
+                  className="relative flex size-24 items-center justify-center rounded-2xl"
                   style={{
-                    border: `1px solid ${RARITY[resultRarity]?.color || COLORS.border}`,
-                    boxShadow: `0 0 24px 2px ${(RARITY[resultRarity]?.color || COLORS.border)}55`,
+                    border: `1px solid ${resultColor}`,
+                    background: `radial-gradient(circle at 40% 30%, ${resultColor}1F, transparent 70%)`,
+                    boxShadow: `0 0 24px 2px ${resultColor}55`,
                   }}
                 >
-                  <ResultTypeIcon size={44} strokeWidth={1.25} style={{ color: RARITY[resultRarity]?.color || COLORS.accent }} aria-hidden="true" />
+                  {/* Дышащий ореол редкости — предмет «живой», а не картинка. */}
+                  <span
+                    className="forge-halo"
+                    aria-hidden="true"
+                    style={{ background: `radial-gradient(circle, ${resultColor}40 0%, transparent 68%)` }}
+                  />
+                  <ResultTypeIcon size={44} strokeWidth={1.25} style={{ color: resultColor, position: "relative" }} aria-hidden="true" />
                 </span>
                 <p className="mt-5 text-[18px] font-medium">{result.name}</p>
                 <p className="mt-1 text-[13px]" style={{ color: RARITY[resultRarity]?.color || COLORS.label }}>
@@ -773,7 +877,7 @@ export function ForgeView() {
                   ))}
                 </div>
 
-                <div className="mt-5 w-full rounded-lg px-4 py-3 text-[13px]" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.border}` }}>
+                <div className="eg-inset mt-5 w-full rounded-lg px-4 py-3 text-[13px]">
                   <div className="flex items-center justify-between">
                     <span style={{ color: COLORS.label }}>{t("forge.recommendedPrice")}</span>
                     <span style={{ color: COLORS.accent }}>

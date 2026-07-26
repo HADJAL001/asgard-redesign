@@ -119,7 +119,7 @@ export function PortfolioView() {
   const data = useMemo(() => buildPortfolio(range), [range])
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #1A1A1A 100%)", color: "#FFFFFF" }}>
+    <div className="eg-page eg-page--steel min-h-screen font-sans" style={{ color: "#FFFFFF" }}>
       <Navbar />
 
       <main className="mx-auto max-w-7xl px-6 py-10 md:px-10">
@@ -327,8 +327,7 @@ function HoldingsCard({
           return (
             <li
               key={it.name}
-              className="flex items-center gap-3 rounded-lg p-3 transition-colors"
-              style={{ border: `1px solid ${BORDER}`, backgroundColor: "#0A0A0F" }}
+              className="eg-inset flex items-center gap-3 rounded-lg p-3 transition-colors"
               onMouseEnter={(e) => (e.currentTarget.style.borderColor = ACCENT)}
               onMouseLeave={(e) => (e.currentTarget.style.borderColor = BORDER)}
             >

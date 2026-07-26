@@ -113,7 +113,7 @@ export function StakeView() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0F0F1A 100%)", color: COLORS.text }}>
+    <div className="eg-page relative min-h-screen overflow-hidden font-sans" style={{ color: COLORS.text }}>
       <PremiumBackground variant="coins" />
       <Navbar />
       <SectionHelp
@@ -150,7 +150,7 @@ export function StakeView() {
             { n: fmtUSD(totalStakedByUser * tcPrice.price), l: t("stake.stakeValue"), Icon: InfinityIcon, c: "#F1C40F" },
           ].map((m) => (
 
-            <div key={m.l} className="rounded-xl p-5" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+            <div key={m.l} className="eg-surface premium-card rounded-xl p-5">
               <m.Icon size={18} strokeWidth={1.5} style={{ color: m.c }} aria-hidden="true" />
               <p className="mt-3 text-[22px] font-medium leading-none">{m.n}</p>
               <p className="mt-2 text-[12px]" style={{ color: COLORS.label }}>{m.l}</p>
@@ -160,7 +160,7 @@ export function StakeView() {
 
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           {/* Stake form */}
-          <section className="rounded-2xl p-6" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+          <section className="eg-surface rounded-2xl p-6">
             <h2 className="text-[16px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLORS.label }}>
               {t("stake.newStake")}
             </h2>
@@ -220,7 +220,7 @@ export function StakeView() {
             </div>
 
             {/* Projection */}
-            <div className="mt-4 space-y-2 rounded-lg p-4 text-[13px]" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}` }}>
+            <div className="eg-inset mt-4 space-y-2 rounded-lg p-4 text-[13px]">
               <div className="flex items-center justify-between">
                 <span style={{ color: COLORS.label }}>{t("stake.lockPeriod")}</span>
                 <span>{t("stake.days", { count: term.days })}</span>
@@ -267,7 +267,7 @@ export function StakeView() {
 
           {/* Benefits + active stakes */}
           <div className="flex flex-col gap-6">
-            <section className="rounded-2xl p-6" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+            <section className="eg-surface rounded-2xl p-6">
               <h2 className="text-[16px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLORS.label }}>
                 {t("stake.benefitsTitle")}
               </h2>
@@ -291,7 +291,7 @@ export function StakeView() {
 
             </section>
 
-            <section className="rounded-2xl p-6" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+            <section className="eg-surface rounded-2xl p-6">
               <h2 className="text-[16px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLORS.label }}>
                 {t("stake.myPositions")}
               </h2>
@@ -308,7 +308,7 @@ export function StakeView() {
                     const progress = Math.min(100, Math.max(0, ((totalMs - (s.endTs - now)) / totalMs) * 100))
                     const isUnstaking = unstakingId === s.id
                     return (
-                      <li key={s.id} className="rounded-lg p-4" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}` }}>
+                      <li key={s.id} className="eg-inset rounded-lg p-4">
                         <div className="flex items-center justify-between">
                           <span className="inline-flex items-center gap-1.5 text-[15px] font-medium" style={{ color: PURPLE }}>
                             <InfinityIcon size={14} strokeWidth={1.75} aria-hidden="true" />
