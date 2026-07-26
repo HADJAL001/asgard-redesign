@@ -44,6 +44,9 @@ const AI_GENERATE_COST_TC = FORGE_COST_TC
 /** 1:1 с backend/artifacts.routes.ts DAILY_AI_GENERATION_LIMIT и mobile/types/artifact.ts DAILY_AI_GENERATION_SOFT_LIMIT. */
 const DAILY_AI_GENERATION_SOFT_LIMIT = 3
 
+/** 1:1 с mobile/design-system/colors.ts gold — цвет сегментов индикатора лимита (LimitIndicator). */
+const AI_LIMIT_GOLD = "#D4AF37"
+
 /** Число AI-сгенерированных артефактов за текущие календарные сутки (локальное время браузера). */
 function countTodayAiGenerated(artifacts: OsgardArtifact[]): number {
   const now = new Date()
@@ -831,14 +834,28 @@ export function ForgeView() {
             <p className="mt-1 text-[13px]" style={{ color: "rgba(255,255,255,0.4)" }}>
               {t("forge.aiGenerate.subtitle")}
             </p>
-            <p className="mt-1 text-[12px]" style={{ color: aiLimitReached ? COLORS.red : COLORS.label }}>
-              {aiLimitReached
-                ? t("forge.aiGenerate.limitDepleted")
-                : t("forge.aiGenerate.limitRemaining", {
-                    count: DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount,
-                    noun: pluralizeGenerations(DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount),
-                  })}
-            </p>
+            <div className="mt-2 flex flex-col gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <Zap size={14} style={{ color: aiLimitReached ? COLORS.label : AI_LIMIT_GOLD }} aria-hidden="true" />
+                <span className="text-[12px]" style={{ color: aiLimitReached ? COLORS.label : "#FFFFFF" }}>
+                  {aiLimitReached
+                    ? t("forge.aiGenerate.limitDepleted")
+                    : t("forge.aiGenerate.limitRemaining", {
+                        count: DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount,
+                        noun: pluralizeGenerations(DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount),
+                      })}
+                </span>
+              </div>
+              <div className="flex gap-1">
+                {Array.from({ length: DAILY_AI_GENERATION_SOFT_LIMIT }).map((_, i) => (
+                  <div key={i} className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: COLORS.border }}>
+                    {i < DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount && (
+                      <div className="h-full w-full rounded-full" style={{ backgroundColor: AI_LIMIT_GOLD }} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
 
             <div className="mt-5">
               <input
