@@ -196,7 +196,13 @@
     "insufficientFunds": "Недостаточно {{currency}}",
     "exchangeDone": "Обмен выполнен: −{{sent}} → +{{received}}",
     "exchangeFailed": "Не удалось выполнить конвертацию",
-    "timecoinNoConvert": "TimeCoin нельзя конвертировать. Только покупка на бирже за $ или продажа артефактов."
+    "timecoinNoConvert": "TimeCoin нельзя конвертировать. Только покупка на бирже за $ или продажа артефактов.",
+    "confirmConvert": {
+      "title": "Конвертировать валюту?",
+      "message": "Конвертируете {{give}} → примерно {{receive}} (комиссия {{fee}}%). Отменить после подтверждения нельзя.",
+      "confirmLabel": "Конвертировать",
+      "cancelLabel": "Отмена"
+    }
   },
   "stake": {
     "title": "Стейкинг TimeCoin",
@@ -295,6 +301,18 @@
       "button": "Сгенерировать за {{amount}}",
       "success": "Артефакт «{{name}}» сгенерирован!",
       "failed": "Не удалось сгенерировать артефакт"
+    },
+    "confirmForge": {
+      "title": "Начать ковку?",
+      "message": "Спишет {{amount}} TimeCoin с баланса. Валюта не возвращается, даже если артефакт не понравится.",
+      "confirmLabel": "Потратить {{amount}} TimeCoin",
+      "cancelLabel": "Отмена"
+    },
+    "confirmAi": {
+      "title": "Сгенерировать через AI?",
+      "message": "Спишет {{amount}} TimeCoin с баланса. Валюта не возвращается, даже если результат не понравится.",
+      "confirmLabel": "Потратить {{amount}} TimeCoin",
+      "cancelLabel": "Отмена"
     },
     "verdict": {
       "title": "Честность ковки",

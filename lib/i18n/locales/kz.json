@@ -196,7 +196,13 @@
     "insufficientFunds": "{{currency}} жеткіліксіз",
     "exchangeDone": "Айырбастау орындалды: −{{sent}} → +{{received}}",
     "exchangeFailed": "Конвертация орындалмады",
-    "timecoinNoConvert": "TimeCoin айырбастауға болмайды. Тек биржада $ үшін сатып алу немесе артефактілерді сату."
+    "timecoinNoConvert": "TimeCoin айырбастауға болмайды. Тек биржада $ үшін сатып алу немесе артефактілерді сату.",
+    "confirmConvert": {
+      "title": "Валютаны конвертациялау керек пе?",
+      "message": "{{give}} → шамамен {{receive}} конвертацияланады (комиссия {{fee}}%). Растағаннан кейін болдырмауға болмайды.",
+      "confirmLabel": "Конвертациялау",
+      "cancelLabel": "Бас тарту"
+    }
   },
   "stake": {
     "title": "TimeCoin стейкингі",
@@ -287,6 +293,18 @@
         "normal": "+{{gain}} дең.",
         "crit": "КРИТ! +{{gain}} дең."
       }
+    },
+    "confirmForge": {
+      "title": "Ұсталықты бастау керек пе?",
+      "message": "Балансыңыздан {{amount}} TimeCoin алынады. Артефакт ұнамаса да, валюта қайтарылмайды.",
+      "confirmLabel": "{{amount}} TimeCoin жұмсау",
+      "cancelLabel": "Бас тарту"
+    },
+    "confirmAi": {
+      "title": "AI арқылы генерациялау керек пе?",
+      "message": "Балансыңыздан {{amount}} TimeCoin алынады. Нәтиже ұнамаса да, валюта қайтарылмайды.",
+      "confirmLabel": "{{amount}} TimeCoin жұмсау",
+      "cancelLabel": "Бас тарту"
     },
     "verdict": {
       "title": "Ұсталықтың адалдығы",
