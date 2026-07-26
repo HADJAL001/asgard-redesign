@@ -335,6 +335,7 @@ import "./migrations/086_mentor_sessions"
 import "./migrations/087_guest_accounts"
 import "./migrations/088_provably_fair"
 import "./migrations/089_refinements"
+import "./migrations/090_design_system"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"

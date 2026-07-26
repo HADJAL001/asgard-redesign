@@ -2,14 +2,29 @@ import { createHash } from "node:crypto"
 import { callClaudeRaw, callDeepSeekRaw, callGrokRaw, extractJson, isAiConfigured } from "./ai-router"
 import { captureError } from "../lib/sentry"
 import { durableCache } from "./agents/durable-cache"
+import {
+  ARCHETYPE_MENU,
+  DESIGN_BRIEF_VERSION,
+  FONT_MENU,
+  clampBriefProposal,
+  deriveDesignBrief,
+  renderDesignContract,
+  renderDesignSystemFiles,
+  renderFallbackPage,
+  type BriefProposal,
+  type DesignBrief,
+} from "../lib/design-system"
 
 /* Кеш результата генерации по (name, hint): одинаковый промпт → готовый набор
    файлов без повторной дорогой цепочки AI-вызовов. durableCache (SQLite) переживает
    рестарт — повторная/похожая генерация не начинается с нуля (требование владельца).
-   Кешируем ТОЛЬКО успешные ai-результаты, не fallback. TTL 24ч. */
+   Кешируем ТОЛЬКО успешные ai-результаты, не fallback. TTL 24ч.
+
+   В ключ входит версия дизайн-системы: после её изменения кеш обязан промахнуться,
+   иначе проекты продолжили бы получать облик прошлого поколения. */
 const APP_CACHE_TTL_SECONDS = 24 * 60 * 60
 function appCacheKey(name: string, hint?: string): string {
-  return `app-generator:${createHash("sha256").update(JSON.stringify({ name, hint: hint ?? "" })).digest("hex")}`
+  return `app-generator:v${DESIGN_BRIEF_VERSION}:${createHash("sha256").update(JSON.stringify({ name, hint: hint ?? "" })).digest("hex")}`
 }
 
 /* ================================================================
@@ -32,6 +47,8 @@ export type GeneratedAppFile = {
 export type AppGenerationResult = {
   files: GeneratedAppFile[]
   source: "ai" | "fallback"
+  /** Дизайн-система, по которой собрано приложение. Сохраняется вместе с проектом. */
+  brief: DesignBrief
 }
 
 export type ManifestEntry = {
@@ -71,11 +88,15 @@ function slugify(name: string): string {
   return base || "osgard-app"
 }
 
-/** Статический базовый шаблон Next.js-приложения — не генерируется AI, всегда стабилен. */
-function staticTemplateFiles(name: string): GeneratedAppFile[] {
+/** Базовый каркас Next.js-приложения — не генерируется AI, всегда стабилен.
+ *  Три файла дизайн-системы (tailwind.config.ts, globals.css, layout.tsx) приходят
+ *  из брифа: раньше здесь лежали пустой `theme: { extend: {} }` и голый layout,
+ *  из-за чего у приложения не было дизайн-системы вообще. */
+function staticTemplateFiles(name: string, brief: DesignBrief, description: string): GeneratedAppFile[] {
   const slug = slugify(name)
 
   return [
+    ...renderDesignSystemFiles(brief, name, description),
     {
       path: "package.json",
       content: JSON.stringify(
@@ -139,37 +160,83 @@ function staticTemplateFiles(name: string): GeneratedAppFile[] {
       ),
     },
     {
-      path: "tailwind.config.ts",
-      content: `import type { Config } from "tailwindcss"\n\nconst config: Config = {\n  content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],\n  theme: { extend: {} },\n  plugins: [],\n}\n\nexport default config\n`,
-    },
-    {
       path: "postcss.config.js",
       content: `module.exports = {\n  plugins: { tailwindcss: {}, autoprefixer: {} },\n}\n`,
     },
     {
-      path: "app/globals.css",
-      content: `@tailwind base;\n@tailwind components;\n@tailwind utilities;\n`,
-    },
-    {
-      path: "app/layout.tsx",
-      content: `import type { Metadata } from "next"\nimport "./globals.css"\n\nexport const metadata: Metadata = {\n  title: "${name.replace(/"/g, '\\"')}",\n}\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="ru">\n      <body>{children}</body>\n    </html>\n  )\n}\n`,
-    },
-    {
       path: "README.md",
-      content: `# ${name}\n\nПриложение сгенерировано в OSGARD. Это реальный Next.js-проект: можно запускать\nлокально (\`npm install && npm run dev\`), редактировать и публиковать на GitHub.\n`,
+      content: `# ${name}\n\nПриложение сгенерировано в OSGARD. Это реальный Next.js-проект: можно запускать\nлокально (\`npm install && npm run dev\`), редактировать и публиковать на GitHub.\n\n## Дизайн-система\n\nАрхетип «${brief.archetype}» · ${brief.mood}\n\nЦвета, типографика, отступы и тени объявлены токенами в \`tailwind.config.ts\`\nи \`app/globals.css\`. Контраст основного текста к фону — ${brief.contrast.inkOnCanvas}:1\n(WCAG AA требует 4.5:1). Используй токены (\`bg-canvas\`, \`bg-surface\`, \`text-ink\`,\n\`bg-primary\`), а не сырые цвета — тогда интерфейс останется цельным.\n`,
     },
   ]
 }
 
+/** Бриф по умолчанию — нужен только для вычисления списка занятых путей. */
+const DEFAULT_BRIEF = deriveDesignBrief({ name: "osgard", theme: "general" })
+
 const RESERVED_PATHS = new Set(
-  staticTemplateFiles("x").map((f) => f.path.toLowerCase()),
+  staticTemplateFiles("x", DEFAULT_BRIEF, "").map((f) => f.path.toLowerCase()),
 )
 
-function buildManifestPrompt(name: string, hint?: string): string {
+/* ----------------------------------------------------------------
+   AI-арт-директор
+   ---------------------------------------------------------------- */
+
+function buildArtDirectionPrompt(name: string, hint: string | undefined, base: DesignBrief): string {
+  return `Ты — арт-директор с опытом продуктового дизайна мирового уровня.
+Тебе нужно задать визуальный характер приложения "${name}"${hint ? ` (тема: "${hint}")` : ""}.
+
+Базовое предложение системы: архетип "${base.archetype}", схема "${base.scheme}",
+настроение "${base.mood}". Ты можешь согласиться или предложить лучше.
+
+Верни СТРОГО валидный JSON без markdown и пояснений:
+{
+  "archetype": один из ${JSON.stringify(ARCHETYPE_MENU)},
+  "scheme": "light" | "dark",
+  "hue": число 0..359 — основной оттенок бренда,
+  "accentHue": число 0..359 — оттенок дополнительного акцента,
+  "saturation": число 0..1 — насыщенность акцента,
+  "density": "compact" | "comfortable" | "spacious",
+  "radiusStyle": "sharp" | "default" | "soft" | "pill",
+  "displayFont": один из ${JSON.stringify(FONT_MENU.display)},
+  "bodyFont": один из ${JSON.stringify(FONT_MENU.body)},
+  "mood": "короткая фраза о настроении интерфейса, до 100 символов",
+  "voice": "как звучат тексты интерфейса, до 140 символов",
+  "layout": ["3-5 конкретных правил раскладки для этого приложения"]
+}
+
+Думай о пользователе: какой эмоциональный тон уместен, что человек должен
+почувствовать за первые три секунды, какое действие должно быть очевидно главным.
+Не описывай цвета словами и не присылай HEX — только числовые оттенки.
+Ответь только JSON.`
+}
+
+/**
+ * Один AI-вызов, задающий визуальный характер. Ответ модели НЕ применяется как есть:
+ * `clampBriefProposal` зажимает его в безопасное пространство архетипа, а контраст
+ * пересчитывается алгоритмом. Провайдер молчит, ответил мусором или упал —
+ * возвращается детерминированный бриф. Генерация не деградирует никогда.
+ */
+async function directDesign(name: string, hint: string | undefined, base: DesignBrief): Promise<DesignBrief> {
+  try {
+    const text = await callAnyProvider(buildArtDirectionPrompt(name, hint, base), 900)
+    if (!text) return base
+    const parsed = extractJson(text) as BriefProposal | null
+    return clampBriefProposal(base, parsed)
+  } catch (err) {
+    captureError("[app-generator] art direction failed, using deterministic brief:", err)
+    return base
+  }
+}
+
+function buildManifestPrompt(name: string, hint: string | undefined, brief: DesignBrief): string {
   return `Ты — генератор реальных React/Next.js (App Router) приложений для платформы OSGARD.
 Пользователь хочет приложение с названием "${name}"${hint ? ` в направлении/теме: "${hint}"` : ""}.
 
-Спроектируй короткий список файлов приложения (страницы в app/, при необходимости компоненты в components/).
+Визуальный характер приложения уже задан: архетип "${brief.archetype}", настроение
+"${brief.mood}", плотность "${brief.density}". Раскладка, которой держится продукт:
+${brief.layout.map((l) => `- ${l}`).join("\n")}
+
+Спроектируй список файлов приложения (страницы в app/, компоненты в components/).
 Базовые файлы (package.json, next.config.js, app/layout.tsx, tailwind и т.д.) уже есть — их не включай.
 
 Верни СТРОГО валидный JSON (без markdown, без пояснений) вида:
@@ -184,13 +251,15 @@ function buildManifestPrompt(name: string, hint?: string): string {
 - Обязательно включи "app/page.tsx". Не экономь на количестве файлов и компонентов —
   раскладывай интерфейс так, как это сделал бы опытный frontend-разработчик на реальном
   проекте (отдельные компоненты, hooks/, lib/ для клиентской логики).
+- Спроектируй ПРОДУКТ, а не витрину: продумай реальные экраны и состояния (пустое,
+  загрузка, ошибка), а не одну страницу с текстом.
 - Пути только внутри app/, components/, hooks/ или lib/; расширение .tsx или .ts.
 - Описание purpose — 1 короткое предложение на русском.
 Ответь только JSON.`
 }
 
-async function generateManifest(name: string, hint?: string): Promise<ManifestEntry[] | null> {
-  const text = await callAnyProvider(buildManifestPrompt(name, hint), 4096)
+async function generateManifest(name: string, hint: string | undefined, brief: DesignBrief): Promise<ManifestEntry[] | null> {
+  const text = await callAnyProvider(buildManifestPrompt(name, hint, brief), 4096)
   if (!text) return null
 
   const parsed = extractJson(text)
@@ -214,18 +283,29 @@ function fallbackManifest(): ManifestEntry[] {
   return [{ path: "app/page.tsx", purpose: "Главная страница приложения" }]
 }
 
-function buildFilePrompt(name: string, hint: string | undefined, manifest: ManifestEntry[], entry: ManifestEntry): string {
+/** Промпт содержимого файла. Ключевое здесь — блок дизайн-контракта: файлы
+ *  генерируются ПАРАЛЛЕЛЬНО и не видят друг друга, поэтому без общего контракта
+ *  каждый изобретал собственную палитру, и приложение расползалось по стилю. */
+function buildFilePrompt(
+  name: string,
+  hint: string | undefined,
+  manifest: ManifestEntry[],
+  entry: ManifestEntry,
+  brief: DesignBrief,
+): string {
   const fileList = manifest.map((f) => `- ${f.path}: ${f.purpose}`).join("\n")
   return `Ты пишешь исходный код для реального Next.js (App Router, TypeScript, Tailwind CSS) приложения "${name}"${hint ? ` в теме: "${hint}"` : ""}.
 
 Полный список файлов приложения (для контекста, чтобы импорты между ними совпадали):
 ${fileList}
 
+${renderDesignContract(brief)}
+
 Сейчас напиши ПОЛНОЕ содержимое файла "${entry.path}" (${entry.purpose}).
 
 Требования:
 - Валидный TypeScript/TSX, готовый к сборке Next.js App Router (используй "use client" только если нужны хуки/интерактивность).
-- Стилизация через Tailwind CSS классы.
+- Стилизация только через Tailwind-классы дизайн-контракта выше.
 - Импорты компонентов из "./ComponentName" или "@/components/ComponentName" — точно соответствуй путям из списка выше.
 - Приложение собирается через "next build" со статическим экспортом (output: "export") —
   без серверных API-роутов и Server Actions. Обращения к внешним API возможны только
@@ -238,34 +318,47 @@ async function generateFileContent(
   hint: string | undefined,
   manifest: ManifestEntry[],
   entry: ManifestEntry,
+  brief: DesignBrief,
 ): Promise<string | null> {
-  const text = await callAnyProvider(buildFilePrompt(name, hint, manifest, entry), 8000)
+  const text = await callAnyProvider(buildFilePrompt(name, hint, manifest, entry, brief), 8000)
   if (!text) return null
   return extractCodeBlock(text)
-}
-
-function fallbackPageContent(name: string, hint?: string): string {
-  const safeName = name.replace(/`/g, "'")
-  const safeHint = (hint || "").replace(/`/g, "'")
-  return `export default function Page() {\n  return (\n    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 p-8 text-center text-white">\n      <h1 className="text-3xl font-bold">${safeName}</h1>\n      <p className="max-w-md text-slate-400">${safeHint || "Приложение создано в OSGARD."}</p>\n    </main>\n  )\n}\n`
 }
 
 /**
  * Основная точка входа: генерирует полный набор файлов реального приложения.
  * Никогда не бросает исключение — при любой ошибке/отсутствии AI возвращает
  * минимальный рабочий статический проект (source: "fallback").
+ *
+ * Дизайн-система выводится ДО генерации кода и возвращается наружу: вызывающая
+ * сторона сохраняет бриф вместе с проектом, и витрина показывает, из чего сложился
+ * облик приложения. Даже путь fallback (AI не сконфигурирован) получает полноценные
+ * токены — раньше там была страница на `bg-slate-950` с голым белым текстом.
  */
 export async function generateApp(
   name: string,
   hint?: string,
-  options?: { bypassCache?: boolean },
+  options?: {
+    bypassCache?: boolean
+    theme?: string
+    keywords?: string[]
+    description?: string
+    /** Готовый бриф (доработка существующего проекта): арт-дирекция пропускается,
+     *  чтобы доработка шла в том же визуальном языке, а не рождала второй облик. */
+    brief?: DesignBrief
+  },
 ): Promise<AppGenerationResult> {
-  const template = staticTemplateFiles(name)
+  const baseBrief = options?.brief ?? deriveDesignBrief({ name, hint, theme: options?.theme, keywords: options?.keywords })
+  const description = options?.description ?? ""
 
   if (!isAiConfigured()) {
     return {
-      files: [...template, { path: "app/page.tsx", content: fallbackPageContent(name, hint) }],
+      files: [
+        ...staticTemplateFiles(name, baseBrief, description),
+        { path: "app/page.tsx", content: renderFallbackPage(baseBrief, name, hint) },
+      ],
       source: "fallback",
+      brief: baseBrief,
     }
   }
 
@@ -274,38 +367,51 @@ export async function generateApp(
   // свежий результат с нуля, хотя записать его в кеш всё равно можем.
   const cacheKey = appCacheKey(name, hint)
   if (!options?.bypassCache) {
-    const cached = durableCache.get<GeneratedAppFile[]>(cacheKey)
-    if (cached && cached.length > 0) {
-      return { files: cached, source: "ai" }
+    const cached = durableCache.get<{ files: GeneratedAppFile[]; brief: DesignBrief }>(cacheKey)
+    if (cached && Array.isArray(cached.files) && cached.files.length > 0 && cached.brief) {
+      return { files: cached.files, source: "ai", brief: cached.brief }
     }
   }
 
   try {
-    const manifest = (await generateManifest(name, hint)) || fallbackManifest()
+    // Шаг 1: арт-дирекция. Один короткий вызов задаёт характер, которому подчинятся
+    // все последующие файлы. Результат зажат кодом — см. clampBriefProposal.
+    // Готовый бриф (доработка) арт-дирекцию не запускает — облик уже выбран.
+    const brief = options?.brief ?? (await directDesign(name, hint, baseBrief))
+    const template = staticTemplateFiles(name, brief, description)
+
+    const manifest = (await generateManifest(name, hint, brief)) || fallbackManifest()
 
     const generated = await Promise.all(
       manifest.map(async (entry) => {
-        const content = await generateFileContent(name, hint, manifest, entry)
-        return { path: entry.path, content: content ?? (entry.path === "app/page.tsx" ? fallbackPageContent(name, hint) : null) }
+        const content = await generateFileContent(name, hint, manifest, entry, brief)
+        return {
+          path: entry.path,
+          content: content ?? (entry.path === "app/page.tsx" ? renderFallbackPage(brief, name, hint) : null),
+        }
       }),
     )
 
     const files = generated.filter((f): f is GeneratedAppFile => typeof f.content === "string")
 
     if (!files.some((f) => f.path === "app/page.tsx")) {
-      files.push({ path: "app/page.tsx", content: fallbackPageContent(name, hint) })
+      files.push({ path: "app/page.tsx", content: renderFallbackPage(brief, name, hint) })
     }
 
     const source: "ai" | "fallback" = files.length > 0 ? "ai" : "fallback"
     const allFiles = [...template, ...files]
     // Кешируем только реальный ai-результат, чтобы не «залипал» fallback.
-    if (source === "ai") durableCache.set(cacheKey, allFiles, APP_CACHE_TTL_SECONDS)
-    return { files: allFiles, source }
+    if (source === "ai") durableCache.set(cacheKey, { files: allFiles, brief }, APP_CACHE_TTL_SECONDS)
+    return { files: allFiles, source, brief }
   } catch (err) {
     captureError("[app-generator] generation failed, falling back:", err)
     return {
-      files: [...template, { path: "app/page.tsx", content: fallbackPageContent(name, hint) }],
+      files: [
+        ...staticTemplateFiles(name, baseBrief, description),
+        { path: "app/page.tsx", content: renderFallbackPage(baseBrief, name, hint) },
+      ],
       source: "fallback",
+      brief: baseBrief,
     }
   }
 }
