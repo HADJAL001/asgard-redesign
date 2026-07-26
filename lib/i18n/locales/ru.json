@@ -993,7 +993,12 @@
     "hideReport": "Свернуть разбор",
     "reportChecks": "Что проверяли",
     "reportRepairs": "Что починили",
-    "reportDefects": "Что осталось"
+    "reportDefects": "Что осталось",
+    "nextEyebrowAction": "Что делать дальше",
+    "nextEyebrowProgress": "Сейчас в работе",
+    "nextEyebrowError": "Нужно починить",
+    "nextEyebrowDone": "Готово",
+    "nextAllDone": "Приложение проверено, запущено и опубликовано — всё готово"
   },
   "ceremony": {
     "starting": "Кузница разгорается…",

@@ -985,7 +985,12 @@
     "hideReport": "Hide breakdown",
     "reportChecks": "What was checked",
     "reportRepairs": "What was repaired",
-    "reportDefects": "What remains"
+    "reportDefects": "What remains",
+    "nextEyebrowAction": "What to do next",
+    "nextEyebrowProgress": "In progress",
+    "nextEyebrowError": "Needs a fix",
+    "nextEyebrowDone": "Done",
+    "nextAllDone": "Checked, running, and deployed — everything is ready"
   },
   "ceremony": {
     "starting": "The forge is warming up…",
