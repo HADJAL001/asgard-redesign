@@ -85,6 +85,8 @@ export function ForgeView() {
     fetchTcState,
     artifacts,
     fetchArtifacts,
+    forgeLoadout,
+    fetchLoadout,
     forgeArtifact,
     generateAiArtifact,
     premiumUpgradeArtifact,
@@ -165,6 +167,7 @@ export function ForgeView() {
     fetchTcState({ skipAuthRedirect: true })
     fetchArtifacts({ skipAuthRedirect: true })
     fetchProjects({ skipAuthRedirect: true })
+    fetchLoadout({ skipAuthRedirect: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -172,7 +175,11 @@ export function ForgeView() {
   const selCurrency = FORGE_CURRENCIES.find((c) => c.id === forgeCurrency)!
   const forgeCost = selCurrency.cost
   const forgeBalance = (wallet as unknown as Record<string, number>)[forgeCurrency] ?? 0
-  const canForge = name.trim().length > 0 && forgeBalance >= forgeCost
+  /* Скидка от честного снаряжения Кузницы (см. backend/artifacts.routes.ts POST /forge:
+     paidCost = max(1, cost - round(cost*discountRate)) — та же формула, тот же результат. */
+  const discountRate = forgeLoadout.discount.discountRate
+  const paidCost = Math.max(1, forgeCost - Math.round(forgeCost * discountRate))
+  const canForge = name.trim().length > 0 && forgeBalance >= paidCost
 
   // Кинематографический эффект при создании
   const [forging, setForging] = useState(false)
@@ -590,7 +597,7 @@ export function ForgeView() {
         <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
           {[
             { n: fmtTC(wallet.timecoin), l: t("forge.yourBalance"), Icon: Coins, c: "#F1C40F" },
-            { n: `${forgeCost} ${selCurrency.label}`, l: t("forge.creationCost"), Icon: Hammer, c: selCurrency.color },
+            { n: `${paidCost} ${selCurrency.label}`, l: t("forge.creationCost"), Icon: Hammer, c: selCurrency.color },
             { n: `${artifacts.length}`, l: t("forge.artifactsInCollection"), Icon: Archive, c: "#9B59B6" },
           ].map((m) => (
             <div key={m.l} className="eg-surface premium-card rounded-xl p-5">
@@ -722,18 +729,33 @@ export function ForgeView() {
             <div className="eg-inset mt-4 space-y-2 rounded-lg p-4 text-[13px]">
               <div className="flex items-center justify-between">
                 <span style={{ color: COLORS.label }}>{t("forge.creationCost")}</span>
-                <span>{forgeCost} {selCurrency.label}</span>
+                {discountRate > 0 ? (
+                  <span className="flex items-baseline gap-1.5">
+                    <span className="line-through" style={{ color: COLORS.label }}>{forgeCost}</span>
+                    <span className="font-medium" style={{ color: COLORS.green }}>{paidCost} {selCurrency.label}</span>
+                  </span>
+                ) : (
+                  <span>{forgeCost} {selCurrency.label}</span>
+                )}
               </div>
+              {discountRate > 0 && (
+                <div className="flex items-center justify-between">
+                  <span style={{ color: "#F1C40F" }}>{t("forge.discount.label")}</span>
+                  <span style={{ color: "#F1C40F" }}>
+                    {t("forge.discount.value", { percent: Math.round(discountRate * 100) })}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span style={{ color: COLORS.label }}>{t("forge.yourBalanceLabel")}</span>
-                <span style={{ color: forgeBalance >= forgeCost ? COLORS.green : COLORS.red }}>
+                <span style={{ color: forgeBalance >= paidCost ? COLORS.green : COLORS.red }}>
                   {forgeBalance} {selCurrency.label}
                 </span>
               </div>
               <div className="flex items-center justify-between pt-1" style={{ borderTop: `1px solid ${COLORS.border}` }}>
                 <span>{t("forge.remainingAfter")}</span>
                 <span className="text-[15px] font-medium" style={{ color: "#FFFFFF" }}>
-                  {Math.max(0, forgeBalance - forgeCost)} {selCurrency.label}
+                  {Math.max(0, forgeBalance - paidCost)} {selCurrency.label}
                 </span>
               </div>
             </div>
@@ -747,7 +769,7 @@ export function ForgeView() {
               style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
             >
               {submitting && <Loader2 size={16} className="animate-spin" />}
-              {t("forge.createBtn", { amount: `${forgeCost} ${selCurrency.label}` })}
+              {t("forge.createBtn", { amount: `${paidCost} ${selCurrency.label}` })}
             </button>
 
             {notice && (

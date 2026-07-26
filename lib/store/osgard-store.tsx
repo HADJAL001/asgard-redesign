@@ -176,6 +176,8 @@ export interface EquippedArtifact {
   defense: number
   magic: number
   speed: number
+  /** craft_score ∈ [0..1]. NULL — legacy-артефакт (труд не доказан, в скидку не идёт). */
+  craftScore?: number | null
 }
 
 /** Совокупный бонус снаряжения Кузницы, реально применяемый к рождающимся артефактам. */
@@ -188,17 +190,27 @@ export interface ForgeBonus {
   rarityUpChance: number
 }
 
+/** Скидка на ручную ковку от честности надетого снаряжения (см. GET /artifacts/loadout). */
+export interface ForgeDiscount {
+  /** Число надетых артефактов, из которых посчитана скидка. */
+  equippedCount: number
+  /** Доля скидки на ручную ковку (0..0.25). */
+  discountRate: number
+}
+
 /** Снимок снаряжения Кузницы (GET /artifacts/loadout). */
 export interface ForgeLoadout {
   equipped: EquippedArtifact[]
   bonus: ForgeBonus
+  discount: ForgeDiscount
   maxSlots: number
 }
 
-/** Пустое снаряжение (нулевой бонус) — начальное состояние и безопасный fallback. */
+/** Пустое снаряжение (нулевой бонус/скидка) — начальное состояние и безопасный fallback. */
 export const EMPTY_FORGE_LOADOUT: ForgeLoadout = {
   equipped: [],
   bonus: { equippedCount: 0, statBonus: 0, rarityUpChance: 0 },
+  discount: { equippedCount: 0, discountRate: 0 },
   maxSlots: 3,
 }
 
