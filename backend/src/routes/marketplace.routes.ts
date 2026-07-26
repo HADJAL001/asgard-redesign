@@ -3,6 +3,7 @@ import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { logAudit } from "../lib/audit"
 import { createActivityEvent } from "../lib/activity"
+import { createNotification } from "../lib/notifications"
 import { addArchitectXp } from "../lib/architect-progression"
 import { computeCreatorRoyalty } from "../lib/creator-royalty"
 import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
@@ -304,6 +305,14 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
         text: `продал артефакт «${artifact.name}»`,
         metadata: { name: artifact.name, rarity: artifact.rarity, price: listing.price, currency },
       })
+      createNotification({
+        userId: listing.seller_id,
+        actorId: buyerId,
+        type: "marketplace_sale",
+        entityType: "artifact",
+        entityId: listing.artifact_id,
+        text: `Ваш артефакт «${artifact.name}» продан за ${sellerReceives} ${currency}.`,
+      })
       addArchitectXp(listing.seller_id, "artifact_sold")
 
       const rp = post.royaltyPaid
@@ -320,6 +329,13 @@ router.post("/:id/buy", requireAuth, (req: AuthRequest, res) => {
           entityId: listing.artifact_id,
           text: `получил роялти за свою ковку «${artifact.name}»`,
           metadata: { name: artifact.name, rarity: artifact.rarity, amount: rp.amount, currency },
+        })
+        createNotification({
+          userId: rp.creatorId,
+          type: "marketplace_royalty",
+          entityType: "artifact",
+          entityId: listing.artifact_id,
+          text: `Роялти за перепродажу вашей ковки «${artifact.name}»: ${rp.amount} ${currency}.`,
         })
       }
 

@@ -78,8 +78,17 @@ function timeLabelFor(raw: string): string {
   return parseServerDate(raw).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
 }
 
+const PRICE_TYPES = new Set([
+  "marketplace_sale",
+  "marketplace_royalty",
+  "auction_outbid",
+  "auction_won",
+  "auction_sold",
+])
+
 function toCard(n: AppNotification): Notification {
-  const type: NotifType = n.type === "like" || n.type === "comment" ? n.type : "system"
+  const type: NotifType =
+    n.type === "like" || n.type === "comment" ? n.type : PRICE_TYPES.has(n.type) ? "price" : "system"
   return {
     id: n.id,
     type,
