@@ -5,19 +5,23 @@
    ----------------------------------------------------------------
    3 шага:
    1. Название проекта
-   2. Выбор темы (Sci-Fi, Fantasy, Cyberpunk, ...) — превращается в hint
-      для AI-генерации или просто используется как описание при ручном
-      создании
-   3. Способ создания: AI-генерация (POST /projects/generate) или
-      ручное создание (POST /projects)
+   2. Выбор темы (Sci-Fi, Fantasy, Cyberpunk, ...) — становится hint'ом
+      для генерации
+   3. Описание + глубина генерации → POST /projects/generate
+
+   Создание проекта всегда идёт через реальную генерацию: нет отдельного
+   «ручного» пути без файлов и стартовых артефактов (был убран — он не
+   писал project_files, из-за чего «Проверить» на таких проектах падало
+   с «нет файлов для проверки», а пользователь не видел вообще никакого
+   прогресса создания).
 
    Прогресс-бар вверху показывает шаг 1/3 → 3/3.
 
-   Использует useOsgardStore(): createProject(), generateProject()
+   Использует useOsgardStore(): generateProject()
    ================================================================ */
 
 import { useEffect, useState } from "react"
-import { X, Sparkles, Wand2, PenLine, Loader2, ArrowRight, ArrowLeft, Check, Coins } from "lucide-react"
+import { X, Wand2, PenLine, Loader2, ArrowRight, ArrowLeft, Check, Coins } from "lucide-react"
 import { useOsgardStore, type OsgardArtifact } from "@/lib/store/osgard-store"
 import { COLORS, RARITY, RARITY_CHAIN } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
@@ -70,14 +74,13 @@ const THEMES: Theme[] = [
 ]
 
 type Props = {
-  initialMode?: "manual" | "ai"
   onClose: () => void
   onCreated: (projectId: number) => void
 }
 
-export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated }: Props) {
+export function ProjectCreateWizard({ onClose, onCreated }: Props) {
   const { t } = useTranslation()
-  const { createProject, generateProject, pollProjectStatus } = useOsgardStore()
+  const { generateProject, pollProjectStatus } = useOsgardStore()
   const wallet = useOsgardStore((s) => s.wallet)
   const { nudgeOpen, closeNudge, trackGeneration, usageData } = useUpgradeNudge()
 
@@ -85,7 +88,6 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
   const [name, setName] = useState("")
   const [theme, setTheme] = useState<Theme | null>(null)
   const [customThemeText, setCustomThemeText] = useState("")
-  const [mode, setMode] = useState<"manual" | "ai">(initialMode)
   const [description, setDescription] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -142,54 +144,48 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
     setError(null)
     setSubmitting(true)
     try {
-      if (mode === "ai") {
-        // Платная глубина требует достаточного баланса — проверяем до запроса, чтобы не ловить 402.
-        if (insufficientCredits) {
-          setError(t("projectWizard.insufficientCredits", { cost: depthCost, balance: wallet.credits }))
-          setSubmitting(false)
-          return
-        }
-        // POST /projects/generate отвечает сразу (проект уже создан, status='generating'),
-        // а реальные файлы приложения генерируются в фоне на сервере — опрашиваем статус.
-        const res = await generateProject(name.trim(), theme?.hint, depthId)
-        if (res.success && res.project) {
-          setGeneratingApp(true)
-          const finalProject = await pollProjectStatus(res.project.id)
-          setGeneratingApp(false)
+      // Платная глубина требует достаточного баланса — проверяем до запроса, чтобы не ловить 402.
+      if (insufficientCredits) {
+        setError(t("projectWizard.insufficientCredits", { cost: depthCost, balance: wallet.credits }))
+        setSubmitting(false)
+        return
+      }
+      // POST /projects/generate отвечает сразу (проект уже создан, status='generating'),
+      // а реальные файлы приложения генерируются в фоне на сервере — опрашиваем статус.
+      // Собственное описание пользователя (если есть) важнее темы — это его реальный
+      // бриф для генерации, тема лишь fallback-подсказка.
+      const hint = description.trim() || theme?.hint
+      const res = await generateProject(name.trim(), hint, depthId)
+      if (res.success && res.project) {
+        setGeneratingApp(true)
+        const finalProject = await pollProjectStatus(res.project.id)
+        setGeneratingApp(false)
 
-          /* Трекаем генерацию для нуджа — вызываем после завершения */
-          trackGeneration()
+        /* Трекаем генерацию для нуджа — вызываем после завершения */
+        trackGeneration()
 
-          if (finalProject?.status === "ready") {
-            // Момент магии: если вместе с проектом родились артефакты — показываем
-            // ритуал раскрытия, а не молча закрываем мастер. onDone продолжит в onCreated.
-            if (res.artifacts && res.artifacts.length > 0) {
-              setReveal({
-                projectId: finalProject.id,
-                name: finalProject.name,
-                description: finalProject.description,
-                artifacts: res.artifacts,
-              })
-            } else {
-              onCreated(finalProject.id)
-            }
-          } else if (finalProject?.status === "failed") {
-            setError(finalProject.generationError || t("projectWizard.generationFailed"))
+        if (finalProject?.status === "ready") {
+          // Момент магии: если вместе с проектом родились артефакты — показываем
+          // ритуал раскрытия, а не молча закрываем мастер. onDone продолжит в onCreated.
+          if (res.artifacts && res.artifacts.length > 0) {
+            setReveal({
+              projectId: finalProject.id,
+              name: finalProject.name,
+              description: finalProject.description,
+              artifacts: res.artifacts,
+            })
           } else {
-            // таймаут поллинга — проект всё ещё генерируется, но пользователь может
-            // перейти к нему и посмотреть прогресс на странице проекта
-            onCreated(res.project.id)
+            onCreated(finalProject.id)
           }
+        } else if (finalProject?.status === "failed") {
+          setError(finalProject.generationError || t("projectWizard.generationFailed"))
         } else {
-          setError(res.error || t("projectWizard.errorGenerate"))
+          // таймаут поллинга — проект всё ещё генерируется, но пользователь может
+          // перейти к нему и посмотреть прогресс на странице проекта
+          onCreated(res.project.id)
         }
       } else {
-        const res = await createProject(name.trim(), description.trim() || theme?.hint, theme?.badge)
-        if (res.success && res.project) {
-          onCreated(res.project.id)
-        } else {
-          setError(res.error || t("projectWizard.errorCreate"))
-        }
+        setError(res.error || t("projectWizard.errorGenerate"))
       }
     } finally {
       setSubmitting(false)
@@ -378,57 +374,20 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
           {step === 3 && (
             <div>
               <label className="text-[13px] font-medium" style={{ color: COLORS.text }}>
-                {t("projectWizard.methodLabel")}
+                {t("projectWizard.descriptionLabel")}
               </label>
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setMode("ai")}
-                  className="flex flex-col items-start gap-2 rounded-xl p-4 text-left transition-colors"
-                  style={{
-                    border: `1px solid ${mode === "ai" ? COLORS.accent : COLORS.border}`,
-                    backgroundColor: mode === "ai" ? "rgba(0,212,255,0.06)" : "transparent",
-                  }}
-                >
-                  <Sparkles size={20} strokeWidth={1.5} style={{ color: COLORS.accent }} />
-                  <span className="text-[14px] font-medium">{t("projectWizard.aiOption")}</span>
-                  <span className="text-[12px]" style={{ color: COLORS.label }}>
-                    {t("projectWizard.aiOptionDesc")}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode("manual")}
-                  className="flex flex-col items-start gap-2 rounded-xl p-4 text-left transition-colors"
-                  style={{
-                    border: `1px solid ${mode === "manual" ? COLORS.accent : COLORS.border}`,
-                    backgroundColor: mode === "manual" ? "rgba(0,212,255,0.06)" : "transparent",
-                  }}
-                >
-                  <PenLine size={20} strokeWidth={1.5} style={{ color: COLORS.text }} />
-                  <span className="text-[14px] font-medium">{t("projectWizard.manualOption")}</span>
-                  <span className="text-[12px]" style={{ color: COLORS.label }}>
-                    {t("projectWizard.manualOptionDesc")}
-                  </span>
-                </button>
-              </div>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder={theme?.hint || t("projectWizard.descriptionPlaceholder")}
+                rows={3}
+                className="cal-input mt-2 resize-none"
+              />
+              <p className="mt-2 text-[12px]" style={{ color: COLORS.label }}>
+                {t("projectWizard.descriptionHint")}
+              </p>
 
-              {mode === "manual" && (
-                <div className="mt-4">
-                  <label className="text-[13px] font-medium" style={{ color: COLORS.text }}>
-                    {t("projectWizard.descriptionLabel")}
-                  </label>
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder={theme?.hint || t("projectWizard.descriptionPlaceholder")}
-                    rows={3}
-                    className="cal-input mt-2 resize-none"
-                  />
-                </div>
-              )}
-
-              {mode === "ai" && depths.length > 0 && (
+              {depths.length > 0 && (
                 <div className="mt-4">
                   <div className="flex items-center justify-between">
                     <label className="text-[13px] font-medium" style={{ color: COLORS.text }}>
@@ -486,12 +445,10 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
                 </div>
               )}
 
-              {mode === "ai" && (
-                <p className="mt-4 flex items-center gap-2 text-[12px]" style={{ color: COLORS.label }}>
-                  <Wand2 size={14} strokeWidth={1.75} />
-                  {t("projectWizard.aiWillGenerate", { name: name || "…", theme: theme?.label || t("projectWizard.noTheme") })}
-                </p>
-              )}
+              <p className="mt-4 flex items-center gap-2 text-[12px]" style={{ color: COLORS.label }}>
+                <Wand2 size={14} strokeWidth={1.75} />
+                {t("projectWizard.aiWillGenerate", { name: name || "…", theme: theme?.label || t("projectWizard.noTheme") })}
+              </p>
             </div>
           )}
 
@@ -532,23 +489,19 @@ export function ProjectCreateWizard({ initialMode = "manual", onClose, onCreated
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || (mode === "ai" && insufficientCredits)}
+              disabled={submitting || insufficientCredits}
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90 disabled:opacity-60"
               style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
             >
               {submitting ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  {mode === "ai"
-                    ? generatingApp
-                      ? t("projectWizard.generatingApp")
-                      : t("projectWizard.generating")
-                    : t("projectWizard.creating")}
+                  {generatingApp ? t("projectWizard.generatingApp") : t("projectWizard.generating")}
                 </>
               ) : (
                 <>
                   <Check size={14} strokeWidth={1.75} />
-                  {mode === "ai" ? t("projectWizard.generate") : t("projectWizard.create")}
+                  {t("projectWizard.generate")}
                 </>
               )}
             </button>

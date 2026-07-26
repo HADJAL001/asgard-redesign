@@ -712,8 +712,6 @@ export interface OsgardStoreState {
   fetchProjects: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   /** GET /projects/:id — один проект + его артефакты. */
   fetchProject: (id: number, opts?: { skipAuthRedirect?: boolean }) => Promise<void>
-  /** POST /projects — создать проект вручную (name, description?, badge?). */
-  createProject: (name: string, description?: string, badge?: string) => Promise<ProjectActionResult>
   /** POST /projects/generate — запускает асинхронную генерацию реального приложения (name, hint?, depth?).
    *  depth ("quick"|"standard"|"deep") выбирает глубину: quick бесплатна и идёт по дневной квоте,
    *  standard/deep списывают кредиты и включают полную AI-генерацию / bypass кеша соответственно.
@@ -1471,26 +1469,6 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       }))
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить проект") })
-    }
-  },
-
-  /* ---- проекты: POST /projects — создать проект вручную ---- */
-  createProject: async (name, description, badge) => {
-    set({ loading: true, error: null })
-    try {
-      const res = await apiClient.post<{ project: OsgardProject }>("/projects", { name, description, badge })
-
-      set((s) => ({
-        projects: [res.project, ...s.projects],
-        loading: false,
-        error: null,
-      }))
-
-      return { success: true, project: res.project }
-    } catch (err) {
-      const message = extractErrorMessage(err, "Не удалось создать проект")
-      set({ loading: false, error: message })
-      return { success: false, error: message }
     }
   },
 
