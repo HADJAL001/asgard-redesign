@@ -34,7 +34,8 @@ export default function CreateScreen() {
   const todayCount = countTodayAiGenerated(artifacts);
   const balance = wallet?.timecoin ?? 0;
   const canAfford = balance >= AI_GENERATE_COST_TC;
-  const canSubmit = description.trim().length > 0 && canAfford && phase === 'idle';
+  const limitReached = todayCount >= DAILY_AI_GENERATION_SOFT_LIMIT;
+  const canSubmit = description.trim().length > 0 && canAfford && !limitReached && phase === 'idle';
 
   const handleGenerate = useCallback(async () => {
     if (!canSubmit) return;
@@ -138,9 +139,11 @@ export default function CreateScreen() {
           accessibilityRole="button"
           accessibilityLabel="Сгенерировать артефакт"
           accessibilityHint={
-            canAfford
-              ? `Спишет ${AI_GENERATE_COST_TC} TimeCoin с баланса`
-              : `Недоступно: нужно ещё TimeCoin, стоимость ${AI_GENERATE_COST_TC}`
+            limitReached
+              ? `Недоступно: дневной лимит генераций исчерпан (${DAILY_AI_GENERATION_SOFT_LIMIT} в сутки)`
+              : !canAfford
+                ? `Недоступно: нужно ещё TimeCoin, стоимость ${AI_GENERATE_COST_TC}`
+                : `Спишет ${AI_GENERATE_COST_TC} TimeCoin с баланса`
           }
           accessibilityState={{ disabled: !canSubmit }}
           className={`flex-row items-center justify-center gap-2 rounded-xl px-4 py-4 ${

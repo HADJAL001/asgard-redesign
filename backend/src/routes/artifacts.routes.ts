@@ -45,6 +45,8 @@ const EVOLVE_RARITY_COST_TC = 120 /* стоимость перехода на с
 
 const AI_GENERATE_COST_TC = FORGE_COST_TC /* стоимость AI-генерации — паритет с ручной ковкой */
 const AI_UNIQUENESS_MAX_ATTEMPTS = 3 /* попыток регенерации при коллизии имени, затем — суффикс */
+/** 1:1 с mobile/types/artifact.ts DAILY_AI_GENERATION_SOFT_LIMIT — здесь порог реально применяется. */
+const DAILY_AI_GENERATION_LIMIT = 3
 
 /* ---------------- Премиум-усиление (за TimeCoin, мгновенно) ----------------
    Правила:
@@ -408,6 +410,22 @@ router.post("/generate-ai", requireAuth, asyncHandler(async (req: AuthRequest, r
 
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
   if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
+
+  const todayStartMs = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())
+  const todayCount = (
+    db
+      .prepare(
+        `SELECT COUNT(*) as count FROM artifacts WHERE owner_id = ? AND source IS NOT NULL AND created_at >= ?`,
+      )
+      .get(req.user!.userId, todayStartMs) as { count: number }
+  ).count
+  if (todayCount >= DAILY_AI_GENERATION_LIMIT) {
+    logAudit(req.user!.userId, "rejected", 0, "daily_limit_reached", { action: "generate_ai", todayCount })
+    return res
+      .status(409)
+      .json({ error: `Дневной лимит AI-генераций исчерпан (${DAILY_AI_GENERATION_LIMIT} в сутки)`, code: "DAILY_LIMIT_REACHED" })
+  }
+
   if (wallet.timecoin < AI_GENERATE_COST_TC) {
     logAudit(req.user!.userId, "rejected", AI_GENERATE_COST_TC, "insufficient_balance", { action: "generate_ai" })
     return res.status(400).json({ error: `Недостаточно TimeCoin (нужно ${AI_GENERATE_COST_TC})` })
