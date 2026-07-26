@@ -30,6 +30,10 @@ const nextConfig = {
       { source: "/studio/:path*", headers: coiHeaders },
       // Сессия A · Live Run авторизованного проекта (компонент ProjectLiveRun).
       { source: "/projects/:id/live", headers: coiHeaders },
+      /* Claude B · «Мастерская» проекта (ProjectWorkspaceView): код + живой
+         запуск + чат в ОДНОМ экране. Тот же credentialless, что у /studio —
+         именно он позволяет держать Monaco (CDN) и WebContainer вместе. */
+      { source: "/projects/:id/workspace", headers: coiHeaders },
     ]
   },
 }

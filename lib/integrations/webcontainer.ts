@@ -21,6 +21,9 @@ import type { FileTree } from "./file-tree"
    ================================================================ */
 
 let containerPromise: Promise<import("@webcontainer/api").WebContainer> | null = null
+/** Поднят ли уже dev-сервер в текущем контейнере (см. runInWebContainer).
+ *  Нужен, чтобы «Мастерская» знала, можно ли доставить правку горячо. */
+let devServerUp = false
 
 async function getContainer() {
   if (typeof window === "undefined") {
@@ -31,6 +34,11 @@ async function getContainer() {
     containerPromise = WebContainer.boot()
   }
   return containerPromise
+}
+
+/** Запущен ли уже живой предпросмотр. Синхронно — вызывается из рендера. */
+export function isPreviewRunning(): boolean {
+  return devServerUp
 }
 
 type WebContainerFsTree = Record<string, { file: { contents: string } } | { directory: WebContainerFsTree }>
@@ -79,14 +87,41 @@ export async function runInWebContainer(files: FileTree): Promise<string> {
 
     container.on("server-ready", (_port, url) => {
       clearTimeout(timeout)
+      devServerUp = true
       resolve(url)
     })
 
     devProcess.exit.then((code) => {
+      devServerUp = false
       if (code !== 0) {
         clearTimeout(timeout)
         reject(new Error(`dev-сервер завершился с кодом ${code}`))
       }
     })
   })
+}
+
+/**
+ * Доставляет ОДИН файл в уже работающий контейнер — dev-сервер подхватывает
+ * правку своим hot-reload, без переустановки зависимостей и перезапуска.
+ *
+ * Зачем отдельно от runInWebContainer: там путь «смонтировать всё → npm install
+ * → npm run dev» занимает десятки секунд, и гонять его после каждого Ctrl+S
+ * бессмысленно. Здесь — только запись в ФС контейнера (миллисекунды).
+ *
+ * Возвращает false, если превью ещё не запущено (тогда вызывающий просто не
+ * показывает «обновлено» — это не ошибка, а обычное состояние до первого пуска).
+ * Промежуточные каталоги создаются рекурсивно: AI-доработка может добавить файл
+ * в новую папку, которой в смонтированном дереве ещё нет.
+ */
+export async function syncFileToPreview(path: string, content: string): Promise<boolean> {
+  if (!devServerUp || !containerPromise) return false
+
+  const container = await containerPromise
+  const dir = path.split("/").slice(0, -1).join("/")
+  if (dir) {
+    await container.fs.mkdir(dir, { recursive: true })
+  }
+  await container.fs.writeFile(path, content)
+  return true
 }
