@@ -254,7 +254,7 @@
     "artifactType": "Artifact type",
     "projectLabel": "Project (optional)",
     "projectNone": "No project",
-    "rarityInfo": "Rarity is determined randomly on creation",
+    "rarityInfo": "Rarity and stats are honestly derived from your project — see \"Craft honesty\" in the result",
     "yourBalanceLabel": "Your balance",
     "remainingAfter": "Remaining after creation",
     "createBtn": "Create for {{amount}}",
@@ -273,6 +273,9 @@
         "normal": "+{{gain}} lvl",
         "crit": "CRIT! +{{gain}} lvl"
       }
+    },
+    "verdict": {
+      "title": "Craft honesty"
     }
   },
   "artifacts": {
