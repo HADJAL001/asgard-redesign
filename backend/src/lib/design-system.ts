@@ -27,7 +27,7 @@
 
 /** Версия схемы брифа. Входит в ключ кеша генерации: иначе после
  *  изменения дизайн-системы кеш продолжил бы отдавать старый облик. */
-export const DESIGN_BRIEF_VERSION = 1
+export const DESIGN_BRIEF_VERSION = 2
 
 export type DesignPalette = {
   /** Фон страницы. */
@@ -75,6 +75,15 @@ export type DesignMotion = {
   ease: string
 }
 
+/** Стиль эффекта контейнеров/секций (карточки, панели) — независимая от цвета
+ *  ось темизации: «из чего сделаны» поверхности, а не «какого они оттенка».
+ *  glass — эталонное стекло (текущее поведение, blur+прозрачность);
+ *  neon — яркая обводка и внешнее свечение вместо блюра;
+ *  matte — плоские поверхности без blur, тонкая тень;
+ *  aurora — анимированный градиентный бордер;
+ *  crystal — усиленный blur + зерно + резкие светлые грани. */
+export type DesignEffectStyle = "glass" | "neon" | "matte" | "aurora" | "crystal"
+
 export type DesignBrief = {
   version: number
   /** Архетип продукта — определяет весь характер (см. ARCHETYPES). */
@@ -90,6 +99,8 @@ export type DesignBrief = {
   radius: { sm: number; md: number; lg: number; pill: number }
   elevation: { sm: string; md: string; lg: string }
   motion: DesignMotion
+  /** Стиль эффекта поверхностей — см. DesignEffectStyle. */
+  effect: DesignEffectStyle
   density: "compact" | "comfortable" | "spacious"
   /** Паттерны раскладки — попадают в промпт манифеста как архитектурная рамка. */
   layout: string[]
@@ -284,6 +295,7 @@ type ArchetypeSpec = {
   density: DesignBrief["density"]
   spacingBase: number
   radiusScale: number
+  effect: DesignEffectStyle
   moods: readonly string[]
   voices: readonly string[]
   layouts: readonly string[]
@@ -331,6 +343,7 @@ const ARCHETYPES: Record<DesignArchetypeId, ArchetypeSpec> = {
     density: "comfortable",
     spacingBase: 8,
     radiusScale: 1.2,
+    effect: "aurora",
     moods: ["древняя магия и тёплое золото", "ночной ритуал, свет из глубины", "рукопись, ожившая в цифре"],
     voices: ["торжественный, но без пафоса — короткие фразы с весом"],
     layouts: [
@@ -353,6 +366,7 @@ const ARCHETYPES: Record<DesignArchetypeId, ArchetypeSpec> = {
     density: "compact",
     spacingBase: 4,
     radiusScale: 0.6,
+    effect: "neon",
     moods: ["холодная точность приборной панели", "неон на графите", "инженерная ясность"],
     voices: ["сжатый технический тон, факты и числа без украшений"],
     layouts: [
@@ -375,6 +389,7 @@ const ARCHETYPES: Record<DesignArchetypeId, ArchetypeSpec> = {
     density: "spacious",
     spacingBase: 8,
     radiusScale: 1,
+    effect: "matte",
     moods: ["тёплая витрина, товар в главной роли", "спокойный премиум без крика", "бумага, свет и один акцент"],
     voices: ["дружелюбно и конкретно: что это, сколько стоит, что дальше"],
     layouts: [
@@ -397,6 +412,7 @@ const ARCHETYPES: Record<DesignArchetypeId, ArchetypeSpec> = {
     density: "spacious",
     spacingBase: 8,
     radiusScale: 0.5,
+    effect: "matte",
     moods: ["типографика правит бал", "тихая бумага и крупные заголовки", "журнальный разворот"],
     voices: ["повествовательный, полные предложения, уважение к читателю"],
     layouts: [
@@ -419,6 +435,7 @@ const ARCHETYPES: Record<DesignArchetypeId, ArchetypeSpec> = {
     density: "compact",
     spacingBase: 4,
     radiusScale: 0.7,
+    effect: "neon",
     moods: ["плотность данных без шума", "спокойная синева и точные линии", "рабочая панель профессионала"],
     voices: ["нейтральный аналитический тон, метрика и единица измерения рядом"],
     layouts: [
@@ -441,6 +458,7 @@ const ARCHETYPES: Record<DesignArchetypeId, ArchetypeSpec> = {
     density: "comfortable",
     spacingBase: 8,
     radiusScale: 1.6,
+    effect: "neon",
     moods: ["энергия аркады", "яркий акцент на тёмном поле", "скорость и азарт"],
     voices: ["живой и короткий, глаголы в повелительном наклонении"],
     layouts: [
@@ -463,6 +481,7 @@ const ARCHETYPES: Record<DesignArchetypeId, ArchetypeSpec> = {
     density: "comfortable",
     spacingBase: 8,
     radiusScale: 1.4,
+    effect: "glass",
     moods: ["тёплое человечное сообщество", "мягкие формы и воздух", "разговор, а не интерфейс"],
     voices: ["тёплый разговорный тон на «вы», без канцелярита"],
     layouts: [
@@ -485,6 +504,7 @@ const ARCHETYPES: Record<DesignArchetypeId, ArchetypeSpec> = {
     density: "spacious",
     spacingBase: 8,
     radiusScale: 0.8,
+    effect: "crystal",
     moods: ["воздух и один сильный акцент", "галерейная тишина", "минимум элементов, максимум веса"],
     voices: ["уверенный минимализм: одно предложение на мысль"],
     layouts: [
@@ -507,6 +527,7 @@ const ARCHETYPES: Record<DesignArchetypeId, ArchetypeSpec> = {
     density: "comfortable",
     spacingBase: 8,
     radiusScale: 1,
+    effect: "glass",
     moods: ["современный продукт без лишнего", "спокойная глубина и ясная иерархия", "инструмент, которому доверяешь"],
     voices: ["ясный продуктовый тон: польза, действие, результат"],
     layouts: [
@@ -659,6 +680,7 @@ export function deriveDesignBrief(input: DeriveBriefInput): DesignBrief {
       slow: "420ms",
       ease: "cubic-bezier(0.22, 1, 0.36, 1)",
     },
+    effect: spec.effect,
     density: spec.density,
     layout: [...spec.layouts],
     voice: roll.pick(spec.voices),
@@ -689,7 +711,13 @@ export type BriefProposal = {
   bodyFont?: string
   voice?: string
   layout?: unknown
+  effect?: string
 }
+
+const EFFECT_STYLES = ["glass", "neon", "matte", "aurora", "crystal"] as const
+
+/** Публичный список стилей эффектов — уходит в промпт арт-директора и в /design/options. */
+export const EFFECT_MENU: readonly DesignEffectStyle[] = EFFECT_STYLES
 
 const ALLOWED_DISPLAY_FONTS = new Set<string>()
 const ALLOWED_BODY_FONTS = new Set<string>()
@@ -754,6 +782,11 @@ export function clampBriefProposal(base: DesignBrief, proposal: BriefProposal | 
       ? proposal.density
       : base.density
 
+  const effect: DesignEffectStyle =
+    typeof proposal.effect === "string" && (EFFECT_STYLES as readonly string[]).includes(proposal.effect)
+      ? (proposal.effect as DesignEffectStyle)
+      : base.effect
+
   const display =
     typeof proposal.displayFont === "string" && ALLOWED_DISPLAY_FONTS.has(proposal.displayFont)
       ? proposal.displayFont
@@ -802,6 +835,7 @@ export function clampBriefProposal(base: DesignBrief, proposal: BriefProposal | 
     voice: sanitizeText(proposal.voice, base.voice, 160),
     palette,
     typography: { ...base.typography, display, body },
+    effect,
     density,
     spacingBase: density === "compact" ? 4 : 8,
     radius: {
@@ -937,6 +971,128 @@ export function googleFontsHref(brief: DesignBrief): string {
   return `https://fonts.googleapis.com/css2?${params}&display=swap`
 }
 
+/** Зерно для эффекта crystal — тот же приём, что и .premium-card в платформе
+ *  OSGARD (SVG fractalNoise через data URI), только для генерируемых проектов
+ *  собственная копия: это отдельный `globals.css`, у него нет доступа к
+ *  переменным платформы. */
+const EFFECT_GRAIN_SVG =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")"
+
+/** CSS custom properties, специфичные для выбранного стиля эффекта поверхностей.
+ *  Цвета свечения/обводки берутся из палитры — эффект остаётся «из той же
+ *  вселенной», что и остальной интерфейс, а не наложенным поверх шаблоном. */
+function effectTokens(brief: DesignBrief): string {
+  const p = brief.palette
+  const accentRgb = hexToRgb(p.accent) ?? { r: 255, g: 255, b: 255 }
+  const primaryRgb = hexToRgb(p.primary) ?? { r: 255, g: 255, b: 255 }
+  const inkRgb = hexToRgb(p.ink) ?? { r: 255, g: 255, b: 255 }
+
+  switch (brief.effect) {
+    case "neon":
+      return `  --ds-effect-blur: 0px;
+  --ds-effect-glow: 0 0 1px rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.6), 0 0 28px rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.35);
+  --ds-effect-border: 1.5px solid rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.7);
+  --ds-effect-noise-opacity: 0;`
+    case "matte":
+      return `  --ds-effect-blur: 0px;
+  --ds-effect-glow: none;
+  --ds-effect-border: 1px solid var(--ds-border);
+  --ds-effect-noise-opacity: 0;`
+    case "aurora":
+      return `  --ds-effect-blur: 6px;
+  --ds-effect-glow: 0 0 32px rgba(${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}, 0.25);
+  --ds-effect-border: 1px solid transparent;
+  --ds-effect-noise-opacity: 0;`
+    case "crystal":
+      return `  --ds-effect-blur: 26px;
+  --ds-effect-glow: 0 0 20px rgba(${inkRgb.r}, ${inkRgb.g}, ${inkRgb.b}, 0.08);
+  --ds-effect-border: 1px solid rgba(255, 255, 255, 0.16);
+  --ds-effect-noise-opacity: 0.05;`
+    case "glass":
+    default:
+      return `  --ds-effect-blur: 16px;
+  --ds-effect-glow: none;
+  --ds-effect-border: 1px solid var(--ds-border);
+  --ds-effect-noise-opacity: 0;`
+  }
+}
+
+/** `.ds-card` дорабатывается под выбранный эффект: обычные свойства (фон/радиус)
+ *  остаются в базовом правиле, здесь — только то, что отличает материал.
+ *  aurora и crystal используют псевдоэлементы (обычные CSS-свойства не тянут
+ *  анимированную градиентную рамку или отдельный слой зерна поверх контента). */
+function effectCardCss(brief: DesignBrief): string {
+  switch (brief.effect) {
+    case "neon":
+      return `  .ds-card {
+    backdrop-filter: none;
+    border: var(--ds-effect-border);
+    box-shadow: var(--ds-shadow), var(--ds-effect-glow);
+  }`
+    case "matte":
+      return `  .ds-card {
+    backdrop-filter: none;
+    border: var(--ds-effect-border);
+    box-shadow: var(--ds-shadow);
+  }`
+    case "aurora":
+      return `  .ds-card {
+    position: relative;
+    backdrop-filter: blur(var(--ds-effect-blur));
+    border: var(--ds-effect-border);
+    box-shadow: var(--ds-shadow), var(--ds-effect-glow);
+    isolation: isolate;
+  }
+  .ds-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1.5px;
+    border-radius: inherit;
+    background: conic-gradient(from var(--ds-aurora-angle, 0deg), var(--ds-primary), var(--ds-accent), var(--ds-primary));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: ds-aurora-spin 6s linear infinite;
+    pointer-events: none;
+    z-index: -1;
+  }
+  @keyframes ds-aurora-spin {
+    to { --ds-aurora-angle: 360deg; }
+  }
+  @property --ds-aurora-angle {
+    syntax: "<angle>";
+    initial-value: 0deg;
+    inherits: false;
+  }`
+    case "crystal":
+      return `  .ds-card {
+    position: relative;
+    backdrop-filter: blur(var(--ds-effect-blur)) saturate(1.15);
+    border: var(--ds-effect-border);
+    box-shadow: var(--ds-shadow), var(--ds-effect-glow);
+    overflow: hidden;
+  }
+  .ds-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: ${EFFECT_GRAIN_SVG};
+    background-size: 120px 120px;
+    opacity: var(--ds-effect-noise-opacity);
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }`
+    case "glass":
+    default:
+      return `  .ds-card {
+    backdrop-filter: blur(var(--ds-effect-blur)) saturate(1.1);
+    border: var(--ds-effect-border);
+    box-shadow: var(--ds-shadow);
+  }`
+  }
+}
+
 /**
  * `app/globals.css` с базовым слоем вместо трёх голых `@tailwind`-директив:
  * CSS-переменные токенов, типографический ритм, видимый фокус для клавиатуры,
@@ -970,6 +1126,8 @@ export function renderGlobalsCss(brief: DesignBrief): string {
   --ds-shadow: ${brief.elevation.md};
   --ds-motion: ${brief.motion.base};
   --ds-ease: ${brief.motion.ease};
+
+${effectTokens(brief)}
 
   color-scheme: ${brief.scheme};
 }
@@ -1038,6 +1196,11 @@ export function renderGlobalsCss(brief: DesignBrief): string {
     border-radius: var(--ds-radius);
     box-shadow: var(--ds-shadow);
   }
+
+  /* Материал поверхности — эффект «${brief.effect}», зависит от выбора пользователя
+     в дизайн-студии (POST /design/projects/:id/retune). Переопределяет часть
+     свойств .ds-card выше: порядок в каскаде имеет значение. */
+${effectCardCss(brief)}
 
   .ds-btn {
     display: inline-flex;
@@ -1149,7 +1312,9 @@ export function renderDesignSystemFiles(
 export function renderDesignContract(brief: DesignBrief): string {
   return `=== ДИЗАЙН-КОНТРАКТ (обязателен, нарушения будут отклонены) ===
 Архетип: ${brief.archetype}. Настроение: ${brief.mood}. Тон текстов: ${brief.voice}.
-Схема: ${brief.scheme}. Плотность: ${brief.density}.
+Схема: ${brief.scheme}. Плотность: ${brief.density}. Материал поверхностей: ${brief.effect}
+(уже реализован внутри класса ds-card в CSS — используй ds-card как есть, ничего
+дополнительно для эффекта дописывать не нужно).
 
 Используй ТОЛЬКО эти токены Tailwind (они объявлены в tailwind.config.ts):
 - Фон страницы: bg-canvas | Поверхности: bg-surface, bg-surface-alt
