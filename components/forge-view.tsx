@@ -324,6 +324,12 @@ export function ForgeView() {
 
   const todayAiCount = countTodayAiGenerated(artifacts)
   const aiLimitReached = todayAiCount >= DAILY_AI_GENERATION_SOFT_LIMIT
+  const aiLimitText = aiLimitReached
+    ? t("forge.aiGenerate.limitDepleted")
+    : t("forge.aiGenerate.limitRemaining", {
+        count: DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount,
+        noun: pluralizeGenerations(DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount),
+      })
   const canGenerateAi = !aiSubmitting && !submitting && wallet.timecoin >= AI_GENERATE_COST_TC && !aiLimitReached
   const aiResultRarity: Rarity = (aiResult?.rarity as Rarity) || "common"
 
@@ -368,7 +374,9 @@ export function ForgeView() {
           Клик по оверлею пропускает финал. */}
       {forging && (
         <div
-          role="status"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="forge-phase-heading"
           aria-live="polite"
           onClick={forgePhase === "reveal" ? closeCinematic : undefined}
           className={`fixed inset-0 z-50 flex items-center justify-center overflow-hidden ${forgePhase === "reveal" ? "cursor-pointer" : ""}`}
@@ -593,6 +601,7 @@ export function ForgeView() {
                 сервера (фазы burst/reveal наступают уже с результатом на руках). */}
             <div>
               <p
+                id="forge-phase-heading"
                 key={forgePhase}
                 className="text-[24px] font-semibold tracking-widest uppercase"
                 style={{
@@ -871,20 +880,26 @@ export function ForgeView() {
               {t("forge.aiGenerate.subtitle")}
             </p>
             <div className="mt-2 flex flex-col gap-1.5">
-              <div className="flex items-center gap-1.5">
-                <Zap size={14} style={{ color: aiLimitReached ? COLORS.label : AI_LIMIT_GOLD }} aria-hidden="true" />
+              <div className="flex items-center gap-1.5" aria-hidden="true">
+                <Zap size={14} style={{ color: aiLimitReached ? COLORS.label : AI_LIMIT_GOLD }} />
                 <span className="text-[12px]" style={{ color: aiLimitReached ? COLORS.label : "#FFFFFF" }}>
-                  {aiLimitReached
-                    ? t("forge.aiGenerate.limitDepleted")
-                    : t("forge.aiGenerate.limitRemaining", {
-                        count: DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount,
-                        noun: pluralizeGenerations(DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount),
-                      })}
+                  {aiLimitText}
                 </span>
               </div>
-              <div className="flex gap-1">
+              <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                {t("forge.aiGenerate.limitHint")}
+              </p>
+              <div
+                className="flex gap-1"
+                role="progressbar"
+                aria-valuenow={DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount}
+                aria-valuemin={0}
+                aria-valuemax={DAILY_AI_GENERATION_SOFT_LIMIT}
+                aria-valuetext={aiLimitText}
+                aria-label={aiLimitText}
+              >
                 {Array.from({ length: DAILY_AI_GENERATION_SOFT_LIMIT }).map((_, i) => (
-                  <div key={i} className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: COLORS.border }}>
+                  <div key={i} className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: COLORS.border }} aria-hidden="true">
                     {i < DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount && (
                       <div className="h-full w-full rounded-full" style={{ backgroundColor: AI_LIMIT_GOLD }} />
                     )}
