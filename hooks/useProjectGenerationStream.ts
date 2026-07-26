@@ -28,6 +28,8 @@ export type GenerationStage =
   | "template"
   | "ai"
   | "validating"
+  | "building"
+  | "repairing"
   | "writing"
   | "ready"
   | "failed"
@@ -41,6 +43,10 @@ export type GenerationStageEvent = {
   fileCount?: number
   source?: string
   error?: string
+  /** Сколько инженерных дефектов известно на стадиях building/repairing. */
+  defects?: number
+  /** Инженерный вердикт на терминале ready: passed | repaired | broken | unverified. */
+  verdict?: string
   at: number
 }
 

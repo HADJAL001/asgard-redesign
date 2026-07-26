@@ -292,6 +292,7 @@ function buildFilePrompt(
   manifest: ManifestEntry[],
   entry: ManifestEntry,
   brief: DesignBrief,
+  lessons: string,
 ): string {
   const fileList = manifest.map((f) => `- ${f.path}: ${f.purpose}`).join("\n")
   return `Ты пишешь исходный код для реального Next.js (App Router, TypeScript, Tailwind CSS) приложения "${name}"${hint ? ` в теме: "${hint}"` : ""}.
@@ -300,7 +301,9 @@ function buildFilePrompt(
 ${fileList}
 
 ${renderDesignContract(brief)}
-
+${lessons ? `
+${lessons}
+` : ""}
 Сейчас напиши ПОЛНОЕ содержимое файла "${entry.path}" (${entry.purpose}).
 
 Требования:
@@ -319,10 +322,84 @@ async function generateFileContent(
   manifest: ManifestEntry[],
   entry: ManifestEntry,
   brief: DesignBrief,
+  lessons: string,
 ): Promise<string | null> {
-  const text = await callAnyProvider(buildFilePrompt(name, hint, manifest, entry, brief), 8000)
+  const text = await callAnyProvider(buildFilePrompt(name, hint, manifest, entry, brief, lessons), 8000)
   if (!text) return null
   return extractCodeBlock(text)
+}
+
+/** Промпт ремонта файла: инженерные дефекты + текущий код → исправленный файл целиком.
+ *  Модель чинит КОНКРЕТНЫЕ нарушения контракта сборки, а не переизобретает файл:
+ *  замысел уже выбран, второй облик поверх первого нам не нужен. */
+function buildRepairPrompt(params: {
+  name: string
+  hint?: string
+  path: string
+  purpose: string
+  current: string
+  defects: string
+  brief: DesignBrief
+  siblings: string[]
+}): string {
+  const { name, hint, path, purpose, current, defects, brief, siblings } = params
+  return `Ты чинишь один файл реального Next.js (App Router, TypeScript, Tailwind) приложения "${name}"${hint ? ` в теме: "${hint}"` : ""}.
+
+Файлы приложения (импортировать можно ТОЛЬКО их):
+${siblings.map((s) => `- ${s}`).join("\n")}
+
+${renderDesignContract(brief)}
+
+Файл: "${path}" (${purpose}).
+
+ИНЖЕНЕРНЫЕ ДЕФЕКТЫ, которые обязан устранить (проверено сборщиком, не мнение):
+${defects}
+
+Текущее содержимое файла:
+\`\`\`tsx
+${current.slice(0, 12000)}
+\`\`\`
+
+Требования к ответу:
+- Верни ПОЛНОЕ исправленное содержимое файла, а не патч и не пояснения.
+- Сохрани замысел и вёрстку файла — правь ровно то, что перечислено в дефектах.
+- Импортируй только существующие файлы из списка выше; сторонние пакеты запрещены,
+  кроме next, react и react-dom.
+- Если нужен хук или обработчик события — первой строкой файла поставь "use client".
+- Приложение собирается со статическим экспортом (output: "export"): без API-роутов,
+  без "use server", без next/headers, без export const dynamic.
+- Верни ТОЛЬКО код в одном \`\`\`tsx блоке.`
+}
+
+/**
+ * AI-ремонт одного файла по списку инженерных дефектов. Возвращает null, если
+ * провайдеров нет или все промолчали — вызывающая сторона обязана считать это
+ * «починить не удалось», а не «файл в порядке» (см. lib/project-engineering.ts).
+ */
+export async function repairFileWithAi(params: {
+  name: string
+  hint?: string
+  path: string
+  purpose?: string
+  current: string
+  defects: string
+  brief: DesignBrief
+  siblings: string[]
+}): Promise<string | null> {
+  if (!isAiConfigured()) return null
+  try {
+    const prompt = buildRepairPrompt({
+      ...params,
+      purpose: params.purpose || "файл приложения",
+    })
+    const text = await callAnyProvider(prompt, 8000)
+    if (!text) return null
+    const code = extractCodeBlock(text)
+    return code && code.trim().length >= 20 ? code : null
+  } catch (err) {
+    captureError("[app-generator] AI-ремонт файла не удался:", err)
+    return null
+  }
 }
 
 /**
@@ -346,10 +423,14 @@ export async function generateApp(
     /** Готовый бриф (доработка существующего проекта): арт-дирекция пропускается,
      *  чтобы доработка шла в том же визуальном языке, а не рождала второй облик. */
     brief?: DesignBrief
+    /** Блок «выученные уроки» из корпуса ремесла (lib/craft-corpus): реальная
+     *  статистика поломок этой платформы, чтобы генератор не повторял свои ошибки. */
+    lessons?: string
   },
 ): Promise<AppGenerationResult> {
   const baseBrief = options?.brief ?? deriveDesignBrief({ name, hint, theme: options?.theme, keywords: options?.keywords })
   const description = options?.description ?? ""
+  const lessons = options?.lessons ?? ""
 
   if (!isAiConfigured()) {
     return {
@@ -384,7 +465,7 @@ export async function generateApp(
 
     const generated = await Promise.all(
       manifest.map(async (entry) => {
-        const content = await generateFileContent(name, hint, manifest, entry, brief)
+        const content = await generateFileContent(name, hint, manifest, entry, brief, lessons)
         return {
           path: entry.path,
           content: content ?? (entry.path === "app/page.tsx" ? renderFallbackPage(brief, name, hint) : null),

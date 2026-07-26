@@ -23,10 +23,12 @@ import { useRouter, useSearchParams } from "next/navigation"
 import {
   ArrowLeft, Hammer, Boxes, TrendingUp, Coins, Loader2, Trash2, Store, Archive, CheckCircle2,
   Rocket, Download, ExternalLink, AlertTriangle, Code2, Link2, Play, Wand2, Send, XCircle, Sparkles, Palette,
+  ShieldCheck,
 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { ProjectFileEditor } from "./project-file-editor"
 import { ProjectDesignPanel } from "./project-design-panel"
+import { ProjectEngineeringPanel } from "./project-engineering-panel"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { useAuth } from "@/lib/auth-store"
 import { COLORS, badgeIcon, RARITY, ARTIFACT_TYPES, STAT_META, type ArtifactType, type Rarity } from "@/lib/economy"
@@ -87,7 +89,7 @@ export function ProjectDetailView({ projectId }: Props) {
 
   // ?tab=refine (из /projects и хаба «Доработки») открывает вкладку доработки сразу.
   const initialTab = searchParams.get("tab") === "refine" ? "refine" : "artifacts"
-  const [tab, setTab] = useState<"artifacts" | "refine" | "design" | "files" | "run">(initialTab)
+  const [tab, setTab] = useState<"artifacts" | "refine" | "design" | "engineering" | "files" | "run">(initialTab)
   const [publishing, setPublishing] = useState(false)
   const [publishResult, setPublishResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [deploying, setDeploying] = useState(false)
@@ -271,11 +273,23 @@ export function ProjectDetailView({ projectId }: Props) {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {/* Мастерская (#97) — вход ВНУТРЬ приложения: файлы + Monaco + живой запуск на одном
+                экране. Кнопка первая в ряду по просьбе автора #97 в COORDINATION: он намеренно не
+                трогал этот файл, пока он был у меня в работе, чтобы мы не переписали друг друга. */}
+            <button
+              type="button"
+              onClick={() => router.push(`/projects/${projectId}/workspace`)}
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90"
+              style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
+            >
+              <Code2 size={16} strokeWidth={1.75} />
+              Мастерская
+            </button>
             <button
               type="button"
               onClick={goCreateArtifact}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90"
-              style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors"
+              style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
             >
               <Hammer size={16} strokeWidth={1.75} />
               {t("projectDetail.createArtifact")}
@@ -521,6 +535,18 @@ export function ProjectDetailView({ projectId }: Props) {
             </button>
             <button
               type="button"
+              onClick={() => setTab("engineering")}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium transition-colors"
+              style={{
+                color: tab === "engineering" ? COLORS.accent : COLORS.label,
+                borderBottom: `2px solid ${tab === "engineering" ? COLORS.accent : "transparent"}`,
+              }}
+            >
+              <ShieldCheck size={14} strokeWidth={1.75} />
+              Инженерия
+            </button>
+            <button
+              type="button"
               onClick={() => setTab("files")}
               className="inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium transition-colors"
               style={{
@@ -559,6 +585,13 @@ export function ProjectDetailView({ projectId }: Props) {
             />
           ) : tab === "design" ? (
             <ProjectDesignPanel projectId={projectId} />
+          ) : tab === "engineering" ? (
+            <ProjectEngineeringPanel
+              projectId={projectId}
+              // Ремонт переводит проект в 'generating' на бэкенде — подтягиваем статус,
+              // чтобы страница показала тот же живой лог, что и при генерации.
+              onRepairStarted={() => fetchProject(projectId, { skipAuthRedirect: true })}
+            />
           ) : tab === "run" ? (
             <div className="mt-6 flex flex-col items-center gap-4 rounded-2xl px-6 py-16 text-center" style={{ backgroundColor: COLORS.card, border: `1px dashed ${COLORS.border}` }}>
               <Play size={32} strokeWidth={1.25} style={{ color: COLORS.accent }} />

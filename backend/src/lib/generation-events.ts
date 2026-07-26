@@ -28,6 +28,8 @@ export type GenerationStage =
   | "template" // найден шаблон — адаптируем
   | "ai" // шаблона нет — генерируем код через AI
   | "validating" // проверка сгенерированных файлов
+  | "building" // инженерная проверка работоспособности (целостность/сборка)
+  | "repairing" // платформа чинит найденные дефекты
   | "writing" // запись файлов проекта в БД
   | "ready" // терминальная: успех
   | "failed" // терминальная: ошибка
@@ -46,6 +48,10 @@ export type GenerationStageEvent = {
   source?: string
   /** Текст ошибки на терминале failed. */
   error?: string
+  /** Сколько инженерных дефектов известно на стадиях building/repairing. */
+  defects?: number
+  /** Инженерный вердикт на терминале ready: passed | repaired | broken | unverified. */
+  verdict?: string
   at: number
 }
 
@@ -76,6 +82,8 @@ export function emitGenerationStage(evt: Omit<GenerationStageEvent, "type" | "at
     fileCount: evt.fileCount,
     source: evt.source,
     error: evt.error,
+    defects: evt.defects,
+    verdict: evt.verdict,
   }
 
   const buf = recentStages.get(full.projectId) ?? []
