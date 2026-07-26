@@ -60,8 +60,7 @@ export function FusionModal({ open, onClose }: { open: boolean; onClose: () => v
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl rounded-2xl p-6"
-        style={{ background: "#14141E", border: "1px solid #2A2A3E" }}
+        className="premium-panel w-full max-w-2xl rounded-2xl p-6"
         onClick={(e) => e.stopPropagation()}
       >
         {result ? (
@@ -93,11 +92,7 @@ export function FusionModal({ open, onClose }: { open: boolean; onClose: () => v
               >
                 Слить ещё
               </button>
-              <button
-                onClick={onClose}
-                className="rounded-xl px-4 py-2 text-[13px] font-semibold"
-                style={{ background: "linear-gradient(135deg,#D4AF37,#F5C542)", color: "#1A1400" }}
-              >
+              <button onClick={onClose} className="btn-premium-gold rounded-xl px-4 py-2 text-[13px] font-semibold">
                 Готово
               </button>
             </div>
@@ -111,7 +106,11 @@ export function FusionModal({ open, onClose }: { open: boolean; onClose: () => v
               </button>
             </div>
             <p className="mb-4 text-[13px]" style={{ color: "rgba(255,255,255,0.5)" }}>
-              Выбери 2 артефакта — ИИ выкует потомка. Родители сгорают. Есть шанс мутации!
+              Выбери 2 артефакта — ИИ выкует потомка.{" "}
+              <span className="font-semibold" style={{ color: "#EF4444" }}>
+                Родители сгорают безвозвратно.
+              </span>{" "}
+              Есть ~15% шанс мутации (редкость +1 ступень).
             </p>
             {kept.length < 2 ? (
               <p className="py-8 text-center text-[14px]" style={{ color: "rgba(255,255,255,0.5)" }}>
@@ -126,11 +125,8 @@ export function FusionModal({ open, onClose }: { open: boolean; onClose: () => v
                     <button
                       key={a.id}
                       onClick={() => toggle(a.id)}
-                      className="rounded-xl p-3 text-left transition-all"
-                      style={{
-                        background: sel ? "rgba(212,175,55,0.12)" : "#1A1A24",
-                        border: `1px solid ${sel ? "#D4AF37" : "#2A2A3E"}`,
-                      }}
+                      className={sel ? "rounded-xl p-3 text-left transition-all" : "eg-inset rounded-xl p-3 text-left transition-all"}
+                      style={sel ? { background: "rgba(212,175,55,0.12)", border: "1px solid #D4AF37" } : undefined}
                     >
                       <div className="truncate text-[12px] font-medium text-white">{a.name}</div>
                       <div className="text-[10px]" style={{ color }}>{a.rarity}</div>
@@ -142,17 +138,34 @@ export function FusionModal({ open, onClose }: { open: boolean; onClose: () => v
                 })}
               </div>
             )}
+            {selected.length === 2 && (
+              <div className="eg-inset mt-4 rounded-xl p-3 text-[12px]">
+                <p style={{ color: "rgba(255,255,255,0.5)" }}>
+                  🔥 Сгорят навсегда:{" "}
+                  <span style={{ color: "#fff" }}>
+                    {kept
+                      .filter((a) => selected.includes(a.id))
+                      .map((a) => a.name)
+                      .join(" + ")}
+                  </span>
+                </p>
+                <p className="mt-1" style={{ color: "rgba(255,255,255,0.5)" }}>
+                  ✨ Получишь: 1 нового потомка · честный шанс ~15%, что редкость окажется на ступень выше
+                </p>
+              </div>
+            )}
             {error && <p className="mt-3 text-[13px]" style={{ color: "#EF4444" }}>{error}</p>}
             <div className="mt-4 flex items-center justify-between">
               <span className="text-[13px]" style={{ color: "rgba(255,255,255,0.5)" }}>Выбрано {selected.length}/2</span>
               <button
                 onClick={doFuse}
                 disabled={selected.length !== 2 || fusing}
-                className="rounded-xl px-5 py-2 text-[13px] font-semibold transition-all disabled:opacity-50"
-                style={{
-                  background: selected.length === 2 ? "linear-gradient(135deg,#D4AF37,#F5C542)" : "rgba(255,255,255,0.08)",
-                  color: selected.length === 2 ? "#1A1400" : "rgba(255,255,255,0.5)",
-                }}
+                className={
+                  selected.length === 2
+                    ? "btn-premium-gold rounded-xl px-5 py-2 text-[13px] font-semibold transition-all disabled:opacity-60"
+                    : "rounded-xl px-5 py-2 text-[13px] font-semibold transition-all"
+                }
+                style={selected.length === 2 ? undefined : { background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)" }}
               >
                 {fusing ? "Слияние…" : "🔀 Слить"}
               </button>

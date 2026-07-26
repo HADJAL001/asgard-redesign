@@ -75,10 +75,7 @@ export function ArtifactDetailView({ id }: { id: number }) {
 
   if (!base) {
     return (
-      <div
-        className="min-h-screen font-sans"
-        style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #1A1A1A 100%)", color: "#FFFFFF" }}
-      >
+      <div className="eg-page eg-page--steel min-h-screen font-sans" style={{ color: "#FFFFFF" }}>
         <Navbar />
         <main className="mx-auto max-w-5xl px-6 py-10">
           <Link
@@ -120,10 +117,7 @@ export function ArtifactDetailView({ id }: { id: number }) {
   }
 
   return (
-    <div
-      className="min-h-screen font-sans"
-      style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #1A1A1A 100%)", color: "#FFFFFF" }}
-    >
+    <div className="eg-page eg-page--steel min-h-screen font-sans" style={{ color: "#FFFFFF" }}>
       <Navbar />
       <main className="mx-auto max-w-5xl px-6 py-10">
         <Link
@@ -139,9 +133,8 @@ export function ArtifactDetailView({ id }: { id: number }) {
           {/* Left — hero card */}
           <div className="flex flex-col gap-4">
             <div
-              className="flex flex-col items-center rounded-2xl p-8"
+              className="eg-surface flex flex-col items-center rounded-2xl p-8"
               style={{
-                backgroundColor: CARD,
                 border: `2px solid ${RARITY[rarity].color}`,
                 boxShadow: rarity === "mythic" ? `0 0 48px ${RARITY[rarity].color}44` : "none",
               }}
@@ -203,7 +196,7 @@ export function ArtifactDetailView({ id }: { id: number }) {
             </div>
 
             {/* Price + premium upgrade */}
-            <div className="rounded-2xl p-5" style={{ backgroundColor: CARD, border: `1px solid ${BORDER}` }}>
+            <div className="premium-panel rounded-2xl p-5">
               <p className="text-[12px]" style={{ color: LABEL }}>
                 Оценочная стоимость
               </p>
@@ -212,19 +205,28 @@ export function ArtifactDetailView({ id }: { id: number }) {
                 {formatTokens(base.price)}
               </p>
               {base.level < PREMIUM_MAX_LEVEL ? (
-                <button
-                  type="button"
-                  onClick={upgrade}
-                  disabled={!canUpgrade || upgrading}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-full py-3 text-[14px] font-medium transition-opacity"
-                  style={{
-                    backgroundColor: canUpgrade ? CYAN : "#1A1A24",
-                    color: canUpgrade ? "#0A0A0F" : "rgba(255,255,255,0.3)",
-                    cursor: canUpgrade && !upgrading ? "pointer" : "not-allowed",
-                  }}
-                >
-                  <Sparkles size={15} strokeWidth={1.75} aria-hidden="true" />⭐ Усилить за {formatTokens(upCost)} ∞
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={upgrade}
+                    disabled={!canUpgrade || upgrading}
+                    className={
+                      canUpgrade
+                        ? "btn-premium-gold mt-4 flex w-full items-center justify-center gap-2 rounded-full py-3 text-[14px] font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                        : "mt-4 flex w-full items-center justify-center gap-2 rounded-full py-3 text-[14px] font-medium"
+                    }
+                    style={
+                      canUpgrade
+                        ? undefined
+                        : { backgroundColor: "#1A1A24", color: "rgba(255,255,255,0.3)", cursor: "not-allowed" }
+                    }
+                  >
+                    <Sparkles size={15} strokeWidth={1.75} aria-hidden="true" />⭐ Усилить за {formatTokens(upCost)} ∞
+                  </button>
+                  <p className="mt-2.5 text-center text-[11px] leading-snug" style={{ color: LABEL }}>
+                    25% шанс крита: +2 уровня и ×1.18 к статам · иначе (75%) +1 уровень и ×1.10
+                  </p>
+                </>
               ) : (
                 <p className="mt-4 text-center text-[13px]" style={{ color: RARITY.mythic.color }}>
                   Достигнут максимальный премиум-уровень
@@ -236,7 +238,7 @@ export function ArtifactDetailView({ id }: { id: number }) {
           {/* Right — stats + info */}
           <div className="flex flex-col gap-6">
             {/* Stats */}
-            <section className="rounded-2xl p-6" style={{ backgroundColor: CARD, border: `1px solid ${BORDER}` }}>
+            <section className="eg-surface rounded-2xl p-6">
               <h2 className="text-[15px] font-medium">Характеристики</h2>
               <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
                 <Stat Icon={Zap} label="Сила" value={base.power} />
@@ -271,7 +273,7 @@ export function ArtifactDetailView({ id }: { id: number }) {
             </section>
 
             {/* Genealogy */}
-            <section className="rounded-2xl p-6" style={{ backgroundColor: CARD, border: `1px solid ${BORDER}` }}>
+            <section className="eg-surface rounded-2xl p-6">
               <div className="flex items-center gap-2">
                 <GitBranch size={16} strokeWidth={1.75} style={{ color: CYAN }} aria-hidden="true" />
                 <h2 className="text-[15px] font-medium">Генеалогия</h2>
