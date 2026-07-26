@@ -2,6 +2,7 @@ import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { logAudit } from "../lib/audit"
+import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
 
 const router = Router()
 
@@ -70,28 +71,55 @@ router.post("/buy", requireAuth, (req: AuthRequest, res) => {
   }
 
   const now = Date.now()
+  const idemKey = normalizeIdemKey(req.header("Idempotency-Key") ?? (req.body as any)?.idempotencyKey)
 
-  db.exec("BEGIN IMMEDIATE")
   try {
-    db.prepare(`UPDATE wallets SET timecoin = timecoin - ? WHERE user_id = ?`).run(accessory.price, userId)
-    db.prepare(
-      `INSERT INTO jarvis_user_accessories (user_id, accessory_id, equipped, purchased_at)
-       VALUES (?, ?, 0, ?)`
-    ).run(userId, accessoryId, now)
-    db.exec("COMMIT")
+    const opResult = runEconomyOp({
+      userId,
+      scope: "jarvis_buy",
+      idemKey,
+      mutate: () => {
+        const alreadyInner = db
+          .prepare(`SELECT id FROM jarvis_user_accessories WHERE user_id = ? AND accessory_id = ?`)
+          .get(userId, accessoryId)
+        if (alreadyInner) {
+          throw new EconomyError("Аксессуар уже куплен", 400)
+        }
+
+        const debit = db
+          .prepare(`UPDATE wallets SET timecoin = timecoin - ? WHERE user_id = ? AND timecoin >= ?`)
+          .run(accessory.price, userId, accessory.price)
+        if (debit.changes !== 1) {
+          throw new EconomyError("Недостаточно ∞ для покупки", 400)
+        }
+
+        db.prepare(
+          `INSERT INTO jarvis_user_accessories (user_id, accessory_id, equipped, purchased_at)
+           VALUES (?, ?, 0, ?)`
+        ).run(userId, accessoryId, now)
+
+        const updatedWallet = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(userId)
+        return {
+          success: true,
+          accessory: { id: accessory.id, name: accessory.name, price: accessory.price },
+          wallet: updatedWallet,
+        }
+      },
+    })
+
+    if (!opResult.replayed) {
+      logAudit(userId, "debit", accessory.price, "jarvis_accessory_purchase", { accessoryId, name: accessory.name })
+    }
+
+    return res.json(opResult.result)
   } catch (err) {
-    db.exec("ROLLBACK")
+    if (err instanceof EconomyError) {
+      const body: Record<string, unknown> = { error: err.message }
+      if (err.payload && typeof err.payload === "object") Object.assign(body, err.payload)
+      return res.status(err.status).json(body)
+    }
     throw err
   }
-  logAudit(userId, "debit", accessory.price, "jarvis_accessory_purchase", { accessoryId, name: accessory.name })
-
-  const updatedWallet = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(userId)
-
-  res.json({
-    success: true,
-    accessory: { id: accessory.id, name: accessory.name, price: accessory.price },
-    wallet: updatedWallet,
-  })
 })
 
 /* ================================================================

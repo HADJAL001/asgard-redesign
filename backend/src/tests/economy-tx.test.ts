@@ -41,6 +41,9 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS wallets (user_id INTEGER PRIMARY KEY, timecoin INTEGER NOT NULL DEFAULT 0);
   CREATE TABLE IF NOT EXISTS listings (id INTEGER PRIMARY KEY, status TEXT NOT NULL DEFAULT 'active');
   CREATE TABLE IF NOT EXISTS reward_users (id INTEGER PRIMARY KEY, claimed INTEGER NOT NULL DEFAULT 0);
+  CREATE TABLE IF NOT EXISTS stub_stakes (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'active');
+  CREATE TABLE IF NOT EXISTS stub_drops (id INTEGER PRIMARY KEY, claimed INTEGER NOT NULL DEFAULT 0, total_supply INTEGER NOT NULL DEFAULT 1);
+  CREATE TABLE IF NOT EXISTS stub_owned (user_id INTEGER NOT NULL, item_id INTEGER NOT NULL, UNIQUE(user_id, item_id));
 `)
 
 function resetWallet(userId: number, balance: number) {
@@ -221,4 +224,91 @@ test("EconomyError пробрасывается, ключ не пишется �
   assert.equal(ok.replayed, false)
   assert.equal(ok.result.charged, 30)
   assert.equal(balance(uid), 70)
+})
+
+test("stake_unstake: авторитетный захват статуса — двойной unstake начисляет ровно один раз", () => {
+  /* Модель бага stakes.routes.ts POST /:id/unstake: до фикса статус читался
+     ДО транзакции и не перепроверялся внутри неё — конкурентный второй
+     запрос проходил мимо проверки и начислял выплату повторно. Здесь
+     проверяем корректную (пост-фикс) форму: захват active→unstaked
+     условным UPDATE внутри mutate, второй вызов получает 409. */
+  const uid = 40
+  const stakeId = 500
+  db.prepare(`INSERT INTO stub_stakes (id, user_id, status) VALUES (?, ?, 'active')
+              ON CONFLICT(id) DO UPDATE SET status='active'`).run(stakeId, uid)
+  resetWallet(uid, 0)
+
+  const unstake = () =>
+    runEconomyOp({
+      userId: uid,
+      scope: "stake_unstake",
+      idemKey: null,
+      mutate: () => {
+        const claim = db
+          .prepare(`UPDATE stub_stakes SET status = 'unstaked' WHERE id = ? AND user_id = ? AND status = 'active'`)
+          .run(stakeId, uid)
+        if (claim.changes !== 1) throw new EconomyError("Стейк уже снят", 409)
+        db.prepare(`UPDATE wallets SET timecoin = timecoin + 110 WHERE user_id = ?`).run(uid)
+        return { ok: true }
+      },
+    })
+
+  assert.equal(unstake().result.ok, true)
+  assert.throws(unstake, (e: unknown) => e instanceof EconomyError && (e as EconomyError).status === 409)
+  assert.equal(balance(uid), 110, "выплата по стейку начислена ровно один раз")
+})
+
+test("drop_claim: тираж проверяется внутри транзакции — sold-out отсекает лишний клейм", () => {
+  const dropId = 600
+  db.prepare(`INSERT INTO stub_drops (id, claimed, total_supply) VALUES (?, 0, 1)
+              ON CONFLICT(id) DO UPDATE SET claimed=0, total_supply=1`).run(dropId)
+  resetWallet(50, 100)
+  resetWallet(51, 100)
+
+  const claim = (uid: number) =>
+    runEconomyOp({
+      userId: uid,
+      scope: "drop_claim",
+      idemKey: null,
+      mutate: () => {
+        const fresh = db.prepare(`SELECT claimed, total_supply FROM stub_drops WHERE id = ?`).get(dropId) as {
+          claimed: number
+          total_supply: number
+        }
+        if (fresh.claimed >= fresh.total_supply) throw new EconomyError("Тираж дропа исчерпан", 400, { code: "SOLD_OUT" })
+        db.prepare(`UPDATE wallets SET timecoin = timecoin - 20 WHERE user_id = ?`).run(uid)
+        db.prepare(`UPDATE stub_drops SET claimed = claimed + 1 WHERE id = ?`).run(dropId)
+        return { ok: true }
+      },
+    })
+
+  assert.equal(claim(50).result.ok, true)
+  assert.throws(() => claim(51), (e: unknown) => e instanceof EconomyError && (e as EconomyError).status === 400)
+  assert.equal(balance(50), 80, "первый клейм списал средства")
+  assert.equal(balance(51), 100, "второй клейм отклонён до списания (sold-out)")
+})
+
+test("jarvis_buy: повторная покупка одного аксессуара внутри транзакции отклоняется", () => {
+  const uid = 60
+  const accessoryId = 700
+  resetWallet(uid, 100)
+  db.prepare(`DELETE FROM stub_owned WHERE user_id = ? AND item_id = ?`).run(uid, accessoryId)
+
+  const buy = () =>
+    runEconomyOp({
+      userId: uid,
+      scope: "jarvis_buy",
+      idemKey: null,
+      mutate: () => {
+        const already = db.prepare(`SELECT 1 FROM stub_owned WHERE user_id = ? AND item_id = ?`).get(uid, accessoryId)
+        if (already) throw new EconomyError("Аксессуар уже куплен", 400)
+        db.prepare(`UPDATE wallets SET timecoin = timecoin - 15 WHERE user_id = ?`).run(uid)
+        db.prepare(`INSERT INTO stub_owned (user_id, item_id) VALUES (?, ?)`).run(uid, accessoryId)
+        return { ok: true }
+      },
+    })
+
+  assert.equal(buy().result.ok, true)
+  assert.throws(buy, (e: unknown) => e instanceof EconomyError && (e as EconomyError).status === 400)
+  assert.equal(balance(uid), 85, "аксессуар списан ровно один раз")
 })
