@@ -68,24 +68,18 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
-      {/* Локальное золото-бирюзовое свечение поверх общего AmbientBackdrop
-          (фон платформы дышит сквозь прозрачную подложку — не глушим его). */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-1/2 top-1/3 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:rgb(var(--color-gold-rgb)/0.10)] blur-[130px]" />
-        <div className="absolute right-1/4 bottom-1/4 h-[320px] w-[320px] rounded-full bg-[color:rgb(var(--color-cyan-rgb)/0.08)] blur-[110px]" />
-      </div>
-
-      <div className="relative z-10 w-full max-w-md">
-        <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <OsgardMark size={64} />
+    <main className="auth-stage relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
+      <div className="relative z-10 w-full max-w-[440px]">
+        <div className="mb-9 flex flex-col items-center gap-3 text-center">
+          {/* boxed={false} — тот же тихий гравированный знак, что на /login. */}
+          <OsgardMark size={132} boxed={false} className="auth-mark mb-1" />
           <span className="elite-eyebrow">Создай аккаунт</span>
-          <h1 className="holo-title font-display text-4xl font-bold tracking-tight">OSGARD</h1>
-          <p className="text-sm text-[#8899bb]">Создайте аккаунт и начните зарабатывать</p>
+          <h1 className="auth-wordmark font-display text-[2.6rem] font-bold leading-none">OSGARD</h1>
+          <p className="auth-kicker">Создайте аккаунт и начните зарабатывать</p>
         </div>
 
         {invited && (
-          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-[#D4AF37]/30 bg-[#D4AF37]/[0.07] px-4 py-3">
+          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-[#D4AF37]/25 bg-[#D4AF37]/[0.06] px-4 py-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#D4AF37]/40 text-[#D4AF37]">
               <Gift className="h-4 w-4" />
             </span>
@@ -95,12 +89,14 @@ export default function RegisterPage() {
           </div>
         )}
 
-        <div className="premium-card premium-panel rounded-2xl p-6">
-          <h2 className="mb-6 text-lg font-semibold text-white">Регистрация</h2>
+        {/* Оправа: та же материя, что на /login — пара страниц читается одним объектом */}
+        <div className="auth-vault p-7 sm:p-8">
+          <h2 className="text-[1.05rem] font-semibold tracking-tight text-[#ecebe6]">Регистрация</h2>
+          <hr className="auth-rule mb-6 mt-4" />
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="name" className="text-xs font-medium text-[#8899bb]">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-[18px]">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="name" className="auth-label">
                 Имя пользователя
               </label>
               <input
@@ -110,15 +106,15 @@ export default function RegisterPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="alex_odin"
-                className="premium-field px-3 py-2.5 text-sm"
+                className="auth-field"
               />
-              <p className="text-[11px] text-[#8899bb]/80">
+              <p className="text-[11px] text-[#7c869e]">
                 Только латинские буквы, цифры и подчёркивание, без пробелов (3–20 символов)
               </p>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="email" className="text-xs font-medium text-[#8899bb]">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="email" className="auth-label">
                 Email
               </label>
               <input
@@ -128,12 +124,12 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="alex@osgard.io"
-                className="premium-field px-3 py-2.5 text-sm"
+                className="auth-field"
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="password" className="text-xs font-medium text-[#8899bb]">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="password" className="auth-label">
                 Пароль
               </label>
               <input
@@ -143,12 +139,12 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="premium-field px-3 py-2.5 text-sm"
+                className="auth-field"
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="confirmPassword" className="text-xs font-medium text-[#8899bb]">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="confirmPassword" className="auth-label">
                 Повтор пароля
               </label>
               <input
@@ -158,34 +154,32 @@ export default function RegisterPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
-                className="premium-field px-3 py-2.5 text-sm"
+                className="auth-field"
               />
             </div>
 
-            {error && (
-              <div className="rounded-lg border border-[#F87171]/30 bg-[#F87171]/10 px-3 py-2 text-sm text-[#F87171]">
-                {error}
-              </div>
-            )}
+            {error && <div className="auth-error">{error}</div>}
 
             <button
               type="submit"
               disabled={loading}
-              className="btn-premium-gold mt-2 flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold disabled:opacity-60"
+              className="btn-auth mt-1 inline-flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               Создать аккаунт
             </button>
           </form>
 
-          <div className="mt-5">
+          {/* Разделитель «или через» уже есть внутри SocialLoginButtons —
+              вторую линию не рисуем, только перекрашиваем через .auth-social. */}
+          <div className="auth-social mt-7">
             <SocialLoginButtons />
           </div>
         </div>
 
-        <p className="mt-6 text-center text-xs text-[#8899bb]">
+        <p className="auth-footnote mt-7 text-center text-xs">
           Уже есть аккаунт?{" "}
-          <Link href="/login" className="font-medium text-[color:var(--color-gold)] hover:underline">
+          <Link href="/login" className="auth-link">
             Войти
           </Link>
         </p>
