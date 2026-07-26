@@ -1,4 +1,5 @@
 import { Router } from "express"
+import { EventEmitter } from "node:events"
 import db from "../lib/db"
 import { requireAuth, optionalAuth, AuthRequest } from "../middleware/authMiddleware"
 import { logAudit } from "../lib/audit"
@@ -12,12 +13,21 @@ import { MARKET_CURRENCIES, creditSellerWithFees } from "../lib/market-fees"
    покупателя в удержание сразу и мгновенно возвращает предыдущему
    лидеру. Победитель не может оказаться неплатёжеспособным на
    момент расчёта. Все денежные переходы — внутри BEGIN IMMEDIATE.
+
+   GET /auctions/stream — SSE-поток живого списка (перебитые ставки,
+   новые лоты, расчёт по истечении), взамен ручного обновления
+   страницы. Паттерн повторяет routes/tcmarket.routes.ts (GET /stream):
+   снапшот на каждое событие "update", без пер-лотового буфера — список
+   активных аукционов сам по себе компактный снапшот.
    ================================================================ */
 
 const router = Router()
 
 const MIN_DURATION_H = 1
 const MAX_DURATION_H = 168 /* 7 дней */
+
+const auctionEvents = new EventEmitter()
+auctionEvents.setMaxListeners(0)
 
 type AuctionRow = {
   id: number
@@ -140,15 +150,14 @@ function settleIfEnded(auctionId: number): AuctionRow {
     throw err
   }
 
+  auctionEvents.emit("update")
   return db.prepare(`SELECT * FROM auctions WHERE id = ?`).get(auctionId) as AuctionRow
 }
 
-/* ---------------- GET /auctions ----------------
-   Активные аукционы. Перед выдачей лениво закрываем истёкшие. */
-router.get("/", optionalAuth, (req: AuthRequest, res) => {
+/** Активные аукционы (лениво закрыв истёкшие) для GET / и SSE-снапшота GET /stream. */
+function listActiveAuctions(userId?: number) {
   const now = Date.now()
 
-  /* Ленивый расчёт истёкших активных аукционов. */
   const ended = db
     .prepare(`SELECT id FROM auctions WHERE status = 'active' AND ends_at <= ?`)
     .all(now) as { id: number }[]
@@ -167,7 +176,6 @@ router.get("/", optionalAuth, (req: AuthRequest, res) => {
     )
     .all(now, now) as (AuctionRow & Record<string, unknown>)[]
 
-  const userId = req.user?.userId
   const auctions = rows.map((r) =>
     serializeAuction(r, {
       artifact: {
@@ -186,7 +194,41 @@ router.get("/", optionalAuth, (req: AuthRequest, res) => {
     }),
   )
 
-  res.json({ auctions, serverTime: now })
+  return { auctions, serverTime: now }
+}
+
+/* ---------------- GET /auctions ----------------
+   Активные аукционы. Перед выдачей лениво закрываем истёкшие. */
+router.get("/", optionalAuth, (req: AuthRequest, res) => {
+  res.json(listActiveAuctions(req.user?.userId))
+})
+
+/* ---------------- GET /auctions/stream ----------------
+   SSE: снапшот активных аукционов, проталкивается заново при любом
+   изменении (новая ставка, новый лот, расчёт). Публичный маршрут, как
+   GET / — auctionEvents.emit("update") после create/bid/settle/cancel. */
+router.get("/stream", optionalAuth, (req: AuthRequest, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  })
+
+  const userId = req.user?.userId
+  const send = () => {
+    res.write(`data: ${JSON.stringify({ type: "snapshot", ...listActiveAuctions(userId) })}\n\n`)
+  }
+
+  send()
+
+  const heartbeat = setInterval(() => res.write(": ping\n\n"), 15_000)
+  const cleanup = () => {
+    clearInterval(heartbeat)
+    auctionEvents.off("update", send)
+  }
+  auctionEvents.on("update", send)
+  req.on("close", cleanup)
 })
 
 /* ---------------- GET /auctions/:id ----------------
@@ -275,6 +317,7 @@ router.post("/create", requireAuth, (req: AuthRequest, res) => {
     db.exec("ROLLBACK")
     throw err
   }
+  auctionEvents.emit("update")
 
   const a = db.prepare(`SELECT * FROM auctions WHERE id = ?`).get(auctionId) as AuctionRow
   res.status(201).json({ auction: serializeAuction(a) })
@@ -357,6 +400,7 @@ router.post("/:id/bid", requireAuth, (req: AuthRequest, res) => {
     db.exec("ROLLBACK")
     throw err
   }
+  auctionEvents.emit("update")
 
   logAudit(userId, "debit", amount, "auction_bid_hold", { auctionId, currency: a.currency })
   if (refundedBidder) {
@@ -411,6 +455,7 @@ router.post("/:id/cancel", requireAuth, (req: AuthRequest, res) => {
     db.exec("ROLLBACK")
     throw err
   }
+  auctionEvents.emit("update")
 
   const updated = db.prepare(`SELECT * FROM auctions WHERE id = ?`).get(id) as AuctionRow
   res.json({ auction: serializeAuction(updated) })

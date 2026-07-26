@@ -235,6 +235,7 @@ async function handleGithubPublishConnect(req: NextRequest) {
 const ORCHESTRATOR_STREAM_RE = /^orchestrator\/stream\/[^/]+$/
 const GENERATION_STREAM_RE = /^task\/[^/]+\/stream$/
 const TC_MARKET_STREAM_RE = /^tc-market\/stream$/
+const AUCTIONS_STREAM_RE = /^auctions\/stream$/
 const NOTIFICATIONS_STREAM_RE = /^notifications\/stream$/
 const PROJECTS_STREAM_RE = /^projects\/\d+\/stream$/
 
@@ -364,6 +365,11 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
     return handleOrchestratorStream(pathStr, req, accessToken)
   }
   if (req.method === "GET" && TC_MARKET_STREAM_RE.test(pathStr)) {
+    return handleOrchestratorStream(pathStr, req, accessToken, { requireAuth: false })
+  }
+  if (req.method === "GET" && AUCTIONS_STREAM_RE.test(pathStr)) {
+    // Список лотов виден анонимно (optionalAuth на бэкенде) — токен пробрасываем,
+    // если есть, но отсутствие не блокирует подключение.
     return handleOrchestratorStream(pathStr, req, accessToken, { requireAuth: false })
   }
   if (req.method === "GET" && NOTIFICATIONS_STREAM_RE.test(pathStr)) {
