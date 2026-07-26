@@ -79,6 +79,7 @@ router.get("/mine", requireAuth, (req: AuthRequest, res) => {
       `SELECT id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
               status, views_24h as views24h, supply, price, list_currency as listCurrency,
               craft_score as craftScore,
+              origin_myth as originMyth, visual_theme as visualTheme,
               description, lore, ai_visual as aiVisual, visual_effect as visualEffect, source,
               equipped_at as equippedAt, created_at as createdAt
        FROM artifacts WHERE owner_id = ? ORDER BY created_at DESC`,
@@ -759,9 +760,13 @@ router.post("/fuse", requireAuth, asyncHandler(async (req: AuthRequest, res) => 
 }))
 
 /* ---------------- GET /artifacts/:id/provenance ----------------
-   Витрина родословной артефакта — делает петлю созидания видимой и
-   разделяемой (публичный read-only, ссылку можно шарить). Три пласта
-   провенанса, все из уже существующих данных:
+   Витрина родословной артефакта — делает петлю созидания видимой.
+   Требует авторизации + owner-check (404 и для чужого, и для несуществующего
+   id — тот же паттерн, что у GET /provenance/artifact/:id): без публичных
+   потребителей у эндпоинта нет причин раскрывать реальные username/цены
+   продаж по перебору id; публичное «сертификатное» разделение — отдельная,
+   ещё не реализованная «Фаза D». Три пласта провенанса, все из уже
+   существующих данных:
 
      • creator     — первый кузнец (creator_id, миграция 080).
      • craftScore  — «честность» статов (craft_score, миграция 081);
@@ -773,7 +778,7 @@ router.post("/fuse", requireAuth, asyncHandler(async (req: AuthRequest, res) => 
 ------------------------------------------------------------------ */
 const PROVENANCE_MAX_DEPTH = 6 /* потолок рекурсии дерева предков (защита от глубины/циклов) */
 
-router.get("/:id/provenance", (req, res) => {
+router.get("/:id/provenance", requireAuth, (req: AuthRequest, res) => {
   const id = Number(req.params.id)
   if (!id) return res.status(400).json({ error: "Некорректный id" })
 
@@ -796,7 +801,7 @@ router.get("/:id/provenance", (req, res) => {
        FROM artifacts WHERE id = ?`,
     )
     .get(id)
-  if (!root) return res.status(404).json({ error: "Артефакт не найден" })
+  if (!root || root.ownerId !== req.user!.userId) return res.status(404).json({ error: "Артефакт не найден" })
 
   /* Айдентика артефакта для витрины. Новые артефакты несут персистнутую
      (миграция 082); legacy (NULL) — выводим на лету из того, что известно.
@@ -886,7 +891,6 @@ router.get("/:id/provenance", (req, res) => {
     soldAt: s.soldAt,
   }))
 
-  res.set("Cache-Control", "public, max-age=10")
   res.json({
     artifact: {
       id: root.id,

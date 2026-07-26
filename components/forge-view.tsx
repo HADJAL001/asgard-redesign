@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from "react"
 import { Hammer, Loader2, Sparkles, Coins, Archive, Star, Zap } from "lucide-react"
 import { Navbar } from "./navbar"
-import { useOsgardStore, type OsgardArtifact, type CraftBreakdown, type ArtifactIdentity } from "@/lib/store/osgard-store"
-import { COLORS, RARITY, ARTIFACT_TYPES, STAT_META, type ArtifactType, type Rarity } from "@/lib/economy"
+import { useOsgardStore, type OsgardArtifact, type CraftBreakdown, type ArtifactIdentity, deriveIdentityFromArtifact } from "@/lib/store/osgard-store"
+import { COLORS, RARITY, RARITY_CHAIN, ARTIFACT_TYPES, STAT_META, type ArtifactType, type Rarity } from "@/lib/economy"
 import { fmtTC } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { SectionHelp } from "./section-help"
+import { ArtifactIdentityPanel } from "./artifact-identity-panel"
 
 const TYPE_KEYS = Object.keys(ARTIFACT_TYPES) as ArtifactType[]
 
@@ -285,7 +286,7 @@ export function ForgeView() {
       <Navbar />
       <SectionHelp
         title="Кузница артефактов"
-        what="Кузница — место, где вы создаёте артефакты. У каждого есть тип, редкость и характеристики (сила / защита / магия / скорость). Артефакт можно оставить, усилить или продать на маркетплейсе."
+        what={`Кузница — место, где вы создаёте артефакты. У каждого есть тип, редкость и характеристики (сила / защита / магия / скорость). Артефакт можно оставить, усилить или продать на маркетплейсе. Легенда редкостей: ${RARITY_CHAIN.map((r) => `${RARITY[r].symbol} ${RARITY[r].label}`).join(" · ")}.`}
         goals={[
           { goal: "Создать первый артефакт", steps: ["Введите название", "Выберите тип", "Выберите валюту ковки", "Нажмите «Создать»"] },
           { goal: "Сэкономить на входе", steps: ["Куйте за кредиты или шарды — дешевле", "Но артефакт будет слабее (меньше статы)", "TimeCoin даёт полную силу ×1.0"] },
@@ -682,10 +683,12 @@ export function ForgeView() {
               </div>
             )}
 
-            {/* Валюта ковки — любая монета, но слабее */}
+            {/* Валюта ковки — любая монета, но слабее. Множитель масштабирует СУММУ всех
+                характеристик (см. backend/proof-of-craft.ts targetSum), а не «силу» отдельно —
+                как распределяется сумма по 4 статам, намеренно не раскрываем (red-team). */}
             <div className="mt-5" data-tour="forge-currency">
               <p className="mb-2 text-[13px]" style={{ color: COLORS.label }}>
-                Валюта ковки <span style={{ color: "rgba(255,255,255,0.35)" }}>· дешевле монета — слабее артефакт</span>
+                {t("forge.currency.label")}
               </p>
               <div className="flex flex-wrap gap-2">
                 {FORGE_CURRENCIES.map((c) => {
@@ -706,15 +709,21 @@ export function ForgeView() {
                     >
                       <span className="block font-medium">{c.label}</span>
                       <span className="block" style={{ color: COLORS.label }}>
-                        {c.cost} · ×{c.mult} силы
+                        {c.cost} · ×{c.mult}
+                      </span>
+                      <span className="block" style={{ color: active ? c.color : "rgba(255,255,255,0.5)" }}>
+                        {t("forge.currency.percentOf", { percent: Math.round(c.mult * 100) })}
                       </span>
                       <span className="block text-[11px]" style={{ color: bal >= c.cost ? COLORS.green : COLORS.red }}>
-                        баланс {bal}
+                        {t("forge.currency.balance")} {bal}
                       </span>
                     </button>
                   )
                 })}
               </div>
+              <p className="mt-2 text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>
+                {t("forge.currency.explain")}
+              </p>
             </div>
 
             {/* Rarity info (сервер решает сам) */}
@@ -740,7 +749,9 @@ export function ForgeView() {
               </div>
               {discountRate > 0 && (
                 <div className="flex items-center justify-between">
-                  <span style={{ color: "#F1C40F" }}>{t("forge.discount.label")}</span>
+                  <span style={{ color: "#F1C40F" }} title={t("forge.discount.tooltip")}>
+                    {t("forge.discount.label")}
+                  </span>
                   <span style={{ color: "#F1C40F" }}>
                     {t("forge.discount.value", { percent: Math.round(discountRate * 100) })}
                   </span>
@@ -894,6 +905,54 @@ export function ForgeView() {
                   {ARTIFACT_TYPES[(result.type as ArtifactType) in ARTIFACT_TYPES ? (result.type as ArtifactType) : "artifact"].label} · {RARITY[resultRarity]?.label || result.rarity}
                 </p>
 
+                {/* ---- Легенда + честность ковки — сначала нарратив, потом голые цифры.
+                    Обе фичи уже полностью считает бэкенд (proof-of-craft.ts,
+                    artifact-identity.ts) — здесь они впервые становятся видимы игроку. */}
+                {identity ? (
+                  <div className="mt-6 w-full">
+                    <ArtifactIdentityPanel identity={identity} craftBreakdown={craftBreakdown} accentColor={resultColor} />
+                    {craftBreakdown && (
+                      <p className="mt-2 text-center text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+                        {t("forge.verdict.theoreticalMax", {
+                          sum: Math.round((result.power + result.defense + result.magic + result.speed) / selCurrency.mult),
+                        })}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  craftBreakdown && (
+                    <div className="eg-inset mt-5 w-full rounded-lg px-4 py-4 text-[13px]">
+                      <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.55)" }}>
+                        {t("forge.verdict.intro")}
+                      </p>
+                      <div className="mt-2.5 flex items-center justify-between">
+                        <span style={{ color: COLORS.label }}>{t("forge.verdict.title")}</span>
+                        <span style={{ color: resultColor }}>{Math.round(craftBreakdown.craftScore * 100)}%</span>
+                      </div>
+                      <div className="mt-3 space-y-2.5">
+                        {craftBreakdown.factors.map((f) => (
+                          <div key={f.key}>
+                            <div className="flex items-center justify-between text-[12px]">
+                              <span style={{ color: "rgba(255,255,255,0.75)" }}>{f.label}</span>
+                              <span style={{ color: COLORS.label }}>{f.detail}</span>
+                            </div>
+                            <div className="relative mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${f.maxPoints > 0 ? Math.min(100, (f.points / f.maxPoints) * 100) : 0}%`,
+                                  background: "linear-gradient(90deg, #B8862E, #F1C40F, #FFE9A8)",
+                                  transition: reduceMotion ? "none" : "width 0.6s ease-out",
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                )}
+
                 <div className="mt-6 grid w-full grid-cols-2 gap-2.5">
                   {STAT_META.map((s) => (
                     <div key={s.key} className="flex items-center justify-between rounded-lg px-3 py-2 text-[13px]" style={{ border: `1px solid ${COLORS.border}` }}>
@@ -914,49 +973,6 @@ export function ForgeView() {
                     </span>
                   </div>
                 </div>
-
-                {/* ---- Вердикт ковки: идентичность + честный разбор craftScore ----
-                    Обе фичи уже полностью считает бэкенд (proof-of-craft.ts,
-                    artifact-identity.ts) — здесь они впервые становятся видимы игроку. */}
-                {identity && (
-                  <div className="mt-5 w-full text-center">
-                    <p className="text-[13px]" style={{ color: identity.palette.accent }}>
-                      {identity.archetype} · {identity.material}
-                    </p>
-                    <p className="mt-2 text-[13px] italic" style={{ fontFamily: "var(--font-serif)", color: "rgba(255,255,255,0.75)" }}>
-                      «{identity.originMyth}»
-                    </p>
-                  </div>
-                )}
-
-                {craftBreakdown && (
-                  <div className="eg-inset mt-5 w-full rounded-lg px-4 py-4 text-[13px]">
-                    <div className="flex items-center justify-between">
-                      <span style={{ color: COLORS.label }}>{t("forge.verdict.title")}</span>
-                      <span style={{ color: resultColor }}>{Math.round(craftBreakdown.craftScore * 100)}%</span>
-                    </div>
-                    <div className="mt-3 space-y-2.5">
-                      {craftBreakdown.factors.map((f) => (
-                        <div key={f.key}>
-                          <div className="flex items-center justify-between text-[12px]">
-                            <span style={{ color: "rgba(255,255,255,0.75)" }}>{f.label}</span>
-                            <span style={{ color: COLORS.label }}>{f.detail}</span>
-                          </div>
-                          <div className="relative mt-1 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: `${f.maxPoints > 0 ? Math.min(100, (f.points / f.maxPoints) * 100) : 0}%`,
-                                background: "linear-gradient(90deg, #B8862E, #F1C40F, #FFE9A8)",
-                                transition: reduceMotion ? "none" : "width 0.6s ease-out",
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
@@ -1006,6 +1022,16 @@ export function ForgeView() {
                                 <span className="ml-1.5" style={{ color: "#F1C40F" }}>✦ {a.visualEffect}</span>
                               )}
                             </p>
+                            {/* Идентичность выводится локально из уже загруженных originMyth/visualTheme
+                                (GET /mine) — без дополнительного запроса на карточку. */}
+                            {(() => {
+                              const recentIdentity = deriveIdentityFromArtifact(a)
+                              return recentIdentity ? (
+                                <div className="mt-0.5">
+                                  <ArtifactIdentityPanel identity={recentIdentity} compact accentColor={rc} />
+                                </div>
+                              ) : null
+                            })()}
                           </div>
                           <span className="text-[12px]" style={{ color: COLORS.label }}>
                             {a.price.toLocaleString("ru-RU")} {a.listCurrency}
