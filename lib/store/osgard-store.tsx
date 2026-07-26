@@ -153,6 +153,12 @@ export interface OsgardArtifact {
   supply: number
   price: number
   listCurrency: string
+  /** Честность ковки (0..1), см. backend proof-of-craft.ts. null = выковано до Proof-of-Craft (legacy). */
+  craftScore?: number | null
+  /** Нарративный миф происхождения (см. backend artifact-identity.ts, миграция 082). */
+  originMyth?: string | null
+  /** JSON-строка { archetype, material, essence, palette } — см. deriveArtifactIdentityFromArtifact. */
+  visualTheme?: string | null
   /** Уникальный визуальный эффект (появляется при level >= 10 через премиум-усиление). */
   visualEffect?: string | null
   /** Момент экипировки в снаряжение Кузницы (unix-ms) или null/undefined, если артефакт не надет. */
@@ -379,6 +385,58 @@ export interface ArtifactIdentity {
   essence: string
   palette: { primary: string; accent: string }
   originMyth: string
+}
+
+/** Полный провенанс артефакта (см. GET /artifacts/:id/provenance) — родословная, владение, идентичность. */
+export interface ArtifactProvenance {
+  artifact: {
+    id: number
+    name: string
+    type: string
+    rarity: string
+    level: number
+    power: number
+    defense: number
+    magic: number
+    speed: number
+    craftScore: number | null
+    isMutation: boolean
+    status: string
+    createdAt: number
+  }
+  identity: ArtifactIdentity
+  creator: { id: number; username: string; displayName: string } | null
+  currentOwner: { id: number; username: string; displayName: string } | null
+  lineage: { id: number; name: string; rarity: string; craftScore: number | null; isMutation: boolean; parents: unknown[] }
+  ownershipChain: Array<{
+    seller: { id: number; username: string; displayName: string } | null
+    buyer: { id: number; username: string; displayName: string } | null
+    price: number
+    currency: string
+    soldAt: number
+  }>
+  resaleCount: number
+}
+
+/** Идентичность из уже загруженного OsgardArtifact (GET /mine) — без похода на /provenance.
+    Персистится только для артефактов, скованных после миграции 082 (originMyth+visualTheme
+    оба заполнены); для legacy-артефактов возвращает null — по дизайну (см. artifact-identity.ts). */
+export function deriveIdentityFromArtifact(
+  a: Pick<OsgardArtifact, "originMyth" | "visualTheme">,
+): ArtifactIdentity | null {
+  if (!a.originMyth || !a.visualTheme) return null
+  try {
+    const theme = JSON.parse(a.visualTheme)
+    return {
+      archetype: theme.archetype,
+      material: theme.material,
+      essence: theme.essence,
+      palette: theme.palette,
+      originMyth: a.originMyth,
+    }
+  } catch {
+    return null
+  }
 }
 
 /** Результат forgeArtifact — унифицированный ответ для UI. */
@@ -676,6 +734,9 @@ export interface OsgardStoreState {
 
   /** POST /artifacts/:id/premium-upgrade — премиум-усиление артефакта за TimeCoin (мгновенно, до уровня 10, 25% шанс крита). */
   premiumUpgradeArtifact: (artifactId: number) => Promise<PremiumUpgradeActionResult>
+
+  /** GET /artifacts/:id/provenance — полная родословная своего артефакта (лор, честность, владение). 404, если чужой. */
+  fetchArtifactIdentity: (artifactId: number) => Promise<ArtifactProvenance | null>
 
   /* ---- снаряжение Кузницы (💎 ставка: экипировка → реальные бусты генерации) ---- */
   /** GET /artifacts/loadout — надетые артефакты + совокупный бонус к генерации. */
@@ -1210,6 +1271,18 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       set({ artifacts, error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить артефакты") })
+    }
+  },
+
+  /* ---- action: GET /artifacts/:id/provenance — родословная своего артефакта ---- */
+  fetchArtifactIdentity: async (artifactId) => {
+    try {
+      const provenance = await apiClient.get<ArtifactProvenance>(`/artifacts/${artifactId}/provenance`)
+      set({ error: null })
+      return provenance
+    } catch (err) {
+      set({ error: extractErrorMessage(err, "Не удалось загрузить историю артефакта") })
+      return null
     }
   },
 

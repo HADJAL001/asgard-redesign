@@ -248,7 +248,8 @@
     "creationCost": "Creation cost",
     "discount": {
       "label": "Honest gear discount",
-      "value": "-{{percent}}%"
+      "value": "-{{percent}}%",
+      "tooltip": "The discount grows when you forge based on a real project instead of an empty one — this rewards honest crafting"
     },
     "inUsd": "≈ in USD",
     "artifactsInCollection": "Artifacts in collection",
@@ -258,7 +259,16 @@
     "artifactType": "Artifact type",
     "projectLabel": "Project (optional)",
     "projectNone": "No project",
-    "rarityInfo": "Rarity and stats are honestly derived from your project — see \"Craft honesty\" in the result",
+    "rarityInfo": "Rarity isn't chosen by you and isn't random: it's determined by the same calculation as \"Craft honesty\"",
+    "currency": {
+      "label": "Forge currency",
+      "percentOf": "= {{percent}}% of possible power",
+      "balance": "balance",
+      "explain": "The multiplier scales the sum of all of the artifact's stats, not just \"power\". The currency sets the stat scale in advance and equally for everyone — there's no luck here. How good the artifact turns out within that scale is decided by your real contribution to the project (\"Craft honesty\")."
+    },
+    "identity": {
+      "title": "Artifact legend"
+    },
     "yourBalanceLabel": "Your balance",
     "remainingAfter": "Remaining after creation",
     "createBtn": "Create for {{amount}}",
@@ -279,7 +289,9 @@
       }
     },
     "verdict": {
-      "title": "Craft honesty"
+      "title": "Craft honesty",
+      "intro": "This percentage isn't a judgment of you — it's an honest breakdown of how much the artifact's stats rely on real data from your project. The higher it is, the closer the stat total is to the maximum.",
+      "theoreticalMax": "Maximum for this project at full currency: {{sum}} total stats"
     }
   },
   "artifacts": {
@@ -291,6 +303,7 @@
     "filterKept": "Not listed",
     "filterSold": "Sold",
     "loadingArtifacts": "Loading artifacts…",
+    "identityNotFound": "This artifact's legend is unavailable",
     "notFound": "No artifacts found",
     "level": "Lvl. {{level}}",
     "sell": "Sell",

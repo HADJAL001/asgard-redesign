@@ -22,11 +22,12 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Search, Store, Archive, CheckCircle2, Boxes, Loader2, Hammer, Sparkles, Swords, X, ScrollText } from "lucide-react"
+import { Search, Store, Archive, CheckCircle2, Boxes, Loader2, Hammer, Sparkles, Swords, X, ScrollText, BookOpen } from "lucide-react"
 import { Navbar } from "./navbar"
 import { FusionModal } from "./FusionModal"
 import { ArtifactCertificate, type CertificateArtifact } from "./artifact-certificate"
-import { useOsgardStore, type ForgeLoadout } from "@/lib/store/osgard-store"
+import { ArtifactIdentityPanel } from "./artifact-identity-panel"
+import { useOsgardStore, type ForgeLoadout, type ArtifactProvenance } from "@/lib/store/osgard-store"
 import {
   COLORS,
   RARITY,
@@ -67,6 +68,7 @@ export function ArtifactsView() {
   const [filter, setFilter] = useState<Filter>(FILTERS.some((f) => f.id === initial) ? initial : "all")
   const [fusionOpen, setFusionOpen] = useState(false)
   const [certArtifact, setCertArtifact] = useState<CertificateArtifact | null>(null)
+  const [identityArtifactId, setIdentityArtifactId] = useState<number | null>(null)
   const [query, setQuery] = useState("")
 
   const {
@@ -117,6 +119,7 @@ export function ArtifactsView() {
         provenanceHref={certArtifact ? `/vault?artifact=${certArtifact.id}` : undefined}
         onClose={() => setCertArtifact(null)}
       />
+      <ArtifactIdentityModal artifactId={identityArtifactId} onClose={() => setIdentityArtifactId(null)} />
 
       <main className="mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -207,6 +210,7 @@ export function ArtifactsView() {
                 onEquip={() => equipArtifact(a.id)}
                 onUnequip={() => unequipArtifact(a.id)}
                 onCertificate={() => setCertArtifact(a)}
+                onIdentity={() => setIdentityArtifactId(a.id)}
                 t={t}
                 statusMeta={STATUS_META}
               />
@@ -358,6 +362,7 @@ function ArtifactCard({
   onEquip,
   onUnequip,
   onCertificate,
+  onIdentity,
   t,
   statusMeta,
 }: {
@@ -382,6 +387,7 @@ function ArtifactCard({
   onEquip: () => void
   onUnequip: () => void
   onCertificate: () => void
+  onIdentity: () => void
   t: (key: string, vars?: Record<string, string | number>) => string
   statusMeta: Record<ArtifactStatus, { label: string; color: string; Icon: typeof Store }>
 }) {
@@ -426,6 +432,25 @@ function ArtifactCard({
             <status.Icon size={12} strokeWidth={1.75} />
             {status.label}
           </span>
+          {/* Легенда артефакта — идентичность/лор + честность ковки (GET /:id/provenance) */}
+          <button
+            type="button"
+            onClick={onIdentity}
+            aria-label={t("forge.identity.title")}
+            title={t("forge.identity.title")}
+            className="flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors"
+            style={{ border: `1px solid ${COLORS.border}`, color: COLORS.label }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = FORGE_GOLD
+              e.currentTarget.style.color = FORGE_GOLD
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = COLORS.border
+              e.currentTarget.style.color = COLORS.label
+            }}
+          >
+            <BookOpen size={13} strokeWidth={1.75} />
+          </button>
           {/* Сертификат коллекционера — доступен для любого статуса */}
           <button
             type="button"
@@ -534,5 +559,77 @@ function ArtifactCard({
         )}
       </div>
     </article>
+  )
+}
+
+/* ================================================================
+   ArtifactIdentityModal — «Легенда артефакта» по клику из коллекции.
+   В отличие от компактного вывода в forge-view.tsx (локальный парсинг
+   уже загруженных originMyth/visualTheme, без сети), здесь всегда идёт
+   полный запрос GET /:id/provenance — тот же путь работает и для
+   произвольного/чужого id (эндпоинт сам вернёт 404, если артефакт не
+   принадлежит текущему пользователю — см. requireAuth в artifacts.routes.ts).
+   ================================================================ */
+function ArtifactIdentityModal({ artifactId, onClose }: { artifactId: number | null; onClose: () => void }) {
+  const { t } = useTranslation()
+  const fetchArtifactIdentity = useOsgardStore((s) => s.fetchArtifactIdentity)
+  const [provenance, setProvenance] = useState<ArtifactProvenance | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [notFound, setNotFound] = useState(false)
+
+  useEffect(() => {
+    if (artifactId == null) {
+      setProvenance(null)
+      setNotFound(false)
+      return
+    }
+    let cancelled = false
+    setProvenance(null)
+    setNotFound(false)
+    setLoading(true)
+    fetchArtifactIdentity(artifactId).then((res) => {
+      if (cancelled) return
+      setLoading(false)
+      if (!res) setNotFound(true)
+      else setProvenance(res)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [artifactId, fetchArtifactIdentity])
+
+  if (artifactId == null) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(3,5,12,0.72)" }}
+      onClick={onClose}
+    >
+      <div
+        className="eg-surface w-full max-w-[420px] rounded-2xl p-6"
+        style={{ border: `1px solid ${COLORS.border}` }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-end">
+          <button type="button" onClick={onClose} aria-label={t("common.close")} style={{ color: COLORS.label }}>
+            <X size={18} />
+          </button>
+        </div>
+        {loading && (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 size={22} className="animate-spin" style={{ color: COLORS.label }} />
+          </div>
+        )}
+        {!loading && notFound && (
+          <p className="py-10 text-center text-[13px]" style={{ color: COLORS.label }}>
+            {t("artifacts.identityNotFound")}
+          </p>
+        )}
+        {!loading && provenance && (
+          <ArtifactIdentityPanel identity={provenance.identity} craftScore={provenance.artifact.craftScore} />
+        )}
+      </div>
+    </div>
   )
 }
