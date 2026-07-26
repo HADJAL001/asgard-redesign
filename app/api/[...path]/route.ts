@@ -66,6 +66,8 @@ async function forwardToBackend(
     accept: req.headers.get("accept") || "application/json",
   }
   if (opts.authToken) forwardHeaders["authorization"] = `Bearer ${opts.authToken}`
+  const ifNoneMatch = req.headers.get("if-none-match")
+  if (ifNoneMatch) forwardHeaders["if-none-match"] = ifNoneMatch
 
   const clientIp = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip")
   if (clientIp) {
@@ -86,6 +88,13 @@ async function forwardToBackend(
 
   const contentType = upstream.headers.get("content-type") || "application/json"
   const contentDisposition = upstream.headers.get("content-disposition") || undefined
+  /* ETag/Cache-Control/Vary пробрасываем как есть — иначе условное кеширование
+     (If-None-Match → 304), настроенное конкретным бэкенд-роутом (например
+     /certified/:serial/badge.svg), молча ломается на прокси-слое: браузер и
+     встраивающие README/страницы никогда не видят эти заголовки. */
+  const etag = upstream.headers.get("etag") || undefined
+  const cacheControl = upstream.headers.get("cache-control") || undefined
+  const vary = upstream.headers.get("vary") || undefined
 
   /* Бинарные ответы (например ZIP-экспорт проекта) нельзя читать через .text() —
      это портит содержимое. JSON/текстовые ответы, наоборот, должны остаться как .text(),
@@ -93,11 +102,11 @@ async function forwardToBackend(
   const isBinary = !/^(application\/json|text\/)/i.test(contentType)
 
   if (isBinary) {
-    const buffer = await upstream.arrayBuffer()
-    return { status: upstream.status, text: "", json: null, contentType, contentDisposition, isBinary: true as const, buffer }
+    const buffer = upstream.status === 304 ? new ArrayBuffer(0) : await upstream.arrayBuffer()
+    return { status: upstream.status, text: "", json: null, contentType, contentDisposition, etag, cacheControl, vary, isBinary: true as const, buffer }
   }
 
-  const text = await upstream.text()
+  const text = upstream.status === 304 ? "" : await upstream.text()
   let json: any = null
   try {
     json = text ? JSON.parse(text) : null
@@ -105,7 +114,7 @@ async function forwardToBackend(
     /* не JSON — оставляем как есть */
   }
 
-  return { status: upstream.status, text, json, contentType, contentDisposition, isBinary: false as const, buffer: undefined }
+  return { status: upstream.status, text, json, contentType, contentDisposition, etag, cacheControl, vary, isBinary: false as const, buffer: undefined }
 }
 
 /** Строит NextResponse из результата forwardToBackend, сохраняя бинарное тело как есть
@@ -113,7 +122,14 @@ async function forwardToBackend(
 function buildUpstreamResponse(upstream: Awaited<ReturnType<typeof forwardToBackend>>) {
   const headers: Record<string, string> = { "content-type": upstream.contentType }
   if (upstream.contentDisposition) headers["content-disposition"] = upstream.contentDisposition
+  if (upstream.etag) headers["etag"] = upstream.etag
+  if (upstream.cacheControl) headers["cache-control"] = upstream.cacheControl
+  if (upstream.vary) headers["vary"] = upstream.vary
 
+  // 304 не может нести тело — Next/undici кидает исключение при попытке его отдать.
+  if (upstream.status === 304) {
+    return new NextResponse(null, { status: 304, headers })
+  }
   if (upstream.isBinary) {
     return new NextResponse(upstream.buffer, { status: upstream.status, headers })
   }
