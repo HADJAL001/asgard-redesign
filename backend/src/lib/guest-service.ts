@@ -57,6 +57,85 @@ export function guestProjectCapReached(userId: number): boolean {
   return !!db.prepare(`SELECT 1 FROM projects WHERE user_id = ? LIMIT 1`).get(userId)
 }
 
+/* ================================================================
+   Гигиена воронки — жатва брошенных гостей.
+   ----------------------------------------------------------------
+   Воронка чеканит по строке users(is_guest=1) на каждый новый IP.
+   Гость, который зашёл на лендинг, но так и не создал проект (bounce),
+   и не зарегистрировался (claimed_at IS NULL) — чистый мусор, копящийся
+   вечно. Жнём только таких: реальные аккаунты, забранных гостей и гостей
+   С проектом (проект = реальная работа, может быть забран позже) НЕ трогаем.
+   ================================================================ */
+
+/** TTL брошенного гостя до жатвы. Сильно больше окна переиспользования (24ч), чтобы
+ *  никогда не удалить гостя, которого ещё может вернуть повторный /guest/start. */
+export const GUEST_REAP_TTL_MS = 7 * 24 * 60 * 60 * 1000
+
+/** Нормализация created_at (TEXT ISO ↔ unix-мс): гость пишется через DEFAULT схемы,
+ *  который на разных инстансах бывает и TEXT (CURRENT_TIMESTAMP), и числом. Та же
+ *  логика, что у ридеров аналитики (admin.controller.normalizedTs). */
+function tsMs(col: string): string {
+  return `(CASE WHEN typeof(${col}) = 'text' THEN CAST(strftime('%s', ${col}) AS INTEGER) * 1000 ELSE ${col} END)`
+}
+
+/** WHERE-условие «брошенный гость старше cutoff, без проекта, не забран» (общее для
+ *  подсчёта и удаления). cutoff всегда не позже окна переиспользования. */
+function staleGuestWhere(alias: string): string {
+  return `${alias}.is_guest = 1
+      AND ${alias}.claimed_at IS NULL
+      AND ${tsMs(`${alias}.created_at`)} < ?
+      AND NOT EXISTS (SELECT 1 FROM projects p WHERE p.user_id = ${alias}.id)`
+}
+
+/** Сколько брошенных гостей подлежит жатве прямо сейчас (dry-run, только чтение) —
+ *  для read-only ридера гигиены. */
+export function countStaleGuests(now: number = Date.now(), ttlMs: number = GUEST_REAP_TTL_MS): number {
+  const cutoff = now - Math.max(GUEST_WINDOW_MS, ttlMs)
+  const row = db
+    .prepare(`SELECT COUNT(*) as c FROM users u WHERE ${staleGuestWhere("u")}`)
+    .get(cutoff) as { c: number }
+  return row.c
+}
+
+export interface ReapResult {
+  scanned: number
+  deletedGuests: number
+  deletedWallets: number
+}
+
+/**
+ * Удаляет брошенных гостей одной транзакцией. DELETE сам по себе несёт полный
+ * гвард (is_guest=1 AND claimed_at IS NULL AND нет проекта) — даже если состояние
+ * изменилось между подсчётом и удалением, забранного гостя или гостя с проектом
+ * не тронем. Кошельки-заглушки чистятся как осиротевшие. Возвращает счётчики.
+ */
+export function reapStaleGuests(now: number = Date.now(), ttlMs: number = GUEST_REAP_TTL_MS): ReapResult {
+  const cutoff = now - Math.max(GUEST_WINDOW_MS, ttlMs)
+  const scanned = countStaleGuests(now, ttlMs)
+  if (scanned === 0) return { scanned: 0, deletedGuests: 0, deletedWallets: 0 }
+
+  const tx = db.transaction(() => {
+    let deletedWallets = 0
+    try {
+      // Кошельки-заглушки жнущихся гостей — ДО удаления самих гостей, строго по гварду.
+      deletedWallets = db
+        .prepare(`DELETE FROM wallets WHERE user_id IN (SELECT u.id FROM users u WHERE ${staleGuestWhere("u")})`)
+        .run(cutoff).changes
+    } catch {
+      /* wallets может отсутствовать в некоторых схемах — не критично */
+    }
+    // Гвард продублирован в самом DELETE — удаление самозащищённое (забранного гостя
+    // или гостя с проектом не тронем, даже если состояние изменилось после подсчёта).
+    const deletedGuests = db
+      .prepare(`DELETE FROM users WHERE id IN (SELECT u.id FROM users u WHERE ${staleGuestWhere("u")})`)
+      .run(cutoff).changes
+    return { deletedGuests, deletedWallets }
+  })
+
+  const { deletedGuests, deletedWallets } = tx()
+  return { scanned, deletedGuests, deletedWallets }
+}
+
 /**
  * Провижинит лёгкий гость-аккаунт под данный IP: создаёт пользователя
  * (is_guest=1, непроходной password_hash → парольный вход невозможен),
