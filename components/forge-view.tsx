@@ -9,6 +9,7 @@ import { fmtTC } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { SectionHelp } from "./section-help"
 import { ArtifactIdentityPanel } from "./artifact-identity-panel"
+import { ConfirmModal } from "./ui/confirm-modal"
 
 const TYPE_KEYS = Object.keys(ARTIFACT_TYPES) as ArtifactType[]
 
@@ -113,6 +114,8 @@ export function ForgeView() {
   const [aiSubmitting, setAiSubmitting] = useState(false)
   const [aiNotice, setAiNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [aiResult, setAiResult] = useState<OsgardArtifact | null>(null)
+  const [forgeConfirmOpen, setForgeConfirmOpen] = useState(false)
+  const [aiConfirmOpen, setAiConfirmOpen] = useState(false)
 
   /** Артефакт, уже полученный от сервера, но ещё «в кинематографе» — источник цвета вспышки/раскрытия. */
   const [revealed, setRevealed] = useState<OsgardArtifact | null>(null)
@@ -774,7 +777,7 @@ export function ForgeView() {
             <button
               type="button"
               data-tour="forge-create"
-              onClick={doForge}
+              onClick={() => setForgeConfirmOpen(true)}
               disabled={!canForge || submitting}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
@@ -818,7 +821,7 @@ export function ForgeView() {
 
             <button
               type="button"
-              onClick={doGenerateAi}
+              onClick={() => setAiConfirmOpen(true)}
               disabled={!canGenerateAi}
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               style={{ backgroundColor: "transparent", border: `1px solid ${COLORS.accent}`, color: COLORS.accent }}
@@ -1085,6 +1088,33 @@ export function ForgeView() {
         </div>
       </main>
 
+      <ConfirmModal
+        open={forgeConfirmOpen}
+        onCancel={() => setForgeConfirmOpen(false)}
+        onConfirm={() => {
+          setForgeConfirmOpen(false)
+          doForge()
+        }}
+        title={t("forge.confirmForge.title")}
+        message={t("forge.confirmForge.message", { amount: `${paidCost} ${selCurrency.label}` })}
+        confirmLabel={t("forge.confirmForge.confirmLabel", { amount: `${paidCost} ${selCurrency.label}` })}
+        cancelLabel={t("forge.confirmForge.cancelLabel")}
+        loading={submitting}
+      />
+
+      <ConfirmModal
+        open={aiConfirmOpen}
+        onCancel={() => setAiConfirmOpen(false)}
+        onConfirm={() => {
+          setAiConfirmOpen(false)
+          doGenerateAi()
+        }}
+        title={t("forge.confirmAi.title")}
+        message={t("forge.confirmAi.message", { amount: fmtTC(AI_GENERATE_COST_TC) })}
+        confirmLabel={t("forge.confirmAi.confirmLabel", { amount: fmtTC(AI_GENERATE_COST_TC) })}
+        cancelLabel={t("forge.confirmAi.cancelLabel")}
+        loading={aiSubmitting}
+      />
     </div>
   )
 }

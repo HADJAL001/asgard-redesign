@@ -34,6 +34,7 @@ import { UP } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { apiClient } from "@/lib/api-client"
 import { ExtraPackagePurchase } from "./ExtraPackagePurchase"
+import { ConfirmModal } from "./ui/confirm-modal"
 
 /* Приблизительные курсы к cash_usd — используются ТОЛЬКО для предпросмотра
    суммы конвертации на клиенте. Совпадают с RATE_TO_USD в
@@ -113,6 +114,7 @@ export function WalletView() {
   const [amount, setAmount] = useState("")
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [convertConfirmOpen, setConvertConfirmOpen] = useState(false)
 
   useEffect(() => {
     fetchWallet({ skipAuthRedirect: true })
@@ -477,7 +479,7 @@ export function WalletView() {
 
             <button
               type="button"
-              onClick={doConvert}
+              onClick={() => setConvertConfirmOpen(true)}
               disabled={!affordable || giveAmount <= 0 || from === to || submitting || loading}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
@@ -723,6 +725,24 @@ export function WalletView() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={convertConfirmOpen}
+        onCancel={() => setConvertConfirmOpen(false)}
+        onConfirm={() => {
+          setConvertConfirmOpen(false)
+          doConvert()
+        }}
+        title={t("wallet.confirmConvert.title")}
+        message={t("wallet.confirmConvert.message", {
+          give: `${fmtAmount(from, giveAmount)} ${CURRENCY_SYMBOL[from]}`,
+          receive: `${fmtAmount(to, previewReceive)} ${CURRENCY_SYMBOL[to]}`,
+          fee: Math.round(CONVERT_FEE_PREVIEW * 100),
+        })}
+        confirmLabel={t("wallet.confirmConvert.confirmLabel")}
+        cancelLabel={t("wallet.confirmConvert.cancelLabel")}
+        loading={submitting}
+      />
     </div>
   )
 }
