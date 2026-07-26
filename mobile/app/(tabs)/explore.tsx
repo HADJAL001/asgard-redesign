@@ -10,10 +10,15 @@ import { Archive, SearchX } from 'lucide-react-native';
 import { HistoryFilters, type HistoryFiltersValue } from '@/components/HistoryFilters';
 import { LoadingAnimation } from '@/components/LoadingAnimation';
 import { ArtifactCard } from '@/components/ArtifactCard';
+import { ForgeLoadoutPanel } from '@/components/ForgeLoadoutPanel';
 import { EmptyState } from '@/components/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { useArtifactsQuery } from '@/hooks/useArtifactsQuery';
+import { useForgeLoadoutQuery } from '@/hooks/useForgeLoadoutQuery';
+import { useEquipArtifactMutation } from '@/hooks/useEquipArtifactMutation';
+import { useUnequipArtifactMutation } from '@/hooks/useUnequipArtifactMutation';
 import { useArchiveStore } from '@/store/archiveStore';
+import { ApiError } from '@/lib/api-client';
 import type { OsgardArtifact } from '@/types/artifact';
 
 const PAGE_SIZE = 20;
@@ -49,6 +54,9 @@ function ArchiveAction({ onPress }: { onPress: () => void }) {
 
 export default function HistoryScreen() {
   const { data: artifacts, isLoading, isFetching, refetch } = useArtifactsQuery();
+  const { data: forgeLoadout } = useForgeLoadoutQuery();
+  const equipMutation = useEquipArtifactMutation();
+  const unequipMutation = useUnequipArtifactMutation();
   const [filters, setFilters] = useState<HistoryFiltersValue>({ dateRange: 'all', type: null, rarity: null });
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -56,6 +64,28 @@ export default function HistoryScreen() {
   const archiveArtifact = useArchiveStore((s) => s.archive);
   const unarchiveArtifact = useArchiveStore((s) => s.unarchive);
   const toast = useToast();
+
+  const equippedIds = useMemo(
+    () => new Set((forgeLoadout?.equipped ?? []).map((e) => e.id)),
+    [forgeLoadout?.equipped],
+  );
+  const slotsFull = (forgeLoadout?.equipped.length ?? 0) >= (forgeLoadout?.maxSlots ?? 3);
+
+  const handleEquip = async (artifactId: number) => {
+    try {
+      await equipMutation.mutateAsync(artifactId);
+    } catch (e) {
+      toast.show(e instanceof ApiError ? e.message : 'Не удалось надеть артефакт', 'error');
+    }
+  };
+
+  const handleUnequip = async (artifactId: number) => {
+    try {
+      await unequipMutation.mutateAsync(artifactId);
+    } catch (e) {
+      toast.show(e instanceof ApiError ? e.message : 'Не удалось снять артефакт', 'error');
+    }
+  };
 
   const filtered = useMemo(() => {
     const all = artifacts ?? [];
@@ -96,6 +126,7 @@ export default function HistoryScreen() {
           }}
         />
       </View>
+      {forgeLoadout && <ForgeLoadoutPanel loadout={forgeLoadout} onUnequip={handleUnequip} />}
       <FlatList
         testID="history-list"
         data={visible}
@@ -114,7 +145,14 @@ export default function HistoryScreen() {
               renderRightActions={() => <ArchiveAction onPress={() => handleArchive(item)} />}
               overshootRight={false}
             >
-              <ArtifactCard artifact={item} onPress={() => router.push(`/result/${item.id}`)} />
+              <ArtifactCard
+                artifact={item}
+                onPress={() => router.push(`/result/${item.id}`)}
+                equipped={equippedIds.has(item.id)}
+                slotsFull={slotsFull}
+                onEquip={() => handleEquip(item.id)}
+                onUnequip={() => handleUnequip(item.id)}
+              />
             </Swipeable>
           </Animated.View>
         )}

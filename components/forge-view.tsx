@@ -6,6 +6,7 @@ import { Navbar } from "./navbar"
 import { useOsgardStore, type OsgardArtifact, type CraftBreakdown, type ArtifactIdentity, deriveIdentityFromArtifact } from "@/lib/store/osgard-store"
 import { COLORS, RARITY, RARITY_CHAIN, ARTIFACT_TYPES, STAT_META, type ArtifactType, type Rarity } from "@/lib/economy"
 import { fmtTC } from "@/lib/tc-market"
+import { apiClient } from "@/lib/api-client"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { SectionHelp } from "./section-help"
 import { ArtifactIdentityPanel } from "./artifact-identity-panel"
@@ -109,6 +110,11 @@ export function ForgeView() {
   const [craftBreakdown, setCraftBreakdown] = useState<CraftBreakdown | null>(null)
   const [identity, setIdentity] = useState<ArtifactIdentity | null>(null)
 
+  /** Честный предпоказ редкости ДО ковки (см. GET /artifacts/forge-preview) — та же
+   *  детерминированная формула Proof-of-Craft, что и у реальной ковки, поэтому
+   *  показанное здесь совпадёт с фактическим результатом. */
+  const [predictedRarity, setPredictedRarity] = useState<Rarity | null>(null)
+
   /** AI-Генератор артефактов (см. POST /artifacts/generate-ai) — независимое состояние от ручной ковки. */
   const [aiHint, setAiHint] = useState("")
   const [aiSubmitting, setAiSubmitting] = useState(false)
@@ -174,6 +180,28 @@ export function ForgeView() {
     fetchLoadout({ skipAuthRedirect: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  /* Предпоказ редкости: не зависит от имени/типа (только от проекта и валюты —
+     см. backend GET /forge-preview), поэтому запрос шлём при смене проекта/валюты,
+     без debounce на ввод имени. Отменяем устаревший ответ через флаг cancelled,
+     чтобы быстрое переключение проектов не перезаписало превью в неправильном порядке. */
+  useEffect(() => {
+    let cancelled = false
+    const params = new URLSearchParams()
+    if (projectId !== "") params.set("projectId", String(projectId))
+    params.set("currency", forgeCurrency)
+    apiClient
+      .get<{ predictedRarity: Rarity }>(`/artifacts/forge-preview?${params.toString()}`, { skipAuthRedirect: true })
+      .then((res) => {
+        if (!cancelled) setPredictedRarity(res.predictedRarity)
+      })
+      .catch(() => {
+        if (!cancelled) setPredictedRarity(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [projectId, forgeCurrency])
 
   const TypeIcon = ARTIFACT_TYPES[type].Icon
   const selCurrency = FORGE_CURRENCIES.find((c) => c.id === forgeCurrency)!
@@ -736,6 +764,20 @@ export function ForgeView() {
                 {t("forge.rarityInfo")}
               </p>
             </div>
+
+            {/* Честный предпоказ редкости: та же детерминированная формула, что и у
+                реальной ковки (см. useEffect выше), поэтому результат не обманывает. */}
+            {predictedRarity && (
+              <div
+                className="mt-3 flex items-center justify-between rounded-lg px-4 py-3 text-[13px]"
+                style={{ border: `1px solid ${RARITY[predictedRarity].color}`, backgroundColor: `${RARITY[predictedRarity].color}14` }}
+              >
+                <span style={{ color: COLORS.label }}>{t("forge.predictedRarity.label")}</span>
+                <span className="font-medium" style={{ color: RARITY[predictedRarity].color }}>
+                  {RARITY[predictedRarity].symbol} {RARITY[predictedRarity].label}
+                </span>
+              </div>
+            )}
 
             {/* Cost breakdown */}
             <div className="eg-inset mt-4 space-y-2 rounded-lg p-4 text-[13px]">

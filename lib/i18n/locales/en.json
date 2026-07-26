@@ -266,6 +266,9 @@
     "projectLabel": "Project (optional)",
     "projectNone": "No project",
     "rarityInfo": "Rarity isn't chosen by you and isn't random: it's determined by the same calculation as \"Craft honesty\"",
+    "predictedRarity": {
+      "label": "Will forge as"
+    },
     "currency": {
       "label": "Forge currency",
       "percentOf": "= {{percent}}% of possible power",
