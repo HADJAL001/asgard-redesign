@@ -11,6 +11,7 @@ import {
   contrastRatio,
   deriveDesignBrief,
   ensureContrast,
+  googleFontsHref,
   hexToHsl,
   hslToHex,
   relativeLuminance,
@@ -334,11 +335,15 @@ test('renderDesignSystemFiles: ровно три файла с непустым 
 test('renderLayout: шрифты подключаются <link>, а не next/font (сборка идёт без сети)', () => {
   // Песочница собирает проект с --network none: next/font качает файлы на этапе
   // сборки и уронил бы её. Регрессия здесь ломает весь build-контур.
-  const files = renderDesignSystemFiles(deriveDesignBrief({ name: 'Проект' }), 'Проект', 'Описание');
+  const brief = deriveDesignBrief({ name: 'Проект' });
+  const files = renderDesignSystemFiles(brief, 'Проект', 'Описание');
   const layout = files.find((f) => f.path === 'app/layout.tsx')!.content;
 
   assert.ok(!layout.includes('next/font'), 'next/font НЕ используется');
-  assert.ok(layout.includes('fonts.googleapis.com'), 'шрифт подключён ссылкой');
+  // Сверяем ТОЧНЫЙ href, а не подстроку хоста: подстрока совпала бы и на чужом
+  // домене вида evil.com/fonts.googleapis.com (js/incomplete-url-substring-sanitization).
+  assert.ok(layout.includes(`href="${googleFontsHref(brief)}"`), 'шрифт подключён ожидаемой ссылкой');
+  assert.equal(new URL(googleFontsHref(brief)).origin, 'https://fonts.googleapis.com', 'origin именно Google Fonts');
   assert.ok(layout.includes('lang="ru"'), 'язык документа задан');
   assert.ok(layout.includes('bg-canvas'), 'фон берётся из токена');
 });
@@ -348,6 +353,45 @@ test('renderLayout: кавычки в названии не ломают TSX', (
   const files = renderDesignSystemFiles(brief, 'Проект "Кавычки"', 'Описание с "кавычками"');
   const layout = files.find((f) => f.path === 'app/layout.tsx')!.content;
   assert.ok(layout.includes('\\"Кавычки\\"'), 'кавычки экранированы');
+});
+
+test('renderLayout: обратный слэш в названии экранируется (не рвёт литерал)', () => {
+  // Найдено CodeQL (js/incomplete-sanitization): прежнее ручное экранирование
+  // только кавычек пропускало «\», и имя вида `Проект\` давало битый TSX.
+  const ts = require('typescript') as typeof import('typescript');
+  const brief = deriveDesignBrief({ name: 'x' });
+
+  for (const hostile of ['Проект\\', 'Проект\\"взлом"', 'Кавычки "и" слэш \\ вместе', 'A\\\\B']) {
+    const files = renderDesignSystemFiles(brief, hostile, `Описание ${hostile}`);
+    const layout = files.find((f) => f.path === 'app/layout.tsx')!.content;
+    const result = ts.transpileModule(layout, {
+      reportDiagnostics: true,
+      compilerOptions: { jsx: ts.JsxEmit.Preserve, module: ts.ModuleKind.ESNext },
+    });
+    const errors = (result.diagnostics || []).filter((d) => d.category === ts.DiagnosticCategory.Error);
+    assert.equal(errors.length, 0, `layout для имени «${hostile}» не парсится`);
+  }
+});
+
+test('renderTailwindConfig/GlobalsCss: «*/» в настроении не закрывает комментарий', () => {
+  // mood приходит в том числе от AI-арт-директора: последовательность «*/» внутри
+  // комментария разорвала бы и TS-конфиг, и CSS.
+  const ts = require('typescript') as typeof import('typescript');
+  const base = deriveDesignBrief({ name: 'Проект', theme: 'general' });
+  const brief = clampBriefProposal(base, { mood: 'взлом */ const x = 1; /*' });
+
+  const config = renderTailwindConfig(brief);
+  const errors = (ts.transpileModule(config, { reportDiagnostics: true, compilerOptions: { module: ts.ModuleKind.ESNext } }).diagnostics || [])
+    .filter((d) => d.category === ts.DiagnosticCategory.Error);
+  assert.equal(errors.length, 0, 'конфиг остался валидным');
+  // Текст остаётся внутри комментария — это и есть нейтрализация. Важно другое:
+  // в шапке ровно одно закрытие «*/», то есть комментарий не разорван досрочно.
+  const configHeader = config.slice(0, config.indexOf('const config'));
+  assert.equal((configHeader.match(/\*\//g) || []).length, 1, 'в шапке конфига ровно одно закрытие комментария');
+
+  const css = renderGlobalsCss(brief);
+  const header = css.slice(0, css.indexOf(':root'));
+  assert.equal((header.match(/\*\//g) || []).length, 1, 'в шапке CSS ровно одно закрытие комментария');
 });
 
 test('renderFallbackPage: даже фоллбэк без AI собран на токенах', () => {

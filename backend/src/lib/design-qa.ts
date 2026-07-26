@@ -84,10 +84,49 @@ function lineAt(content: string, index: number): number {
   return line
 }
 
-/** Убирает комментарии и строковые литералы импортов, чтобы не ловить ложные
- *  срабатывания на пояснениях модели («// не используй bg-[#fff]»). */
+/** Убирает комментарии, чтобы не ловить ложные срабатывания на пояснениях модели
+ *  («// не используй bg-[#fff]»). Длина строки и позиции переводов строк сохраняются —
+ *  номера строк в замечаниях должны оставаться верными.
+ *
+ *  Реализовано ЛИНЕЙНЫМ сканером, а не регуляркой `\/\*[\s\S]*?\*\//g`: на вход
+ *  приходит код от AI (неконтролируемые данные), и на строке из многих повторов
+ *  `a/*` ленивое сопоставление уходит в квадратичный откат (js/polynomial-redos).
+ *  Сканер даёт O(n) при любом входе. */
 function stripComments(content: string): string {
-  return content.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " ")).replace(/\/\/[^\n]*/g, (m) => " ".repeat(m.length))
+  const out = content.split("")
+  let i = 0
+  const n = content.length
+
+  const blank = (from: number, to: number) => {
+    for (let k = from; k < to && k < n; k++) {
+      if (out[k] !== "\n") out[k] = " "
+    }
+  }
+
+  while (i < n) {
+    const ch = content[i]
+    const next = content[i + 1]
+
+    if (ch === "/" && next === "*") {
+      const end = content.indexOf("*/", i + 2)
+      const stop = end === -1 ? n : end + 2
+      blank(i, stop)
+      i = stop
+      continue
+    }
+
+    if (ch === "/" && next === "/") {
+      let end = content.indexOf("\n", i)
+      if (end === -1) end = n
+      blank(i, end)
+      i = end
+      continue
+    }
+
+    i++
+  }
+
+  return out.join("")
 }
 
 function collect(

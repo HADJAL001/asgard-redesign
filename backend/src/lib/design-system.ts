@@ -825,6 +825,20 @@ export function clampBriefProposal(base: DesignBrief, proposal: BriefProposal | 
    Рендер файлов дизайн-системы в генерируемое приложение
    ---------------------------------------------------------------- */
 
+/** Строковый литерал TS из произвольного текста. `JSON.stringify` сам ставит кавычки
+ *  и экранирует ВСЁ, включая обратные слэши — ручное `.replace(/"/g, '\\"')` их
+ *  пропускало, и имя, оканчивающееся на `\`, ломало бы TSX (js/incomplete-sanitization). */
+function tsStringLiteral(value: string, maxLen: number): string {
+  return JSON.stringify(value.replace(/[\r\n]+/g, " ").slice(0, maxLen))
+}
+
+/** Текст, безопасный для вставки внутрь блочного комментария JS/CSS.
+ *  `mood` приходит в том числе от AI-арт-директора: последовательность `*​/`
+ *  закрыла бы комментарий досрочно и порвала сгенерированный файл. */
+function safeComment(value: string): string {
+  return value.replace(/\*\//g, "* /").replace(/[\r\n]+/g, " ")
+}
+
 /** Модульная шкала кеглей от базового размера. */
 function typeScale(base: number, ratio: number): Record<string, string> {
   const step = (n: number) => `${(base * Math.pow(ratio, n)) / 16}rem`
@@ -857,7 +871,7 @@ export function renderTailwindConfig(brief: DesignBrief): string {
   return `import type { Config } from "tailwindcss"
 
 /* Дизайн-система приложения. Сгенерирована OSGARD: архетип «${brief.archetype}»,
-   настроение — ${brief.mood}. Контраст основного текста к фону: ${brief.contrast.inkOnCanvas}:1
+   настроение — ${safeComment(brief.mood)}. Контраст основного текста к фону: ${brief.contrast.inkOnCanvas}:1
    (WCAG AA требует 4.5:1). Правь осознанно: цвета связаны с app/globals.css. */
 const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
@@ -935,7 +949,7 @@ export function renderGlobalsCss(brief: DesignBrief): string {
 @tailwind utilities;
 
 /* Токены дизайн-системы (для ручного CSS; Tailwind-утилиты берут те же значения
-   из tailwind.config.ts). Архетип «${brief.archetype}» · ${brief.mood} */
+   из tailwind.config.ts). Архетип «${brief.archetype}» · ${safeComment(brief.mood)} */
 :root {
   --ds-canvas: ${p.canvas};
   --ds-surface: ${p.surface};
@@ -1063,18 +1077,15 @@ export function renderGlobalsCss(brief: DesignBrief): string {
 
 /** `app/layout.tsx` — со шрифтом, фоном и языком вместо голого `<html><body>`. */
 export function renderLayout(brief: DesignBrief, name: string, description: string): string {
-  const safeName = name.replace(/"/g, '\\"').replace(/[\r\n]+/g, " ")
-  const safeDescription = (description || `${name} — приложение, созданное в OSGARD.`)
-    .replace(/"/g, '\\"')
-    .replace(/[\r\n]+/g, " ")
-    .slice(0, 300)
+  const safeName = tsStringLiteral(name, 200)
+  const safeDescription = tsStringLiteral(description || `${name} — приложение, созданное в OSGARD.`, 300)
 
   return `import type { Metadata } from "next"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "${safeName}",
-  description: "${safeDescription}",
+  title: ${safeName},
+  description: ${safeDescription},
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
