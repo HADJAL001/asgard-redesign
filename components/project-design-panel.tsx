@@ -36,6 +36,7 @@ type DesignBrief = {
   spacingBase: number
   radius: { sm: number; md: number; lg: number; pill: number }
   density: string
+  effect: string
   voice: string
   layout: string[]
   contrast: { inkOnCanvas: number; mutedOnCanvas: number; primaryInkOnPrimary: number; inkOnSurface: number }
@@ -62,6 +63,15 @@ const ARCHETYPE_LABEL: Record<string, string> = {
   commons: "Сообщество",
   gallery: "Галерея",
   studio: "Студия",
+}
+
+/** Человекочитаемые названия эффектов — тот же словарь, что в backend/src/routes/design.routes.ts. */
+const EFFECT_LABEL: Record<string, string> = {
+  glass: "Стекло",
+  neon: "Неон",
+  matte: "Матовый",
+  aurora: "Аврора",
+  crystal: "Кристалл",
 }
 
 /** Подписи токенов палитры — чтобы образец цвета что-то значил, а не был квадратиком. */
@@ -199,6 +209,7 @@ export function ProjectDesignPanel({ projectId }: { projectId: number }) {
         <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-[12px]" style={{ color: COLORS.label }}>
           <span>Схема: {brief.scheme === "dark" ? "тёмная" : "светлая"}</span>
           <span>Плотность: {brief.density}</span>
+          <span>Эффект: {EFFECT_LABEL[brief.effect] ?? brief.effect}</span>
           <span>Шаг сетки: {brief.spacingBase}px</span>
           <span>Скругление: {brief.radius.md}px</span>
         </div>
@@ -362,6 +373,7 @@ type DesignOptions = {
   schemes: Array<{ id: string; label: string }>
   densities: Array<{ id: string; label: string }>
   radiusStyles: Array<{ id: string; label: string }>
+  effects: Array<{ id: string; label: string }>
   fonts: { display: string[]; body: string[] }
   hueRange: { min: number; max: number }
 }
@@ -392,6 +404,7 @@ function DesignStudio({
   const [scheme, setScheme] = useState<string>(brief.scheme)
   const [density, setDensity] = useState<string>(brief.density)
   const [radiusStyle, setRadiusStyle] = useState("default")
+  const [effect, setEffect] = useState(brief.effect)
   const [displayFont, setDisplayFont] = useState(brief.typography.display)
   const [bodyFont, setBodyFont] = useState(brief.typography.body)
   const [hue, setHue] = useState(() => hueOf(brief.palette.primary))
@@ -419,6 +432,7 @@ function DesignStudio({
         scheme,
         density,
         radiusStyle,
+        effect,
         displayFont,
         bodyFont,
         hue,
@@ -472,6 +486,7 @@ function DesignStudio({
                 <StudioSelect label="Схема" value={scheme} onChange={setScheme} items={options.schemes} />
                 <StudioSelect label="Плотность" value={density} onChange={setDensity} items={options.densities} />
                 <StudioSelect label="Скругления" value={radiusStyle} onChange={setRadiusStyle} items={options.radiusStyles} />
+                <StudioSelect label="Эффект поверхностей" value={effect} onChange={setEffect} items={options.effects} />
                 <StudioSelect
                   label="Шрифт заголовков"
                   value={displayFont}

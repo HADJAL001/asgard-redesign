@@ -5,6 +5,7 @@ import { durableCache } from "./agents/durable-cache"
 import {
   ARCHETYPE_MENU,
   DESIGN_BRIEF_VERSION,
+  EFFECT_MENU,
   FONT_MENU,
   clampBriefProposal,
   deriveDesignBrief,
@@ -199,6 +200,7 @@ function buildArtDirectionPrompt(name: string, hint: string | undefined, base: D
   "radiusStyle": "sharp" | "default" | "soft" | "pill",
   "displayFont": один из ${JSON.stringify(FONT_MENU.display)},
   "bodyFont": один из ${JSON.stringify(FONT_MENU.body)},
+  "effect": один из ${JSON.stringify(EFFECT_MENU)} — материал поверхностей: glass (стекло, полупрозрачность и блюр), neon (яркая обводка и свечение), matte (плоские поверхности без блюра), aurora (анимированная градиентная рамка), crystal (сильный блюр и зерно поверх контента),
   "mood": "короткая фраза о настроении интерфейса, до 100 символов",
   "voice": "как звучат тексты интерфейса, до 140 символов",
   "layout": ["3-5 конкретных правил раскладки для этого приложения"]

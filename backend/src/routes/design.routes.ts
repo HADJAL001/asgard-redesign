@@ -6,6 +6,7 @@ import { captureError } from "../lib/sentry"
 import {
   ARCHETYPE_MENU,
   DESIGN_SYSTEM_PATHS,
+  EFFECT_MENU,
   FONT_MENU,
   clampBriefProposal,
   deriveDesignBrief,
@@ -71,6 +72,14 @@ const RADIUS_STYLES = [
   { id: "pill", label: "Капсулы" },
 ]
 
+const EFFECT_LABELS: Record<string, string> = {
+  glass: "Стекло",
+  neon: "Неон",
+  matte: "Матовый",
+  aurora: "Аврора",
+  crystal: "Кристалл",
+}
+
 /* ---------------- GET /design/options — каталог допустимых решений ----------------
    Закрытое меню: фронт показывает ровно то, что примет сервер, — иначе пользователь
    выбирал бы варианты, которые зажим всё равно отбросит. */
@@ -83,6 +92,7 @@ router.get("/options", requireAuth, (_req: AuthRequest, res) => {
     ],
     densities: DENSITIES,
     radiusStyles: RADIUS_STYLES,
+    effects: EFFECT_MENU.map((id) => ({ id, label: EFFECT_LABELS[id] ?? id })),
     fonts: FONT_MENU,
     /** Оттенок задаётся числом 0..359 — сырые цвета не принимаются принципиально. */
     hueRange: { min: 0, max: 359 },
@@ -145,6 +155,7 @@ router.post(
       radiusStyle: typeof req.body?.radiusStyle === "string" ? req.body.radiusStyle : undefined,
       displayFont: typeof req.body?.displayFont === "string" ? req.body.displayFont : undefined,
       bodyFont: typeof req.body?.bodyFont === "string" ? req.body.bodyFont : undefined,
+      effect: typeof req.body?.effect === "string" ? req.body.effect : undefined,
     }
 
     const brief = clampBriefProposal(base, proposal)
