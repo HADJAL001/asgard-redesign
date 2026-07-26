@@ -203,6 +203,7 @@ import authRoutes from "./routes/auth.routes"
 import oauthRoutes from "./routes/oauth.routes"
 import walletRoutes from "./routes/wallet.routes"
 import provablyFairRoutes from "./routes/provably-fair.routes"
+import designRoutes from "./routes/design.routes"
 import tcMarketRoutes, { getTcMarketSseConnections } from "./routes/tcmarket.routes"
 import stakesRoutes from "./routes/stakes.routes"
 import artifactsRoutes from "./routes/artifacts.routes"
@@ -518,6 +519,7 @@ app.use("/auth", authRoutes)
 app.use("/auth", oauthRoutes)
 app.use("/wallet", walletRoutes)
 app.use("/provably-fair", provablyFairRoutes)
+app.use("/design", designRoutes)
 app.use("/tc-market", tcMarketRoutes)
 app.use("/stakes", stakesRoutes)
 app.use("/artifacts", artifactsRoutes)
