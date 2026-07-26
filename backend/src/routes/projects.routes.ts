@@ -10,7 +10,13 @@ import { verifyBuildInSandbox } from "../services/sandbox.service"
 import { decrypt } from "../utils/encryption"
 import { asyncHandler } from "../utils/async-handler"
 import { captureError } from "../lib/sentry"
-import { PROJECT_SELECT_COLUMNS, createGeneratedProject, refineGeneratedProject } from "../lib/project-generation"
+import {
+  PROJECT_SELECT_COLUMNS,
+  createGeneratedProject,
+  refineGeneratedProject,
+  repairGeneratedProject,
+} from "../lib/project-generation"
+import { rateLimit } from "../middleware/rateLimiter"
 import { GENERATION_DEPTHS, resolveDepth, serializeDepths } from "../lib/generation-depths"
 import { logAudit } from "../lib/audit"
 import { generationEvents, getRecentStages, type GenerationStageEvent } from "../lib/generation-events"
@@ -547,6 +553,91 @@ router.get("/:id/design", requireAuth, (req: AuthRequest, res) => {
     report: parse(row.designReport),
   })
 })
+
+/* ---------------- GET /projects/:id/engineering — инженерный вердикт приложения ----------------
+   Показывает, ЧЕМ доказана работоспособность приложения: список проверок (граф модулей,
+   клиент/сервер, контракт статического экспорта, чистота исходников), остаточные дефекты,
+   журнал того, что платформа починила сама, и был ли реальный `next build` в песочнице.
+   Только владельцу; 404 и на чужой, и на отсутствующий проект — без энумерации.
+   Legacy-проекты (сгенерированные до миграции 091) честно отдают verified:false —
+   вердикт, которого никто не выносил, задним числом не выдумываем. */
+router.get("/:id/engineering", requireAuth, (req: AuthRequest, res) => {
+  const projectId = Number(req.params.id)
+  if (!Number.isInteger(projectId) || projectId <= 0) {
+    return res.status(400).json({ error: "Некорректный id проекта" })
+  }
+
+  // Ленивый prepare внутри хендлера — ссылка на колонки 091 на уровне модуля
+  // уронила бы boot на БД, где миграция ещё не отработала (урок инцидента #59).
+  let row: { buildStatus: string | null; buildReport: string | null; verifiedAt: number | null } | undefined
+  try {
+    row = db
+      .prepare(
+        `SELECT build_status as buildStatus, build_report as buildReport, build_verified_at as verifiedAt
+         FROM projects WHERE id = ? AND user_id = ?`,
+      )
+      .get(projectId, req.user!.userId) as typeof row
+  } catch {
+    const owns = db.prepare(`SELECT 1 FROM projects WHERE id = ? AND user_id = ?`).get(projectId, req.user!.userId)
+    if (!owns) return res.status(404).json({ error: "Проект не найден" })
+    return res.json({ verified: false, verdict: null, report: null, verifiedAt: null })
+  }
+
+  if (!row) return res.status(404).json({ error: "Проект не найден" })
+
+  let report: unknown = null
+  if (row.buildReport) {
+    try {
+      report = JSON.parse(row.buildReport)
+    } catch {
+      report = null
+    }
+  }
+
+  return res.json({
+    verified: !!row.buildStatus,
+    verdict: row.buildStatus,
+    report,
+    verifiedAt: row.verifiedAt ?? null,
+  })
+})
+
+/* ---------------- POST /projects/:id/repair — повторный прогон инженерного контура ----------------
+   Вердикт «broken» не должен быть приговором: пользователь может попросить платформу
+   попробовать снова. Контур гоняется по УЖЕ СОХРАНЁННЫМ файлам проекта (генерация с нуля
+   не запускается, артефакты и замысел не трогаются), чинит что может и переписывает вердикт.
+
+   Дорогая ручка (AI-перегенерация дефектных файлов), поэтому: только владелец, только не
+   во время генерации, не чаще 3 раз в 10 минут на пользователя. Отвечаем 202 и гоняем
+   фоном — прогресс идёт тем же SSE-логом, что и генерация. */
+router.post(
+  "/:id/repair",
+  requireAuth,
+  rateLimit(10 * 60 * 1000, 3, (req) => `repair:${(req as AuthRequest).user?.userId ?? req.ip}`),
+  asyncHandler(async (req: AuthRequest, res) => {
+    const projectId = Number(req.params.id)
+    if (!Number.isInteger(projectId) || projectId <= 0) {
+      return res.status(400).json({ error: "Некорректный id проекта" })
+    }
+
+    const project = db
+      .prepare(`SELECT id, name, description, status FROM projects WHERE id = ? AND user_id = ?`)
+      .get(projectId, req.user!.userId) as
+      | { id: number; name: string; description: string | null; status: string }
+      | undefined
+
+    if (!project) return res.status(404).json({ error: "Проект не найден" })
+    if (project.status === "generating") {
+      return res.status(409).json({ error: "Проект сейчас генерируется — дождитесь завершения" })
+    }
+
+    const started = repairGeneratedProject({ userId: req.user!.userId, projectId })
+    if (!started) return res.status(400).json({ error: "У проекта нет файлов для проверки" })
+
+    const updated = db.prepare(`SELECT ${PROJECT_SELECT_COLUMNS} FROM projects WHERE id = ?`).get(projectId)
+    return res.status(202).json({ project: updated })
+  }),
+)
 
 /* ---------------- GET /projects/:id/stream — живой SSE-лог рождения проекта ----------------
    Фоновый джоб генерации (lib/project-generation.ts) эмитит стадии через generationEvents;
