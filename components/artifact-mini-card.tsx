@@ -51,6 +51,7 @@ export function ArtifactMiniCard({ a, tcUsdPrice }: { a: MiniArtifact; tcUsdPric
 
   return (
     <article
+      aria-label={`${a.name}, редкость: ${rarity.label}`}
       className="premium-card flex flex-col rounded-xl p-5"
       style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
       onMouseEnter={(e) => {
