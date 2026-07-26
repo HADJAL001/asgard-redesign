@@ -23,7 +23,7 @@
    ================================================================ */
 
 import { useEffect, useState } from "react"
-import { BadgeCheck, ShieldCheck, Crown, Rocket, Share2, Check, Loader2, AlertTriangle } from "lucide-react"
+import { BadgeCheck, ShieldCheck, Crown, Rocket, Share2, Check, Loader2, AlertTriangle, Code2 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-store"
 
@@ -69,6 +69,7 @@ export function CertifiedCredential() {
   const [claiming, setClaiming] = useState(false)
   const [claimErr, setClaimErr] = useState<string | null>(null)
   const [shared, setShared] = useState(false)
+  const [mdCopied, setMdCopied] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -120,6 +121,19 @@ export function CertifiedCredential() {
       }
     } catch {
       /* пользователь отменил шэр или буфер недоступен — тихо игнорируем */
+    }
+  }
+
+  async function handleCopyMarkdown() {
+    if (!cert || typeof navigator === "undefined" || !navigator.clipboard) return
+    const origin = typeof window !== "undefined" ? window.location.origin : ""
+    const snippet = `[![OSGARD Certified Vibecoder](${origin}/certified/${cert.serial}/badge.svg)](${origin}/certified/${cert.serial})`
+    try {
+      await navigator.clipboard.writeText(snippet)
+      setMdCopied(true)
+      setTimeout(() => setMdCopied(false), 2000)
+    } catch {
+      /* буфер недоступен — тихо игнорируем */
     }
   }
 
@@ -218,6 +232,12 @@ export function CertifiedCredential() {
           {shared ? "Ссылка скопирована" : "Поделиться · проверить публично"}
         </button>
         <p className="acd-cred-verify-hint">Любой может проверить подлинность по /certified/{cert.serial}</p>
+
+        {/* Markdown-сниппет для встраивания бейджа в README/профиль */}
+        <button type="button" className="acd-cred-embed" onClick={handleCopyMarkdown}>
+          {mdCopied ? <Check size={13} strokeWidth={2.6} /> : <Code2 size={13} strokeWidth={1.9} />}
+          {mdCopied ? "Сниппет скопирован" : "Скопировать бейдж для README"}
+        </button>
       </article>
 
       <style>{CRED_CSS}</style>
@@ -300,6 +320,14 @@ const CRED_CSS = `
 .acd-cred-verify-hint {
   position: relative; margin: 12px 0 0; font-size: 11.5px; color: #8B8574; word-break: break-word;
 }
+.acd-cred-embed {
+  position: relative; margin: 10px auto 0;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: none; cursor: pointer; padding: 2px 0;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.2px; color: #C7B98A;
+  transition: color .2s ease;
+}
+.acd-cred-embed:hover { color: #F4D77E; }
 
 /* ── CTA «Получить credential» ── */
 .acd-cred--claim {
