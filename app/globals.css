@@ -1311,3 +1311,24 @@ svg { width: 1rem; height: 1rem; flex: none; }
   .btn-auth:hover:not(:disabled) { transform: none; }
   .btn-auth::after { display: none; }
 }
+
+/* OSGARD premium loader overlay (Claude B) */
+.osgard-loader-veil {
+  background: radial-gradient(120% 90% at 50% 30%, rgba(20, 20, 36, 0.94) 0%, rgba(6, 7, 14, 0.98) 70%, #05060B 100%);
+}
+.osgard-loader-halo {
+  box-shadow: 0 0 40px 10px rgba(201, 168, 76, 0.28), 0 0 90px 24px rgba(201, 168, 76, 0.12);
+  animation: osgard-aura-pulse 2.6s ease-in-out infinite;
+}
+.osgard-loader-decor {
+  opacity: 1;
+  animation: osgard-loader-decor-in 0.5s var(--ease-out-soft) 0.12s both;
+}
+@keyframes osgard-loader-decor-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .osgard-loader-halo,
+  .osgard-loader-decor { animation: none !important; }
+}
