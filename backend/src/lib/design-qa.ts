@@ -21,6 +21,14 @@
    разойтись, потому что источник один.
    ================================================================ */
 
+import {
+  MUTED_CONTRAST_MIN,
+  TEXT_CONTRAST_MIN,
+  contrastRatio,
+  type DesignBrief,
+  type DesignPalette,
+} from "./design-system"
+
 export type DesignIssueSeverity = "error" | "warn"
 
 export type DesignIssue = {
@@ -176,6 +184,93 @@ function tokenDisciplineIssues(files: AnalyzedFile[]): DesignIssue[] {
       `Цвет задан inline-стилем. Цвета берутся только из токенов (bg-primary, text-ink и т.д.).`,
     ),
   ]
+}
+
+/* ----------------------------------------------------------------
+   Контраст ПАР токенов в реальном коде
+   ----------------------------------------------------------------
+   Дизайн-система гарантирует контраст своих канонических пар (ink→canvas,
+   primaryInk→primary и т.д. — см. lib/design-system.ts). Но код может
+   сложить токены НЕ ТАК: например `bg-primary text-ink-muted` — оба токена
+   легальны, а вместе нечитаемы. Регулярками такое не поймать: нужно взять
+   палитру КОНКРЕТНОГО проекта и посчитать реальное отношение по WCAG.
+   ---------------------------------------------------------------- */
+
+/** Tailwind-класс фона → ключ палитры брифа. */
+const BG_TOKEN_TO_KEY: Record<string, keyof DesignPalette> = {
+  "bg-canvas": "canvas",
+  "bg-surface": "surface",
+  "bg-surface-alt": "surfaceAlt",
+  "bg-primary": "primary",
+  "bg-accent": "accent",
+  "bg-success": "success",
+  "bg-warning": "warning",
+  "bg-danger": "danger",
+}
+
+/** Tailwind-класс текста → ключ палитры брифа. */
+const TEXT_TOKEN_TO_KEY: Record<string, keyof DesignPalette> = {
+  "text-ink": "ink",
+  "text-ink-muted": "muted",
+  "text-primary-ink": "primaryInk",
+  "text-accent-ink": "accentInk",
+  "text-primary": "primary",
+  "text-accent": "accent",
+  "text-success": "success",
+  "text-warning": "warning",
+  "text-danger": "danger",
+}
+
+/** Достаёт классы из className="..." / className={"..."} — без вычисляемых выражений
+ *  (их статически знать нельзя, и притворяться, что можно, было бы нечестно). */
+function extractClassNameGroups(source: string): Array<{ classes: string[]; index: number }> {
+  const groups: Array<{ classes: string[]; index: number }> = []
+  const re = /className\s*=\s*(?:"([^"]*)"|'([^']*)'|\{\s*["'`]([^"'`]*)["'`]\s*\})/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(source)) !== null) {
+    const raw = m[1] ?? m[2] ?? m[3] ?? ""
+    const classes = raw.split(/\s+/).filter(Boolean)
+    if (classes.length > 0) groups.push({ classes, index: m.index })
+  }
+  return groups
+}
+
+/** Убирает адаптивный/состояние-префикс (`md:`, `hover:`) — токен тот же. */
+function baseClass(cls: string): string {
+  const idx = cls.lastIndexOf(":")
+  return idx === -1 ? cls : cls.slice(idx + 1)
+}
+
+function tokenPairContrastIssues(files: AnalyzedFile[], brief: DesignBrief | undefined): DesignIssue[] {
+  if (!brief?.palette) return [] // проекта без брифа (legacy) не судим — сравнивать не с чем
+  const issues: DesignIssue[] = []
+
+  for (const file of files) {
+    const source = stripComments(file.content)
+    for (const group of extractClassNameGroups(source)) {
+      const base = group.classes.map(baseClass)
+      const bgClass = base.find((c) => BG_TOKEN_TO_KEY[c])
+      const textClass = base.find((c) => TEXT_TOKEN_TO_KEY[c])
+      if (!bgClass || !textClass) continue // фон неизвестен — молчим, а не гадаем
+
+      const bg = brief.palette[BG_TOKEN_TO_KEY[bgClass]]
+      const fg = brief.palette[TEXT_TOKEN_TO_KEY[textClass]]
+      if (!bg || !fg) continue
+
+      const ratio = contrastRatio(fg, bg)
+      if (ratio < TEXT_CONTRAST_MIN) {
+        issues.push({
+          rule: "a11y/token-pair-contrast",
+          severity: ratio < MUTED_CONTRAST_MIN ? "error" : "warn",
+          file: file.path,
+          line: lineAt(source, group.index),
+          message: `Пара «${textClass}» на «${bgClass}» даёт контраст ${ratio.toFixed(2)}:1 при норме ${TEXT_CONTRAST_MIN}:1 — текст будет плохо читаться. Оба токена легальны по отдельности, но вместе несовместимы.`,
+        })
+      }
+    }
+  }
+
+  return issues
 }
 
 function accessibilityIssues(files: AnalyzedFile[]): DesignIssue[] {
@@ -359,7 +454,7 @@ function factorFrom(
  * `computeDesignScore` — производная от него, поэтому балл и объяснение
  * не могут разойтись (приём из lib/proof-of-craft.ts).
  */
-export function explainDesignQuality(files: AnalyzedFile[]): DesignReport {
+export function explainDesignQuality(files: AnalyzedFile[], brief?: DesignBrief): DesignReport {
   const analyzable = files.filter((f) => isAnalyzable(f.path))
 
   // Нечего анализировать (например, генерация упала до создания страниц) —
@@ -381,7 +476,7 @@ export function explainDesignQuality(files: AnalyzedFile[]): DesignReport {
     }
   }
 
-  const token = tokenDisciplineIssues(analyzable)
+  const token = [...tokenDisciplineIssues(analyzable), ...tokenPairContrastIssues(analyzable, brief)]
   const a11y = accessibilityIssues(analyzable)
   const responsive = responsivenessIssues(analyzable)
   const semantics = semanticsIssues(analyzable)
@@ -405,8 +500,8 @@ export function explainDesignQuality(files: AnalyzedFile[]): DesignReport {
 }
 
 /** Балл дизайна 0..100. Производный от explainDesignQuality — расхождение невозможно. */
-export function computeDesignScore(files: AnalyzedFile[]): number {
-  return explainDesignQuality(files).score
+export function computeDesignScore(files: AnalyzedFile[], brief?: DesignBrief): number {
+  return explainDesignQuality(files, brief).score
 }
 
 /**

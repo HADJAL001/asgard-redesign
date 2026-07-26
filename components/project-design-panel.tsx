@@ -23,7 +23,7 @@
    ================================================================ */
 
 import { useEffect, useState } from "react"
-import { AlertTriangle, CheckCircle2, Loader2, Palette, Type } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Loader2, Palette, SlidersHorizontal, Type } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { COLORS } from "@/lib/economy"
 
@@ -167,6 +167,18 @@ export function ProjectDesignPanel({ projectId }: { projectId: number }) {
 
   return (
     <div className="mt-6 flex flex-col gap-4">
+      <DesignStudio
+        projectId={projectId}
+        brief={brief}
+        onApplied={(next, nextScore, nextReport) =>
+          setState({
+            status: "ready",
+            forId: projectId,
+            data: { designed: true, brief: next, score: nextScore, report: nextReport },
+          })
+        }
+      />
+
       {/* Характер продукта */}
       <div className="rounded-2xl p-5" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -327,4 +339,249 @@ export function ProjectDesignPanel({ projectId }: { projectId: number }) {
       )}
     </div>
   )
+}
+
+/* ================================================================
+   DesignStudio — перенастройка облика без перегенерации кода
+   ----------------------------------------------------------------
+   До этого дизайн-система была неизменяемой: поменять облик можно было
+   только заново прогнав генерацию — с тратой квоты/кредитов и с риском
+   получить ДРУГОЙ код. Оформление и логика — разные вещи, и менять
+   первое, рискуя вторым, неправильно.
+
+   Выбор уходит в POST /design/projects/:id/retune, который переписывает
+   ровно три файла дизайн-системы. AI не зовётся, кредиты не списываются.
+   Меню закрытое: показываем ровно то, что примет сервер, — иначе человек
+   выбирал бы варианты, которые зажим всё равно отбросит. Нечитаемую
+   палитру настроить нельзя: контраст пересчитывается алгоритмом на
+   сервере (тот же clampBriefProposal, что и для AI-арт-директора).
+   ================================================================ */
+
+type DesignOptions = {
+  archetypes: Array<{ id: string; label: string }>
+  schemes: Array<{ id: string; label: string }>
+  densities: Array<{ id: string; label: string }>
+  radiusStyles: Array<{ id: string; label: string }>
+  fonts: { display: string[]; body: string[] }
+  hueRange: { min: number; max: number }
+}
+
+type RetuneResponse = {
+  brief: DesignBrief
+  score: number
+  report: DesignResponse["report"]
+  persisted: boolean
+}
+
+function DesignStudio({
+  projectId,
+  brief,
+  onApplied,
+}: {
+  projectId: number
+  brief: DesignBrief
+  onApplied: (brief: DesignBrief, score: number, report: DesignResponse["report"]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [options, setOptions] = useState<DesignOptions | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  // Выбор стартует от того, что уже применено к проекту.
+  const [archetype, setArchetype] = useState(brief.archetype)
+  const [scheme, setScheme] = useState<string>(brief.scheme)
+  const [density, setDensity] = useState<string>(brief.density)
+  const [radiusStyle, setRadiusStyle] = useState("default")
+  const [displayFont, setDisplayFont] = useState(brief.typography.display)
+  const [bodyFont, setBodyFont] = useState(brief.typography.body)
+  const [hue, setHue] = useState(() => hueOf(brief.palette.primary))
+
+  /** Меню грузим по первому открытию — эффекта на маунте намеренно нет. */
+  async function toggle() {
+    const next = !open
+    setOpen(next)
+    if (next && !options) {
+      try {
+        setOptions(await apiClient.get<DesignOptions>("/design/options"))
+      } catch (err: any) {
+        setNotice(err?.message || "Не удалось загрузить настройки")
+      }
+    }
+  }
+
+  async function apply() {
+    if (busy) return
+    setBusy(true)
+    setNotice(null)
+    try {
+      const res = await apiClient.post<RetuneResponse>(`/design/projects/${projectId}/retune`, {
+        archetype,
+        scheme,
+        density,
+        radiusStyle,
+        displayFont,
+        bodyFont,
+        hue,
+      })
+      onApplied(res.brief, res.score, res.report)
+      setNotice(
+        res.persisted
+          ? "Облик применён — обновлены tailwind.config.ts, globals.css и layout.tsx. Код страниц не тронут."
+          : "Файлы обновлены, но дизайн-система не сохранена в проекте.",
+      )
+    } catch (err: any) {
+      setNotice(err?.message || "Не удалось применить настройки")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="rounded-2xl p-5" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal size={15} strokeWidth={1.75} style={{ color: COLORS.accent }} />
+          <p className="text-[13px] font-medium">Дизайн-студия</p>
+        </div>
+        <button
+          type="button"
+          onClick={toggle}
+          className="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-opacity hover:opacity-80"
+          style={{ border: `1px solid ${COLORS.border}`, color: COLORS.label }}
+        >
+          {open ? "Свернуть" : "Перенастроить облик"}
+        </button>
+      </div>
+
+      {!open && (
+        <p className="mt-2 text-[12px]" style={{ color: COLORS.label }}>
+          Смена палитры, типографики и ритма без перегенерации кода — бесплатно и мгновенно.
+        </p>
+      )}
+
+      {open && (
+        <div className="mt-4 flex flex-col gap-4">
+          {!options ? (
+            <div className="flex items-center gap-2 text-[12px]" style={{ color: COLORS.label }}>
+              <Loader2 size={14} className="animate-spin" /> Загружаю настройки…
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <StudioSelect label="Архетип" value={archetype} onChange={setArchetype} items={options.archetypes} />
+                <StudioSelect label="Схема" value={scheme} onChange={setScheme} items={options.schemes} />
+                <StudioSelect label="Плотность" value={density} onChange={setDensity} items={options.densities} />
+                <StudioSelect label="Скругления" value={radiusStyle} onChange={setRadiusStyle} items={options.radiusStyles} />
+                <StudioSelect
+                  label="Шрифт заголовков"
+                  value={displayFont}
+                  onChange={setDisplayFont}
+                  items={options.fonts.display.map((f) => ({ id: f, label: f }))}
+                />
+                <StudioSelect
+                  label="Шрифт текста"
+                  value={bodyFont}
+                  onChange={setBodyFont}
+                  items={options.fonts.body.map((f) => ({ id: f, label: f }))}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="ds-hue" className="text-[11px]" style={{ color: COLORS.label }}>
+                  Основной оттенок: {hue}°
+                </label>
+                <input
+                  id="ds-hue"
+                  type="range"
+                  min={options.hueRange.min}
+                  max={options.hueRange.max}
+                  value={hue}
+                  onChange={(e) => setHue(Number(e.target.value))}
+                  className="mt-1.5 w-full"
+                  style={{ accentColor: brief.palette.primary }}
+                />
+                {/* Оттенок задаётся числом, а не пипеткой: сырые цвета система не принимает
+                    принципиально — иначе вернулся бы тот самый разнобой, ради устранения
+                    которого дизайн-система и появилась. */}
+                <p className="mt-1 text-[11px]" style={{ color: COLORS.label }}>
+                  Контраст пересчитается автоматически — нечитаемую палитру выбрать нельзя.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={apply}
+                  disabled={busy}
+                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
+                >
+                  {busy ? <Loader2 size={14} className="animate-spin" /> : <SlidersHorizontal size={14} strokeWidth={1.75} />}
+                  {busy ? "Применяю…" : "Применить облик"}
+                </button>
+                <span className="text-[11px]" style={{ color: COLORS.label }}>
+                  Меняются только tailwind.config.ts, globals.css и layout.tsx
+                </span>
+              </div>
+            </>
+          )}
+
+          {notice && (
+            <p className="text-[12px]" style={{ color: COLORS.label }}>
+              {notice}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StudioSelect({
+  label,
+  value,
+  onChange,
+  items,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  items: Array<{ id: string; label: string }>
+}) {
+  const id = `ds-${label.replace(/\s+/g, "-").toLowerCase()}`
+  return (
+    <div>
+      <label htmlFor={id} className="text-[11px]" style={{ color: COLORS.label }}>
+        {label}
+      </label>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 w-full rounded-lg px-2.5 py-2 text-[13px]"
+        style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.border}`, color: "inherit" }}
+      >
+        {items.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+/** Оттенок (0..359) из HEX — чтобы ползунок стартовал с текущего цвета проекта. */
+function hueOf(hex: string): number {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
+  if (!m) return 220
+  const int = parseInt(m[1], 16)
+  const r = ((int >> 16) & 255) / 255
+  const g = ((int >> 8) & 255) / 255
+  const b = (int & 255) / 255
+  const max = Math.max(r, g, b)
+  const d = max - Math.min(r, g, b)
+  if (d === 0) return 220
+  const h = max === r ? ((g - b) / d + (g < b ? 6 : 0)) * 60 : max === g ? ((b - r) / d + 2) * 60 : ((r - g) / d + 4) * 60
+  return Math.round(h)
 }
