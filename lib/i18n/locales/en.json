@@ -983,5 +983,19 @@
     "reportChecks": "What was checked",
     "reportRepairs": "What was repaired",
     "reportDefects": "What remains"
+  },
+  "ceremony": {
+    "starting": "The forge is warming up…",
+    "analyzing": "Reading your idea",
+    "designing": "Designing the visual system",
+    "template": "Adapting a proven blueprint",
+    "ai": "Hand-forging the code",
+    "validating": "Checking every detail",
+    "building": "Engineering pass: checking integrity",
+    "repairing": "Fixing what was found",
+    "writing": "Casting the final form",
+    "ready": "Done",
+    "failed": "Didn't work out",
+    "defectsFound": "{{count}} defects found — the platform is repairing them live"
   }
 }

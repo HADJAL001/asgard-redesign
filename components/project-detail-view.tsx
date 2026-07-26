@@ -29,6 +29,7 @@ import { Navbar } from "./navbar"
 import { ProjectFileEditor } from "./project-file-editor"
 import { ProjectDesignPanel } from "./project-design-panel"
 import { ProjectEngineeringPanel } from "./project-engineering-panel"
+import { ForgeCeremony } from "./forge-ceremony"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { useAuth } from "@/lib/auth-store"
 import { COLORS, badgeIcon, RARITY, ARTIFACT_TYPES, STAT_META, type ArtifactType, type Rarity } from "@/lib/economy"
@@ -356,53 +357,7 @@ export function ProjectDetailView({ projectId }: Props) {
         </div>
 
         {/* Status banners: генерация приложения, деплой, публикация */}
-        {currentProject.status === "generating" && (
-          <div
-            className="mt-6 rounded-xl px-4 py-3"
-            style={{ backgroundColor: "rgba(0,212,255,0.06)", border: `1px solid ${COLORS.accent}` }}
-          >
-            <div className="flex items-center gap-3">
-              <Loader2 size={16} className="animate-spin" style={{ color: COLORS.accent, flexShrink: 0 }} />
-              <p className="text-[13px]">{genStream.latest?.label ?? t("projectWizard.generatingApp")}</p>
-            </div>
-
-            {/* Полоса прогресса — грубая оценка по текущей стадии рождения приложения. */}
-            <div
-              className="mt-2 h-1.5 w-full overflow-hidden rounded-full"
-              style={{ backgroundColor: "rgba(0,212,255,0.12)" }}
-            >
-              <div
-                className="h-full rounded-full transition-all duration-500 ease-out"
-                style={{
-                  width: `${Math.round((genStream.progress || 0.05) * 100)}%`,
-                  backgroundColor: COLORS.accent,
-                }}
-              />
-            </div>
-
-            {/* Живой лог стадий: пройденные — с галочкой, текущая — со спиннером. */}
-            {genStream.stages.length > 0 && (
-              <ul className="mt-3 space-y-1.5">
-                {genStream.stages.map((s) => {
-                  const isCurrent = genStream.latest?.stage === s.stage && !genStream.done
-                  return (
-                    <li key={s.stage} className="flex items-center gap-2 text-[12px]" style={{ color: COLORS.label }}>
-                      {isCurrent ? (
-                        <Loader2 size={13} className="animate-spin" style={{ color: COLORS.accent, flexShrink: 0 }} />
-                      ) : (
-                        <CheckCircle2 size={13} style={{ color: COLORS.green, flexShrink: 0 }} />
-                      )}
-                      <span>
-                        {s.label}
-                        {typeof s.fileCount === "number" ? ` · ${s.fileCount}` : ""}
-                      </span>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </div>
-        )}
+        {currentProject.status === "generating" && <ForgeCeremony stream={genStream} />}
         {currentProject.status === "failed" && currentProject.generationError && (
           <div
             className="mt-6 flex items-start gap-3 rounded-xl px-4 py-3"
