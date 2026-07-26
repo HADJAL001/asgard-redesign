@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import {
   Home,
   FolderKanban,
+  Wand2,
   Activity,
   Beer,
   Hammer,
@@ -57,6 +58,7 @@ export type NavItem = { key: string; href: string; Icon: LucideIcon }
 export const NAV: NavItem[] = [
   { key: "nav.home", href: "/", Icon: Home },
   { key: "nav.projects", href: "/projects", Icon: FolderKanban },
+  { key: "nav.refinements", href: "/refinements", Icon: Wand2 },
   { key: "nav.orchestrator", href: "/orchestrator", Icon: GitBranch },
   { key: "nav.integrations", href: "/integrations", Icon: Plug },
   { key: "nav.community", href: "/community", Icon: Beer },

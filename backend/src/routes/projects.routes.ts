@@ -10,11 +10,18 @@ import { verifyBuildInSandbox } from "../services/sandbox.service"
 import { decrypt } from "../utils/encryption"
 import { asyncHandler } from "../utils/async-handler"
 import { captureError } from "../lib/sentry"
-import { PROJECT_SELECT_COLUMNS, createGeneratedProject } from "../lib/project-generation"
+import { PROJECT_SELECT_COLUMNS, createGeneratedProject, refineGeneratedProject } from "../lib/project-generation"
 import { GENERATION_DEPTHS, resolveDepth, serializeDepths } from "../lib/generation-depths"
 import { logAudit } from "../lib/audit"
 import { generationEvents, getRecentStages, type GenerationStageEvent } from "../lib/generation-events"
 import { guestProjectCapReached } from "../lib/guest-service"
+import {
+  refinementsRemaining,
+  recordRefinement,
+  setRefinementStatus,
+  listProjectRefinements,
+  REFINEMENT_CREDIT_COST,
+} from "../lib/refinements"
 
 const router = Router()
 
@@ -369,6 +376,128 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     return res.status(500).json({ error: "Не удалось создать проект, кредиты возвращены" })
   }
 }))
+
+/* ---------------- POST /projects/:id/refine — доработка проекта (домен B) ----------------
+   Доработка = AI-итерация существующего проекта. Экономика воронки: первые
+   FREE_REFINEMENTS_GRANT бесплатны (грант на аккаунт), дальше — REFINEMENT_CREDIT_COST
+   кредитов. Проверяем владение → считаем остаток → списываем (если платно) → пишем
+   строку леджера → переводим проект в generating и запускаем регенерацию файлов.
+   При синхронном сбое запуска — возврат кредитов (как в /generate). Отвечаем 202.
+------------------------------------------------------------------------------- */
+router.post("/:id/refine", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+  const projectId = Number(req.params.id)
+  const userId = req.user!.userId
+  const prompt = typeof req.body?.prompt === "string" ? req.body.prompt.trim() : ""
+
+  if (!Number.isInteger(projectId) || projectId <= 0) {
+    return res.status(400).json({ error: "Некорректный id проекта" })
+  }
+  if (!prompt) {
+    return res.status(400).json({ error: "Опишите, что доработать" })
+  }
+  if (prompt.length > 2000) {
+    return res.status(400).json({ error: "Слишком длинное описание доработки (макс. 2000 символов)" })
+  }
+
+  // Владение: чужой/несуществующий проект → 404 без утечки чужих id.
+  const project = db
+    .prepare(`SELECT id, status FROM projects WHERE id = ? AND user_id = ?`)
+    .get(projectId, userId) as { id: number; status: string } | undefined
+  if (!project) return res.status(404).json({ error: "Проект не найден" })
+  if (project.status === "generating") {
+    return res.status(409).json({ error: "Проект уже в процессе генерации — дождитесь завершения", code: "BUSY" })
+  }
+
+  const remaining = refinementsRemaining(userId)
+  const isFree = remaining > 0
+  const cost = isFree ? 0 : REFINEMENT_CREDIT_COST
+
+  // Платная доработка (грант исчерпан): честное списание кредитов транзакцией.
+  if (!isFree) {
+    const wallet = db.prepare(`SELECT credits FROM wallets WHERE user_id = ?`).get(userId) as
+      | { credits: number }
+      | undefined
+    if (!wallet) return res.status(402).json({ error: "Кошелёк не найден", code: "NO_WALLET" })
+    if (wallet.credits < cost) {
+      return res.status(402).json({
+        error: `Бесплатные доработки исчерпаны. Одна доработка — ${cost} кредитов, доступно ${wallet.credits}.`,
+        code: "INSUFFICIENT_CREDITS",
+        required: cost,
+        available: wallet.credits,
+      })
+    }
+    const now = Date.now()
+    db.exec("BEGIN IMMEDIATE")
+    try {
+      const fresh = db.prepare(`SELECT credits FROM wallets WHERE user_id = ?`).get(userId) as { credits: number }
+      if (fresh.credits < cost) {
+        db.exec("ROLLBACK")
+        return res.status(402).json({ error: "Недостаточно кредитов", code: "INSUFFICIENT_CREDITS" })
+      }
+      db.prepare(`UPDATE wallets SET credits = credits - ?, updated_at = ? WHERE user_id = ?`).run(cost, now, userId)
+      db.prepare(
+        `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+         VALUES (?, 'project_refinement', ?, 'OSGARD', ?, 'credits', 'done')`,
+      ).run(userId, `Доработка проекта #${projectId}`, cost)
+      db.exec("COMMIT")
+    } catch (err) {
+      db.exec("ROLLBACK")
+      throw err
+    }
+    logAudit(userId, "debit", cost, "project_refinement", { projectId })
+  }
+
+  // Строка леджера (cost_credits=0 у бесплатных — так считается остаток гранта).
+  const refinementId = recordRefinement({ userId, projectId, prompt, costCredits: cost })
+
+  // Запуск регенерации файлов по промпту. onDone отметит статус строки в леджере.
+  const started = refineGeneratedProject({
+    userId,
+    projectId,
+    prompt,
+    onDone: (ok) => setRefinementStatus(refinementId, ok ? "ready" : "failed"),
+  })
+
+  if (!started) {
+    // Синхронный сбой запуска — откат: помечаем строку failed и возвращаем кредиты.
+    setRefinementStatus(refinementId, "failed")
+    if (cost > 0) {
+      db.exec("BEGIN IMMEDIATE")
+      try {
+        db.prepare(`UPDATE wallets SET credits = credits + ?, updated_at = ? WHERE user_id = ?`).run(cost, Date.now(), userId)
+        db.exec("COMMIT")
+      } catch {
+        db.exec("ROLLBACK")
+      }
+      logAudit(userId, "credit", cost, "project_refinement_refund", { projectId })
+    }
+    return res.status(500).json({ error: "Не удалось запустить доработку" + (cost > 0 ? ", кредиты возвращены" : "") })
+  }
+
+  return res.status(202).json({
+    success: true,
+    projectId,
+    refinementId,
+    costCredits: cost,
+    refinementsRemaining: refinementsRemaining(userId),
+    aiConfigured: isAiConfigured(),
+  })
+}))
+
+/* ---------------- GET /projects/:id/refinements — лента доработок проекта ---------------- */
+router.get("/:id/refinements", requireAuth, (req: AuthRequest, res) => {
+  const projectId = Number(req.params.id)
+  const userId = req.user!.userId
+  if (!Number.isInteger(projectId) || projectId <= 0) {
+    return res.status(400).json({ error: "Некорректный id проекта" })
+  }
+  const owns = db.prepare(`SELECT 1 FROM projects WHERE id = ? AND user_id = ?`).get(projectId, userId)
+  if (!owns) return res.status(404).json({ error: "Проект не найден" })
+  return res.json({
+    refinements: listProjectRefinements(projectId),
+    refinementsRemaining: refinementsRemaining(userId),
+  })
+})
 
 /* ---------------- GET /projects/:id/stream — живой SSE-лог рождения проекта ----------------
    Фоновый джоб генерации (lib/project-generation.ts) эмитит стадии через generationEvents;

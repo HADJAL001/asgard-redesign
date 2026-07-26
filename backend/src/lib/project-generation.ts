@@ -286,3 +286,56 @@ export function createGeneratedProject(params: {
 
   return { project, artifacts, projectId }
 }
+
+/**
+ * Доработка существующего проекта (механика «Доработок», домен Claude B).
+ * НЕ создаёт новый проект и НЕ трогает артефакты — переводит проект в
+ * status='generating' и заново гоняет тот же фоновой AI-джоб генерации файлов
+ * (runAppGenerationJob), передавая промпт доработки как hint. Файлы
+ * перезаписываются upsert'ом (ON CONFLICT), исходные артефакты сохраняются.
+ *
+ * НЕ проверяет владение/квоты/списания — это ответственность вызывающего
+ * маршрута (POST /projects/:id/refine). Возвращает false, если проект не найден.
+ * force=AI (template=null): промпт доработки должен реально менять код, а не
+ * просто переадаптировать шаблон. Никогда не бросает наружу.
+ *
+ * onDone (опц.) — колбэк по завершении джоба (обновить статус строки леджера).
+ */
+export function refineGeneratedProject(params: {
+  userId: number
+  projectId: number
+  prompt: string
+  onDone?: (ok: boolean) => void
+}): boolean {
+  const project = db
+    .prepare(`SELECT id, name, description FROM projects WHERE id = ? AND user_id = ?`)
+    .get(params.projectId, params.userId) as { id: number; name: string; description: string | null } | undefined
+  if (!project) return false
+
+  const refine = params.prompt.trim()
+  // Контекст доработки: имя + текущее описание + задача → AI сохраняет замысел
+  // и точечно вносит запрошенное изменение, а не генерирует приложение с нуля.
+  const mergedHint = [
+    `Доработка существующего приложения «${project.name}».`,
+    project.description ? `Текущее описание: ${project.description}.` : "",
+    `Задача доработки: ${refine}`,
+  ]
+    .filter(Boolean)
+    .join(" ")
+
+  db.prepare(`UPDATE projects SET status = 'generating', generation_error = NULL WHERE id = ?`).run(project.id)
+
+  const quick = localFallbackGeneration(project.name, refine)
+
+  // fire-and-forget тот же джоб; template=null → полная AI-генерация по промпту.
+  // onDone вызываем после завершения (успех/ошибка) для отметки в леджере.
+  void runAppGenerationJob(params.userId, project.id, project.name, mergedHint, quick, null, true)
+    .then(() => {
+      const row = db.prepare(`SELECT status FROM projects WHERE id = ?`).get(project.id) as
+        | { status: string }
+        | undefined
+      params.onDone?.(row?.status === "ready")
+    })
+
+  return true
+}

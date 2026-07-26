@@ -6,6 +6,7 @@ import { redisClient, ensureRedisConnected } from "../lib/redis"
 import { captureError } from "../lib/sentry"
 import { track } from "../lib/analytics"
 import { findActiveGuestByIp, provisionGuest, firstProjectOf, claimGuest } from "../lib/guest-service"
+import { refinementsRemaining } from "../lib/refinements"
 
 /* ================================================================
    OSGARD · Guest Routes — воронка «1 бесплатный проект по IP»
@@ -223,8 +224,9 @@ router.get("/status", async (req: Request, res: Response) => {
       isGuest: user.is_guest === 1,
       hasProject: !!project,
       projectId: project?.id ?? null,
-      // Доработки — домен Claude B; счётчик появится, когда подключат механику.
-      refinementsRemaining: null,
+      // Доработки (домен Claude B, миграция 089): грант бесплатных доработок
+      // минус израсходованные. Для гостя тоже валидно (0 строк → полный грант).
+      refinementsRemaining: refinementsRemaining(user.id),
     })
   } catch {
     return res.json({ authenticated: false })

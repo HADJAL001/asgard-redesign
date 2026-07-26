@@ -18,7 +18,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Sparkles, FolderKanban, Boxes, TrendingUp, Coins, Loader2, Trash2 } from "lucide-react"
+import { Plus, Sparkles, FolderKanban, Boxes, TrendingUp, Coins, Loader2, Trash2, Wand2 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { COLORS, badgeIcon } from "@/lib/economy"
@@ -185,20 +185,41 @@ export function ProjectsView() {
                 <article
                   key={p.id}
                   onClick={() => router.push(`/projects/${p.id}`)}
-                  className="group flex cursor-pointer flex-col rounded-xl p-5 transition-all duration-200"
-                  style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
+                  className="premium-panel group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl p-5 transition-all duration-300"
+                  style={{ border: `1px solid ${COLORS.border}` }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = COLORS.accent
-                    e.currentTarget.style.transform = "translateY(-2px)"
+                    e.currentTarget.style.borderColor = "var(--elite-gold, #f5c451)"
+                    e.currentTarget.style.transform = "translateY(-4px)"
+                    e.currentTarget.style.boxShadow = "0 24px 60px -28px rgba(245,196,81,0.45)"
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.borderColor = COLORS.border
                     e.currentTarget.style.transform = "translateY(0)"
+                    e.currentTarget.style.boxShadow = "none"
                   }}
                 >
-                  <div className="flex items-start justify-between">
-                    <span className="flex size-12 items-center justify-center rounded-xl" style={{ border: `1px solid ${COLORS.accent}` }}>
-                      <BadgeIcon size={22} strokeWidth={1.25} style={{ color: COLORS.accent }} aria-hidden="true" />
+                  {/* Верхняя золотая линия-хайлайт */}
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 top-0 h-px opacity-60"
+                    style={{ background: "linear-gradient(90deg, transparent, var(--elite-gold, #f5c451), transparent)" }}
+                  />
+                  {/* Мягкое золотое свечение при наведении */}
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -right-16 -top-16 size-40 rounded-full opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100"
+                    style={{ background: "radial-gradient(circle, rgba(245,196,81,0.16), transparent 70%)" }}
+                  />
+
+                  <div className="relative flex items-start justify-between">
+                    <span
+                      className="flex size-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-105"
+                      style={{
+                        border: `1px solid rgba(245,196,81,0.45)`,
+                        background: "linear-gradient(135deg, rgba(245,196,81,0.12), rgba(245,196,81,0.02))",
+                      }}
+                    >
+                      <BadgeIcon size={22} strokeWidth={1.25} style={{ color: "var(--elite-gold, #f5c451)" }} aria-hidden="true" />
                     </span>
                     <button
                       type="button"
@@ -212,12 +233,12 @@ export function ProjectsView() {
                     </button>
                   </div>
 
-                  <h3 className="mt-4 text-[16px] font-medium">{p.name}</h3>
-                  <p className="mt-1 line-clamp-2 text-[13px]" style={{ color: COLORS.label }}>
+                  <h3 className="relative mt-4 text-[16px] font-semibold tracking-tight">{p.name}</h3>
+                  <p className="relative mt-1 line-clamp-2 text-[13px]" style={{ color: COLORS.label }}>
                     {p.description || t("projects.noDescription")}
                   </p>
 
-                  <div className="mt-auto flex items-center justify-between gap-2 pt-5 text-[12px]" style={{ color: COLORS.label }}>
+                  <div className="relative mt-auto flex items-center justify-between gap-2 pt-5 text-[12px]" style={{ color: COLORS.label }}>
                     <span className="inline-flex items-center gap-1.5">
                       <Boxes size={13} strokeWidth={1.75} aria-hidden="true" />
                       {t("projects.artifactsCount", { count: p.artifactCount })}
@@ -228,10 +249,38 @@ export function ProjectsView() {
                     </span>
                   </div>
                   {p.income > 0 && (
-                    <div className="mt-2 text-[13px] font-medium" style={{ color: "#F1C40F" }}>
+                    <div className="relative mt-2 text-[13px] font-medium" style={{ color: "#F1C40F" }}>
                       {fmtTC(p.income)}
                     </div>
                   )}
+
+                  {/* Премиальная кнопка «Доработать» — прямая связь Проекты → Доработки */}
+                  <div className="relative mt-4 border-t pt-4" style={{ borderColor: COLORS.border }}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/projects/${p.id}?tab=refine`)
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-[13px] font-semibold transition-all duration-200"
+                      style={{
+                        color: "var(--elite-gold, #f5c451)",
+                        border: "1px solid rgba(245,196,81,0.35)",
+                        background: "linear-gradient(135deg, rgba(245,196,81,0.08), transparent)",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "linear-gradient(135deg, rgba(245,196,81,0.18), rgba(245,196,81,0.04))"
+                        e.currentTarget.style.borderColor = "var(--elite-gold, #f5c451)"
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "linear-gradient(135deg, rgba(245,196,81,0.08), transparent)"
+                        e.currentTarget.style.borderColor = "rgba(245,196,81,0.35)"
+                      }}
+                    >
+                      <Wand2 size={14} strokeWidth={1.75} aria-hidden="true" />
+                      {t("refine.cardRefine")}
+                    </button>
+                  </div>
                 </article>
               )
             })}
