@@ -295,7 +295,9 @@ async function runAppGenerationJob(
 
     // Качество интерфейса считаем по ФИНАЛЬНЫМ файлам — после ремонта, а не до:
     // балл обязан описывать то, что реально получит пользователь.
-    const designReport = explainDesignQuality(files)
+    // Бриф передаём намеренно: с ним включается проверка контраста ПАР токенов
+    // (lib/design-qa) — она считает реальные отношения по палитре ЭТОГО проекта.
+    const designReport = explainDesignQuality(files, brief)
 
     /* --- Самообучение платформы (корпус ремесла) ---
        (1) Память ошибок: на каких правилах генератор споткнулся в этот раз.
@@ -537,7 +539,7 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
       // Ремонт — такой же источник знания о слабых местах генератора, как и сама
       // генерация: дефекты, найденные здесь, тоже идут в память ошибок платформы.
       recordLessons(engineering.report.lessons)
-      persistDesign(project.id, brief, explainDesignQuality(engineering.files))
+      persistDesign(project.id, brief, explainDesignQuality(engineering.files, brief))
 
       emitGenerationStage({
         projectId: project.id,
