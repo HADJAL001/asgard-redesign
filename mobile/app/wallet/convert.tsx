@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toast';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 import { useWalletConvertMutation } from '@/hooks/useWalletConvertMutation';
 import { ApiError } from '@/lib/api-client';
@@ -46,6 +47,7 @@ export default function ConvertScreen() {
   const [from, setFrom] = useState<CurrencyKey>('credits');
   const [to, setTo] = useState<CurrencyKey>('cash_usd');
   const [amount, setAmount] = useState('');
+  const [confirmVisible, setConfirmVisible] = useState(false);
 
   const convert = useWalletConvertMutation();
   const toast = useToast();
@@ -68,6 +70,7 @@ export default function ConvertScreen() {
 
   const handleConvert = async () => {
     if (!canSubmit) return;
+    setConfirmVisible(false);
     try {
       const res = await convert.mutateAsync({ from, to, amount: parsedAmount });
       toast.show(`Получено ${formatByCurrency(to, res.conversion.amountReceived)}`, 'success');
@@ -123,11 +126,23 @@ export default function ConvertScreen() {
             </Text>
           ) : null}
 
-          <Button disabled={!canSubmit} loading={convert.isPending} onPress={handleConvert}>
+          <Button disabled={!canSubmit} loading={convert.isPending} onPress={() => setConfirmVisible(true)}>
             Конвертировать
           </Button>
         </Card>
       </ScrollView>
+
+      <ConfirmDialog
+        visible={confirmVisible}
+        onCancel={() => setConfirmVisible(false)}
+        onConfirm={handleConvert}
+        title="Конвертировать валюту?"
+        message={`Конвертируете ${formatByCurrency(from, parsedAmount)} → примерно ${formatByCurrency(
+          to,
+          estimatedReceive,
+        )} (комиссия 1%). Отменить после подтверждения нельзя.`}
+        confirmLabel="Конвертировать"
+      />
     </SafeAreaView>
   );
 }
