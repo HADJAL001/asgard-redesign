@@ -61,6 +61,7 @@ export default function CreateScreen() {
         setPhase('idle');
         setRevealRarity(undefined);
         setDescription('');
+        setThemeKey(null);
         router.push(`/result/${result.artifact.id}`);
       }, 700);
     } catch (e) {
