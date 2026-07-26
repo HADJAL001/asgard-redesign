@@ -9,6 +9,7 @@ import { ThemePicker } from '@/components/ThemePicker';
 import { VoiceInputButton } from '@/components/VoiceInputButton';
 import { GenerationProgress, type ForgePhase } from '@/components/GenerationProgress';
 import { LimitIndicator } from '@/components/LimitIndicator';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { useWalletQuery } from '@/hooks/useWalletQuery';
 import { useArtifactsQuery, countTodayAiGenerated } from '@/hooks/useArtifactsQuery';
@@ -24,6 +25,7 @@ export default function CreateScreen() {
   const [phase, setPhase] = useState<ForgePhase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [revealRarity, setRevealRarity] = useState<string | undefined>(undefined);
+  const [confirmVisible, setConfirmVisible] = useState(false);
 
   const copy = useStatusCopy();
   const { data: wallet } = useWalletQuery();
@@ -141,7 +143,7 @@ export default function CreateScreen() {
 
         <Pressable
           testID="create-generate-button"
-          onPress={handleGenerate}
+          onPress={() => setConfirmVisible(true)}
           disabled={!canSubmit}
           accessibilityRole="button"
           accessibilityLabel="Сгенерировать артефакт"
@@ -163,6 +165,18 @@ export default function CreateScreen() {
       </ScrollView>
 
       <GenerationProgress phase={phase} rarity={revealRarity} />
+
+      <ConfirmDialog
+        visible={confirmVisible}
+        onCancel={() => setConfirmVisible(false)}
+        onConfirm={() => {
+          setConfirmVisible(false);
+          handleGenerate();
+        }}
+        title="Начать ковку?"
+        message={`Спишет ${AI_GENERATE_COST_TC} ∞ TimeCoin с баланса. Валюта не возвращается, даже если результат не понравится.`}
+        confirmLabel={`Потратить ${AI_GENERATE_COST_TC} TimeCoin`}
+      />
     </SafeAreaView>
   );
 }

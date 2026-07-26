@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useToast } from '@/components/ui/Toast';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 import { useLookupRecipientMutation } from '@/hooks/useLookupRecipientMutation';
 import { useTransferMutation } from '@/hooks/useTransferMutation';
@@ -20,6 +21,7 @@ export default function TransferScreen() {
   const [comment, setComment] = useState('');
   const [password, setPassword] = useState('');
   const [twofaToken, setTwofaToken] = useState('');
+  const [confirmVisible, setConfirmVisible] = useState(false);
 
   const lookup = useLookupRecipientMutation();
   const transfer = useTransferMutation();
@@ -50,6 +52,7 @@ export default function TransferScreen() {
 
   const handleTransfer = async () => {
     if (!canSubmit) return;
+    setConfirmVisible(false);
     try {
       await transfer.mutateAsync({
         recipientEmail: email.trim(),
@@ -113,12 +116,24 @@ export default function TransferScreen() {
               onChangeText={setTwofaToken}
               placeholder="000000"
             />
-            <Button disabled={!canSubmit} loading={transfer.isPending} onPress={handleTransfer}>
+            <Button disabled={!canSubmit} loading={transfer.isPending} onPress={() => setConfirmVisible(true)}>
               Перевести
             </Button>
           </Card>
         ) : null}
       </ScrollView>
+
+      <ConfirmDialog
+        visible={confirmVisible}
+        onCancel={() => setConfirmVisible(false)}
+        onConfirm={handleTransfer}
+        title="Отправить перевод?"
+        message={`Отправить ${fmtTC(parsedAmount)} пользователю ${recipientName}${
+          comment.trim() ? ` с комментарием «${comment.trim()}»` : ''
+        }? Перевод уйдёт сразу и не возвращается, если данные неверны.`}
+        confirmLabel="Отправить"
+        danger
+      />
     </SafeAreaView>
   );
 }

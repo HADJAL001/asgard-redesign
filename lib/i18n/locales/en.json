@@ -196,7 +196,13 @@
     "insufficientFunds": "Insufficient {{currency}}",
     "exchangeDone": "Exchange complete: −{{sent}} → +{{received}}",
     "exchangeFailed": "Failed to complete conversion",
-    "timecoinNoConvert": "TimeCoin cannot be converted. Only exchange purchase for $ or artifact sales."
+    "timecoinNoConvert": "TimeCoin cannot be converted. Only exchange purchase for $ or artifact sales.",
+    "confirmConvert": {
+      "title": "Convert currency?",
+      "message": "You will convert {{give}} → approximately {{receive}} (fee {{fee}}%). This can't be undone after confirming.",
+      "confirmLabel": "Convert",
+      "cancelLabel": "Cancel"
+    }
   },
   "stake": {
     "title": "TimeCoin Staking",
@@ -287,6 +293,18 @@
         "normal": "+{{gain}} lvl",
         "crit": "CRIT! +{{gain}} lvl"
       }
+    },
+    "confirmForge": {
+      "title": "Start forging?",
+      "message": "Will charge {{amount}} TimeCoin from your balance. The currency isn't refunded, even if you don't like the artifact.",
+      "confirmLabel": "Spend {{amount}} TimeCoin",
+      "cancelLabel": "Cancel"
+    },
+    "confirmAi": {
+      "title": "Generate with AI?",
+      "message": "Will charge {{amount}} TimeCoin from your balance. The currency isn't refunded, even if you don't like the result.",
+      "confirmLabel": "Spend {{amount}} TimeCoin",
+      "cancelLabel": "Cancel"
     },
     "verdict": {
       "title": "Craft honesty",
