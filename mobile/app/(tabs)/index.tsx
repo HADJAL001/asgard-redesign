@@ -75,9 +75,19 @@ export default function CreateScreen() {
         <Text className="text-2xl font-bold text-white">Создать артефакт</Text>
 
         <View className="gap-3 rounded-xl border border-border bg-card px-4 py-3">
-          <View className="flex-row items-center gap-2">
+          <View
+            className="flex-row items-center gap-2"
+            accessible
+            accessibilityLabel={`Баланс TimeCoin: ${balance.toLocaleString('ru-RU')}`}
+          >
             <Coins size={18} color={colors.cyan} />
-            <Text className="text-white">{balance.toLocaleString('ru-RU')} ∞</Text>
+            <Text className="text-white">
+              {balance.toLocaleString('ru-RU')} ∞ <Text className="text-muted">TimeCoin</Text>
+            </Text>
+          </View>
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm text-muted">Стоимость генерации</Text>
+            <Text className="text-sm font-semibold text-white">{AI_GENERATE_COST_TC} ∞ TimeCoin</Text>
           </View>
           <LimitIndicator used={todayCount} max={DAILY_AI_GENERATION_SOFT_LIMIT} />
         </View>
@@ -125,6 +135,14 @@ export default function CreateScreen() {
           testID="create-generate-button"
           onPress={handleGenerate}
           disabled={!canSubmit}
+          accessibilityRole="button"
+          accessibilityLabel="Сгенерировать артефакт"
+          accessibilityHint={
+            canAfford
+              ? `Спишет ${AI_GENERATE_COST_TC} TimeCoin с баланса`
+              : `Недоступно: нужно ещё TimeCoin, стоимость ${AI_GENERATE_COST_TC}`
+          }
+          accessibilityState={{ disabled: !canSubmit }}
           className={`flex-row items-center justify-center gap-2 rounded-xl px-4 py-4 ${
             canSubmit ? 'bg-accent' : 'bg-border'
           }`}

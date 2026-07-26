@@ -30,13 +30,14 @@ export function LimitIndicator({ used, max }: LimitIndicatorProps) {
   }));
 
   return (
-    <View className="gap-1.5">
+    <View className="gap-1.5" accessible accessibilityLabel={`${depleted ? copy.limitDepleted : copy.limitRemaining(remaining)}. Это личный счётчик, генерация всё равно доступна`}>
       <View className="flex-row items-center gap-1.5">
         <Zap size={14} color={depleted ? colors.textSecondary : colors.gold} />
         <Text className={depleted ? 'text-muted' : 'text-white'}>
           {depleted ? copy.limitDepleted : copy.limitRemaining(remaining)}
         </Text>
       </View>
+      <Text className="text-xs text-muted">Личный счётчик — не ограничение, генерация всё равно доступна</Text>
       <View className="h-1.5 flex-row gap-1">
         {Array.from({ length: max }).map((_, i) => (
           <View key={i} className="h-1.5 flex-1 overflow-hidden rounded-full bg-border">

@@ -45,6 +45,8 @@ export function ArtifactCard({ artifact, onPress, onDetails }: ArtifactCardProps
         scale.value = withTiming(1, { duration: 100 });
       }}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${artifact.name}, редкость: ${rarity.label}`}
     >
       <PremiumSurface style={{ borderWidth: 1, borderColor: 'rgba(136,146,208,0.18)' }}>
         <View className="bg-card">
@@ -70,7 +72,12 @@ export function ArtifactCard({ artifact, onPress, onDetails }: ArtifactCardProps
                 </Text>
               </View>
 
-              <Pressable onPress={onDetails ?? onPress} hitSlop={8}>
+              <Pressable
+                onPress={onDetails ?? onPress}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`Подробнее об артефакте ${artifact.name}`}
+              >
                 <Text className="text-xs font-semibold text-accent">Подробнее</Text>
               </Pressable>
             </View>

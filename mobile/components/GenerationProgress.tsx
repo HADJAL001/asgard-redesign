@@ -48,7 +48,7 @@ export function GenerationProgress({ phase, rarity }: { phase: ForgePhase; rarit
 
   return (
     <Modal transparent animationType="fade" statusBarTranslucent>
-      <View className="flex-1 items-center justify-center bg-bg/90 px-8">
+      <View className="flex-1 items-center justify-center bg-bg/90 px-8" accessibilityViewIsModal>
         <View className="h-28 w-40 items-center justify-center">
           {isRareReveal ? (
             <Animated.View
@@ -61,6 +61,8 @@ export function GenerationProgress({ phase, rarity }: { phase: ForgePhase; rarit
         <Text
           className="mt-6 text-center text-base font-semibold"
           style={{ color: isRareReveal ? accentColor : '#FFFFFF' }}
+          accessibilityLiveRegion="polite"
+          accessibilityRole="text"
         >
           {isRareReveal ? `${rarityMeta(rarity!).label} артефакт!` : PHASE_LABEL[phase]}
         </Text>

@@ -7,7 +7,9 @@ export const RARITY: Record<ArtifactRarity, { label: string; color: string; symb
   rare: { label: 'Редкий', color: '#4A7A9C', symbol: '◇' },
   epic: { label: 'Эпический', color: '#9B59B6', symbol: '◆' },
   legendary: { label: 'Легендарный', color: '#F1C40F', symbol: '★' },
-  mythic: { label: 'Мифический', color: '#E74C3C', symbol: '∞' },
+  // Символ отличается от ∞ (символ валюты TimeCoin) — иначе редкость "мифический"
+  // визуально сливается с балансом кошелька на одних и тех же экранах.
+  mythic: { label: 'Мифический', color: '#E74C3C', symbol: '☄' },
 };
 
 const DEFAULT_RARITY = RARITY.common;

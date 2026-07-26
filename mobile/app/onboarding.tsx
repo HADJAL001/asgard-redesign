@@ -2,10 +2,11 @@ import { useRef, useState } from 'react';
 import { Dimensions, FlatList, Pressable, Text, View, type ListRenderItemInfo, type NativeSyntheticEvent, type NativeScrollEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Sparkles, Wallet, Shield } from 'lucide-react-native';
+import { Sparkles, Wallet, Shield, Info } from 'lucide-react-native';
 
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { colors } from '@/design-system/colors';
+import { AI_GENERATE_COST_TC } from '@/hooks/useGenerateArtifact';
 
 const { width } = Dimensions.get('window');
 
@@ -28,6 +29,12 @@ const SLIDES: Slide[] = [
     title: 'Копите TimeCoin',
     description: 'Зарабатывайте и тратьте внутреннюю валюту OSGARD на генерации и апгрейды.',
     Icon: Wallet,
+  },
+  {
+    key: 'mechanics',
+    title: 'Как проходит создание',
+    description: `Одна генерация стоит ${AI_GENERATE_COST_TC} ∞ TimeCoin. Сначала «Заряжаем ядро…», потом «Синтезируем артефакт…» — и через пару секунд результат: от обычного до самого редкого, мифического.`,
+    Icon: Info,
   },
   {
     key: 'secure',
