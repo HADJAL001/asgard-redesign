@@ -60,6 +60,8 @@ export function ForgeCeremony({ stream }: { stream: StreamState }) {
 
   return (
     <div
+      role="status"
+      aria-live="polite"
       className="mt-6 rounded-xl px-4 py-6"
       style={{ backgroundColor: "rgba(0,212,255,0.06)", border: `1px solid ${COLORS.accent}` }}
     >
