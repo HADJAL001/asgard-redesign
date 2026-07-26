@@ -407,8 +407,14 @@ export function Navbar() {
         </span>
       </Link>
 
-      {/* Primary menu — только ключевые разделы, остальное в боковом меню */}
-      <nav className="ml-10 hidden items-center gap-7 md:flex" aria-label={t("nav.mainNav")}>
+      {/* Primary menu — только ключевые разделы, остальное в боковом меню.
+          min-w-0 отдаёт этому блоку право сжиматься первым — без него flex-item
+          держит свою content-based ширину как жёсткий минимум и наезжает на
+          правый кластер вместо того, чтобы уступить ему место на 768–1023px
+          (core nav уже видна по md:, а правый кластер ещё не сжал себя валютами
+          под lg:). Сам underline-индикатор активного пункта остаётся видимым —
+          overflow здесь не трогаем. */}
+      <nav className="ml-10 hidden min-w-0 items-center gap-7 md:flex" aria-label={t("nav.mainNav")}>
         {coreItems.map(({ key, href, Icon }) => {
           const active = isActive(href)
           return (
@@ -441,8 +447,11 @@ export function Navbar() {
       </nav>
 
 
-      {/* Right side — 4-currency balances, notifications, mail, profile */}
-      <div className="ml-auto flex items-center gap-5 pr-6">
+      {/* Right side — 4-currency balances, notifications, mail, profile.
+          flex-shrink-0: этот кластер не должен сжиматься под давлением core nav —
+          именно отсутствие этого свойства раньше давало визуальную тесноту на
+          768–1023px (см. min-w-0 у соседнего nav выше). */}
+      <div className="ml-auto flex shrink-0 items-center gap-5 pr-6">
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
@@ -453,7 +462,10 @@ export function Navbar() {
           style={{ color: "#6A6A8A", border: "1px solid #2A2A3E" }}
         >
           <Menu size={16} strokeWidth={1.75} aria-hidden="true" />
-          <span className="hidden sm:inline">{t("nav.more")}</span>
+          {/* Подпись появляется только вместе с валютными балансами (lg:) — на
+              768–1023px core nav уже занимает место, и текст здесь был лишним
+              грузом, из-за которого «Ещё»/«Справка» теснились друг к другу. */}
+          <span className="hidden lg:inline">{t("nav.more")}</span>
         </button>
         {/* Справка — что за платформа, кому нужна, инвестиции (заметный акцент) */}
         <Link
@@ -464,7 +476,7 @@ export function Navbar() {
           style={{ color: "var(--color-gold)", border: "1px solid var(--color-gold)" }}
         >
           <HelpCircle size={16} strokeWidth={1.9} aria-hidden="true" />
-          <span className="hidden sm:inline">{t("nav.about")}</span>
+          <span className="hidden lg:inline">{t("nav.about")}</span>
         </Link>
         <div
           className="hidden items-center gap-1 rounded-full p-1 lg:flex"
