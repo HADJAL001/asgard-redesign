@@ -31,7 +31,7 @@ export function SanctumView() {
   const elite = hasEliteAccess()
   const { wallet, netWorthTC } = useOsgard()
 
-  // The vault holds only mythic (∞) artifacts
+  // The vault holds only mythic (☄) artifacts
   const vault = useMemo(() => ARTIFACTS.filter((a) => a.rarity === "mythic"), [])
 
   // Capital-over-time (net worth in TC), derived from emission trend + current worth
