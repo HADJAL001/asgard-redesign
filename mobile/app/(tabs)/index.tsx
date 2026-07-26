@@ -125,10 +125,16 @@ export default function CreateScreen() {
           </View>
         </View>
 
-        {!canAfford && (
+        {limitReached ? (
           <Text className="text-sm text-down">
-            {copy.rechargeCta} (нужно {AI_GENERATE_COST_TC} ∞)
+            Дневной лимит генераций исчерпан ({DAILY_AI_GENERATION_SOFT_LIMIT} в сутки)
           </Text>
+        ) : (
+          !canAfford && (
+            <Text className="text-sm text-down">
+              {copy.rechargeCta} (нужно {AI_GENERATE_COST_TC} ∞)
+            </Text>
+          )
         )}
         {error && <Text className="text-sm text-down">{error}</Text>}
 

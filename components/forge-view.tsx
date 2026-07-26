@@ -886,6 +886,14 @@ export function ForgeView() {
               {t("forge.aiGenerate.button", { amount: fmtTC(AI_GENERATE_COST_TC) })}
             </button>
 
+            {!aiNotice && !aiSubmitting && (aiLimitReached || wallet.timecoin < AI_GENERATE_COST_TC) && (
+              <p className="mt-3 text-[13px]" role="status" style={{ color: COLORS.red }}>
+                {aiLimitReached
+                  ? t("forge.aiGenerate.limitDepleted")
+                  : t("forge.aiGenerate.needMore", { amount: fmtTC(AI_GENERATE_COST_TC) })}
+              </p>
+            )}
+
             {aiNotice && (
               <p className="mt-3 text-[13px]" role="status" style={{ color: aiNotice.ok ? COLORS.green : COLORS.red }}>
                 {aiNotice.text}

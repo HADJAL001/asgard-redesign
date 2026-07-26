@@ -296,7 +296,8 @@
       "success": "Артефакт «{{name}}» сгенерирован!",
       "failed": "Не удалось сгенерировать артефакт",
       "limitRemaining": "Осталось {{count}} {{noun}} сегодня",
-      "limitDepleted": "Резерв на сегодня исчерпан"
+      "limitDepleted": "Резерв на сегодня исчерпан",
+      "needMore": "Недостаточно TimeCoin: нужно {{amount}}"
     },
     "verdict": {
       "title": "Честность ковки",
