@@ -432,17 +432,17 @@ export function ProjectDetailView({ projectId }: Props) {
 
         {/* Stats */}
         <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-3">
-          <div className="rounded-xl p-5" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+          <div className="eg-inset rounded-xl p-5">
             <Boxes size={18} strokeWidth={1.5} style={{ color: "#9B59B6" }} />
             <p className="mt-3 text-[22px] font-medium leading-none">{currentProject.artifactCount}</p>
             <p className="mt-2 text-[12px]" style={{ color: COLORS.label }}>{t("projectDetail.artifactsStat")}</p>
           </div>
-          <div className="rounded-xl p-5" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+          <div className="eg-inset rounded-xl p-5">
             <TrendingUp size={18} strokeWidth={1.5} style={{ color: COLORS.green }} />
             <p className="mt-3 text-[22px] font-medium leading-none">{currentProject.sold}</p>
             <p className="mt-2 text-[12px]" style={{ color: COLORS.label }}>{t("projectDetail.soldStat")}</p>
           </div>
-          <div className="rounded-xl p-5" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+          <div className="eg-inset rounded-xl p-5">
             <Coins size={18} strokeWidth={1.5} style={{ color: "#F1C40F" }} />
             <p className="mt-3 text-[22px] font-medium leading-none">{fmtTC(currentProject.income)}</p>
             <p className="mt-2 text-[12px]" style={{ color: COLORS.label }}>{t("projectDetail.incomeStat")}</p>
@@ -798,11 +798,7 @@ function RefinePanel({
             {refinements.map((r) => {
               const sm = statusMeta[r.status] ?? { label: r.status, color: COLORS.label }
               return (
-                <li
-                  key={r.id}
-                  className="rounded-xl px-3.5 py-3"
-                  style={{ backgroundColor: "rgba(255,255,255,0.02)", border: `1px solid ${COLORS.border}` }}
-                >
+                <li key={r.id} className="eg-inset rounded-xl px-3.5 py-3">
                   <div className="flex items-center justify-between gap-2">
                     <span
                       className="inline-flex items-center gap-1.5 text-[11px] font-medium"
