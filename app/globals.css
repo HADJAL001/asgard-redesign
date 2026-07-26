@@ -1084,3 +1084,230 @@ svg { width: 1rem; height: 1rem; flex: none; }
   .forge-halo { animation: none; opacity: 0.55; }
   .forge-mote { animation: none; opacity: 0; }
 }
+
+/* ===== OSGARD · AUTH VAULT — премиальный контейнер входа/регистрации (Claude B)
+   ----------------------------------------------------------------------------
+   По прямому указанию пользователя: «вход без дешёвых неонов, в супер дорогом
+   и премиальном стиле, с красивым контейнером».
+
+   Диагноз по живому экрану (что читалось дёшево):
+   • Золото стояло СЛИТНЫМИ ПЛАШКАМИ (активный сегмент, CTA) — заливка большого
+     поля насыщенным жёлтым удешевляет. Дорогой объект носит золото волосяной
+     линией и одной фаской, а не покраской.
+   • Неон: `holo-title` даёт cyan-свечение, соц-кнопки — cyan-hover, фон — вторая
+     бирюзовая клякса. Весь холодный неон убран, остаётся тёплый металл.
+   • Контейнер был плоским прямоугольником в 1px белой рамке — ни материи, ни
+     глубины, ни оправы.
+
+   Материя: обсидиановое стекло + асимметричная градиентная кромка (ловит свет
+   двумя углами, как фаска на металле) + глубокая посадочная тень. Движение —
+   только transform/opacity; `prefers-reduced-motion` гасит блик. Все токены
+   существующие (--color-gold-rgb / --eg-* / --ease-premium / --grain / --dur-hover). */
+
+/* --- Сцена: один тёплый ореол вместо золото-бирюзовой пары клякс ----------- */
+.auth-stage { position: relative; }
+.auth-stage::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(46% 34% at 50% 30%, rgb(var(--color-gold-rgb) / 0.075), transparent 68%),
+    radial-gradient(70% 50% at 50% 120%, rgb(8 10 18 / 0.75), transparent 70%);
+}
+
+/* --- Оправа: сам контейнер ------------------------------------------------- */
+.auth-vault {
+  position: relative;
+  border-radius: 24px;
+  background:
+    radial-gradient(130% 80% at 50% -12%, rgb(var(--color-gold-rgb) / 0.055), transparent 62%),
+    linear-gradient(180deg, rgb(21 23 33 / 0.88) 0%, rgb(12 13 20 / 0.94) 100%);
+  backdrop-filter: blur(26px) saturate(1.15);
+  -webkit-backdrop-filter: blur(26px) saturate(1.15);
+  box-shadow:
+    0 44px 96px -44px rgb(0 0 0 / 0.92),
+    0 8px 28px -18px rgb(0 0 0 / 0.7),
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    inset 0 -1px 0 rgb(0 0 0 / 0.45);
+}
+/* Градиентная кромка в 1px: золото на верхнем-левом и нижнем-правом углу, белое
+   стекло между — грань «ловит свет», а не рисует ровный жёлтый контур. */
+.auth-vault::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(158deg,
+    rgb(var(--color-gold-rgb) / 0.62) 0%,
+    rgb(255 255 255 / 0.11) 24%,
+    rgb(255 255 255 / 0.035) 52%,
+    rgb(var(--color-gold-rgb) / 0.30) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none; z-index: 2;
+}
+/* Плёночное зерно — та же материя, что у .premium-card, но без hover-подъёма:
+   контейнер входа «стоит», а не «летает». */
+.auth-vault::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background-image: var(--grain); background-size: 120px 120px;
+  opacity: 0.05; mix-blend-mode: overlay; pointer-events: none; z-index: 1;
+}
+.auth-vault > * { position: relative; z-index: 3; }
+
+/* Гравированная разделительная линия внутри оправы.
+   ВАЖНО: без `margin` — этот файл идёт ПОСЛЕ утилит Tailwind, и `margin: 0`
+   здесь перебивал бы `my-6`/`mt-4` на самом элементе (линии слипались с
+   соседями). Отступы задаёт разметка. */
+.auth-rule {
+  height: 1px; border: 0;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.10) 22%,
+              rgb(var(--color-gold-rgb) / 0.30) 50%, rgb(255 255 255 / 0.10) 78%, transparent);
+}
+
+/* --- Словесный знак: тёплый шампань-металл вместо cyan-неона --------------- */
+.auth-wordmark {
+  background: linear-gradient(180deg, #fdf6e4 0%, #efdcb0 38%, #c9ab68 68%, #f6ecd2 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 1px 0 rgb(0 0 0 / 0.55));
+  letter-spacing: 0.10em;
+}
+.auth-kicker { color: #93a0b8; font-size: 0.78rem; letter-spacing: 0.02em; }
+
+/* Знак ∞ над словесным знаком. Размер задаётся ЗДЕСЬ, а не утилитой `w-[…]`:
+   выше в этом файле есть неслоёное правило `svg { width: 1rem; height: 1rem }`
+   (стр. ~182), а утилиты Tailwind v4 лежат в `@layer utilities` — неслоёный CSS
+   выигрывает у слоёного независимо от специфичности, поэтому любой `w-*` на svg
+   молча проигрывал и знак схлопывался в 16px. */
+.auth-mark { width: 112px; height: auto; }
+
+/* --- Сегмент «Вход / Регистрация»: активный — не плашка, а подпись --------- */
+.auth-seg {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 4px;
+  border-radius: 14px;
+  background: rgb(6 7 12 / 0.62);
+  border: 1px solid rgb(255 255 255 / 0.06);
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.6);
+}
+.auth-seg-item {
+  position: relative; border-radius: 10px; padding: 0.62rem 0;
+  font-size: 0.83rem; font-weight: 600; letter-spacing: 0.045em;
+  color: #838ea6; background: transparent; border: 0; cursor: pointer;
+  transition: color var(--dur-hover) var(--ease-premium),
+              background var(--dur-hover) var(--ease-premium);
+}
+.auth-seg-item:hover { color: #cdd6e6; }
+.auth-seg-item[data-active="true"] {
+  color: #f2e6c4;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.075), rgb(255 255 255 / 0.02));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.10), 0 1px 0 rgb(0 0 0 / 0.5);
+}
+/* Золото — короткой подписью под активным сегментом, а не заливкой. */
+.auth-seg-item[data-active="true"]::after {
+  content: ""; position: absolute; left: 18%; right: 18%; bottom: 6px; height: 1.5px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, transparent, rgb(var(--color-gold-rgb) / 1), transparent);
+  box-shadow: 0 0 6px rgb(var(--color-gold-rgb) / 0.35);
+}
+
+/* --- Поля: обсидиан + мягкое золотое кольцо фокуса (без «свечения») -------- */
+.auth-label {
+  font-size: 0.66rem; letter-spacing: 0.17em; text-transform: uppercase;
+  color: #7c869e; font-weight: 600;
+}
+.auth-field {
+  width: 100%; height: 46px; padding: 0 0.95rem;
+  border-radius: 12px;
+  background: rgb(5 6 11 / 0.66);
+  border: 1px solid rgb(255 255 255 / 0.07);
+  color: #ecebe6; font-size: 0.9rem; letter-spacing: 0.01em;
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.55);
+  transition: border-color var(--dur-hover) var(--ease-premium),
+              box-shadow var(--dur-hover) var(--ease-premium),
+              background var(--dur-hover) var(--ease-premium);
+}
+.auth-field::placeholder { color: rgb(236 235 230 / 0.26); }
+.auth-field:hover { border-color: rgb(255 255 255 / 0.12); }
+.auth-field:focus {
+  outline: none;
+  border-color: rgb(var(--color-gold-rgb) / 0.5);
+  background: rgb(5 6 11 / 0.8);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.55), 0 0 0 3px rgb(var(--color-gold-rgb) / 0.11);
+}
+
+/* --- CTA: брашированное золото (металл со светом и тенью), не жёлтая плашка */
+.btn-auth {
+  position: relative; overflow: hidden;
+  width: 100%; height: 48px; border-radius: 12px;
+  font-size: 0.88rem; font-weight: 600; letter-spacing: 0.045em;
+  color: #201808;
+  background: linear-gradient(180deg, #f1e2b6 0%, #dcc079 40%, #c2a052 62%, #a8853c 100%);
+  border: 1px solid rgb(var(--color-gold-rgb) / 0.55);
+  box-shadow:
+    inset 0 1px 0 rgb(255 252 240 / 0.62),
+    inset 0 -1px 0 rgb(0 0 0 / 0.28),
+    0 12px 28px -14px rgb(var(--color-gold-rgb) / 0.5);
+  transition: transform var(--dur-hover) var(--ease-premium),
+              box-shadow var(--dur-hover) var(--ease-premium),
+              filter var(--dur-hover) var(--ease-premium);
+}
+/* Косой блик пробегает по металлу при наведении — только transform (GPU). */
+.btn-auth::after {
+  content: ""; position: absolute; inset: -40% -60%;
+  background: linear-gradient(74deg, transparent 42%, rgb(255 255 255 / 0.5) 50%, transparent 58%);
+  transform: translate3d(-70%, 0, 0); opacity: 0;
+  transition: transform 0.72s var(--ease-premium), opacity 0.24s var(--ease-premium);
+  pointer-events: none;
+}
+.btn-auth:hover:not(:disabled) {
+  transform: translateY(-1px); filter: brightness(1.03);
+  box-shadow:
+    inset 0 1px 0 rgb(255 252 240 / 0.7),
+    inset 0 -1px 0 rgb(0 0 0 / 0.3),
+    0 16px 36px -14px rgb(var(--color-gold-rgb) / 0.6);
+}
+.btn-auth:hover:not(:disabled)::after { transform: translate3d(70%, 0, 0); opacity: 1; }
+.btn-auth:active:not(:disabled) { transform: translateY(0); }
+.btn-auth:disabled { cursor: not-allowed; filter: saturate(0.6) brightness(0.9); }
+
+/* --- Соц-вход: перекрашиваем ИЗ КОНТЕЙНЕРА, не трогая компонент Claude A ---
+   components/social-login-buttons.tsx — файл домена A с жёстко зашитым
+   cyan-hover (#00D4FF) и плоской заливкой #0A0A0F. Правим потомков через свою
+   область: тот же премиум-язык, чужой файл нетронут. */
+.auth-social .h-px { background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.12), transparent) !important; }
+.auth-social span {
+  color: #7c869e !important; letter-spacing: 0.14em;
+  text-transform: uppercase; font-size: 0.62rem !important;
+}
+.auth-social a {
+  border-color: rgb(255 255 255 / 0.08) !important;
+  background: rgb(5 6 11 / 0.6) !important;
+  border-radius: 12px !important;
+  transition: border-color var(--dur-hover) var(--ease-premium),
+              background var(--dur-hover) var(--ease-premium),
+              box-shadow var(--dur-hover) var(--ease-premium);
+}
+.auth-social a:hover {
+  border-color: rgb(var(--color-gold-rgb) / 0.42) !important;
+  background: rgb(12 12 16 / 0.85) !important;
+  box-shadow: 0 0 0 3px rgb(var(--color-gold-rgb) / 0.08);
+}
+
+/* --- Ошибка: сдержанный багрянец вместо аварийного красного ---------------- */
+.auth-error {
+  border-radius: 12px; padding: 0.7rem 0.9rem; font-size: 0.82rem;
+  color: #f2b8b8;
+  background: rgb(120 40 44 / 0.16);
+  border: 1px solid rgb(196 88 88 / 0.32);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+/* --- Сноска и ссылка ------------------------------------------------------ */
+.auth-footnote { color: #808ba3; }
+.auth-link {
+  color: rgb(var(--color-gold-rgb) / 0.92); font-weight: 600;
+  text-underline-offset: 3px; text-decoration-color: rgb(var(--color-gold-rgb) / 0.4);
+}
+.auth-link:hover { text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-auth:hover:not(:disabled) { transform: none; }
+  .btn-auth::after { display: none; }
+}

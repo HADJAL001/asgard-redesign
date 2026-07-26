@@ -82,8 +82,13 @@ export const NAV: NavItem[] = [
   { key: "nav.about", href: "/about", Icon: HelpCircle },
 ]
 
-/** Разделы, которые остаются в основной строке шапки — остальное уходит в боковое меню. */
-const CORE_NAV_KEYS = ["nav.home", "nav.forge", "nav.marketplace"]
+/** Разделы, которые остаются в основной строке шапки — остальное уходит в боковое меню.
+ *  По прямому указанию пользователя (2026-07-26) шапка отдана РАБОЧЕМУ контуру:
+ *  Проекты · Доработки · Оркестратор (то, чем человек создаёт и дорабатывает
+ *  приложение). Кузница и Маркет — экономический контур — переехали в боковое
+ *  меню: оттуда они по-прежнему в один клик, но не спорят за первое место с
+ *  главным сценарием платформы. Порядок берётся из NAV (см. фильтр ниже). */
+const CORE_NAV_KEYS = ["nav.home", "nav.projects", "nav.refinements", "nav.orchestrator"]
 
 /** Переключатель языка · выпадающий список RU / EN / KZ */
 function LanguageSwitcher() {
@@ -403,7 +408,7 @@ export function Navbar() {
       </Link>
 
       {/* Primary menu — только ключевые разделы, остальное в боковом меню */}
-      <nav className="ml-10 hidden items-center gap-8 md:flex" aria-label={t("nav.mainNav")}>
+      <nav className="ml-10 hidden items-center gap-7 md:flex" aria-label={t("nav.mainNav")}>
         {coreItems.map(({ key, href, Icon }) => {
           const active = isActive(href)
           return (
