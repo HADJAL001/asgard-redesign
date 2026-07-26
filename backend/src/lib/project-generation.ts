@@ -17,6 +17,8 @@ import { emitGenerationStage } from "./generation-events"
 import { getForgeBonusForUser } from "./forge-loadout"
 import { nextFloats } from "./provably-fair"
 import { addArchitectXp } from "./architect-progression"
+import { deriveDesignBrief, renderDesignSystemFiles, DESIGN_SYSTEM_PATHS, type DesignBrief } from "./design-system"
+import { explainDesignQuality } from "./design-qa"
 
 /* ================================================================
    OSGARD · Общий сервис генерации проектов
@@ -112,6 +114,55 @@ export function insertStarterArtifacts(
   db.prepare(`UPDATE projects SET artifact_count = ? WHERE id = ?`).run(count, projectId)
 }
 
+/** Читает сохранённый дизайн-бриф проекта. Доработка обязана идти в том же визуальном
+ *  языке, а не рождать второй облик поверх первого.
+ *
+ *  Ленивый prepare внутри функции и мягкая деградация при отсутствии колонки — урок
+ *  инцидента #59: ссылка на колонку новой миграции на уровне модуля роняет boot. */
+function loadProjectBrief(projectId: number): DesignBrief | undefined {
+  try {
+    const row = db.prepare(`SELECT design_brief as designBrief FROM projects WHERE id = ?`).get(projectId) as
+      | { designBrief: string | null }
+      | undefined
+    if (!row?.designBrief) return undefined
+    const parsed = JSON.parse(row.designBrief)
+    return parsed && typeof parsed === "object" ? (parsed as DesignBrief) : undefined
+  } catch {
+    return undefined // колонки ещё нет (старая схема в тестах) — не повод падать
+  }
+}
+
+/** Сохраняет дизайн-систему и разбор её качества. Отдельным стейтментом от
+ *  `status='ready'`: если схема без колонок 090, проект всё равно обязан стать ready. */
+function persistDesign(projectId: number, brief: DesignBrief, report: ReturnType<typeof explainDesignQuality>) {
+  try {
+    db.prepare(`UPDATE projects SET design_brief = ?, design_score = ?, design_report = ? WHERE id = ?`).run(
+      JSON.stringify(brief),
+      report.score,
+      JSON.stringify({ factors: report.factors, issues: report.issues.slice(0, 40), analyzedFiles: report.analyzedFiles }),
+      projectId,
+    )
+  } catch (err) {
+    captureError("[projects.generate] design persist skipped (schema without 090 columns):", err)
+  }
+}
+
+/** Гарантирует, что файлы дизайн-системы в проекте соответствуют брифу.
+ *
+ *  Нужно ОБОИМ путям: шаблонный путь переиспользует файлы прошлых генераций, среди
+ *  которых лежит старый пустой `tailwind.config.ts` — без перезаписи адаптированный
+ *  шаблон остался бы без токенов. */
+function applyDesignSystem(
+  files: GeneratedAppFile[],
+  brief: DesignBrief,
+  name: string,
+  description: string,
+): GeneratedAppFile[] {
+  const rendered = renderDesignSystemFiles(brief, name, description)
+  const owned = new Set<string>(DESIGN_SYSTEM_PATHS)
+  return [...files.filter((f) => !owned.has(f.path)), ...rendered]
+}
+
 /** Асинхронный джоб генерации реального приложения — вызывается fire-and-forget сразу
  *  после ответа клиенту. Никогда не бросает наружу: любая ошибка помечает проект failed. */
 async function runAppGenerationJob(
@@ -122,6 +173,7 @@ async function runAppGenerationJob(
   quick: { description: string; badge: string; artifacts: AiArtifactSuggestion[] },
   template: MatchedTemplate | null,
   bypassCache: boolean,
+  design?: { theme?: string; keywords?: string[] },
 ) {
   try {
     let files: GeneratedAppFile[]
@@ -133,9 +185,23 @@ async function runAppGenerationJob(
     // Стадия 1: замысел разобран (тема/шаблон уже определены синхронно при создании проекта).
     emitGenerationStage({ projectId, stage: "analyzing", label: "Анализирую замысел", progress: 0.1 })
 
+    // Существующий бриф — признак доработки: облик уже выбран, второй раз не изобретаем.
+    const existingBrief = loadProjectBrief(projectId)
+    let brief: DesignBrief =
+      existingBrief ?? deriveDesignBrief({ name, hint, theme: design?.theme, keywords: design?.keywords })
+
+    // Стадия 2: дизайн-система. Раньше её не было вовсе — приложение получало
+    // пустой tailwind.config и голый layout, и каждый файл изобретал палитру сам.
+    emitGenerationStage({
+      projectId,
+      stage: "designing",
+      label: existingBrief ? "Сохраняю дизайн-систему проекта" : "Проектирую дизайн-систему",
+      progress: 0.2,
+    })
+
     if (template) {
-      // Стадия 2a: найден подходящий шаблон — адаптируем (быстрее и дешевле AI).
-      emitGenerationStage({ projectId, stage: "template", label: "Адаптирую шаблон", progress: 0.35 })
+      // Стадия 3a: найден подходящий шаблон — адаптируем (быстрее и дешевле AI).
+      emitGenerationStage({ projectId, stage: "template", label: "Адаптирую шаблон", progress: 0.4 })
       const adapted = await adaptTemplate(template, name, hint)
       files = adapted.files
       source = adapted.source
@@ -145,11 +211,18 @@ async function runAppGenerationJob(
 
       incrementTemplateUsage(template.id, estimateTokensSaved(template.files.length))
     } else {
-      // Стадия 2b: шаблона нет — полная генерация кода через AI (дольше).
-      emitGenerationStage({ projectId, stage: "ai", label: "Генерирую код приложения", progress: 0.35 })
-      const result = await generateApp(name, hint, { bypassCache })
+      // Стадия 3b: шаблона нет — полная генерация кода через AI (дольше).
+      emitGenerationStage({ projectId, stage: "ai", label: "Генерирую код приложения", progress: 0.4 })
+      const result = await generateApp(name, hint, {
+        bypassCache,
+        theme: design?.theme,
+        keywords: design?.keywords,
+        description: quick.description,
+        brief: existingBrief,
+      })
       files = result.files
       source = result.source
+      brief = result.brief
 
       if (result.source === "ai") {
         saveTemplateFromGeneration({
@@ -164,11 +237,16 @@ async function runAppGenerationJob(
       }
     }
 
-    // Стадия 3: проверяем сгенерированные файлы.
-    emitGenerationStage({ projectId, stage: "validating", label: "Проверяю файлы", progress: 0.7, fileCount: files.length })
-    const errors = validateGeneratedFiles(files)
+    // Дизайн-система принадлежит брифу целиком: перезаписываем её файлы поверх любого
+    // пути (в т.ч. поверх старого пустого конфига, пришедшего из кэша шаблонов).
+    files = applyDesignSystem(files, brief, name, description)
 
-    // Стадия 4: записываем файлы проекта.
+    // Стадия 4: проверяем сгенерированные файлы — синтаксис И качество интерфейса.
+    emitGenerationStage({ projectId, stage: "validating", label: "Проверяю файлы", progress: 0.75, fileCount: files.length })
+    const errors = validateGeneratedFiles(files)
+    const designReport = explainDesignQuality(files)
+
+    // Стадия 5: записываем файлы проекта.
     emitGenerationStage({ projectId, stage: "writing", label: "Записываю файлы проекта", progress: 0.85, fileCount: files.length })
     const insertFile = db.prepare(
       `INSERT INTO project_files (project_id, path, content, updated_at)
@@ -183,6 +261,10 @@ async function runAppGenerationJob(
     db.prepare(
       `UPDATE projects SET status = 'ready', ai_source = ?, generation_error = ?, description = ?, badge = ? WHERE id = ?`,
     ).run(source, errors.length > 0 ? errors.join("\n") : null, description, badge, projectId)
+
+    // Дизайн-система и разбор её качества — отдельным стейтментом, чтобы схема без
+    // колонок 090 не мешала проекту стать ready.
+    persistDesign(projectId, brief, designReport)
 
     if (artifactNames) {
       const rows = db
@@ -282,7 +364,10 @@ export function createGeneratedProject(params: {
     .prepare(`SELECT ${ARTIFACT_SELECT_COLUMNS} FROM artifacts WHERE project_id = ? ORDER BY created_at DESC`)
     .all(projectId)
 
-  void runAppGenerationJob(params.userId, projectId, trimmedName, safeHint, quick, template, depthCfg.bypassCache)
+  void runAppGenerationJob(params.userId, projectId, trimmedName, safeHint, quick, template, depthCfg.bypassCache, {
+    theme,
+    keywords,
+  })
 
   return { project, artifacts, projectId }
 }

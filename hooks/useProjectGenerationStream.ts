@@ -24,6 +24,7 @@ import { useEffect, useRef, useState } from "react"
 
 export type GenerationStage =
   | "analyzing"
+  | "designing"
   | "template"
   | "ai"
   | "validating"

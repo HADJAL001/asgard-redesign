@@ -499,6 +499,55 @@ router.get("/:id/refinements", requireAuth, (req: AuthRequest, res) => {
   })
 })
 
+/* ---------------- GET /projects/:id/design — дизайн-система приложения ----------------
+   Показывает, из чего сложился облик проекта: архетип, палитра с ЗАМЕРЕННЫМИ контрастами,
+   типографика, ритм — плюс балл качества интерфейса с разбором (lib/design-qa.ts).
+   Только владельцу; 404 и на чужой, и на отсутствующий проект — без энумерации.
+   Legacy-проекты (сгенерированные до миграции 090) честно отдают designed:false,
+   а не выдуманный задним числом бриф. */
+router.get("/:id/design", requireAuth, (req: AuthRequest, res) => {
+  const projectId = Number(req.params.id)
+  if (!Number.isInteger(projectId) || projectId <= 0) {
+    return res.status(400).json({ error: "Некорректный id проекта" })
+  }
+
+  // Ленивый prepare внутри хендлера: ссылка на колонки миграции 090 на уровне модуля
+  // уронила бы boot на БД, где миграция ещё не отработала (урок инцидента #59).
+  let row: { designBrief: string | null; designScore: number | null; designReport: string | null } | undefined
+  try {
+    row = db
+      .prepare(
+        `SELECT design_brief as designBrief, design_score as designScore, design_report as designReport
+         FROM projects WHERE id = ? AND user_id = ?`,
+      )
+      .get(projectId, req.user!.userId) as typeof row
+  } catch {
+    // Схема без колонок 090 — отвечаем честно «не записано», а не 500.
+    const owns = db.prepare(`SELECT 1 FROM projects WHERE id = ? AND user_id = ?`).get(projectId, req.user!.userId)
+    if (!owns) return res.status(404).json({ error: "Проект не найден" })
+    return res.json({ designed: false, brief: null, score: null, report: null })
+  }
+
+  if (!row) return res.status(404).json({ error: "Проект не найден" })
+
+  const parse = (value: string | null) => {
+    if (!value) return null
+    try {
+      return JSON.parse(value)
+    } catch {
+      return null
+    }
+  }
+
+  const brief = parse(row.designBrief)
+  return res.json({
+    designed: brief !== null,
+    brief,
+    score: typeof row.designScore === "number" ? row.designScore : null,
+    report: parse(row.designReport),
+  })
+})
+
 /* ---------------- GET /projects/:id/stream — живой SSE-лог рождения проекта ----------------
    Фоновый джоб генерации (lib/project-generation.ts) эмитит стадии через generationEvents;
    этот поток проталкивает их владельцу проекта в реальном времени — страница проекта

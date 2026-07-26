@@ -22,10 +22,11 @@ import { createElement, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   ArrowLeft, Hammer, Boxes, TrendingUp, Coins, Loader2, Trash2, Store, Archive, CheckCircle2,
-  Rocket, Download, ExternalLink, AlertTriangle, Code2, Link2, Play, Wand2, Send, XCircle, Sparkles,
+  Rocket, Download, ExternalLink, AlertTriangle, Code2, Link2, Play, Wand2, Send, XCircle, Sparkles, Palette,
 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { ProjectFileEditor } from "./project-file-editor"
+import { ProjectDesignPanel } from "./project-design-panel"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { useAuth } from "@/lib/auth-store"
 import { COLORS, badgeIcon, RARITY, ARTIFACT_TYPES, STAT_META, type ArtifactType, type Rarity } from "@/lib/economy"
@@ -86,7 +87,7 @@ export function ProjectDetailView({ projectId }: Props) {
 
   // ?tab=refine (из /projects и хаба «Доработки») открывает вкладку доработки сразу.
   const initialTab = searchParams.get("tab") === "refine" ? "refine" : "artifacts"
-  const [tab, setTab] = useState<"artifacts" | "refine" | "files" | "run">(initialTab)
+  const [tab, setTab] = useState<"artifacts" | "refine" | "design" | "files" | "run">(initialTab)
   const [publishing, setPublishing] = useState(false)
   const [publishResult, setPublishResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [deploying, setDeploying] = useState(false)
@@ -508,6 +509,18 @@ export function ProjectDetailView({ projectId }: Props) {
             </button>
             <button
               type="button"
+              onClick={() => setTab("design")}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium transition-colors"
+              style={{
+                color: tab === "design" ? COLORS.accent : COLORS.label,
+                borderBottom: `2px solid ${tab === "design" ? COLORS.accent : "transparent"}`,
+              }}
+            >
+              <Palette size={14} strokeWidth={1.75} />
+              Дизайн
+            </button>
+            <button
+              type="button"
               onClick={() => setTab("files")}
               className="inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium transition-colors"
               style={{
@@ -544,6 +557,8 @@ export function ProjectDetailView({ projectId }: Props) {
               refinements={currentProjectRefinements}
               t={t}
             />
+          ) : tab === "design" ? (
+            <ProjectDesignPanel projectId={projectId} />
           ) : tab === "run" ? (
             <div className="mt-6 flex flex-col items-center gap-4 rounded-2xl px-6 py-16 text-center" style={{ backgroundColor: COLORS.card, border: `1px dashed ${COLORS.border}` }}>
               <Play size={32} strokeWidth={1.25} style={{ color: COLORS.accent }} />
