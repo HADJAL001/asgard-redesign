@@ -754,6 +754,36 @@
   тот класс коллизий, ради которого файл и существует — вторая рука могла взять занятый номер. Смержил
   висевший docs-PR **#91** (`41385fd`): 089 отмечена занятой, **следующая свободная — 090**. Кода не
   касается.
+- **B — ГОТОВО «Аукционы: живой SSE-поток списка» (2026-07-26, домен B: маркетплейс/аукционы/real-time):**
+  Задача выбрана по прямому указанию пользователя. Проблема: страница `/auctions` — плоский снимок на
+  момент захода, чужую перебитую ставку, новый лот или расчёт по истечении видно только вручную
+  обновив страницу. Новый `GET /auctions/stream` (`backend/src/routes/auctions.routes.ts`): паттерн —
+  **не** пер-лотовый буфер стадий (как `hooks/useProjectGenerationStream.ts`), а глобальный снапшот по
+  образцу `routes/tcmarket.routes.ts` (`GET /tc-market/stream`) — `/auctions` уже сама по себе
+  компактная сводка списка, а не карточка одной сущности, так что при любом изменении честнее
+  перестроить весь снапшот, чем размечать дифф. `EventEmitter` (`auctionEvents`, `setMaxListeners(0)`)
+  на уровне модуля; `create`/`bid`/`settle`(через `settleIfEnded`)/`cancel` зовут `auctionEvents.emit
+  ("update")` строго ПОСЛЕ `db.exec("COMMIT")` и вне `try/catch` — иначе синхронный слушатель, кинувший
+  исключение, откатил бы уже закоммиченную транзакцию. SSE-заголовки + 15с heartbeat + `optionalAuth`
+  (список виден анонимно, `isSeller`/`isTopBidder` заполняются только при наличии токена). Фронт:
+  `components/auctions-view.tsx` подписывается через `EventSource`, реконнект как у соседних потоков.
+  **Точечная правка домена A по Правилу №4** (не переписывал файл, добавил по образцу существующих
+  веток): `app/api/[...path]/route.ts` — +1 строка регекспа `AUCTIONS_STREAM_RE=/^auctions\/stream$/`
+  (рядом с `TC_MARKET_STREAM_RE`/`ORCHESTRATOR_STREAM_RE`) + 1 условие в `handler()`, тот же
+  `handleOrchestratorStream(..., { requireAuth: false })`, что и у `tc-market/stream`. Больше нигде
+  в общих файлах правок нет. **Миграций нет** (093 остаётся свободной для следующей руки).
+  **Смёржено PR #104 → `main`, squash-коммит `daa1872` (полный SHA
+  `daa187291cb365ee4cf7bf9219577868991523c6`)**; чек `e2e-android` был `cancelled` (таймаут раннера,
+  `adb`-эмулятор, не код — тот же класс флейка, что уже задокументирован здесь для другого PR), ветвь
+  диффа не касается мобильных файлов, branch protection на `main` нет — не блокер.
+  **Прод-проверка вживую (после раскатки Railway+Vercel):** `GET /auctions/stream` на бэкенде
+  (`Railway`) → 200, реальный SSE-кадр `data: {"type":"snapshot","auctions":[],"serverTime":…}`;
+  `GET /api/auctions/stream` через прокси на `osgardnewworld.com` → 200, корректные заголовки
+  (`Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Transfer-Encoding: chunked`,
+  `X-Matched-Path: /api/[...path]`) и тот же живой снапшот сквозь Vercel→Railway; страница `/auctions`
+  → 200. Работал в изолированном git **worktree** `~/work/asgard-auctions-live` (общий каталог не
+  трогал — он в это время занят чужой веткой `feat/premium-loader-refine-cards` + untracked
+  `marketing/launch-package/`, которые я не трогал).
 ---
 
 ## ✅ РАЗРЕШЕНО — share-фича приземлена (2026-07-25)
