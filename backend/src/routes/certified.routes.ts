@@ -89,7 +89,7 @@ router.get("/:serial/badge.svg", rateLimit(60_000, 60), (req, res) => {
   const status: BadgeStatus = !row ? "not-found" : row.status === "revoked" ? "revoked" : "issued"
 
   const etag = `"${crypto
-    .createHash("sha1")
+    .createHash("sha256")
     .update(`${serial}:${status}:${row?.revoked_at ?? ""}`)
     .digest("hex")
     .slice(0, 16)}"`
