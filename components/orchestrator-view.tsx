@@ -61,15 +61,18 @@ export function OrchestratorView() {
   }
 
   return (
-    <div className="relative overflow-hidden min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
+    <div className="eg-page relative overflow-hidden min-h-screen font-sans" style={{ color: COLORS.text }}>
       <SnakeBackground />
       <Navbar />
 
       <main className="relative z-10 mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-lg" style={{ border: `1px solid ${COLORS.border}` }}>
-              <GitBranch size={18} strokeWidth={1.5} style={{ color: COLORS.accent }} aria-hidden="true" />
+            <span
+              className="flex size-10 items-center justify-center rounded-lg"
+              style={{ border: "1px solid rgb(var(--color-gold-rgb) / 0.35)", background: "var(--eg-glass-bg)" }}
+            >
+              <GitBranch size={18} strokeWidth={1.5} style={{ color: "var(--eg-gold-2)" }} aria-hidden="true" />
             </span>
             <div>
               <h1 className="text-[32px] font-semibold leading-tight">{t("orchestrator.title")}</h1>
@@ -82,8 +85,7 @@ export function OrchestratorView() {
           <button
             type="button"
             onClick={() => router.push("/orchestrator/new")}
-            className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90"
-            style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
+            className="btn-premium-gold inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium"
           >
             <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
             {t("orchestrator.createBtn")}
@@ -98,12 +100,25 @@ export function OrchestratorView() {
 
         {loading ? (
           <div className="mt-16 flex justify-center">
-            <Loader2 size={24} className="animate-spin" style={{ color: COLORS.accent }} />
+            <Loader2 size={24} className="animate-spin" style={{ color: "var(--eg-gold-2)" }} />
           </div>
         ) : chains.length === 0 ? (
-          <div className="mt-16 flex flex-col items-center gap-3 text-center">
-            <GitBranch size={32} strokeWidth={1.25} style={{ color: COLORS.label }} aria-hidden="true" />
-            <p style={{ color: COLORS.label }}>{t("orchestrator.emptyState")}</p>
+          <div className="premium-panel mt-16 flex flex-col items-center gap-4 rounded-2xl px-8 py-14 text-center">
+            <span
+              className="flex size-16 items-center justify-center rounded-2xl"
+              style={{ border: "1px solid rgb(var(--color-gold-rgb) / 0.35)", background: "var(--eg-glass-bg)" }}
+            >
+              <GitBranch size={28} strokeWidth={1.25} style={{ color: "var(--eg-gold-2)" }} aria-hidden="true" />
+            </span>
+            <p className="max-w-sm text-[14px]" style={{ color: COLORS.label }}>{t("orchestrator.emptyState")}</p>
+            <button
+              type="button"
+              onClick={() => router.push("/orchestrator/new")}
+              className="btn-premium-gold inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium"
+            >
+              <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
+              {t("orchestrator.createBtn")}
+            </button>
           </div>
         ) : (
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -111,10 +126,7 @@ export function OrchestratorView() {
               <div
                 key={chain.id}
                 onClick={() => router.push(`/orchestrator/${chain.id}`)}
-                className="cursor-pointer rounded-xl p-5 transition-colors"
-                style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = COLORS.accent)}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = COLORS.border)}
+                className="eg-surface eg-surface--interactive cursor-pointer rounded-xl p-5"
               >
                 <p className="text-[15px] font-medium">{chain.name}</p>
                 {chain.description && (
@@ -133,8 +145,7 @@ export function OrchestratorView() {
                       e.stopPropagation()
                       router.push(`/orchestrator/${chain.id}?run=1`)
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium"
-                    style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
+                    className="btn-premium-gold inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium"
                   >
                     <Play size={13} strokeWidth={1.75} />
                     {t("orchestrator.runBtn")}
@@ -146,7 +157,7 @@ export function OrchestratorView() {
                       router.push(`/orchestrator/${chain.id}`)
                     }}
                     className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium"
-                    style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+                    style={{ border: "1px solid var(--eg-glass-border)", color: COLORS.text }}
                   >
                     <Pencil size={13} strokeWidth={1.75} />
                     {t("orchestrator.editBtn")}

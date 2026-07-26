@@ -52,7 +52,7 @@ export function OrchestratorEditorView({ chainId }: OrchestratorEditorViewProps)
   }, [chainId])
 
   return (
-    <div className="flex min-h-screen flex-col font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
+    <div className="eg-page flex min-h-screen flex-col font-sans" style={{ color: COLORS.text }}>
       <Navbar />
 
       <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-4 px-6 py-8 md:px-10">
@@ -61,7 +61,7 @@ export function OrchestratorEditorView({ chainId }: OrchestratorEditorViewProps)
         <div className="flex flex-1 gap-4">
         {loading ? (
           <div className="flex flex-1 items-center justify-center py-32">
-            <Loader2 size={24} className="animate-spin" style={{ color: COLORS.accent }} />
+            <Loader2 size={24} className="animate-spin" style={{ color: "var(--eg-gold-2)" }} />
           </div>
         ) : error ? (
           <div className="flex flex-1 items-center justify-center py-32">

@@ -427,8 +427,7 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium transition-colors disabled:opacity-50"
-          style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+          className="btn-premium-gold inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium disabled:opacity-50"
         >
           {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} strokeWidth={1.75} />}
           {t("orchestrator.saveBtn")}

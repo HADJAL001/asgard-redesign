@@ -430,6 +430,63 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     t,
   ])
 
+  /* ---------------- следующее действие ----------------
+     Жалоба пользователя: пять карточек конвейера нужно прочитать все, чтобы
+     понять одно важное действие прямо сейчас. Баннер сводит это к одному
+     приоритету: ошибка → идёт процесс → первый непройденный шаг → готово. */
+  const nextAction = useMemo(() => {
+    const compilerStep = steps.find((s) => s.key === "compiler")!
+    const runStep = steps.find((s) => s.key === "run")!
+    const deployStep = steps.find((s) => s.key === "deploy")!
+
+    const pipeline = [
+      {
+        step: compilerStep,
+        tour: "workspace-verify-btn",
+        pane: "code" as Pane,
+        onAction: handleRepair,
+        actionLabel: engineering?.verdict === "broken" ? t("workspace.repair") : t("workspace.verify"),
+      },
+      {
+        step: runStep,
+        tour: "workspace-run-btn",
+        pane: "preview" as Pane,
+        onAction: handleRun,
+        actionLabel: runState === "ready" ? t("workspace.restart") : t("workspace.run"),
+      },
+      {
+        step: deployStep,
+        tour: "workspace-deploy-btn",
+        pane: "preview" as Pane,
+        onAction: handleDeploy,
+        actionLabel: t("workspace.deploy"),
+      },
+    ]
+
+    const errored = pipeline.find((p) => p.step.state === "error")
+    if (errored) return { tone: "error" as const, text: errored.step.hint, action: errored }
+
+    const active = pipeline.find((p) => p.step.state === "active")
+    if (active) return { tone: "progress" as const, text: active.step.hint, action: null }
+
+    const pending = pipeline.find((p) => p.step.state === "idle")
+    if (pending) return { tone: "action" as const, text: pending.step.hint, action: pending }
+
+    return { tone: "done" as const, text: t("workspace.nextAllDone"), action: null }
+  }, [steps, engineering?.verdict, runState, handleRepair, handleRun, handleDeploy, t])
+
+  function goToNextAction() {
+    if (!nextAction.action) return
+    setPane(nextAction.action.pane)
+    nextAction.action.onAction()
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(`[data-tour="${nextAction.action!.tour}"]`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      })
+    })
+  }
+
   /* ---------------- рендер ---------------- */
 
   if (loading && !currentProject) {
@@ -518,6 +575,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             </button>
             <button
               type="button"
+              data-tour="workspace-deploy-btn"
               onClick={handleDeploy}
               disabled={deploying || currentProject.deployStatus === "deploying" || currentProject.status !== "ready"}
               className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40"
@@ -527,6 +585,36 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
               {t("workspace.deploy")}
             </button>
           </div>
+        </div>
+
+        {/* ---- Что делать дальше: одно приоритетное действие вместо пяти карточек ---- */}
+        <div className="premium-panel mt-4 flex flex-wrap items-center gap-3 rounded-xl px-4 py-3">
+          {nextAction.tone === "error" ? (
+            <ShieldAlert size={17} style={{ color: COLORS.red, flexShrink: 0 }} />
+          ) : nextAction.tone === "progress" ? (
+            <Loader2 size={17} className="animate-spin" style={{ color: "var(--eg-gold-2)", flexShrink: 0 }} />
+          ) : nextAction.tone === "done" ? (
+            <CheckCircle2 size={17} style={{ color: COLORS.green, flexShrink: 0 }} />
+          ) : (
+            <Wand2 size={17} style={{ color: "var(--eg-gold-2)", flexShrink: 0 }} />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium uppercase tracking-wide" style={{ color: COLORS.label }}>
+              {nextAction.tone === "error"
+                ? t("workspace.nextEyebrowError")
+                : nextAction.tone === "progress"
+                  ? t("workspace.nextEyebrowProgress")
+                  : nextAction.tone === "done"
+                    ? t("workspace.nextEyebrowDone")
+                    : t("workspace.nextEyebrowAction")}
+            </p>
+            <p className="truncate text-[13.5px] font-medium">{nextAction.text}</p>
+          </div>
+          {nextAction.action && (
+            <button type="button" onClick={goToNextAction} className="btn-premium-gold shrink-0 rounded-lg px-4 py-2 text-[12.5px] font-medium">
+              {nextAction.action.actionLabel}
+            </button>
+          )}
         </div>
 
         {/* ---- Конвейер: кто и что делает прямо сейчас ---- */}
@@ -778,6 +866,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
               )}
               <button
                 type="button"
+                data-tour="workspace-verify-btn"
                 onClick={handleRepair}
                 disabled={repairing || isGenerating || currentProjectFiles.length === 0}
                 title={t("workspace.verifyHint")}
@@ -895,6 +984,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                 )}
                 <button
                   type="button"
+                  data-tour="workspace-run-btn"
                   onClick={handleRun}
                   disabled={!canRun || runState === "starting"}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
