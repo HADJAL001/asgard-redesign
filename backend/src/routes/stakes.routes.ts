@@ -29,7 +29,28 @@ const STAKE_MAX_BY_PLAN: Record<string, number> = {
   elite: 100_000,
 }
 
-/* ---------------- GET /stakes ---------------- */
+/** Потолок одного стейка по тарифу. Чистая функция (без БД) — единственное
+ *  место, где тариф превращается в число, и точка приложения тестов.
+ *  Неизвестный/пустой тариф трактуется как free (консервативно). */
+export function stakeMaxForPlan(plan: string | null | undefined): number {
+  return STAKE_MAX_BY_PLAN[(plan as string) || "free"] ?? STAKE_MAX_BY_PLAN.free
+}
+
+/** Тариф пользователя + его потолок. Один источник правды для ПРОВЕРКИ в POST и
+ *  для ПОКАЗА в GET — иначе фронт рисовал бы свой потолок, который со временем
+ *  разъедется с фактически применяемым. */
+function stakeLimitsFor(userId: number): { plan: string; maxStake: number } {
+  const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
+  const plan = (userRow?.plan as string) || "free"
+  return { plan, maxStake: stakeMaxForPlan(plan) }
+}
+
+/* ---------------- GET /stakes ----------------
+   Отдаёт вместе со стейками ЛИМИТЫ тарифа. Раньше потолок жил только внутри
+   POST: пользователь узнавал о нём лишь получив 400 уже ПОСЛЕ нажатия кнопки,
+   а поле суммы принимало любое число и рисовало прогноз дохода по сумме,
+   которую невозможно застейкать. Поле `limits` аддитивно — прежние читатели
+   ответа (только `stakes`) не затронуты. */
 router.get("/", requireAuth, (req: AuthRequest, res) => {
   const stakes = db
     .prepare(
@@ -39,7 +60,7 @@ router.get("/", requireAuth, (req: AuthRequest, res) => {
     )
     .all(req.user!.userId)
 
-  res.json({ stakes })
+  res.json({ stakes, limits: stakeLimitsFor(req.user!.userId) })
 })
 
 /* ---------------- POST /stakes ---------------- */
@@ -61,9 +82,9 @@ router.post("/", requireAuth, (req: AuthRequest, res) => {
     return res.status(400).json({ error: "Недостаточно TimeCoin" })
   }
 
-  const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(req.user!.userId)
-  const plan = (userRow?.plan as string) || "free"
-  const maxStake = STAKE_MAX_BY_PLAN[plan] ?? STAKE_MAX_BY_PLAN.free
+  // Тот же источник правды, что отдаётся в GET /stakes → фронт показывает
+  // ровно тот потолок, который здесь и применяется.
+  const { plan, maxStake } = stakeLimitsFor(req.user!.userId)
   if (amountTc > maxStake) {
     return res.status(400).json({
       error: `Ваш тариф (${plan}) позволяет стейкать до ${maxStake} ∞ за раз. Повысьте тариф, чтобы стейкать больше.`,

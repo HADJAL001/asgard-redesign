@@ -231,7 +231,15 @@
     "stakeDone": "Staked {{amount}} for {{days}} days",
     "stakeFailed": "Failed to open a stake",
     "unstakeDone": "Stake closed: +{{reward}} reward · paid out {{total}}",
-    "unstakeFailed": "Failed to unstake"
+    "unstakeFailed": "Failed to unstake",
+    "capEmpty": "Nothing to stake: your balance is 0 ∞.",
+    "capTopUp": "Top up",
+    "capPlan": "Per-stake cap on the {plan} plan is {amount}. The field won't accept more.",
+    "capUpgrade": "Upgrade plan",
+    "capBalance": "Capped by your balance: {amount}.",
+    "blockedNoFunds": "You need at least {amount} ∞ on your balance to open a stake.",
+    "blockedBelowMin": "Minimum stake amount is {amount} ∞.",
+    "blockedEnterAmount": "Enter an amount to see the income forecast."
   },
   "forge": {
     "title": "Forge",

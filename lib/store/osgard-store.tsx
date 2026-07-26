@@ -497,6 +497,10 @@ export interface OsgardStoreState {
   trades: TcTrade[]
   userOrders: UserOrder[]
   stakes: OsgardStake[]
+  /** Лимиты стейкинга текущего пользователя (см. GET /stakes → limits): тариф и
+   *  максимум ОДНОГО стейка. null, пока стейки не загружены. Нужен, чтобы поле
+   *  суммы клампилось по реальному потолку, а не принимало любое число. */
+  stakeLimits: { plan: string; maxStake: number } | null
   artifacts: OsgardArtifact[]
   /** Снаряжение Кузницы: надетые артефакты + совокупный бонус к генерации (см. GET /artifacts/loadout). */
   forgeLoadout: ForgeLoadout
@@ -755,6 +759,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   trades: [],
   userOrders: [],
   stakes: [],
+  stakeLimits: null,
   artifacts: [],
   forgeLoadout: EMPTY_FORGE_LOADOUT,
   architect: null,
@@ -967,8 +972,14 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   /* ---- fetch: GET /stakes — стейки текущего пользователя ---- */
   fetchStakes: async (opts) => {
     try {
-      const { stakes } = await apiClient.get<{ stakes: OsgardStake[] }>("/stakes", opts)
-      set({ stakes, error: null })
+      // `limits` появилось позже самого эндпоинта — на старом бэкенде его нет,
+      // тогда оставляем null (UI честно скажет «лимит тарифа неизвестен»,
+      // а не нарисует выдуманный потолок).
+      const { stakes, limits } = await apiClient.get<{
+        stakes: OsgardStake[]
+        limits?: { plan: string; maxStake: number }
+      }>("/stakes", opts)
+      set({ stakes, stakeLimits: limits ?? null, error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить стейки") })
     }
@@ -1713,6 +1724,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       trades: [],
       userOrders: [],
       stakes: [],
+      stakeLimits: null,
       artifacts: [],
       forgeLoadout: EMPTY_FORGE_LOADOUT,
       architect: null,
