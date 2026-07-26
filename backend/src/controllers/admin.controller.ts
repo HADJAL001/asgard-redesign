@@ -3,6 +3,7 @@ import db from "../lib/db"
 import { AuthRequest } from "../middleware/authMiddleware"
 import { captureError } from "../lib/sentry"
 import { recordAdminAction } from "../lib/admin-audit"
+import { countStaleGuests, GUEST_REAP_TTL_MS } from "../lib/guest-service"
 
 export class AdminController {
   // ===== GET /admin/stats =====
@@ -845,6 +846,25 @@ export class AdminController {
       })
     } catch (error: any) {
       captureError("Admin guest-funnel error:", error)
+      res.status(500).json({ error: "Internal server error" })
+    }
+  }
+
+  // Гигиена воронки (read-only): сколько брошенных гостей (is_guest=1 без проекта и
+  // без регистрации, старше TTL) подлежит жатве прямо сейчас. Реальную чистку делает
+  // планировщик lib/guest-reaper.ts; этот ридер лишь показывает объём мусора. TTL
+  // настраивается через ?ttlDays= (клампится [1,365]), по умолчанию — GUEST_REAP_TTL_MS.
+  static async guestHygiene(req: AuthRequest, res: Response) {
+    try {
+      const defaultTtlDays = Math.round(GUEST_REAP_TTL_MS / 86400000)
+      const ttlDays = Math.min(
+        365,
+        Math.max(1, parseInt(String(req.query.ttlDays ?? defaultTtlDays), 10) || defaultTtlDays),
+      )
+      const staleGuests = countStaleGuests(Date.now(), ttlDays * 86400000)
+      res.json({ success: true, guestHygiene: { ttlDays, staleGuests } })
+    } catch (error: any) {
+      captureError("Admin guest-hygiene error:", error)
       res.status(500).json({ error: "Internal server error" })
     }
   }
