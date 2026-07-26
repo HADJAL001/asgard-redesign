@@ -695,7 +695,17 @@
     "verifyBuildOk": "Build succeeded",
     "verifyBuildErrors": "Build finished with errors",
     "verifyBuildSkipped": "Check skipped: Docker unavailable on the server",
-    "verifyBuildFailed": "Failed to start build verification"
+    "verifyBuildFailed": "Failed to start build verification",
+    "refine": "Refine",
+    "refineTitle": "Refine the app",
+    "refineDescription": "Describe the change — the AI rebuilds the app with your refinement in mind. The first refinements are free, after that it's 20 credits per refinement.",
+    "refinePlaceholder": "e.g. add a dark theme and move the cart to its own screen",
+    "refineSubmit": "Start refinement",
+    "refineCancel": "Cancel",
+    "refineHintRequired": "Describe what to refine",
+    "refineStartedGrant": "Refinement started. Free refinements left: {{remaining}}",
+    "refineStartedCredits": "Refinement started. Credits charged: {{cost}}",
+    "refineFailed": "Failed to start the refinement"
   },
   "playground": {
     "pythonTitle": "Python playground",

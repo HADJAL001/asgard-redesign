@@ -10,11 +10,13 @@ import { verifyBuildInSandbox } from "../services/sandbox.service"
 import { decrypt } from "../utils/encryption"
 import { asyncHandler } from "../utils/async-handler"
 import { captureError } from "../lib/sentry"
-import { PROJECT_SELECT_COLUMNS, createGeneratedProject } from "../lib/project-generation"
+import { PROJECT_SELECT_COLUMNS, createGeneratedProject, refineProject } from "../lib/project-generation"
 import { GENERATION_DEPTHS, resolveDepth, serializeDepths } from "../lib/generation-depths"
 import { logAudit } from "../lib/audit"
 import { generationEvents, getRecentStages, type GenerationStageEvent } from "../lib/generation-events"
 import { guestProjectCapReached } from "../lib/guest-service"
+import { consumeRefinement, getRefinementsRemaining, refundRefinement } from "../lib/refinements"
+import { EconomyError } from "../lib/economy-tx"
 
 const router = Router()
 
@@ -369,6 +371,79 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     return res.status(500).json({ error: "Не удалось создать проект, кредиты возвращены" })
   }
 }))
+
+/* ---------------- POST /projects/:id/refine — доработка существующего проекта ----------------
+   Честная «итеративная правка»: заново прогоняет полную AI-генерацию файлов проекта с
+   уточнением пользователя, обновляя project_files поверх старых. Метеринг — lib/refinements:
+   сперва бесплатный грант (FREE_REFINEMENTS_ON_SIGNUP у реального аккаунта), при исчерпании —
+   кредиты (REFINEMENT_CREDIT_COST). Гость — 403 (стена регистрации). Списание атомарно и
+   идемпотентно (Idempotency-Key). Регенерация — fire-and-forget (как /generate); при провале
+   фонового джоба трата возвращается. Только владелец, только проект в статусе 'ready'.
+------------------------------------------------------------------------------- */
+router.post("/:id/refine", requireAuth, (req: AuthRequest, res) => {
+  const id = Number(req.params.id)
+  const userId = req.user!.userId
+  if (!Number.isInteger(id)) return res.status(400).json({ error: "Некорректный ID проекта" })
+
+  const project: any = db.prepare(`SELECT id, user_id, status FROM projects WHERE id = ?`).get(id)
+  if (!project) return res.status(404).json({ error: "Проект не найден" })
+  if (project.user_id !== userId) {
+    return res.status(403).json({ error: "Нет доступа к этому проекту" })
+  }
+
+  const hint = req.body?.hint
+  if (!hint || typeof hint !== "string" || !hint.trim()) {
+    return res.status(400).json({ error: "Опишите, что доработать в проекте", code: "REFINE_HINT_REQUIRED" })
+  }
+  if (project.status !== "ready") {
+    return res.status(400).json({ error: "Проект ещё не готов к доработке", code: "PROJECT_NOT_READY" })
+  }
+
+  const idemKey =
+    (typeof req.headers["idempotency-key"] === "string" && req.headers["idempotency-key"]) ||
+    (typeof req.body?.idemKey === "string" && req.body.idemKey) ||
+    undefined
+
+  let charge
+  try {
+    charge = consumeRefinement({ userId, projectId: id, hint, idemKey })
+  } catch (err) {
+    if (err instanceof EconomyError) {
+      return res.status(err.status).json({ error: err.message, ...(err.payload as object) })
+    }
+    captureError("[projects.refine] consume error:", err)
+    return res.status(500).json({ error: "Не удалось списать доработку" })
+  }
+
+  // Повтор по идемпотентному ключу: деньги не трогались и регенерацию НЕ перезапускаем
+  // (иначе двойной клик дал бы двойной прогон бесплатно) — отдаём текущий снапшот.
+  if (charge.replayed) {
+    const current = db.prepare(`SELECT ${PROJECT_SELECT_COLUMNS} FROM projects WHERE id = ?`).get(id)
+    return res.status(202).json({
+      project: current,
+      refinement: { paidWith: charge.paidWith, creditsCost: charge.creditsCost, replayed: true },
+      refinementsRemaining: getRefinementsRemaining(userId),
+    })
+  }
+
+  try {
+    const { project: snapshot } = refineProject({ userId, projectId: id, hint, refinementId: charge.refinementId })
+    return res.status(202).json({
+      project: snapshot,
+      refinement: { paidWith: charge.paidWith, creditsCost: charge.creditsCost, replayed: false },
+      refinementsRemaining: getRefinementsRemaining(userId),
+    })
+  } catch (err) {
+    // Синхронный сбой запуска доработки (напр. проект исчез) — честно возвращаем трату.
+    try {
+      refundRefinement(charge.refinementId)
+    } catch (refundErr) {
+      captureError("[projects.refine] sync refund failed:", refundErr)
+    }
+    captureError("[projects.refine] error:", err)
+    return res.status(500).json({ error: "Не удалось запустить доработку, списание возвращено" })
+  }
+})
 
 /* ---------------- GET /projects/:id/stream — живой SSE-лог рождения проекта ----------------
    Фоновый джоб генерации (lib/project-generation.ts) эмитит стадии через generationEvents;

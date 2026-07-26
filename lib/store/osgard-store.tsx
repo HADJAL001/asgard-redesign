@@ -455,6 +455,19 @@ export interface NetlifyDeployActionResult {
   error?: string
 }
 
+/** Результат refineProject (см. POST /projects/:id/refine — механика доработок).
+ *  paidWith — чем оплачена доработка ('grant' бесплатным грантом либо 'credits'),
+ *  creditsCost — сколько кредитов списано (0 для гранта),
+ *  refinementsRemaining — остаток бесплатных доработок после списания (null у гостя). */
+export interface RefineActionResult {
+  success: boolean
+  project?: OsgardProject
+  paidWith?: "grant" | "credits"
+  creditsCost?: number
+  refinementsRemaining?: number | null
+  error?: string
+}
+
 
 
 
@@ -622,6 +635,10 @@ export interface OsgardStoreState {
   deployProjectToNetlify: (id: number) => Promise<NetlifyDeployActionResult>
   /** Опрашивает GET /projects/:id, пока project.deployStatus не выйдет из 'deploying' (или не истечёт таймаут). */
   pollDeployStatus: (id: number, opts?: { intervalMs?: number; timeoutMs?: number }) => Promise<OsgardProject | null>
+  /** POST /projects/:id/refine — доработка проекта: заново прогоняет полную AI-генерацию
+   *  файлов с уточнением hint (проект переходит в 'generating'). Метеринг: сначала бесплатный
+   *  грант, затем кредиты (20). Отвечает 202 — прогресс отслеживается через pollProjectStatus. */
+  refineProject: (id: number, hint: string) => Promise<RefineActionResult>
   /** PATCH /projects/:id — обновить название/описание/бейдж проекта. */
   updateProject: (id: number, patch: { name?: string; description?: string; badge?: string }) => Promise<ProjectActionResult>
   /** DELETE /projects/:id — удалить проект. */
@@ -1492,6 +1509,35 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
         return project ?? null
       }
       await new Promise((resolve) => setTimeout(resolve, intervalMs))
+    }
+  },
+
+  /* ---- проекты: POST /projects/:id/refine — доработка (метеринг грант/кредиты) ---- */
+  refineProject: async (id, hint) => {
+    set({ loading: true, error: null })
+    try {
+      const res = await apiClient.post<{
+        project: OsgardProject
+        refinement: { paidWith: "grant" | "credits"; creditsCost: number; replayed: boolean }
+        refinementsRemaining: number | null
+      }>(`/projects/${id}/refine`, { hint })
+      set((s) => ({
+        loading: false,
+        error: null,
+        currentProject: s.currentProject?.id === id ? res.project : s.currentProject,
+        projects: s.projects.map((p) => (p.id === id ? res.project : p)),
+      }))
+      return {
+        success: true,
+        project: res.project,
+        paidWith: res.refinement.paidWith,
+        creditsCost: res.refinement.creditsCost,
+        refinementsRemaining: res.refinementsRemaining,
+      }
+    } catch (err) {
+      const message = extractErrorMessage(err, "Не удалось запустить доработку проекта")
+      set({ loading: false, error: message })
+      return { success: false, error: message }
     }
   },
 

@@ -17,6 +17,7 @@ import { emitGenerationStage } from "./generation-events"
 import { getForgeBonusForUser } from "./forge-loadout"
 import { nextFloats } from "./provably-fair"
 import { addArchitectXp } from "./architect-progression"
+import { refundRefinement } from "./refinements"
 
 /* ================================================================
    OSGARD · Общий сервис генерации проектов
@@ -285,4 +286,139 @@ export function createGeneratedProject(params: {
   void runAppGenerationJob(params.userId, projectId, trimmedName, safeHint, quick, template, depthCfg.bypassCache)
 
   return { project, artifacts, projectId }
+}
+
+/* ================================================================
+   Доработка проекта («итеративная правка»)
+   ----------------------------------------------------------------
+   В отличие от createGeneratedProject НЕ создаёт новый проект и НЕ
+   рождает стартовые артефакты — берёт существующий проект и заново
+   прогоняет реальную AI-генерацию файлов с обогащённым уточнением
+   (исходный замысел проекта + новая правка пользователя), обновляя
+   project_files поверх старых (ON CONFLICT DO UPDATE). Это честная
+   «доработка»: та же полная генерация, что standard-глубина, но над
+   уже существующим проектом. Всегда идёт полным AI-путём и с обходом
+   кеша — иначе доработка вернула бы идентичный результат.
+
+   Экономику (грант/кредиты) списывает вызывающий (lib/refinements →
+   consumeRefinement) ДО вызова; сюда передаётся refinementId, чтобы
+   при провале джоба вернуть трату (refundRefinement) — за неудачную
+   доработку пользователь не платит.
+   ================================================================ */
+
+/** Асинхронный джоб доработки. Никогда не бросает наружу: при ошибке помечает
+ *  проект failed И возвращает списанную доработку (грант/кредиты). */
+async function runRefineJob(
+  userId: number,
+  projectId: number,
+  name: string,
+  combinedHint: string,
+  refinementId: number,
+) {
+  try {
+    emitGenerationStage({ projectId, stage: "analyzing", label: "Анализирую правки", progress: 0.1 })
+
+    // Доработка = свежая полная AI-генерация (bypassCache), чтобы результат реально
+    // изменился под уточнение, а не пришёл из кеша идентичным.
+    emitGenerationStage({ projectId, stage: "ai", label: "Пересобираю приложение", progress: 0.35 })
+    const result = await generateApp(name, combinedHint, { bypassCache: true })
+    const files = result.files
+    const source = result.source
+
+    emitGenerationStage({ projectId, stage: "validating", label: "Проверяю файлы", progress: 0.7, fileCount: files.length })
+    const errors = validateGeneratedFiles(files)
+
+    emitGenerationStage({ projectId, stage: "writing", label: "Записываю обновления", progress: 0.85, fileCount: files.length })
+    const insertFile = db.prepare(
+      `INSERT INTO project_files (project_id, path, content, updated_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(project_id, path) DO UPDATE SET content = excluded.content, updated_at = excluded.updated_at`,
+    )
+    const now = Date.now()
+    for (const file of files) {
+      insertFile.run(projectId, file.path, file.content, now)
+    }
+
+    db.prepare(`UPDATE projects SET status = 'ready', ai_source = ?, generation_error = ? WHERE id = ?`).run(
+      source,
+      errors.length > 0 ? errors.join("\n") : null,
+      projectId,
+    )
+
+    emitGenerationStage({
+      projectId,
+      stage: "ready",
+      label: "Доработка готова",
+      progress: 1,
+      fileCount: files.length,
+      source,
+    })
+
+    createNotification({
+      userId,
+      type: "generation_ready",
+      entityType: "project",
+      entityId: projectId,
+      text: `Проект «${name}» доработан — приложение обновлено.`,
+    })
+  } catch (err: any) {
+    captureError("[projects.refine] refine job failed:", err)
+    // За несостоявшуюся доработку не берём плату — возвращаем грант/кредиты.
+    try {
+      refundRefinement(refinementId)
+    } catch (refundErr) {
+      captureError("[projects.refine] refund failed:", refundErr)
+    }
+    const message = err?.message || "Неизвестная ошибка доработки"
+    db.prepare(`UPDATE projects SET status = 'ready', generation_error = ? WHERE id = ?`).run(
+      `Доработка не удалась: ${message}`,
+      projectId,
+    )
+    emitGenerationStage({ projectId, stage: "failed", label: "Ошибка доработки", progress: 1, error: message })
+    createNotification({
+      userId,
+      type: "generation_failed",
+      entityType: "project",
+      entityId: projectId,
+      text: `Не удалось доработать проект «${name}». Списанная доработка возвращена.`,
+    })
+  }
+}
+
+/**
+ * Запускает доработку существующего проекта: переводит его в статус 'generating',
+ * стартует фоновую регенерацию файлов (fire-and-forget) с обогащённым уточнением и
+ * возвращает свежий снапшот проекта. НЕ проверяет права/экономику — это
+ * ответственность вызывающего маршрута (владелец + consumeRefinement уже отработали).
+ * refinementId нужен, чтобы вернуть трату при провале фоновой регенерации.
+ */
+export function refineProject(params: {
+  userId: number
+  projectId: number
+  hint: string
+  refinementId: number
+}): { project: any } {
+  const project = db
+    .prepare(`SELECT name, description FROM projects WHERE id = ?`)
+    .get(params.projectId) as { name: string; description: string | null } | undefined
+  if (!project) throw new Error("Проект не найден")
+
+  const refineHint = params.hint.trim()
+  // Обогащаем уточнение исходным замыслом проекта, чтобы доработка осталась
+  // когерентной прежней задумке, а не улетела в сторону.
+  const combinedHint = [project.description?.trim(), `Доработка: ${refineHint}`]
+    .filter(Boolean)
+    .join(" · ")
+
+  db.prepare(`UPDATE projects SET status = 'generating', generation_error = NULL WHERE id = ?`).run(
+    params.projectId,
+  )
+  // «Мастерство Архитектора»: XP за реальную доработку (аддитивно, no-op без колонок).
+  addArchitectXp(params.userId, "project_generated")
+
+  const projectSnapshot = db.prepare(`SELECT ${PROJECT_SELECT_COLUMNS} FROM projects WHERE id = ?`).get(params.projectId)
+
+  void runRefineJob(params.userId, params.projectId, project.name, combinedHint, params.refinementId)
+
+  return { project: projectSnapshot }
 }

@@ -22,7 +22,7 @@ import { createElement, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   ArrowLeft, Hammer, Boxes, TrendingUp, Coins, Loader2, Trash2, Store, Archive, CheckCircle2,
-  Rocket, Download, ExternalLink, AlertTriangle, Code2, Link2, Play,
+  Rocket, Download, ExternalLink, AlertTriangle, Code2, Link2, Play, Wand2, X,
 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { ProjectFileEditor } from "./project-file-editor"
@@ -69,6 +69,8 @@ export function ProjectDetailView({ projectId }: Props) {
     publishProjectToGithub,
     deployProjectToNetlify,
     pollDeployStatus,
+    refineProject,
+    pollProjectStatus,
     tcPrice,
     loading,
     error,
@@ -79,6 +81,10 @@ export function ProjectDetailView({ projectId }: Props) {
   const [publishResult, setPublishResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [deploying, setDeploying] = useState(false)
   const [deployRequestError, setDeployRequestError] = useState<string | null>(null)
+  const [showRefine, setShowRefine] = useState(false)
+  const [refineHint, setRefineHint] = useState("")
+  const [refining, setRefining] = useState(false)
+  const [refineNotice, setRefineNotice] = useState<{ ok: boolean; message: string } | null>(null)
 
   const badgeIconComponent = useMemo(() => badgeIcon(currentProject?.badge ?? ""), [currentProject?.badge])
 
@@ -160,6 +166,39 @@ export function ProjectDetailView({ projectId }: Props) {
     window.open(`${API_BASE_URL}/projects/${projectId}/export.zip`, "_blank")
   }
 
+  async function handleRefine() {
+    const hint = refineHint.trim()
+    if (!hint) {
+      setRefineNotice({ ok: false, message: t("projectDetail.refineHintRequired") })
+      return
+    }
+    setRefining(true)
+    setRefineNotice(null)
+    try {
+      const res = await refineProject(projectId, hint)
+      if (res.success) {
+        // Доработка = полная AI-регенерация: проект уже в статусе 'generating',
+        // живой SSE-лог покажет прогресс. Закрываем панель и сообщаем цену списания.
+        setRefineHint("")
+        setShowRefine(false)
+        setRefineNotice({
+          ok: true,
+          message:
+            res.paidWith === "credits"
+              ? t("projectDetail.refineStartedCredits", { cost: res.creditsCost ?? 0 })
+              : t("projectDetail.refineStartedGrant", { remaining: res.refinementsRemaining ?? 0 }),
+        })
+        // Списание кредитов могло изменить баланс — обновим профиль. Опрос статуса — резерв к SSE.
+        if (res.paidWith === "credits") void refreshMe()
+        void pollProjectStatus(projectId)
+      } else {
+        setRefineNotice({ ok: false, message: res.error || t("projectDetail.refineFailed") })
+      }
+    } finally {
+      setRefining(false)
+    }
+  }
+
   if (loading && !currentProject) {
     return (
       <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
@@ -236,6 +275,22 @@ export function ProjectDetailView({ projectId }: Props) {
             </button>
             {currentProject.status === "ready" && (
               <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRefineNotice(null)
+                    setShowRefine((v) => !v)
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors"
+                  style={
+                    showRefine
+                      ? { backgroundColor: COLORS.accent, color: COLORS.bg }
+                      : { border: `1px solid ${COLORS.accent}`, color: COLORS.accent }
+                  }
+                >
+                  <Wand2 size={16} strokeWidth={1.75} />
+                  {t("projectDetail.refine")}
+                </button>
                 {user?.githubPublishConnected ? (
                   <button
                     type="button"
@@ -294,6 +349,83 @@ export function ProjectDetailView({ projectId }: Props) {
             </button>
           </div>
         </div>
+
+        {/* Панель доработки: полная AI-регенерация приложения с уточнением */}
+        {currentProject.status === "ready" && showRefine && (
+          <div
+            className="mt-6 rounded-xl px-4 py-4"
+            style={{ backgroundColor: "rgba(0,212,255,0.05)", border: `1px solid ${COLORS.accent}` }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <Wand2 size={18} strokeWidth={1.5} style={{ color: COLORS.accent, flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <h3 className="text-[14px] font-semibold">{t("projectDetail.refineTitle")}</h3>
+                  <p className="mt-1 max-w-[560px] text-[12px]" style={{ color: COLORS.label }}>
+                    {t("projectDetail.refineDescription")}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRefine(false)}
+                title={t("projectDetail.refineCancel")}
+                className="rounded-md p-1 transition-colors"
+                style={{ color: COLORS.label }}
+              >
+                <X size={16} strokeWidth={1.75} />
+              </button>
+            </div>
+
+            <textarea
+              value={refineHint}
+              onChange={(e) => setRefineHint(e.target.value)}
+              placeholder={t("projectDetail.refinePlaceholder")}
+              rows={3}
+              disabled={refining}
+              className="mt-3 w-full resize-y rounded-lg px-3 py-2.5 text-[13px] outline-none disabled:opacity-60"
+              style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+            />
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleRefine}
+                disabled={refining || !refineHint.trim()}
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
+              >
+                {refining ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} strokeWidth={1.75} />}
+                {t("projectDetail.refineSubmit")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowRefine(false)}
+                disabled={refining}
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors disabled:opacity-50"
+                style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+              >
+                {t("projectDetail.refineCancel")}
+              </button>
+            </div>
+          </div>
+        )}
+        {refineNotice && (
+          <div
+            className="mt-6 flex items-center gap-3 rounded-xl px-4 py-3"
+            style={{
+              backgroundColor: refineNotice.ok ? "rgba(74,222,128,0.06)" : "rgba(248,113,113,0.06)",
+              border: `1px solid ${refineNotice.ok ? COLORS.green : COLORS.red}`,
+            }}
+          >
+            {refineNotice.ok ? (
+              <CheckCircle2 size={16} style={{ color: COLORS.green, flexShrink: 0 }} />
+            ) : (
+              <AlertTriangle size={16} style={{ color: COLORS.red, flexShrink: 0 }} />
+            )}
+            <p className="text-[13px]">{refineNotice.message}</p>
+          </div>
+        )}
 
         {/* Status banners: генерация приложения, деплой, публикация */}
         {currentProject.status === "generating" && (

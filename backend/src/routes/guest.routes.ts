@@ -6,6 +6,7 @@ import { redisClient, ensureRedisConnected } from "../lib/redis"
 import { captureError } from "../lib/sentry"
 import { track } from "../lib/analytics"
 import { findActiveGuestByIp, provisionGuest, firstProjectOf, claimGuest } from "../lib/guest-service"
+import { getRefinementsRemaining } from "../lib/refinements"
 
 /* ================================================================
    OSGARD · Guest Routes — воронка «1 бесплатный проект по IP»
@@ -200,7 +201,8 @@ router.post("/claim", requireAuth, async (req: AuthRequest, res: Response) => {
 /* ---- GET /guest/status — состояние воронки для раздела «Доработки» ----
    Токен-агностично: если передан валидный токен — вернём, гость это или
    реальный аккаунт, и есть ли у него проект. refinementsRemaining —
-   механика доработок (домен Claude B), пока не подключена → null. */
+   реальный остаток бесплатных доработок (lib/refinements): число у
+   реального аккаунта, null у гостя (доработки за стеной регистрации). */
 router.get("/status", async (req: Request, res: Response) => {
   const header = req.headers.authorization
   if (!header || !header.startsWith("Bearer ")) {
@@ -223,8 +225,8 @@ router.get("/status", async (req: Request, res: Response) => {
       isGuest: user.is_guest === 1,
       hasProject: !!project,
       projectId: project?.id ?? null,
-      // Доработки — домен Claude B; счётчик появится, когда подключат механику.
-      refinementsRemaining: null,
+      // Реальный остаток бесплатных доработок: число у реального аккаунта, null у гостя.
+      refinementsRemaining: getRefinementsRemaining(user.id),
     })
   } catch {
     return res.json({ authenticated: false })
