@@ -297,7 +297,8 @@
       "failed": "Не удалось сгенерировать артефакт",
       "limitRemaining": "Осталось {{count}} {{noun}} сегодня",
       "limitDepleted": "Резерв на сегодня исчерпан",
-      "needMore": "Недостаточно TimeCoin: нужно {{amount}}"
+      "needMore": "Недостаточно TimeCoin: нужно {{amount}}",
+      "themeLabel": "Тема (необязательно)"
     },
     "verdict": {
       "title": "Честность ковки",

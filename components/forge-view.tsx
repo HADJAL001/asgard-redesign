@@ -9,6 +9,9 @@ import { fmtTC } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { SectionHelp } from "./section-help"
 import { ArtifactIdentityPanel } from "./artifact-identity-panel"
+import { ThemePicker, ARTIFACT_THEMES, type ArtifactThemeKey } from "./theme-picker"
+import { VoiceInputButton } from "./voice-input-button"
+import { useVoice } from "@/lib/hooks/useVoice"
 
 const TYPE_KEYS = Object.keys(ARTIFACT_TYPES) as ArtifactType[]
 
@@ -138,9 +141,11 @@ export function ForgeView() {
 
   /** AI-Генератор артефактов (см. POST /artifacts/generate-ai) — независимое состояние от ручной ковки. */
   const [aiHint, setAiHint] = useState("")
+  const [themeKey, setThemeKey] = useState<ArtifactThemeKey | null>(null)
   const [aiSubmitting, setAiSubmitting] = useState(false)
   const [aiNotice, setAiNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [aiResult, setAiResult] = useState<OsgardArtifact | null>(null)
+  const voice = useVoice((transcript) => setAiHint((prev) => (prev ? `${prev} ${transcript}` : transcript)))
 
   /** Артефакт, уже полученный от сервера, но ещё «в кинематографе» — источник цвета вспышки/раскрытия. */
   const [revealed, setRevealed] = useState<OsgardArtifact | null>(null)
@@ -210,9 +215,11 @@ export function ForgeView() {
   const paidCost = Math.max(1, forgeCost - Math.round(forgeCost * discountRate))
   const canForge = name.trim().length > 0 && forgeBalance >= paidCost
 
-  // Кинематографический эффект при создании
+  // Кинематографический эффект при создании — общий для ручной ковки и AI-генерации,
+  // forgeKind переключает только копирайт фазы charging (см. JSX ниже).
   const [forging, setForging] = useState(false)
   const [forgePhase, setForgePhase] = useState<"idle" | "charging" | "burst" | "reveal">("idle")
+  const [forgeKind, setForgeKind] = useState<"manual" | "ai">("manual")
   const reduceMotion = usePrefersReducedMotion()
   const anim = (value: string) => (reduceMotion ? undefined : value)
 
@@ -220,11 +227,12 @@ export function ForgeView() {
   function closeCinematic() {
     setForging(false)
     setForgePhase("idle")
+    setForgeKind("manual")
     setRevealed(null)
   }
 
   async function doForge() {
-    if (!name.trim() || submitting) return
+    if (!name.trim() || submitting || aiSubmitting) return
     const forgedName = name.trim()
     setSubmitting(true)
     setForging(true)
@@ -274,17 +282,41 @@ export function ForgeView() {
   }
 
   async function doGenerateAi() {
+    if (aiSubmitting || forging) return
+    const theme = themeKey ? ARTIFACT_THEMES.find((th) => th.key === themeKey) : undefined
+    const hint = [theme?.hint, aiHint.trim()].filter(Boolean).join(" ").trim()
+
     setAiSubmitting(true)
+    setForging(true)
+    setForgeKind("ai")
+    setForgePhase("charging")
     setAiNotice(null)
+    setRevealed(null)
+
+    const call = generateAiArtifact(hint || undefined)
+    const minCharge = new Promise((r) => setTimeout(r, reduceMotion ? 250 : 900))
+
     try {
-      const res = await generateAiArtifact(aiHint.trim() || undefined)
+      const [res] = await Promise.all([call, minCharge])
       if (res.success && res.artifact) {
+        setRevealed(res.artifact)
+        setForgePhase("burst")
+        await new Promise((r) => setTimeout(r, reduceMotion ? 200 : 520))
+
+        setForgePhase("reveal")
         setAiResult(res.artifact)
         setAiNotice({ ok: true, text: t("forge.aiGenerate.success", { name: res.artifact.name }) })
         setAiHint("")
+        setThemeKey(null)
+        await new Promise((r) => setTimeout(r, reduceMotion ? 500 : 1800))
+        closeCinematic()
       } else {
+        closeCinematic()
         setAiNotice({ ok: false, text: res.error || t("forge.aiGenerate.failed") })
       }
+    } catch {
+      closeCinematic()
+      setAiNotice({ ok: false, text: t("forge.aiGenerate.failed") })
     } finally {
       setAiSubmitting(false)
     }
@@ -292,7 +324,7 @@ export function ForgeView() {
 
   const todayAiCount = countTodayAiGenerated(artifacts)
   const aiLimitReached = todayAiCount >= DAILY_AI_GENERATION_SOFT_LIMIT
-  const canGenerateAi = !aiSubmitting && wallet.timecoin >= AI_GENERATE_COST_TC && !aiLimitReached
+  const canGenerateAi = !aiSubmitting && !submitting && wallet.timecoin >= AI_GENERATE_COST_TC && !aiLimitReached
   const aiResultRarity: Rarity = (aiResult?.rarity as Rarity) || "common"
 
   const resultRarity: Rarity = (result?.rarity as Rarity) || "common"
@@ -574,14 +606,18 @@ export function ForgeView() {
                 }}
               >
                 {forgePhase === "charging"
-                  ? "ЗАРЯЖАЕМ КУЗНИЦУ"
+                  ? forgeKind === "ai"
+                    ? "ИЩЕМ ВДОХНОВЕНИЕ"
+                    : "ЗАРЯЖАЕМ КУЗНИЦУ"
                   : forgePhase === "burst"
                     ? "✦  АРТЕФАКТ СОЗДАН  ✦"
                     : RARITY[revealRarity]?.label || "ГОТОВО"}
               </p>
               <p className="mt-2 text-[13px]" style={{ color: forgePhase === "reveal" ? fxColor : "rgba(255,255,255,0.5)" }}>
                 {forgePhase === "charging"
-                  ? "Накапливаем энергию TimeCoin..."
+                  ? forgeKind === "ai"
+                    ? "Советуемся с нейросетью..."
+                    : "Накапливаем энергию TimeCoin..."
                   : revealed?.name || name || "Новый артефакт"}
               </p>
               {forgePhase === "reveal" && (
@@ -805,7 +841,7 @@ export function ForgeView() {
               type="button"
               data-tour="forge-create"
               onClick={doForge}
-              disabled={!canForge || submitting}
+              disabled={!canForge || submitting || aiSubmitting}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
             >
@@ -857,14 +893,34 @@ export function ForgeView() {
               </div>
             </div>
 
-            <div className="mt-5">
-              <input
-                id="ai-generate-hint"
-                type="text"
-                value={aiHint}
-                onChange={(e) => { setAiHint(e.target.value); setAiNotice(null) }}
-                placeholder={t("forge.aiGenerate.hintPlaceholder")}
-                className="cal-input"
+            <div className="mt-5 flex flex-col gap-2">
+              <span className="text-[12px] font-medium" style={{ color: COLORS.label }}>
+                {t("forge.aiGenerate.themeLabel")}
+              </span>
+              <ThemePicker value={themeKey} onChange={setThemeKey} />
+            </div>
+
+            <div className="mt-4 flex items-start gap-3">
+              <div className="flex-1">
+                <label htmlFor="ai-generate-hint" className="mb-2 block text-[13px]" style={{ color: COLORS.label }}>
+                  {t("forge.aiGenerate.hintPlaceholder")}
+                </label>
+                <textarea
+                  id="ai-generate-hint"
+                  value={aiHint}
+                  onChange={(e) => { setAiHint(e.target.value); setAiNotice(null) }}
+                  placeholder={t("forge.aiGenerate.hintPlaceholder")}
+                  rows={3}
+                  className="cal-input w-full resize-none"
+                />
+              </div>
+              <VoiceInputButton
+                isListening={voice.isListening}
+                onPress={voice.isListening ? voice.stop : voice.start}
+                error={voice.error}
+                language={voice.language}
+                onCycleLanguage={voice.cycleLanguage}
+                reduceMotion={reduceMotion}
               />
             </div>
 
