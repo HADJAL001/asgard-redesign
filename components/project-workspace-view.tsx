@@ -28,13 +28,13 @@
    WebContainer соседствуют).
    ================================================================ */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { useRouter } from "next/navigation"
 import Editor from "@monaco-editor/react"
 import {
   ArrowLeft, FileCode2, Save, Loader2, AlertTriangle, CheckCircle2, Hammer, Play,
   RefreshCw, ExternalLink, Rocket, Send, Sparkles, Wand2, Boxes, Lightbulb, Bot,
-  XCircle, Download, PanelsTopLeft, Coins,
+  XCircle, Download, PanelsTopLeft, Coins, ShieldCheck, Wrench, ShieldAlert,
 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useOsgardStore } from "@/lib/store/osgard-store"
@@ -51,6 +51,13 @@ const REFINE_PROMPT_MAX = 2000
 type RunState = "idle" | "starting" | "ready" | "error"
 type StepState = "idle" | "active" | "done" | "error"
 type Pane = "code" | "preview"
+
+/* Инженерный вердикт приходит из стора (см. lib/store/osgard-store.tsx).
+   Шаг «Компилятор проверяет» раньше дёргал POST /verify-build — реальную сборку в
+   Docker-песочнице. В облачном рантайме Docker-демона нет, поэтому в проде эта ручка
+   ВСЕГДА отвечает skipped: шаг оставался серым, и человек не узнавал о своём приложении
+   ничего. Контур считает то же самое статически (граф модулей, граница клиент/сервер,
+   контракт статического экспорта) — без Docker, а значит в бою. */
 
 function languageForPath(path: string): string {
   if (path.endsWith(".tsx") || path.endsWith(".ts")) return "typescript"
@@ -83,6 +90,10 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     refineProject,
     clearCurrentProject,
     deployProjectToNetlify,
+    fetchProjectEngineering,
+    repairProject,
+    pollProjectStatus,
+    currentProjectEngineering,
     pollDeployStatus,
     loading,
     error,
@@ -97,15 +108,24 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const [hotReloaded, setHotReloaded] = useState(false)
 
-  /* ---- компилятор (реальная сборка в песочнице) ---- */
-  const [verifying, setVerifying] = useState(false)
-  const [verifyResult, setVerifyResult] = useState<{ ok: boolean; skipped: boolean; logs: string } | null>(null)
+  /* ---- инженерный вердикт: чем доказана работоспособность приложения ---- */
+  const [repairing, setRepairing] = useState(false)
+  const [repairNotice, setRepairNotice] = useState<string | null>(null)
+  const [showReport, setShowReport] = useState(false)
 
   /* ---- живой запуск ---- */
   const [runState, setRunState] = useState<RunState>("idle")
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [runError, setRunError] = useState<string | null>(null)
-  const [isolated, setIsolated] = useState<boolean | null>(null)
+  /* Кросс-origin изоляция (нужна WebContainer). Это чтение браузерного значения после
+     гидратации, а не состояние: раньше оно писалось setState'ом из эффекта монтирования
+     (лишний рендер + предупреждение react-hooks). useSyncExternalStore создан ровно для
+     этого случая — на сервере снимок null, после гидратации реальное значение. */
+  const isolated = useSyncExternalStore(
+    () => () => {}, // значение за время жизни документа не меняется — подписка пустая
+    () => window.crossOriginIsolated === true,
+    () => null as boolean | null,
+  )
 
   /* ---- чат с Клодом (доработки) ---- */
   const [prompt, setPrompt] = useState("")
@@ -123,10 +143,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     fetchProject(projectId, { skipAuthRedirect: true })
     fetchProjectFiles(projectId, { skipAuthRedirect: true })
     fetchProjectRefinements(projectId)
-    // crossOriginIsolated доступен только в браузере после гидратации
-    Promise.resolve().then(() =>
-      setIsolated(typeof window !== "undefined" ? window.crossOriginIsolated === true : null),
-    )
+    fetchProjectEngineering(projectId)
     return () => clearCurrentProject()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
@@ -134,11 +151,13 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   const isGenerating = currentProject?.status === "generating"
 
   /* Живой лог рождения/доработки приложения. На терминальной стадии тянем
-     свежий проект, файлы и ленту правок — экран оживает без релоада. */
+     свежий проект, файлы, ленту правок и свежий вердикт — экран оживает без релоада. */
   const onGenerationDone = useCallback(() => {
     fetchProject(projectId, { skipAuthRedirect: true })
     fetchProjectFiles(projectId, { skipAuthRedirect: true })
     fetchProjectRefinements(projectId)
+    fetchProjectEngineering(projectId)
+    setRepairing(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
   const genStream = useProjectGenerationStream(projectId, isGenerating, onGenerationDone)
@@ -201,19 +220,29 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     }
   }
 
-  async function handleVerifyBuild() {
-    if (verifying) return
-    setVerifying(true)
-    setVerifyResult(null)
-    try {
-      const res = await apiClient.post<{ ok: boolean; skipped: boolean; logs: string }>(
-        `/projects/${projectId}/verify-build`,
-      )
-      setVerifyResult({ ok: res.ok, skipped: res.skipped, logs: res.logs || "" })
-    } catch (err: any) {
-      setVerifyResult({ ok: false, skipped: false, logs: err?.message || t("workspace.verifyFailed") })
-    } finally {
-      setVerifying(false)
+  /* Проверить и починить: гоняем инженерный контур по УЖЕ СОХРАНЁННЫМ файлам.
+     Ручка отвечает 202 и работает фоном, поэтому подтягиваем проект — он уходит в
+     'generating', включается тот же SSE-поток, и человек видит живые стадии
+     building/repairing вместо немого спиннера. Терминал стадии вернёт вердикт. */
+  async function handleRepair() {
+    if (repairing || isGenerating) return
+    setRepairing(true)
+    setRepairNotice(null)
+    const res = await repairProject(projectId)
+    if (res.success) {
+      setShowReport(true)
+      /* Ждём завершения контура опросом статуса, а НЕ только терминальной стадией SSE.
+         Причина — реальная гонка, пойманная на живом стенде: механический ремонт без AI
+         успевает закончиться раньше, чем клиент перечитает проект, — статус уже 'ready',
+         поток стадий не включается вовсе, и шаг конвейера навсегда застревал в «идёт
+         проверка». Опрос отрабатывает оба случая: и мгновенный, и долгий (AI-раунды). */
+      await pollProjectStatus(projectId)
+      await fetchProjectEngineering(projectId)
+      setRepairing(false)
+    } else {
+      // 429 — дорогая ручка под лимитом, 409 — идёт генерация. Говорим человеку правду.
+      setRepairNotice(res.error || t("workspace.repairFailed"))
+      setRepairing(false)
     }
   }
 
@@ -266,6 +295,25 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     }
   }
 
+  /* ---------------- инженерный вердикт: производные ----------------
+     Всё считаем ИЗ отчёта, а не из отдельных полей: балл и объяснение не имеют права
+     разойтись (тот же приём, что на бэкенде — вердикт производен от списка дефектов). */
+  const engineering = currentProjectEngineering
+  const report = engineering?.report ?? null
+  const errorDefects = useMemo(
+    () => (report?.defects ?? []).filter((d) => d.severity === "error"),
+    [report],
+  )
+  const repairCount = report?.repairs?.length ?? 0
+  const passedChecks = (report?.checks ?? []).filter((c) => c.passed).length
+  const totalChecks = report?.checks?.length ?? 0
+  /* Живая стадия контура из общего SSE-потока: тот же поток, что и у генерации —
+     ремонт эмитит building/repairing, поэтому отдельный канал не нужен. */
+  const contourStage =
+    genStream.latest && (genStream.latest.stage === "building" || genStream.latest.stage === "repairing")
+      ? genStream.latest
+      : null
+
   /* ---------------- конвейер ---------------- */
 
   const steps = useMemo(() => {
@@ -275,17 +323,19 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     const claudeState: StepState =
       status === "generating" ? "active" : status === "failed" ? "error" : fileCount > 0 ? "done" : "idle"
 
-    const compilerState: StepState = verifying
+    /* Шаг компилятора теперь отражает ИНЖЕНЕРНЫЙ ВЕРДИКТ, а не «файлы записались».
+       Раньше он зеленел от одного факта наличия файлов — то есть врал: проект с битыми
+       импортами показывал «проверено». Теперь: нет вердикта → серый «не проверено»
+       (не зелёный!), broken → красный, passed/repaired → зелёный. */
+    const verdict = engineering?.verdict ?? null
+    const contourRunning = repairing || contourStage !== null
+    const compilerState: StepState = contourRunning
       ? "active"
-      : verifyResult
-        ? verifyResult.skipped
-          ? "idle"
-          : verifyResult.ok
-            ? "done"
-            : "error"
-        : saveErrors.length > 0 || (currentProject?.generationError ? true : false)
+      : saveErrors.length > 0
+        ? "error"
+        : verdict === "broken"
           ? "error"
-          : fileCount > 0
+          : verdict === "passed" || verdict === "repaired"
             ? "done"
             : "idle"
 
@@ -324,17 +374,19 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
       },
       {
         key: "compiler",
-        Icon: Hammer,
+        Icon: verdict === "broken" ? ShieldAlert : ShieldCheck,
         label: t("workspace.stepCompiler"),
-        hint: verifying
-          ? t("workspace.stepCompilerRunning")
-          : verifyResult && !verifyResult.skipped
-            ? verifyResult.ok
-              ? t("workspace.stepCompilerOk")
-              : t("workspace.stepCompilerErrors")
-            : saveErrors.length > 0
-              ? t("workspace.stepCompilerWarn", { count: saveErrors.length })
-              : t("workspace.stepCompilerIdle"),
+        hint: contourRunning
+          ? contourStage?.label ?? t("workspace.stepCompilerRunning")
+          : saveErrors.length > 0
+            ? t("workspace.stepCompilerWarn", { count: saveErrors.length })
+            : verdict === "passed"
+              ? t("workspace.stepCompilerPassed", { count: passedChecks })
+              : verdict === "repaired"
+                ? t("workspace.stepCompilerRepaired", { count: repairCount })
+                : verdict === "broken"
+                  ? t("workspace.stepCompilerBroken", { count: errorDefects.length })
+                  : t("workspace.stepCompilerUnverified"),
         state: compilerState,
       },
       {
@@ -362,7 +414,21 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
         state: deployState,
       },
     ]
-  }, [currentProject, currentProjectFiles.length, genStream.latest, verifying, verifyResult, saveErrors, runState, deploying, t])
+  }, [
+    currentProject,
+    currentProjectFiles.length,
+    genStream.latest,
+    engineering,
+    repairing,
+    contourStage,
+    errorDefects.length,
+    repairCount,
+    passedChecks,
+    saveErrors,
+    runState,
+    deploying,
+    t,
+  ])
 
   /* ---------------- рендер ---------------- */
 
@@ -488,6 +554,135 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
           ))}
         </ol>
 
+        {/* ---- Инженерный вердикт: чем именно доказана работоспособность ----
+             Раскрывается по клику на строку итога. Показываем ровно то, что вынес контур:
+             какие проверки прошли, что платформа починила сама, что осталось битым. */}
+        {(engineering?.verdict || repairNotice) && (
+          <div
+            className="mt-3 rounded-xl px-4 py-3"
+            style={{
+              backgroundColor:
+                engineering?.verdict === "broken" ? "rgba(248,113,113,0.06)" : "rgba(74,222,128,0.05)",
+              border: `1px solid ${
+                engineering?.verdict === "broken"
+                  ? COLORS.red
+                  : engineering?.verdict === "passed" || engineering?.verdict === "repaired"
+                    ? COLORS.green
+                    : COLORS.border
+              }`,
+            }}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              {engineering?.verdict === "broken" ? (
+                <ShieldAlert size={15} style={{ color: COLORS.red, flexShrink: 0 }} />
+              ) : (
+                <ShieldCheck size={15} style={{ color: COLORS.green, flexShrink: 0 }} />
+              )}
+              <p className="text-[12.5px] font-medium">
+                {engineering?.verdict === "passed"
+                  ? t("workspace.verdictPassed", { count: passedChecks, total: totalChecks })
+                  : engineering?.verdict === "repaired"
+                    ? t("workspace.verdictRepaired", { count: repairCount })
+                    : engineering?.verdict === "broken"
+                      ? t("workspace.verdictBroken", { count: errorDefects.length })
+                      : t("workspace.verdictUnverified")}
+              </p>
+              {report?.verifiedBy && (
+                <span className="text-[11px]" style={{ color: COLORS.label }}>
+                  {report.verifiedBy === "sandbox"
+                    ? t("workspace.provenBySandbox")
+                    : t("workspace.provenByStatic")}
+                </span>
+              )}
+              {(errorDefects.length > 0 || repairCount > 0 || totalChecks > 0) && (
+                <button
+                  type="button"
+                  onClick={() => setShowReport((v) => !v)}
+                  className="ml-auto text-[11.5px] underline"
+                  style={{ color: COLORS.accent }}
+                >
+                  {showReport ? t("workspace.hideReport") : t("workspace.showReport")}
+                </button>
+              )}
+            </div>
+
+            {repairNotice && (
+              <p className="mt-2 text-[12px]" style={{ color: COLORS.amber }}>{repairNotice}</p>
+            )}
+
+            {showReport && (
+              <div className="mt-3 grid gap-3 lg:grid-cols-3">
+                {/* Что проверяли */}
+                {totalChecks > 0 && (
+                  <div className="eg-inset rounded-lg px-3 py-2.5">
+                    <p className="mb-1.5 text-[11px] uppercase tracking-wide" style={{ color: COLORS.label }}>
+                      {t("workspace.reportChecks")}
+                    </p>
+                    <ul className="space-y-1">
+                      {(report?.checks ?? []).map((c) => (
+                        <li key={c.key} className="flex items-start gap-1.5 text-[11.5px]">
+                          {c.passed ? (
+                            <CheckCircle2 size={12} style={{ color: COLORS.green, flexShrink: 0, marginTop: 2 }} />
+                          ) : (
+                            <XCircle size={12} style={{ color: COLORS.red, flexShrink: 0, marginTop: 2 }} />
+                          )}
+                          <span style={{ color: c.passed ? COLORS.label : COLORS.text }}>{c.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Что платформа починила сама */}
+                {repairCount > 0 && (
+                  <div className="eg-inset rounded-lg px-3 py-2.5">
+                    <p className="mb-1.5 text-[11px] uppercase tracking-wide" style={{ color: COLORS.label }}>
+                      {t("workspace.reportRepairs")}
+                    </p>
+                    <ul className="space-y-1">
+                      {(report?.repairs ?? []).slice(0, 8).map((r, i) => (
+                        <li key={`${r.file}-${i}`} className="text-[11.5px]">
+                          <span style={{ color: COLORS.green }}>{r.file}</span>
+                          <span style={{ color: COLORS.label }}> — {r.action}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Что осталось битым — с переходом на файл в редакторе */}
+                {errorDefects.length > 0 && (
+                  <div className="eg-inset rounded-lg px-3 py-2.5">
+                    <p className="mb-1.5 text-[11px] uppercase tracking-wide" style={{ color: COLORS.label }}>
+                      {t("workspace.reportDefects")}
+                    </p>
+                    <ul className="space-y-1.5">
+                      {errorDefects.slice(0, 8).map((d, i) => (
+                        <li key={`${d.file}-${d.rule}-${i}`} className="text-[11.5px]">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (currentProjectFiles.some((f) => f.path === d.file)) {
+                                setSelectedPath(d.file)
+                                setPane("code")
+                              }
+                            }}
+                            className="underline"
+                            style={{ color: COLORS.red }}
+                          >
+                            {d.file}
+                          </button>
+                          <span style={{ color: COLORS.label }}> — {d.message}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Ошибка генерации — единственное, что важнее конвейера */}
         {currentProject.status === "failed" && currentProject.generationError && (
           <div className="mt-3 flex items-start gap-3 rounded-xl px-4 py-3" style={{ backgroundColor: "rgba(248,113,113,0.06)", border: `1px solid ${COLORS.red}` }}>
@@ -583,14 +778,14 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
               )}
               <button
                 type="button"
-                onClick={handleVerifyBuild}
-                disabled={verifying || currentProjectFiles.length === 0}
+                onClick={handleRepair}
+                disabled={repairing || isGenerating || currentProjectFiles.length === 0}
                 title={t("workspace.verifyHint")}
                 className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
               >
-                {verifying ? <Loader2 size={13} className="animate-spin" /> : <Hammer size={13} strokeWidth={1.75} />}
-                {t("workspace.verify")}
+                {repairing || contourStage ? <Loader2 size={13} className="animate-spin" /> : <Wrench size={13} strokeWidth={1.75} />}
+                {engineering?.verdict === "broken" ? t("workspace.repair") : t("workspace.verify")}
               </button>
               <button
                 type="button"
@@ -658,29 +853,21 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
               <pre className="max-h-[120px] overflow-auto whitespace-pre-wrap font-sans">{saveErrors.join("\n")}</pre>
             </div>
           )}
-          {verifyResult && (
+          {/* Живая стадия контура прямо под редактором: пока платформа чинит код,
+              человек видит, ЧТО именно она делает, а не немой спиннер. Итог разбора
+              показывается панелью вердикта над конвейером. */}
+          {(repairing || contourStage) && (
             <div
-              className="flex items-start gap-2 px-4 py-2.5 text-[12px]"
-              style={{
-                borderTop: `1px solid ${COLORS.border}`,
-                color: verifyResult.skipped ? COLORS.label : verifyResult.ok ? COLORS.green : COLORS.red,
-              }}
+              className="flex items-center gap-2 px-4 py-2.5 text-[12px]"
+              style={{ borderTop: `1px solid ${COLORS.border}`, color: COLORS.accent }}
             >
-              {verifyResult.ok && !verifyResult.skipped ? (
-                <CheckCircle2 size={13} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 1 }} />
-              ) : (
-                <AlertTriangle size={13} strokeWidth={1.75} style={{ flexShrink: 0, marginTop: 1 }} />
+              <Loader2 size={13} className="animate-spin" style={{ flexShrink: 0 }} />
+              <span>{contourStage?.label ?? t("workspace.stepCompilerRunning")}</span>
+              {typeof contourStage?.defects === "number" && contourStage.defects > 0 && (
+                <span style={{ color: COLORS.label }}>
+                  {t("workspace.stepCompilerBroken", { count: contourStage.defects })}
+                </span>
               )}
-              <div className="min-w-0">
-                <p className="font-medium">
-                  {verifyResult.skipped ? t("workspace.verifySkipped") : verifyResult.ok ? t("workspace.verifyOk") : t("workspace.verifyErrors")}
-                </p>
-                {!verifyResult.ok && verifyResult.logs && (
-                  <pre className="mt-1 max-h-[150px] overflow-auto whitespace-pre-wrap font-mono text-[11px]" style={{ color: COLORS.label }}>
-                    {verifyResult.logs}
-                  </pre>
-                )}
-              </div>
             </div>
           )}
         </section>
