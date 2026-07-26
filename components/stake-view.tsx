@@ -21,6 +21,7 @@
    ================================================================ */
 
 import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { Lock, Unlock, Percent, ShieldCheck, Infinity as InfinityIcon, Sparkles, Clock, Loader2 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useOsgardStore } from "@/lib/store/osgard-store"
@@ -42,7 +43,7 @@ function daysLeft(endTs: number, now: number): number {
 
 export function StakeView() {
   const { t } = useTranslation()
-  const { wallet, stakes, fetchStakes, fetchWallet, stakeTC, unstakeTC, tcPrice, loading, error } = useOsgardStore()
+  const { wallet, stakes, stakeLimits, fetchStakes, fetchWallet, stakeTC, unstakeTC, tcPrice, loading, error } = useOsgardStore()
 
 
   const [term, setTerm] = useState<StakeTerm>(STAKE_TERMS[1])
@@ -65,12 +66,58 @@ export function StakeView() {
   }, [])
 
   const amt = Number(amount) || 0
+
+  /* ---- Реальный потолок одного стейка -------------------------------------
+     Потолков ДВА, и раньше UI не показывал ни одного: (1) баланс кошелька,
+     (2) лимит тарифа на один стейк (free 100 ∞ … elite 100 000 ∞) — он живёт
+     на бэкенде и до этой правки выстреливал 400-й ошибкой уже ПОСЛЕ нажатия
+     кнопки. Теперь бэкенд отдаёт его в GET /stakes → limits, и поле суммы
+     клампится по меньшему из двух. Если бэкенд старый (limits нет) —
+     ограничиваемся балансом и честно не выдумываем лимит тарифа. */
+  const planCap = stakeLimits?.maxStake ?? null
+  const effectiveMax = planCap === null ? wallet.timecoin : Math.min(wallet.timecoin, planCap)
+  /** Что именно упирается — для честной подписи под полем. */
+  const capReason: "empty" | "plan" | "balance" =
+    wallet.timecoin <= 0 ? "empty" : planCap !== null && planCap < wallet.timecoin ? "plan" : "balance"
+
+  const belowMin = amount !== "" && amt < MIN_STAKE
+  const canStake = amt >= MIN_STAKE && amt <= effectiveMax + 1e-9
+
+  /* Прогноз считаем ТОЛЬКО по сумме, которую реально можно застейкать.
+     Раньше он считался от любого введённого числа: при балансе 0 экран
+     показывал «+49,32 ∞ / к выплате 10 049,32 ∞» — доход, который получить
+     невозможно. Нечестная цифра хуже отсутствующей. */
+  const quotable = canStake ? amt : 0
   const projected = useMemo(
-    () => Math.round(amt * term.apr * (term.days / 365) * 100) / 100,
-    [amt, term],
+    () => Math.round(quotable * term.apr * (term.days / 365) * 100) / 100,
+    [quotable, term],
   )
-  const total = amt + projected
-  const canStake = amt >= MIN_STAKE && wallet.timecoin >= amt
+  const total = quotable + projected
+
+  /** Обрезает хвост float'а после клампа (10.000000000000002 → 10). */
+  const trimNum = (n: number) => String(Math.round(n * 1000) / 1000)
+
+  /** Ввод суммы: чистим символы, оставляем одну точку и КЛАМПИМ по потолку —
+   *  ввести невозможную сумму больше нельзя (ответ на «почему можно выбрать
+   *  любое число»). */
+  function handleAmountChange(raw: string) {
+    setNotice(null)
+    const cleaned = raw.replace(/[^0-9.]/g, "").replace(/(\..*?)\./g, "$1")
+    if (cleaned === "") return setAmount("")
+    const n = Number(cleaned)
+    if (Number.isFinite(n) && n > effectiveMax) {
+      setAmount(effectiveMax > 0 ? trimNum(effectiveMax) : "")
+      return
+    }
+    setAmount(cleaned)
+  }
+
+  /** Быстрый выбор доли от реально доступного — вместо ручного набора вслепую. */
+  function setFraction(fraction: number) {
+    setNotice(null)
+    const value = Math.floor(effectiveMax * fraction * 1000) / 1000
+    setAmount(value >= MIN_STAKE ? trimNum(value) : "")
+  }
 
   const active = stakes.filter((s) => s.status === "active")
   const totalStakedByUser = active.reduce((s, x) => s + x.amountTC, 0)
@@ -196,15 +243,16 @@ export function StakeView() {
 
             {/* Amount */}
             <div className="mt-5">
-              <div className="mb-2 flex items-center justify-between text-[13px]">
+              <div className="mb-2 flex items-center justify-between gap-3 text-[13px]">
                 <label htmlFor="stake-amt" style={{ color: COLORS.label }}>{t("stake.amount")}</label>
                 <button
                   type="button"
-                  onClick={() => setAmount(String(wallet.timecoin))}
-                  className="text-[12px]"
+                  onClick={() => setFraction(1)}
+                  disabled={effectiveMax < MIN_STAKE}
+                  className="text-[12px] disabled:cursor-not-allowed disabled:opacity-40"
                   style={{ color: COLORS.accent }}
                 >
-                  {t("stake.max", { amount: fmtTC(wallet.timecoin) })}
+                  {t("stake.max", { amount: fmtTC(effectiveMax) })}
                 </button>
               </div>
               <input
@@ -212,14 +260,51 @@ export function StakeView() {
                 data-tour="stake-amount"
                 inputMode="decimal"
                 value={amount}
-                onChange={(e) => { setAmount(e.target.value.replace(/[^0-9.]/g, "")); setNotice(null) }}
+                onChange={(e) => handleAmountChange(e.target.value)}
                 placeholder={t("stake.minAmount", { amount: MIN_STAKE })}
                 className="cal-input"
+                aria-describedby="stake-cap-hint"
               />
 
+              {/* Быстрые доли от реально доступного — вместо набора числа вслепую */}
+              <div className="mt-2 grid grid-cols-4 gap-2">
+                {[0.25, 0.5, 0.75, 1].map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setFraction(f)}
+                    disabled={effectiveMax * f < MIN_STAKE}
+                    className="rounded-lg py-1.5 text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-35"
+                    style={{ border: `1px solid ${COLORS.border}`, color: COLORS.label }}
+                  >
+                    {f === 1 ? "MAX" : `${f * 100}%`}
+                  </button>
+                ))}
+              </div>
+
+              {/* Честная подпись: какой именно потолок сейчас связывает руки */}
+              <p id="stake-cap-hint" className="mt-2 text-[11.5px] leading-snug" style={{ color: COLORS.label }}>
+                {capReason === "empty" ? (
+                  <>
+                    {t("stake.capEmpty")}{" "}
+                    <Link href="/buy-tc" className="underline" style={{ color: COLORS.accent }}>
+                      {t("stake.capTopUp")}
+                    </Link>
+                  </>
+                ) : capReason === "plan" ? (
+                  <>
+                    {t("stake.capPlan", { plan: stakeLimits?.plan ?? "free", amount: fmtTC(planCap ?? 0) })}{" "}
+                    <Link href="/pricing" className="underline" style={{ color: COLORS.accent }}>
+                      {t("stake.capUpgrade")}
+                    </Link>
+                  </>
+                ) : (
+                  t("stake.capBalance", { amount: fmtTC(wallet.timecoin) })
+                )}
+              </p>
             </div>
 
-            {/* Projection */}
+            {/* Projection — цифры только для суммы, которую реально можно застейкать */}
             <div className="eg-inset mt-4 space-y-2 rounded-lg p-4 text-[13px]">
               <div className="flex items-center justify-between">
                 <span style={{ color: COLORS.label }}>{t("stake.lockPeriod")}</span>
@@ -227,7 +312,9 @@ export function StakeView() {
               </div>
               <div className="flex items-center justify-between">
                 <span style={{ color: COLORS.label }}>{t("stake.incomeForecast")}</span>
-                <span style={{ color: UP }}>+{fmtTC(projected)}</span>
+                <span style={{ color: canStake ? UP : COLORS.label }}>
+                  {canStake ? `+${fmtTC(projected)}` : "—"}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span style={{ color: COLORS.label }}>{t("stake.marketFee")}</span>
@@ -235,7 +322,9 @@ export function StakeView() {
               </div>
               <div className="flex items-center justify-between pt-1" style={{ borderTop: `1px solid ${COLORS.border}` }}>
                 <span>{t("stake.payoutAtEnd")}</span>
-                <span className="text-[15px] font-medium" style={{ color: "#FFFFFF" }}>{fmtTC(total)}</span>
+                <span className="text-[15px] font-medium" style={{ color: canStake ? "#FFFFFF" : COLORS.label }}>
+                  {canStake ? fmtTC(total) : "—"}
+                </span>
               </div>
 
             </div>
@@ -249,8 +338,19 @@ export function StakeView() {
               style={{ backgroundColor: PURPLE, color: "#FFFFFF" }}
             >
               {(submitting || loading) && <Loader2 size={16} className="animate-spin" />}
-              {t("stake.stakeBtn", { amount: amt >= MIN_STAKE ? fmtTC(amt) : "" })}
+              {t("stake.stakeBtn", { amount: canStake ? fmtTC(amt) : "" })}
             </button>
+
+            {/* Почему кнопка неактивна — раньше она просто гасла без объяснения */}
+            {!canStake && !submitting && (
+              <p className="mt-2 text-center text-[12px]" style={{ color: COLORS.label }}>
+                {effectiveMax < MIN_STAKE
+                  ? t("stake.blockedNoFunds", { amount: MIN_STAKE })
+                  : belowMin
+                    ? t("stake.blockedBelowMin", { amount: MIN_STAKE })
+                    : t("stake.blockedEnterAmount")}
+              </p>
+            )}
 
 
             {notice && (

@@ -231,7 +231,15 @@
     "stakeDone": "{{amount}} {{days}} күнге стейкке салынды",
     "stakeFailed": "Стейк ашылмады",
     "unstakeDone": "Стейк жабылды: +{{reward}} сыйақы · {{total}} төленді",
-    "unstakeFailed": "Стейкті жою орындалмады"
+    "unstakeFailed": "Стейкті жою орындалмады",
+    "capEmpty": "Стейктейтін ештеңе жоқ: балансыңызда 0 ∞.",
+    "capTopUp": "Толтыру",
+    "capPlan": "{plan} тарифінде бір стейктің шегі — {amount}. Өріс одан көбін қабылдамайды.",
+    "capUpgrade": "Тарифті арттыру",
+    "capBalance": "Шек балансыңызбен шектелген: {amount}.",
+    "blockedNoFunds": "Стейк ашу үшін баланста кемінде {amount} ∞ қажет.",
+    "blockedBelowMin": "Стейктің ең аз сомасы — {amount} ∞.",
+    "blockedEnterAmount": "Кіріс болжамын көру үшін соманы енгізіңіз."
   },
   "forge": {
     "title": "Кузница",
