@@ -2,6 +2,7 @@ import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { fetchTreasuryTcForEmission, canEmitUnbackedSync } from "../lib/emission-guard"
+import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
 
 const router = Router()
 
@@ -68,6 +69,7 @@ router.post("/", requireAuth, (req: AuthRequest, res) => {
   const { amount, days } = req.body || {}
   const amountTc = Number(amount)
   const stakeDays = Number(days)
+  const idemKey = normalizeIdemKey(req.header("Idempotency-Key") ?? (req.body as any)?.idempotencyKey)
 
   if (!amountTc || amountTc <= 0) {
     return res.status(400).json({ error: "Некорректная сумма стейка" })
@@ -97,38 +99,64 @@ router.post("/", requireAuth, (req: AuthRequest, res) => {
   const now = Date.now()
   const endTs = now + stakeDays * DAY_MS
 
-  db.prepare(
-    `UPDATE wallets SET timecoin = timecoin - ?, updated_at = ? WHERE user_id = ?`,
-  ).run(amountTc, now, req.user!.userId)
+  try {
+    const opResult = runEconomyOp({
+      userId: req.user!.userId,
+      scope: "stake_create",
+      idemKey,
+      mutate: () => {
+        // Авторитетное условное списание — источник правды на случай гонки
+        // (пред-проверка выше — только для быстрого дружелюбного ответа).
+        const debit = db
+          .prepare(
+            `UPDATE wallets SET timecoin = timecoin - ?, updated_at = ? WHERE user_id = ? AND timecoin >= ?`,
+          )
+          .run(amountTc, now, req.user!.userId, amountTc)
+        if (debit.changes !== 1) {
+          throw new EconomyError("Недостаточно TimeCoin", 400)
+        }
 
-  const info = db
-    .prepare(
-      `INSERT INTO stakes (user_id, amount_tc, days, apr, market_fee, start_ts, end_ts, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
-    )
-    .run(req.user!.userId, amountTc, stakeDays, apr, MARKET_FEE, now, endTs)
+        const info = db
+          .prepare(
+            `INSERT INTO stakes (user_id, amount_tc, days, apr, market_fee, start_ts, end_ts, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
+          )
+          .run(req.user!.userId, amountTc, stakeDays, apr, MARKET_FEE, now, endTs)
 
-  db.prepare(`UPDATE tc_market_state SET staked = staked + ? WHERE id = 1`).run(amountTc)
+        db.prepare(`UPDATE tc_market_state SET staked = staked + ? WHERE id = 1`).run(amountTc)
 
-  db.prepare(
-    `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-     VALUES (?, 'stake', 'TimeCoin Stake', 'Asgard Vault', ?, 'timecoin', 'done')`,
-  ).run(req.user!.userId, amountTc)
+        db.prepare(
+          `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+           VALUES (?, 'stake', 'TimeCoin Stake', 'Asgard Vault', ?, 'timecoin', 'done')`,
+        ).run(req.user!.userId, amountTc)
 
-  const stake = db
-    .prepare(
-      `SELECT id, amount_tc as amountTC, days, apr, market_fee as marketFee,
-              start_ts as startTs, end_ts as endTs, status
-       FROM stakes WHERE id = ?`,
-    )
-    .get(Number(info.lastInsertRowid))
+        const stake = db
+          .prepare(
+            `SELECT id, amount_tc as amountTC, days, apr, market_fee as marketFee,
+                    start_ts as startTs, end_ts as endTs, status
+             FROM stakes WHERE id = ?`,
+          )
+          .get(Number(info.lastInsertRowid))
 
-  res.status(201).json({ stake })
+        return { stake }
+      },
+    })
+
+    return res.status(201).json(opResult.result)
+  } catch (err) {
+    if (err instanceof EconomyError) {
+      const body: Record<string, unknown> = { error: err.message }
+      if (err.payload && typeof err.payload === "object") Object.assign(body, err.payload)
+      return res.status(err.status).json(body)
+    }
+    throw err
+  }
 })
 
 /* ---------------- POST /stakes/:id/unstake ---------------- */
 router.post("/:id/unstake", requireAuth, async (req: AuthRequest, res) => {
   const id = Number(req.params.id)
+  const idemKey = normalizeIdemKey(req.header("Idempotency-Key") ?? (req.body as any)?.idempotencyKey)
   const stake: any = db.prepare(`SELECT * FROM stakes WHERE id = ?`).get(id)
 
   if (!stake) return res.status(404).json({ error: "Стейк не найден" })
@@ -155,55 +183,72 @@ router.post("/:id/unstake", requireAuth, async (req: AuthRequest, res) => {
      Если казна больше не покрывает весь ∞ 1:1, проценты не начисляем —
      тело стейка возвращается полностью в любом случае.
 
-     Сетевой запрос баланса казны — до открытия транзакции (внутри BEGIN
-     IMMEDIATE нельзя await). Сама проверка "хватит ли резерва" ОБЯЗАНА
-     выполняться синхронно внутри транзакции ниже, а не здесь — иначе
-     конкурентное начисление из другого источника ∞-эмиссии могло бы
-     проскочить между проверкой и записью. */
+     Сетевой запрос баланса казны — до открытия транзакции (внутри неё
+     нельзя await). Сама проверка "хватит ли резерва" ОБЯЗАНА выполняться
+     синхронно внутри транзакции ниже, а не здесь — иначе конкурентное
+     начисление из другого источника ∞-эмиссии могло бы проскочить между
+     проверкой и записью. Поле stake.status, прочитанное ДО этого await,
+     здесь больше не используется как факт — статус перезахватывается
+     авторитетным условным UPDATE внутри mutate(), иначе два параллельных
+     unstake-запроса на один и тот же стейк оба прошли бы эту проверку и
+     оба зачислили бы деньги (двойная выплата). amount_tc/apr/даты стейка
+     неизменны после создания, поэтому их безопасно брать из этого
+     до-транзакционного чтения. */
   const treasuryTc = reward > 0 ? await fetchTreasuryTcForEmission() : null
 
-  db.exec("BEGIN IMMEDIATE")
   try {
-    if (reward > 0 && !(treasuryTc !== null && canEmitUnbackedSync(reward, treasuryTc))) {
-      reward = 0
-    }
+    const opResult = runEconomyOp({
+      userId: req.user!.userId,
+      scope: "stake_unstake",
+      idemKey,
+      mutate: () => {
+        if (reward > 0 && !(treasuryTc !== null && canEmitUnbackedSync(reward, treasuryTc))) {
+          reward = 0
+        }
 
-    const totalReturn = stake.amount_tc + reward
+        const totalReturn = stake.amount_tc + reward
 
-    db.prepare(`UPDATE stakes SET status = 'unstaked' WHERE id = ?`).run(id)
-    db.prepare(`UPDATE tc_market_state SET staked = MAX(0, staked - ?) WHERE id = 1`).run(stake.amount_tc)
+        const claim = db
+          .prepare(
+            `UPDATE stakes SET status = 'unstaked' WHERE id = ? AND user_id = ? AND status = 'active'`,
+          )
+          .run(id, req.user!.userId)
+        if (claim.changes !== 1) {
+          throw new EconomyError("Стейк уже снят", 409)
+        }
 
-    db.prepare(
-      `UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`,
-    ).run(totalReturn, now, req.user!.userId)
+        db.prepare(`UPDATE tc_market_state SET staked = MAX(0, staked - ?) WHERE id = 1`).run(stake.amount_tc)
 
-    db.prepare(
-      `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-       VALUES (?, 'unstake', 'TimeCoin Unstake', 'Asgard Vault', ?, 'timecoin', 'done')`,
-    ).run(req.user!.userId, totalReturn)
+        db.prepare(
+          `UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`,
+        ).run(totalReturn, now, req.user!.userId)
 
-    db.exec("COMMIT")
+        db.prepare(
+          `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+           VALUES (?, 'unstake', 'TimeCoin Unstake', 'Asgard Vault', ?, 'timecoin', 'done')`,
+        ).run(req.user!.userId, totalReturn)
+
+        const updatedStake = db
+          .prepare(
+            `SELECT id, amount_tc as amountTC, days, apr, market_fee as marketFee,
+                    start_ts as startTs, end_ts as endTs, status
+             FROM stakes WHERE id = ?`,
+          )
+          .get(id)
+
+        return { stake: updatedStake, reward, totalReturn, matured: isMatured }
+      },
+    })
+
+    return res.json(opResult.result)
   } catch (err) {
-    db.exec("ROLLBACK")
+    if (err instanceof EconomyError) {
+      const body: Record<string, unknown> = { error: err.message }
+      if (err.payload && typeof err.payload === "object") Object.assign(body, err.payload)
+      return res.status(err.status).json(body)
+    }
     throw err
   }
-
-  const totalReturn = stake.amount_tc + reward
-
-  const updatedStake = db
-    .prepare(
-      `SELECT id, amount_tc as amountTC, days, apr, market_fee as marketFee,
-              start_ts as startTs, end_ts as endTs, status
-       FROM stakes WHERE id = ?`,
-    )
-    .get(id)
-
-  res.json({
-    stake: updatedStake,
-    reward,
-    totalReturn,
-    matured: isMatured,
-  })
 })
 
 export default router

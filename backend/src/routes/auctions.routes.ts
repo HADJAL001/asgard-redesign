@@ -5,6 +5,7 @@ import { requireAuth, optionalAuth, AuthRequest } from "../middleware/authMiddle
 import { logAudit } from "../lib/audit"
 import { createActivityEvent } from "../lib/activity"
 import { MARKET_CURRENCIES, creditSellerWithFees } from "../lib/market-fees"
+import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
 
 /* ================================================================
    OSGARD · Аукционы артефактов (/auctions)
@@ -353,65 +354,78 @@ router.post("/:id/bid", requireAuth, (req: AuthRequest, res) => {
     return res.status(400).json({ error: `Недостаточно средств (${a.currency})` })
   }
 
+  const idemKey = normalizeIdemKey(req.header("Idempotency-Key") ?? (req.body as any)?.idempotencyKey)
   let refundedBidder: number | null = null
   let refundedAmount = 0
-  db.exec("BEGIN IMMEDIATE")
+
   try {
-    /* Перечитываем аукцион внутри транзакции — защита от гонки ставок. */
-    const fresh = db.prepare(`SELECT * FROM auctions WHERE id = ?`).get(auctionId) as AuctionRow
-    if (!fresh || fresh.status !== "active" || fresh.ends_at <= now) {
-      db.exec("ROLLBACK")
-      return res.status(400).json({ error: "Аукцион завершён", code: "AUCTION_ENDED" })
-    }
-    const needNow = minNextBid(fresh)
-    if (amount < needNow) {
-      db.exec("ROLLBACK")
-      return res.status(400).json({ error: `Ставку перебили, минимум ${needNow}`, code: "BID_TOO_LOW", minNextBid: needNow })
-    }
-
-    /* Возвращаем удержание предыдущему лидеру. */
-    if (fresh.current_bidder_id && fresh.current_bid != null) {
-      db.prepare(`UPDATE wallets SET ${fresh.currency} = ${fresh.currency} + ?, updated_at = ? WHERE user_id = ?`).run(
-        fresh.current_bid,
-        now,
-        fresh.current_bidder_id,
-      )
-      refundedBidder = fresh.current_bidder_id
-      refundedAmount = fresh.current_bid
-    }
-
-    /* Удерживаем средства нового лидера. */
-    db.prepare(`UPDATE wallets SET ${fresh.currency} = ${fresh.currency} - ?, updated_at = ? WHERE user_id = ?`).run(
-      amount,
-      now,
+    const opResult = runEconomyOp({
       userId,
-    )
+      scope: "auction_bid",
+      idemKey,
+      mutate: () => {
+        /* Перечитываем аукцион внутри транзакции — защита от гонки ставок. */
+        const fresh = db.prepare(`SELECT * FROM auctions WHERE id = ?`).get(auctionId) as AuctionRow
+        if (!fresh || fresh.status !== "active" || fresh.ends_at <= now) {
+          throw new EconomyError("Аукцион завершён", 400, { code: "AUCTION_ENDED" })
+        }
+        const needNow = minNextBid(fresh)
+        if (amount < needNow) {
+          throw new EconomyError(`Ставку перебили, минимум ${needNow}`, 400, { code: "BID_TOO_LOW", minNextBid: needNow })
+        }
 
-    db.prepare(
-      `UPDATE auctions SET current_bid = ?, current_bidder_id = ?, bid_count = bid_count + 1 WHERE id = ?`,
-    ).run(amount, userId, auctionId)
+        /* Возвращаем удержание предыдущему лидеру. */
+        if (fresh.current_bidder_id && fresh.current_bid != null) {
+          db.prepare(`UPDATE wallets SET ${fresh.currency} = ${fresh.currency} + ?, updated_at = ? WHERE user_id = ?`).run(
+            fresh.current_bid,
+            now,
+            fresh.current_bidder_id,
+          )
+          refundedBidder = fresh.current_bidder_id
+          refundedAmount = fresh.current_bid
+        }
 
-    db.prepare(
-      `INSERT INTO auction_bids (auction_id, bidder_id, amount, created_at) VALUES (?, ?, ?, ?)`,
-    ).run(auctionId, userId, amount, now)
+        /* Удерживаем средства нового лидера. */
+        const debit = db
+          .prepare(`UPDATE wallets SET ${fresh.currency} = ${fresh.currency} - ?, updated_at = ? WHERE user_id = ? AND ${fresh.currency} >= ?`)
+          .run(amount, now, userId, amount)
+        if (debit.changes !== 1) {
+          throw new EconomyError(`Недостаточно средств (${fresh.currency})`, 400)
+        }
 
-    db.exec("COMMIT")
+        db.prepare(
+          `UPDATE auctions SET current_bid = ?, current_bidder_id = ?, bid_count = bid_count + 1 WHERE id = ?`,
+        ).run(amount, userId, auctionId)
+
+        db.prepare(
+          `INSERT INTO auction_bids (auction_id, bidder_id, amount, created_at) VALUES (?, ?, ?, ?)`,
+        ).run(auctionId, userId, amount, now)
+
+        const updated = db.prepare(`SELECT * FROM auctions WHERE id = ?`).get(auctionId) as AuctionRow
+        const wallet2 = db
+          .prepare(`SELECT credits, shards, crystals, timecoin, cash_usd, updated_at as updatedAt FROM wallets WHERE user_id = ?`)
+          .get(userId)
+        return { auction: serializeAuction(updated, { isTopBidder: true }), wallet: wallet2 }
+      },
+    })
+
+    if (!opResult.replayed) {
+      auctionEvents.emit("update")
+      logAudit(userId, "debit", amount, "auction_bid_hold", { auctionId, currency: a.currency })
+      if (refundedBidder) {
+        logAudit(refundedBidder, "credit", refundedAmount, "auction_outbid_refund", { auctionId, currency: a.currency })
+      }
+    }
+
+    return res.status(201).json(opResult.result)
   } catch (err) {
-    db.exec("ROLLBACK")
+    if (err instanceof EconomyError) {
+      const body: Record<string, unknown> = { error: err.message }
+      if (err.payload && typeof err.payload === "object") Object.assign(body, err.payload)
+      return res.status(err.status).json(body)
+    }
     throw err
   }
-  auctionEvents.emit("update")
-
-  logAudit(userId, "debit", amount, "auction_bid_hold", { auctionId, currency: a.currency })
-  if (refundedBidder) {
-    logAudit(refundedBidder, "credit", refundedAmount, "auction_outbid_refund", { auctionId, currency: a.currency })
-  }
-
-  const updated = db.prepare(`SELECT * FROM auctions WHERE id = ?`).get(auctionId) as AuctionRow
-  const wallet2 = db
-    .prepare(`SELECT credits, shards, crystals, timecoin, cash_usd, updated_at as updatedAt FROM wallets WHERE user_id = ?`)
-    .get(userId)
-  res.status(201).json({ auction: serializeAuction(updated, { isTopBidder: true }), wallet: wallet2 })
 })
 
 /* ---------------- POST /auctions/:id/settle ----------------
