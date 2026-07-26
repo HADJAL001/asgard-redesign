@@ -11,9 +11,11 @@ import { LoadingAnimation } from '@/components/LoadingAnimation';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useMarketplaceQuery } from '@/hooks/useMarketplaceQuery';
 import { useBuyListingMutation } from '@/hooks/useBuyListingMutation';
 import { ApiError } from '@/lib/api-client';
+import { CURRENCIES, type CurrencyId } from '@/lib/economy';
 import type { MarketListing } from '@/types/market';
 
 function matchesFilters(listing: MarketListing, filters: MarketplaceFiltersValue): boolean {
@@ -26,6 +28,7 @@ export default function MarketplaceScreen() {
   const { data: listings, isLoading, isFetching, refetch } = useMarketplaceQuery();
   const [filters, setFilters] = useState<MarketplaceFiltersValue>({ type: null, rarity: null, sort: 'price_asc' });
   const [buyingId, setBuyingId] = useState<MarketListing['id'] | null>(null);
+  const [confirmListing, setConfirmListing] = useState<MarketListing | null>(null);
 
   const buyListing = useBuyListingMutation();
   const toast = useToast();
@@ -82,7 +85,7 @@ export default function MarketplaceScreen() {
             <MarketplaceListingCard
               listing={item}
               buying={buyingId === item.id}
-              onBuy={() => handleBuy(item)}
+              onBuy={() => setConfirmListing(item)}
             />
           </Animated.View>
         )}
@@ -101,6 +104,25 @@ export default function MarketplaceScreen() {
             style={{ flex: 1, justifyContent: 'center' }}
           />
         }
+      />
+
+      <ConfirmDialog
+        visible={!!confirmListing}
+        onCancel={() => setConfirmListing(null)}
+        onConfirm={() => {
+          const listing = confirmListing;
+          setConfirmListing(null);
+          if (listing) handleBuy(listing);
+        }}
+        title="Купить артефакт?"
+        message={
+          confirmListing
+            ? `Купить «${confirmListing.artifactName}» за ${confirmListing.price} ${
+                (CURRENCIES[confirmListing.currency as CurrencyId] ?? CURRENCIES.credits).label
+              }? Списание необратимо.`
+            : ''
+        }
+        confirmLabel="Купить"
       />
     </SafeAreaView>
   );
