@@ -1,6 +1,6 @@
 import db from "./db"
 import { localFallbackGeneration, type AiArtifactSuggestion } from "../services/ai-generator"
-import { generateApp, validateGeneratedFiles, GeneratedAppFile } from "../services/app-generator"
+import { generateApp, GeneratedAppFile } from "../services/app-generator"
 import {
   detectTheme,
   findBestTemplate,
@@ -19,6 +19,8 @@ import { nextFloats } from "./provably-fair"
 import { addArchitectXp } from "./architect-progression"
 import { deriveDesignBrief, renderDesignSystemFiles, DESIGN_SYSTEM_PATHS, type DesignBrief } from "./design-system"
 import { explainDesignQuality } from "./design-qa"
+import { runEngineeringContour, summarizeVerdict, type EngineeringReport } from "./project-engineering"
+import { craftQuality, isWorthLearning, recordLessons, renderLessonsContract } from "./craft-corpus"
 
 /* ================================================================
    OSGARD · Общий сервис генерации проектов
@@ -147,6 +149,34 @@ function persistDesign(projectId: number, brief: DesignBrief, report: ReturnType
   }
 }
 
+/** Сохраняет инженерный вердикт проекта. Отдельным стейтментом от `status='ready'`
+ *  по тому же принципу, что и persistDesign: схема без колонок 091 не должна мешать
+ *  проекту стать ready (урок #59 — новая колонка не имеет права ронять генерацию). */
+function persistEngineering(projectId: number, report: EngineeringReport) {
+  try {
+    db.prepare(
+      `UPDATE projects SET build_status = ?, build_report = ?, build_verified_at = ? WHERE id = ?`,
+    ).run(
+      report.verdict,
+      JSON.stringify({
+        verifiedBy: report.verifiedBy,
+        checks: report.checks,
+        defects: report.defects,
+        repairs: report.repairs,
+        initialErrors: report.initialErrors,
+        attempts: report.attempts,
+        analyzedFiles: report.analyzedFiles,
+        sandbox: report.sandbox,
+        durationMs: report.durationMs,
+      }),
+      report.at,
+      projectId,
+    )
+  } catch (err) {
+    captureError("[projects.generate] engineering persist skipped (schema without 091 columns):", err)
+  }
+}
+
 /** Гарантирует, что файлы дизайн-системы в проекте соответствуют брифу.
  *
  *  Нужно ОБОИМ путям: шаблонный путь переиспользует файлы прошлых генераций, среди
@@ -173,6 +203,7 @@ async function runAppGenerationJob(
   quick: { description: string; badge: string; artifacts: AiArtifactSuggestion[] },
   template: MatchedTemplate | null,
   bypassCache: boolean,
+  depth: GenerationDepth,
   design?: { theme?: string; keywords?: string[] },
 ) {
   try {
@@ -219,35 +250,81 @@ async function runAppGenerationJob(
         keywords: design?.keywords,
         description: quick.description,
         brief: existingBrief,
+        // Платформа учится на себе: в промпт каждого файла подмешивается реальная
+        // статистика собственных поломок (lib/craft-corpus). Пустая статистика —
+        // пустая строка, поведение как раньше.
+        lessons: renderLessonsContract(),
       })
       files = result.files
       source = result.source
       brief = result.brief
-
-      if (result.source === "ai") {
-        saveTemplateFromGeneration({
-          name,
-          hint,
-          description: quick.description,
-          badge: quick.badge,
-          manifest: files.map((f) => ({ path: f.path, purpose: f.path })),
-          files,
-          artifactTypes: quick.artifacts,
-        })
-      }
+      // Сохранение в корпус переехало ПОСЛЕ инженерного контура: раньше шаблон
+      // писался прямо здесь — то есть в память платформы попадал непроверенный
+      // код, и следующие проекты наследовали его дефекты.
     }
 
     // Дизайн-система принадлежит брифу целиком: перезаписываем её файлы поверх любого
     // пути (в т.ч. поверх старого пустого конфига, пришедшего из кэша шаблонов).
     files = applyDesignSystem(files, brief, name, description)
 
-    // Стадия 4: проверяем сгенерированные файлы — синтаксис И качество интерфейса.
-    emitGenerationStage({ projectId, stage: "validating", label: "Проверяю файлы", progress: 0.75, fileCount: files.length })
-    const errors = validateGeneratedFiles(files)
+    // Стадия 4: синтаксическая проверка файлов.
+    emitGenerationStage({ projectId, stage: "validating", label: "Проверяю файлы", progress: 0.62, fileCount: files.length })
+
+    // Стадия 5: ИНЖЕНЕРНЫЙ КОНТУР. Раньше здесь ничего не было: проект объявлялся
+    // готовым сразу после синтаксической проверки одного файла за раз. Теперь
+    // приложение проверяется как ЦЕЛОЕ (граф модулей, клиент/сервер, контракт
+    // статического экспорта), дефекты чинятся, и только после этого выносится
+    // честный вердикт. Контур никогда не бросает — генерация от него не падает.
+    const engineering = await runEngineeringContour(files, {
+      name,
+      hint,
+      brief,
+      depth,
+      logLabel: `contour-${projectId}`,
+      onProgress: (p) =>
+        emitGenerationStage({
+          projectId,
+          stage: p.phase,
+          label: p.label,
+          progress: p.phase === "building" ? 0.74 : 0.82,
+          defects: p.defects,
+        }),
+    })
+    files = engineering.files
+    const engineeringError = summarizeVerdict(engineering.report)
+
+    // Качество интерфейса считаем по ФИНАЛЬНЫМ файлам — после ремонта, а не до:
+    // балл обязан описывать то, что реально получит пользователь.
     const designReport = explainDesignQuality(files)
 
-    // Стадия 5: записываем файлы проекта.
-    emitGenerationStage({ projectId, stage: "writing", label: "Записываю файлы проекта", progress: 0.85, fileCount: files.length })
+    /* --- Самообучение платформы (корпус ремесла) ---
+       (1) Память ошибок: на каких правилах генератор споткнулся в этот раз.
+       (2) Память удач: в корпус шаблонов уходит ТОЛЬКО проверенный код —
+           и только если он лучше того, что уже лежит по этой теме. */
+    recordLessons(engineering.report.lessons)
+
+    if (source === "ai" && isWorthLearning(engineering.report.verdict)) {
+      saveTemplateFromGeneration({
+        name,
+        hint,
+        description,
+        badge,
+        manifest: files.map((f) => ({ path: f.path, purpose: f.path })),
+        files,
+        artifactTypes: quick.artifacts,
+        quality: craftQuality({
+          verdict: engineering.report.verdict,
+          designScore: designReport.score,
+          repairs: engineering.report.repairs.length,
+        }),
+        verdict: engineering.report.verdict,
+        designScore: designReport.score,
+        repairs: engineering.report.repairs.length,
+      })
+    }
+
+    // Стадия 6: записываем файлы проекта.
+    emitGenerationStage({ projectId, stage: "writing", label: "Записываю файлы проекта", progress: 0.9, fileCount: files.length })
     const insertFile = db.prepare(
       `INSERT INTO project_files (project_id, path, content, updated_at)
        VALUES (?, ?, ?, ?)
@@ -260,11 +337,13 @@ async function runAppGenerationJob(
 
     db.prepare(
       `UPDATE projects SET status = 'ready', ai_source = ?, generation_error = ?, description = ?, badge = ? WHERE id = ?`,
-    ).run(source, errors.length > 0 ? errors.join("\n") : null, description, badge, projectId)
+    ).run(source, engineeringError, description, badge, projectId)
 
     // Дизайн-система и разбор её качества — отдельным стейтментом, чтобы схема без
     // колонок 090 не мешала проекту стать ready.
     persistDesign(projectId, brief, designReport)
+    // То же для инженерного вердикта (колонки 091).
+    persistEngineering(projectId, engineering.report)
 
     if (artifactNames) {
       const rows = db
@@ -280,10 +359,17 @@ async function runAppGenerationJob(
     emitGenerationStage({
       projectId,
       stage: "ready",
-      label: "Приложение готово",
+      label:
+        engineering.report.verdict === "repaired"
+          ? "Приложение готово — дефекты найдены и исправлены"
+          : engineering.report.verdict === "broken"
+            ? "Приложение готово, но проверка нашла дефекты"
+            : "Приложение готово и проверено",
       progress: 1,
       fileCount: files.length,
       source,
+      verdict: engineering.report.verdict,
+      defects: engineering.report.defects.filter((d) => d.severity === "error").length,
     })
 
     // Реальное асинхронное событие завершения: мгновенно пушим уведомление через SSE.
@@ -364,12 +450,125 @@ export function createGeneratedProject(params: {
     .prepare(`SELECT ${ARTIFACT_SELECT_COLUMNS} FROM artifacts WHERE project_id = ? ORDER BY created_at DESC`)
     .all(projectId)
 
-  void runAppGenerationJob(params.userId, projectId, trimmedName, safeHint, quick, template, depthCfg.bypassCache, {
+  void runAppGenerationJob(params.userId, projectId, trimmedName, safeHint, quick, template, depthCfg.bypassCache, depth, {
     theme,
     keywords,
   })
 
   return { project, artifacts, projectId }
+}
+
+/**
+ * Повторный прогон инженерного контура по УЖЕ СОХРАНЁННЫМ файлам проекта.
+ * Генерация с нуля не запускается: замысел, дизайн-система и артефакты остаются
+ * прежними — платформа лишь пробует ещё раз починить то, что осталось битым, и
+ * переписывает вердикт. Это ответ на честный статус «broken»: пользователю дают
+ * кнопку, а не приговор.
+ *
+ * Возвращает false, если чинить нечего (нет проекта или нет файлов). Никогда не
+ * бросает наружу: любая ошибка возвращает проект в ready и пишет её в вердикт.
+ */
+export function repairGeneratedProject(params: { userId: number; projectId: number }): boolean {
+  const project = db
+    .prepare(`SELECT id, name, description, status FROM projects WHERE id = ? AND user_id = ?`)
+    .get(params.projectId, params.userId) as
+    | { id: number; name: string; description: string | null; status: string }
+    | undefined
+  if (!project) return false
+
+  const rows = db
+    .prepare(`SELECT path, content FROM project_files WHERE project_id = ?`)
+    .all(project.id) as GeneratedAppFile[]
+  if (rows.length === 0) return false
+
+  const previousStatus = project.status
+  db.prepare(`UPDATE projects SET status = 'generating', generation_error = NULL WHERE id = ?`).run(project.id)
+
+  void (async () => {
+    try {
+      const brief =
+        loadProjectBrief(project.id) ?? deriveDesignBrief({ name: project.name, hint: project.description ?? undefined })
+
+      emitGenerationStage({
+        projectId: project.id,
+        stage: "building",
+        label: "Повторная инженерная проверка",
+        progress: 0.3,
+      })
+
+      const engineering = await runEngineeringContour(rows, {
+        name: project.name,
+        hint: project.description ?? undefined,
+        brief,
+        depth: "standard",
+        logLabel: `repair-${project.id}`,
+        onProgress: (p) =>
+          emitGenerationStage({
+            projectId: project.id,
+            stage: p.phase,
+            label: p.label,
+            progress: p.phase === "building" ? 0.5 : 0.7,
+            defects: p.defects,
+          }),
+      })
+
+      const insertFile = db.prepare(
+        `INSERT INTO project_files (project_id, path, content, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(project_id, path) DO UPDATE SET content = excluded.content, updated_at = excluded.updated_at`,
+      )
+      const now = Date.now()
+      const keptPaths = new Set(engineering.files.map((f) => f.path))
+      for (const file of engineering.files) {
+        insertFile.run(project.id, file.path, file.content, now)
+      }
+      // Контур мог снести файл, несовместимый со сборкой (например, api-роут) —
+      // тогда его надо убрать и из проекта, иначе вердикт разойдётся с содержимым.
+      const removeFile = db.prepare(`DELETE FROM project_files WHERE project_id = ? AND path = ?`)
+      for (const row of rows) {
+        if (!keptPaths.has(row.path)) removeFile.run(project.id, row.path)
+      }
+
+      db.prepare(`UPDATE projects SET status = 'ready', generation_error = ? WHERE id = ?`).run(
+        summarizeVerdict(engineering.report),
+        project.id,
+      )
+      persistEngineering(project.id, engineering.report)
+      // Ремонт — такой же источник знания о слабых местах генератора, как и сама
+      // генерация: дефекты, найденные здесь, тоже идут в память ошибок платформы.
+      recordLessons(engineering.report.lessons)
+      persistDesign(project.id, brief, explainDesignQuality(engineering.files))
+
+      emitGenerationStage({
+        projectId: project.id,
+        stage: "ready",
+        label:
+          engineering.report.verdict === "broken"
+            ? "Ремонт завершён — часть дефектов осталась"
+            : "Ремонт завершён — приложение проверено",
+        progress: 1,
+        fileCount: engineering.files.length,
+        verdict: engineering.report.verdict,
+        defects: engineering.report.defects.filter((d) => d.severity === "error").length,
+      })
+    } catch (err) {
+      captureError("[projects.repair] повторный контур упал:", err)
+      // Проект обязан вернуться в рабочее состояние — «generating» навсегда недопустим.
+      db.prepare(`UPDATE projects SET status = ? WHERE id = ?`).run(
+        previousStatus === "generating" ? "ready" : previousStatus,
+        project.id,
+      )
+      emitGenerationStage({
+        projectId: project.id,
+        stage: "failed",
+        label: "Ремонт не удался",
+        progress: 1,
+        error: err instanceof Error ? err.message : "Неизвестная ошибка ремонта",
+      })
+    }
+  })()
+
+  return true
 }
 
 /**
@@ -414,7 +613,9 @@ export function refineGeneratedProject(params: {
 
   // fire-and-forget тот же джоб; template=null → полная AI-генерация по промпту.
   // onDone вызываем после завершения (успех/ошибка) для отметки в леджере.
-  void runAppGenerationJob(params.userId, project.id, project.name, mergedHint, quick, null, true)
+  // Доработка идёт по стандартной глубине: полная AI-генерация по промпту и
+  // такой же инженерный контур, как у обычной генерации.
+  void runAppGenerationJob(params.userId, project.id, project.name, mergedHint, quick, null, true, "standard")
     .then(() => {
       const row = db.prepare(`SELECT status FROM projects WHERE id = ?`).get(project.id) as
         | { status: string }

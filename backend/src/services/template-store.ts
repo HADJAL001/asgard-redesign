@@ -97,7 +97,13 @@ function rowToMatch(row: TemplateRow): MatchedTemplate {
 }
 
 /** Ищет лучший шаблон для темы: сперва точное совпадение хэша (тема+ключевые слова),
- *  иначе — самый переиспользуемый шаблон той же темы. */
+ *  иначе — ЛУЧШИЙ ПО КАЧЕСТВУ шаблон той же темы, а при равном качестве — самый
+ *  переиспользуемый.
+ *
+ *  Раньше сортировка шла только по `usage_count`: часто используемый слабый шаблон
+ *  вытеснял редкий сильный, и корпус деградировал от популярности. Качество (миграция
+ *  092) производно от инженерного вердикта и балла интерфейса — отбор идёт по нему.
+ *  Схема без 092 → мягкий откат на прежний порядок, поведение 1:1 как было. */
 export function findBestTemplate(theme: string, keywords: string[]): MatchedTemplate | null {
   if (theme === "general") return null
 
@@ -105,15 +111,38 @@ export function findBestTemplate(theme: string, keywords: string[]): MatchedTemp
   const exact = db.prepare(`SELECT * FROM project_templates WHERE hash = ?`).get(hash) as TemplateRow | undefined
   if (exact) return rowToMatch(exact)
 
-  const byTheme = db
-    .prepare(`SELECT * FROM project_templates WHERE theme = ? ORDER BY usage_count DESC LIMIT 1`)
-    .get(theme) as TemplateRow | undefined
+  let byTheme: TemplateRow | undefined
+  try {
+    byTheme = db
+      .prepare(
+        `SELECT * FROM project_templates WHERE theme = ?
+         ORDER BY COALESCE(quality_score, 0) DESC, usage_count DESC LIMIT 1`,
+      )
+      .get(theme) as TemplateRow | undefined
+  } catch {
+    byTheme = db
+      .prepare(`SELECT * FROM project_templates WHERE theme = ? ORDER BY usage_count DESC LIMIT 1`)
+      .get(theme) as TemplateRow | undefined
+  }
   return byTheme ? rowToMatch(byTheme) : null
 }
 
-/** Сохраняет успешную AI-генерацию как новый шаблон (INSERT OR IGNORE — не дублирует
- *  по одинаковому хэшу). Персистит только выход генератора, никогда данные живого
- *  проекта/пользователя. */
+/** Сохраняет ПРОВЕРЕННУЮ генерацию в корпус ремесла.
+ *
+ *  Два принципиальных отличия от прежнего поведения:
+ *
+ *  1. Раньше шаблон писался сразу после ответа модели — до единой проверки; в корпус
+ *     попадал непроверенный код, и следующие проекты наследовали его дефекты. Теперь
+ *     вызывающая сторона обязана передать качество (lib/craft-corpus.craftQuality),
+ *     а зовётся функция ПОСЛЕ инженерного контура и только для рабочего кода.
+ *  2. Раньше `ON CONFLICT(hash) DO NOTHING` фиксировал первую генерацию темы навсегда —
+ *     корпус не мог улучшаться. Теперь лучший вытесняет худшего: замена происходит,
+ *     только если новое качество СТРОГО выше сохранённого. Статистика переиспользования
+ *     (usage_count/tokens_saved_estimate) при замене сохраняется — она про тему, а не
+ *     про конкретный слепок кода.
+ *
+ *  Персистит только выход генератора, никогда данные живого проекта/пользователя.
+ *  Схема без миграции 092 → мягкий откат на прежнюю вставку без качества. */
 export function saveTemplateFromGeneration(params: {
   name: string
   hint?: string
@@ -122,20 +151,18 @@ export function saveTemplateFromGeneration(params: {
   manifest: ManifestEntry[]
   files: GeneratedAppFile[]
   artifactTypes: AiArtifactSuggestion[]
+  /** Балл корпуса 0..100 (производный от вердикта сборки и качества интерфейса). */
+  quality?: number
+  verdict?: string
+  designScore?: number
+  repairs?: number
 }) {
   const { theme, keywords } = detectTheme(params.name, params.hint)
   if (theme === "general") return // тема не распознана — нечего кэшировать по теме
 
   const hash = computeTemplateHash(theme, keywords)
   const now = Date.now()
-
-  db.prepare(
-    `INSERT INTO project_templates
-       (hash, theme, keywords, name_sample, description_sample, badge, manifest, files, artifact_types,
-        usage_count, tokens_saved_estimate, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
-     ON CONFLICT(hash) DO NOTHING`,
-  ).run(
+  const values = [
     hash,
     theme,
     keywords.join(","),
@@ -147,7 +174,44 @@ export function saveTemplateFromGeneration(params: {
     JSON.stringify(params.artifactTypes),
     now,
     now,
-  )
+  ]
+
+  try {
+    db.prepare(
+      `INSERT INTO project_templates
+         (hash, theme, keywords, name_sample, description_sample, badge, manifest, files, artifact_types,
+          usage_count, tokens_saved_estimate, created_at, updated_at, quality_score, verdict, design_score, repairs)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(hash) DO UPDATE SET
+         name_sample = excluded.name_sample,
+         description_sample = excluded.description_sample,
+         badge = excluded.badge,
+         manifest = excluded.manifest,
+         files = excluded.files,
+         artifact_types = excluded.artifact_types,
+         updated_at = excluded.updated_at,
+         quality_score = excluded.quality_score,
+         verdict = excluded.verdict,
+         design_score = excluded.design_score,
+         repairs = excluded.repairs
+       WHERE excluded.quality_score > COALESCE(project_templates.quality_score, -1)`,
+    ).run(
+      ...values,
+      params.quality ?? 0,
+      params.verdict ?? null,
+      params.designScore ?? null,
+      params.repairs ?? 0,
+    )
+  } catch {
+    // Схема без 092 — сохраняем как раньше, без качества (деградация, а не отказ).
+    db.prepare(
+      `INSERT INTO project_templates
+         (hash, theme, keywords, name_sample, description_sample, badge, manifest, files, artifact_types,
+          usage_count, tokens_saved_estimate, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)
+       ON CONFLICT(hash) DO NOTHING`,
+    ).run(...values)
+  }
 }
 
 /** Оценка сэкономленных токенов на одно переиспользование: полная генерация тратит
