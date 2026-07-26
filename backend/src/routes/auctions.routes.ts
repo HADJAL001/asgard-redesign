@@ -4,6 +4,7 @@ import db from "../lib/db"
 import { requireAuth, optionalAuth, AuthRequest } from "../middleware/authMiddleware"
 import { logAudit } from "../lib/audit"
 import { createActivityEvent } from "../lib/activity"
+import { createNotification } from "../lib/notifications"
 import { MARKET_CURRENCIES, creditSellerWithFees } from "../lib/market-fees"
 import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
 
@@ -138,6 +139,21 @@ function settleIfEnded(auctionId: number): AuctionRow {
           entityId: fresh.artifact_id,
           text: `продал артефакт «${artifact.name}» на аукционе`,
           metadata: { name: artifact.name, rarity: artifact.rarity, price: fresh.current_bid, currency: fresh.currency, auction: true },
+        })
+        createNotification({
+          userId: fresh.current_bidder_id,
+          type: "auction_won",
+          entityType: "artifact",
+          entityId: fresh.artifact_id,
+          text: `Вы выиграли аукцион за «${artifact.name}» (${fresh.current_bid} ${fresh.currency}).`,
+        })
+        createNotification({
+          userId: fresh.seller_id,
+          actorId: fresh.current_bidder_id,
+          type: "auction_sold",
+          entityType: "artifact",
+          entityId: fresh.artifact_id,
+          text: `Ваш артефакт «${artifact.name}» продан на аукционе за ${sellerReceives} ${fresh.currency}.`,
         })
       }
     } else {
@@ -414,6 +430,14 @@ router.post("/:id/bid", requireAuth, (req: AuthRequest, res) => {
       logAudit(userId, "debit", amount, "auction_bid_hold", { auctionId, currency: a.currency })
       if (refundedBidder) {
         logAudit(refundedBidder, "credit", refundedAmount, "auction_outbid_refund", { auctionId, currency: a.currency })
+        createNotification({
+          userId: refundedBidder,
+          actorId: userId,
+          type: "auction_outbid",
+          entityType: "artifact",
+          entityId: a.artifact_id,
+          text: `Вашу ставку на аукционе перебили — средства (${refundedAmount} ${a.currency}) возвращены.`,
+        })
       }
     }
 
