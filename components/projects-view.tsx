@@ -18,7 +18,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Sparkles, FolderKanban, Boxes, TrendingUp, Coins, Loader2, Trash2, Wand2 } from "lucide-react"
+import { Sparkles, FolderKanban, Boxes, TrendingUp, Coins, Loader2, Trash2, Wand2 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { COLORS, badgeIcon } from "@/lib/economy"
@@ -34,7 +34,6 @@ export function ProjectsView() {
   const { projects, fetchProjects, deleteProject, loading, error } = useOsgardStore()
 
   const [wizardOpen, setWizardOpen] = useState(false)
-  const [wizardStartMode, setWizardStartMode] = useState<"manual" | "ai">("manual")
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
   useEffect(() => {
@@ -42,13 +41,7 @@ export function ProjectsView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function openManualWizard() {
-    setWizardStartMode("manual")
-    setWizardOpen(true)
-  }
-
-  function openAiWizard() {
-    setWizardStartMode("ai")
+  function openWizard() {
     setWizardOpen(true)
   }
 
@@ -97,19 +90,8 @@ export function ProjectsView() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={openManualWizard}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors"
-              style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = COLORS.accent; e.currentTarget.style.color = COLORS.accent }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = COLORS.border; e.currentTarget.style.color = COLORS.text }}
-            >
-              <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
-              {t("projects.createBtn")}
-            </button>
-            <button
-              type="button"
               data-tour="projects-create-ai"
-              onClick={openAiWizard}
+              onClick={openWizard}
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90"
               style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
             >
@@ -158,16 +140,7 @@ export function ProjectsView() {
             <div className="mt-2 flex flex-wrap justify-center gap-2">
               <button
                 type="button"
-                onClick={openManualWizard}
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors"
-                style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
-              >
-                <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
-                {t("projects.createBtn")}
-              </button>
-              <button
-                type="button"
-                onClick={openAiWizard}
+                onClick={openWizard}
                 className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90"
                 style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
               >
@@ -297,7 +270,6 @@ export function ProjectsView() {
 
       {wizardOpen && (
         <ProjectCreateWizard
-          initialMode={wizardStartMode}
           onClose={() => setWizardOpen(false)}
           onCreated={(projectId: number) => {
             setWizardOpen(false)

@@ -244,7 +244,13 @@ router.get("/:id/export.zip", requireAuth, asyncHandler(async (req: AuthRequest,
   await archive.finalize()
 }))
 
-/* ---------------- POST /projects — создать проект вручную ---------------- */
+/* ---------------- POST /projects — DEPRECATED ----------------
+   Создаёт проект без файлов и без генерации (status='ready', project_files пуст).
+   Фронтенд больше не вызывает этот путь — единственный способ создания проекта
+   теперь POST /projects/generate (ниже), который гарантированно проходит через
+   реальную генерацию. Оставлено для обратной совместимости внешних интеграций;
+   удалить отдельным тикетом после недели наблюдения по логам.
+------------------------------------------------------------------------------- */
 router.post("/", requireAuth, (req: AuthRequest, res) => {
   const { name, description, badge } = req.body || {}
 
