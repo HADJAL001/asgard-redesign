@@ -119,6 +119,52 @@ export function AuctionsView() {
     return () => clearInterval(id)
   }, [])
 
+  /* Живой список: SSE-снапшот (новые лоты, перебитые ставки, расчёт по истечении)
+     вместо ручного обновления страницы. Реконнект с линейным бэкоффом, как в
+     tc-market-panel. Начальный load() выше остаётся — первый кадр SSE придёт чуть
+     позже монтирования. */
+  useEffect(() => {
+    let source: EventSource | null = null
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined
+    let attempts = 0
+
+    const connect = () => {
+      source = new EventSource("/api/auctions/stream", { withCredentials: true })
+
+      source.onopen = () => {
+        attempts = 0
+      }
+
+      source.onmessage = (event) => {
+        let payload: any
+        try {
+          payload = JSON.parse(event.data)
+        } catch {
+          return
+        }
+        if (payload?.type === "snapshot" && Array.isArray(payload.auctions)) {
+          skew.current = (payload.serverTime || Date.now()) - Date.now()
+          setNow(Date.now() + skew.current)
+          setAuctions(payload.auctions)
+          setLoading(false)
+        }
+      }
+
+      source.onerror = () => {
+        source?.close()
+        attempts += 1
+        reconnectTimer = setTimeout(connect, Math.min(1000 * attempts, 5000))
+      }
+    }
+
+    connect()
+
+    return () => {
+      clearTimeout(reconnectTimer)
+      source?.close()
+    }
+  }, [])
+
   const metrics = useMemo(() => {
     const soon = auctions.filter((a) => a.endsAt - now < 60 * 60 * 1000).length
     const leading = auctions.filter((a) => a.isTopBidder).length
