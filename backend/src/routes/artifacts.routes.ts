@@ -9,6 +9,7 @@ import { addArchitectXp } from "../lib/architect-progression"
 import {
   FORGE_MAX_SLOTS,
   computeForgeBonus,
+  computeForgeDiscount,
   getForgeDiscountForUser,
   type EquippedArtifactStats,
 } from "../lib/forge-loadout"
@@ -95,9 +96,10 @@ router.get("/mine", requireAuth, (req: AuthRequest, res) => {
 ------------------------------------------------------------------------ */
 
 const LOADOUT_SELECT = `id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
-       status, price, list_currency as listCurrency, equipped_at as equippedAt, created_at as createdAt`
+       status, price, list_currency as listCurrency, equipped_at as equippedAt, created_at as createdAt,
+       craft_score as craftScore`
 
-/** Собирает полезную нагрузку лоадаута пользователя: надетые артефакты + рассчитанный бонус. */
+/** Собирает полезную нагрузку лоадаута пользователя: надетые артефакты + рассчитанный бонус + скидка на ковку. */
 function loadoutPayload(userId: number) {
   const equipped = db
     .prepare(
@@ -108,7 +110,9 @@ function loadoutPayload(userId: number) {
     .all(userId, FORGE_MAX_SLOTS) as any[]
 
   const bonus = computeForgeBonus(equipped as EquippedArtifactStats[])
-  return { equipped, bonus, maxSlots: FORGE_MAX_SLOTS }
+  // Тот же список надетых артефактов — переиспользуем, второй SELECT не нужен.
+  const discount = computeForgeDiscount(equipped as EquippedArtifactStats[])
+  return { equipped, bonus, discount, maxSlots: FORGE_MAX_SLOTS }
 }
 
 /* ---------------- GET /artifacts/loadout ---------------- */

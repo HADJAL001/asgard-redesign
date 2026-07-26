@@ -246,6 +246,10 @@
     "subtitle": "Craft artifacts with TimeCoin",
     "yourBalance": "Your TimeCoin balance",
     "creationCost": "Creation cost",
+    "discount": {
+      "label": "Honest gear discount",
+      "value": "-{{percent}}%"
+    },
     "inUsd": "≈ in USD",
     "artifactsInCollection": "Artifacts in collection",
     "formTitle": "Craft an artifact",

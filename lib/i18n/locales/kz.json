@@ -246,6 +246,10 @@
     "subtitle": "TimeCoin арқылы артефакттар жасаңыз",
     "yourBalance": "Сіздің TimeCoin балансыңыз",
     "creationCost": "Жасау құны",
+    "discount": {
+      "label": "Адал жабдық үшін жеңілдік",
+      "value": "-{{percent}}%"
+    },
     "inUsd": "≈ USD-де",
     "artifactsInCollection": "Жинақтағы артефакттар",
     "formTitle": "Артефакт жасау",

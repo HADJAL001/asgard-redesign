@@ -246,6 +246,10 @@
     "subtitle": "Создавайте артефакты за TimeCoin",
     "yourBalance": "Ваш баланс TimeCoin",
     "creationCost": "Стоимость создания",
+    "discount": {
+      "label": "Скидка за честное снаряжение",
+      "value": "-{{percent}}%"
+    },
     "inUsd": "≈ в USD",
     "artifactsInCollection": "Артефактов в коллекции",
     "formTitle": "Создание артефакта",
