@@ -433,6 +433,30 @@ export interface ProjectActionResult {
   error?: string
 }
 
+/** Одна строка ленты доработок проекта (см. GET /projects/:id/refinements). */
+export interface RefinementEntry {
+  id: number
+  userId: number
+  projectId: number
+  prompt: string
+  status: "generating" | "ready" | "failed" | string
+  costCredits: number
+  createdAt: number
+}
+
+/** Результат refineProject (см. POST /projects/:id/refine, 202). */
+export interface RefineActionResult {
+  success: boolean
+  projectId?: number
+  refinementId?: number
+  /** Списанные за доработку кредиты (0 — в рамках бесплатного гранта). */
+  costCredits?: number
+  /** Остаток бесплатных доработок после этой операции. */
+  refinementsRemaining?: number
+  aiConfigured?: boolean
+  error?: string
+}
+
 /** Результат publishProjectToGithub (см. POST /projects/:id/publish-github). */
 export interface GithubPublishActionResult {
   success: boolean
@@ -629,6 +653,18 @@ export interface OsgardStoreState {
   /** Сбрасывает currentProject/currentProjectArtifacts/currentProjectFiles (например, при выходе со страницы проекта). */
   clearCurrentProject: () => void
 
+  /* ---- Доработки (механика домена B, миграция 089) ---- */
+  /** Остаток бесплатных доработок аккаунта. null — ещё не загружен. */
+  refinementsRemaining: number | null
+  /** POST /projects/:id/refine — запускает AI-доработку существующего проекта (prompt).
+   *  Первые N доработок бесплатны, дальше — за кредиты. Отвечает 202: проект переходит
+   *  в 'generating', прогресс отслеживается через pollProjectStatus/fetchProject. */
+  refineProject: (id: number, prompt: string) => Promise<RefineActionResult>
+  /** GET /projects/:id/refinements — лента доработок проекта + актуальный остаток. */
+  fetchProjectRefinements: (id: number) => Promise<void>
+  /** Лента доработок текущего проекта (свежие сверху). */
+  currentProjectRefinements: RefinementEntry[]
+
   /* ---- TC Wallet: балансы резерва и пользователя ---- */
   /** Баланс резервного пула TC на Solana (в TC). null — не загружен. */
   tcReserveBalance: number | null
@@ -730,6 +766,8 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   currentProject: null,
   currentProjectArtifacts: [],
   currentProjectFiles: [],
+  currentProjectRefinements: [],
+  refinementsRemaining: null,
 
   loading: false,
   error: null,
@@ -1393,6 +1431,74 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     }
   },
 
+  /* ---- доработки: POST /projects/:id/refine — AI-итерация существующего проекта ----
+     Отвечает 202: проект переведён в status='generating', файлы перегенерируются в фоне.
+     Первые FREE_REFINEMENTS_GRANT доработок бесплатны, дальше — за кредиты (сервер списывает).
+     Вызывающий UI продолжает через pollProjectStatus/fetchProject, как при обычной генерации. */
+  refineProject: async (id, prompt) => {
+    set({ loading: true, error: null })
+    try {
+      const res = await apiClient.post<{
+        success: boolean
+        projectId: number
+        refinementId: number
+        costCredits: number
+        refinementsRemaining: number
+        aiConfigured: boolean
+      }>(`/projects/${id}/refine`, { prompt })
+
+      // Проект уже переведён на сервере в 'generating' — отражаем это локально сразу,
+      // чтобы UI показал живой лог доработки без ожидания следующего fetchProject.
+      set((s) => ({
+        loading: false,
+        error: null,
+        refinementsRemaining: res.refinementsRemaining,
+        projects: s.projects.map((p) =>
+          p.id === id ? { ...p, status: "generating", generationError: null } : p,
+        ),
+        currentProject:
+          s.currentProject?.id === id
+            ? { ...s.currentProject, status: "generating", generationError: null }
+            : s.currentProject,
+      }))
+
+      // Платная доработка списала кредиты на сервере — подтягиваем актуальный баланс.
+      if (res.costCredits && res.costCredits > 0) {
+        await get().fetchWallet()
+      }
+
+      return {
+        success: true,
+        projectId: res.projectId,
+        refinementId: res.refinementId,
+        costCredits: res.costCredits,
+        refinementsRemaining: res.refinementsRemaining,
+        aiConfigured: res.aiConfigured,
+      }
+    } catch (err) {
+      const message = extractErrorMessage(err, "Не удалось запустить доработку")
+      set({ loading: false, error: message })
+      return { success: false, error: message }
+    }
+  },
+
+  /* ---- доработки: GET /projects/:id/refinements — лента доработок + актуальный остаток ---- */
+  fetchProjectRefinements: async (id) => {
+    try {
+      const res = await apiClient.get<{
+        refinements: RefinementEntry[]
+        refinementsRemaining: number
+      }>(`/projects/${id}/refinements`)
+      set({
+        currentProjectRefinements: res.refinements ?? [],
+        refinementsRemaining: res.refinementsRemaining,
+      })
+    } catch (err) {
+      // Лента доработок некритична для страницы проекта — не роняем UI, только лог.
+      console.warn("[refinements] fetch failed:", extractErrorMessage(err, "не удалось загрузить доработки"))
+    }
+  },
+
   /* ---- проекты: опрос статуса генерации до перехода из 'generating' в 'ready'/'failed' ---- */
   pollProjectStatus: async (id, opts) => {
     const intervalMs = opts?.intervalMs ?? 2000
@@ -1540,7 +1646,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
 
   /* ---- проекты: локальный сброс текущего открытого проекта ---- */
   clearCurrentProject: () => {
-    set({ currentProject: null, currentProjectArtifacts: [], currentProjectFiles: [] })
+    set({ currentProject: null, currentProjectArtifacts: [], currentProjectFiles: [], currentProjectRefinements: [] })
   },
 
   /* ---- ШАГ 5: refreshAll — последовательно обновляет все данные стора.
@@ -1618,6 +1724,8 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       currentProject: null,
       currentProjectArtifacts: [],
       currentProjectFiles: [],
+      currentProjectRefinements: [],
+      refinementsRemaining: null,
       loading: false,
       error: null,
     })

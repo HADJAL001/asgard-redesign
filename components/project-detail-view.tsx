@@ -22,7 +22,7 @@ import { createElement, useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   ArrowLeft, Hammer, Boxes, TrendingUp, Coins, Loader2, Trash2, Store, Archive, CheckCircle2,
-  Rocket, Download, ExternalLink, AlertTriangle, Code2, Link2, Play,
+  Rocket, Download, ExternalLink, AlertTriangle, Code2, Link2, Play, Wand2, Send, XCircle, Sparkles,
 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { ProjectFileEditor } from "./project-file-editor"
@@ -35,6 +35,12 @@ import { API_BASE_URL } from "@/lib/api-client"
 import { useProjectGenerationStream } from "@/hooks/useProjectGenerationStream"
 
 type ArtifactStatus = "kept" | "listed" | "sold"
+
+/** Цена доработки в кредитах после исчерпания бесплатного гранта.
+ *  Паритет с REFINEMENT_CREDIT_COST в backend/src/lib/refinements.ts. */
+const REFINEMENT_CREDIT_COST = 20
+/** Максимум символов промпта доработки (паритет с валидацией POST /projects/:id/refine). */
+const REFINE_PROMPT_MAX = 2000
 
 function GithubIcon({ size = 16 }: { size?: number }) {
   return (
@@ -63,7 +69,11 @@ export function ProjectDetailView({ projectId }: Props) {
   const {
     currentProject,
     currentProjectArtifacts,
+    currentProjectRefinements,
+    refinementsRemaining,
     fetchProject,
+    fetchProjectRefinements,
+    refineProject,
     clearCurrentProject,
     deleteProject,
     publishProjectToGithub,
@@ -74,11 +84,18 @@ export function ProjectDetailView({ projectId }: Props) {
     error,
   } = useOsgardStore()
 
-  const [tab, setTab] = useState<"artifacts" | "files" | "run">("artifacts")
+  // ?tab=refine (из /projects и хаба «Доработки») открывает вкладку доработки сразу.
+  const initialTab = searchParams.get("tab") === "refine" ? "refine" : "artifacts"
+  const [tab, setTab] = useState<"artifacts" | "refine" | "files" | "run">(initialTab)
   const [publishing, setPublishing] = useState(false)
   const [publishResult, setPublishResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [deploying, setDeploying] = useState(false)
   const [deployRequestError, setDeployRequestError] = useState<string | null>(null)
+
+  // Вкладка «Доработки»: промпт, флаг отправки и инлайн-уведомление (успех/ошибка).
+  const [refinePrompt, setRefinePrompt] = useState("")
+  const [refining, setRefining] = useState(false)
+  const [refineNotice, setRefineNotice] = useState<{ ok: boolean; message: string } | null>(null)
 
   const badgeIconComponent = useMemo(() => badgeIcon(currentProject?.badge ?? ""), [currentProject?.badge])
 
@@ -100,7 +117,15 @@ export function ProjectDetailView({ projectId }: Props) {
   const isGenerating = currentProject?.status === "generating"
   const genStream = useProjectGenerationStream(projectId, isGenerating, () => {
     fetchProject(projectId, { skipAuthRedirect: true })
+    // Доработка завершилась (generating→ready/failed) — обновляем ленту и остаток.
+    fetchProjectRefinements(projectId)
   })
+
+  // Лента доработок + актуальный остаток: тянем при открытии вкладки «Доработки».
+  useEffect(() => {
+    if (tab === "refine") fetchProjectRefinements(projectId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, projectId])
 
   useEffect(() => {
     const connected = searchParams.get("githubPublishConnected")
@@ -158,6 +183,26 @@ export function ProjectDetailView({ projectId }: Props) {
 
   function handleExportZip() {
     window.open(`${API_BASE_URL}/projects/${projectId}/export.zip`, "_blank")
+  }
+
+  async function handleRefine() {
+    const prompt = refinePrompt.trim()
+    if (!prompt || refining) return
+    setRefining(true)
+    setRefineNotice(null)
+    try {
+      const res = await refineProject(projectId, prompt)
+      if (res.success) {
+        setRefinePrompt("")
+        setRefineNotice({ ok: true, message: t("refine.started") })
+        // Проект уже переведён в 'generating' в сторе — SSE-лог подхватит стадии.
+        fetchProjectRefinements(projectId)
+      } else {
+        setRefineNotice({ ok: false, message: res.error || t("refine.busy") })
+      }
+    } finally {
+      setRefining(false)
+    }
   }
 
   if (loading && !currentProject) {
@@ -451,6 +496,18 @@ export function ProjectDetailView({ projectId }: Props) {
             </button>
             <button
               type="button"
+              onClick={() => setTab("refine")}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium transition-colors"
+              style={{
+                color: tab === "refine" ? COLORS.accent : COLORS.label,
+                borderBottom: `2px solid ${tab === "refine" ? COLORS.accent : "transparent"}`,
+              }}
+            >
+              <Wand2 size={14} strokeWidth={1.75} />
+              {t("projectDetail.refineTab")}
+            </button>
+            <button
+              type="button"
               onClick={() => setTab("files")}
               className="inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium transition-colors"
               style={{
@@ -475,7 +532,19 @@ export function ProjectDetailView({ projectId }: Props) {
             </button>
           </div>
 
-          {tab === "run" ? (
+          {tab === "refine" ? (
+            <RefinePanel
+              busy={isGenerating || refining}
+              refining={refining}
+              prompt={refinePrompt}
+              onPrompt={setRefinePrompt}
+              onSubmit={handleRefine}
+              remaining={refinementsRemaining}
+              notice={refineNotice}
+              refinements={currentProjectRefinements}
+              t={t}
+            />
+          ) : tab === "run" ? (
             <div className="mt-6 flex flex-col items-center gap-4 rounded-2xl px-6 py-16 text-center" style={{ backgroundColor: COLORS.card, border: `1px dashed ${COLORS.border}` }}>
               <Play size={32} strokeWidth={1.25} style={{ color: COLORS.accent }} />
               <p className="max-w-[460px] text-[14px]" style={{ color: COLORS.label }}>{t("projectDetail.liveRunHint")}</p>
@@ -577,6 +646,187 @@ export function ProjectDetailView({ projectId }: Props) {
           )}
         </div>
       </main>
+    </div>
+  )
+}
+
+/* ================================================================
+   RefinePanel — премиум-контейнер вкладки «Доработки».
+   ----------------------------------------------------------------
+   Связывает раздел «Проекты» с механикой доработок прямо внутри
+   проекта: поле промпта → POST /projects/:id/refine (store.refineProject),
+   чипы баланса (бесплатные/за кредиты) и живая история правок.
+   Пока идёт генерация (busy) — ввод заблокирован, статус ведёт SSE-лог выше.
+   ================================================================ */
+function RefinePanel({
+  busy,
+  refining,
+  prompt,
+  onPrompt,
+  onSubmit,
+  remaining,
+  notice,
+  refinements,
+  t,
+}: {
+  busy: boolean
+  refining: boolean
+  prompt: string
+  onPrompt: (v: string) => void
+  onSubmit: () => void
+  remaining: number | null
+  notice: { ok: boolean; message: string } | null
+  refinements: Array<{ id: number; prompt: string; status: string; costCredits: number; createdAt: number }>
+  t: (key: string, params?: Record<string, string | number>) => string
+}) {
+  const isFree = remaining === null || remaining > 0
+  const statusMeta: Record<string, { label: string; color: string }> = {
+    generating: { label: t("refine.statusGenerating"), color: COLORS.accent },
+    ready: { label: t("refine.statusReady"), color: COLORS.green },
+    failed: { label: t("refine.statusFailed"), color: COLORS.red },
+  }
+  const canSubmit = prompt.trim().length > 0 && !busy
+
+  return (
+    <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
+      {/* Композер доработки — премиум-панель с золотой окантовкой */}
+      <div className="premium-panel" style={{ padding: 24, position: "relative", overflow: "hidden" }}>
+        <div className="flex items-center gap-3">
+          <span
+            className="flex size-11 items-center justify-center rounded-xl"
+            style={{ border: "1px solid var(--elite-gold, #f5c451)", boxShadow: "0 0 18px rgba(245,196,81,0.18)" }}
+          >
+            <Wand2 size={20} strokeWidth={1.5} style={{ color: "var(--elite-gold, #f5c451)" }} />
+          </span>
+          <div>
+            <h3 className="text-[17px] font-semibold" style={{ color: "#e8eefc" }}>
+              {t("refine.heading")}
+            </h3>
+            <p className="mt-0.5 text-[12.5px]" style={{ color: "#8899bb" }}>
+              {t("refine.subheading")}
+            </p>
+          </div>
+        </div>
+
+        {/* Чипы баланса: сколько бесплатно / далее за кредиты */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {remaining !== null && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium"
+              style={{
+                border: `1px solid ${remaining > 0 ? "var(--elite-gold, #f5c451)" : COLORS.border}`,
+                color: remaining > 0 ? "var(--elite-gold, #f5c451)" : COLORS.label,
+              }}
+            >
+              <Sparkles size={12} strokeWidth={1.75} />
+              {t("refine.freeChip", { count: remaining })}
+            </span>
+          )}
+          {!isFree && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium"
+              style={{ border: `1px solid ${COLORS.border}`, color: "#c8d2ea" }}
+            >
+              <Coins size={12} strokeWidth={1.75} />
+              {t("refine.costChip", { cost: REFINEMENT_CREDIT_COST })}
+            </span>
+          )}
+        </div>
+
+        <textarea
+          value={prompt}
+          onChange={(e) => onPrompt(e.target.value.slice(0, REFINE_PROMPT_MAX))}
+          disabled={busy}
+          rows={5}
+          placeholder={t("refine.placeholder")}
+          className="premium-field mt-4 w-full resize-y rounded-xl px-4 py-3 text-[14px] outline-none disabled:opacity-60"
+          style={{ minHeight: 120 }}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") onSubmit()
+          }}
+        />
+        <div className="mt-1 text-right text-[11px]" style={{ color: COLORS.label }}>
+          {prompt.length}/{REFINE_PROMPT_MAX}
+        </div>
+
+        {busy && !refining && (
+          <p className="mt-2 flex items-center gap-2 text-[12.5px]" style={{ color: COLORS.accent }}>
+            <Loader2 size={13} className="animate-spin" />
+            {t("refine.busy")}
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={!canSubmit}
+          className="btn-premium-gold mt-4 inline-flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {refining ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} strokeWidth={1.75} />}
+          {refining ? t("refine.submitting") : t("refine.submit")}
+        </button>
+
+        {notice && (
+          <div
+            className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2.5 text-[12.5px]"
+            style={{
+              backgroundColor: notice.ok ? "rgba(74,222,128,0.06)" : "rgba(248,113,113,0.06)",
+              border: `1px solid ${notice.ok ? COLORS.green : COLORS.red}`,
+              color: notice.ok ? COLORS.green : COLORS.red,
+            }}
+          >
+            {notice.ok ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+            {notice.message}
+          </div>
+        )}
+      </div>
+
+      {/* История доработок — премиум-панель со списком правок */}
+      <div className="premium-panel" style={{ padding: 24 }}>
+        <h3 className="text-[14px] font-semibold" style={{ color: "#e8eefc" }}>
+          {t("refine.historyTitle")}
+        </h3>
+        {refinements.length === 0 ? (
+          <p className="mt-4 text-[13px]" style={{ color: "#8899bb", lineHeight: 1.6 }}>
+            {t("refine.historyEmpty")}
+          </p>
+        ) : (
+          <ul className="mt-4 space-y-3">
+            {refinements.map((r) => {
+              const sm = statusMeta[r.status] ?? { label: r.status, color: COLORS.label }
+              return (
+                <li
+                  key={r.id}
+                  className="rounded-xl px-3.5 py-3"
+                  style={{ backgroundColor: "rgba(255,255,255,0.02)", border: `1px solid ${COLORS.border}` }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className="inline-flex items-center gap-1.5 text-[11px] font-medium"
+                      style={{ color: sm.color }}
+                    >
+                      {r.status === "generating" ? (
+                        <Loader2 size={11} className="animate-spin" />
+                      ) : r.status === "ready" ? (
+                        <CheckCircle2 size={11} />
+                      ) : (
+                        <XCircle size={11} />
+                      )}
+                      {sm.label}
+                    </span>
+                    <span className="text-[11px]" style={{ color: r.costCredits > 0 ? "#c8d2ea" : "var(--elite-gold, #f5c451)" }}>
+                      {r.costCredits > 0 ? `${r.costCredits} cr` : t("refine.free")}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 line-clamp-3 text-[12.5px]" style={{ color: "#c8d2ea", lineHeight: 1.5 }}>
+                    {r.prompt}
+                  </p>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   )
 }
