@@ -39,8 +39,8 @@ export function BuyTcView() {
 
   return (
     <div
-      className="min-h-screen font-sans"
-      style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #160B24 100%)", color: COLORS.text }}
+      className="eg-page eg-page--violet min-h-screen font-sans"
+      style={{ color: COLORS.text }}
     >
       <Navbar />
 
@@ -61,9 +61,8 @@ export function BuyTcView() {
                 setSelected(p)
                 setDone(false)
               }}
-              className="group relative rounded-2xl p-6 text-left transition-colors"
+              className="eg-surface premium-card group relative rounded-2xl p-6 text-left transition-colors"
               style={{
-                backgroundColor: COLORS.card,
                 border: `1px solid ${p.popular ? "#F1C40F" : COLORS.border}`,
               }}
               onMouseEnter={(e) => {
@@ -145,7 +144,7 @@ export function BuyTcView() {
               </div>
             ) : (
               <>
-                <div className="mt-5 rounded-lg p-4" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}` }}>
+                <div className="eg-inset mt-5 rounded-lg p-4">
                   <div className="flex items-center justify-between text-[14px]">
                     <span style={{ color: COLORS.label }}>TimeCoin</span>
                     <span>{formatTokens(selected.tc)} ∞</span>

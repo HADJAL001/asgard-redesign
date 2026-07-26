@@ -154,7 +154,7 @@ export function MarketplaceView() {
   const handleBuy = useCallback((l: MarketListing) => setBuying(l), [])
 
   return (
-    <div className="relative overflow-hidden min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #160B24 100%)", color: COLORS.text }}>
+    <div className="eg-page eg-page--violet relative overflow-hidden min-h-screen font-sans" style={{ color: COLORS.text }}>
       <PremiumBackground variant="market" />
       <Navbar />
       <SectionHelp
@@ -211,7 +211,7 @@ export function MarketplaceView() {
             { n: shown.length, l: t("marketplace.foundByFilters"), Icon: TrendingUp },
             { n: volume.toLocaleString("ru-RU"), l: t("marketplace.totalVolume"), Icon: Coins },
           ].map((m) => (
-            <div key={m.l} className="rounded-xl p-5" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+            <div key={m.l} className="eg-surface premium-card rounded-xl p-5">
               <m.Icon size={16} strokeWidth={1.5} style={{ color: COLORS.label }} />
               <p className="mt-2 text-[24px] font-medium">{m.n}</p>
               <p className="mt-1 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>{m.l}</p>
@@ -368,8 +368,8 @@ const MarketCard = memo(function MarketCard({
 
   return (
     <article
-      className="flex flex-col rounded-xl p-5 transition-all duration-200"
-      style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
+      className="eg-surface flex flex-col rounded-xl p-5 transition-all duration-200"
+      style={{ border: `1px solid ${COLORS.border}` }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = rarity.color
         e.currentTarget.style.transform = "translateY(-2px)"

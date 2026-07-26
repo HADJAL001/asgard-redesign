@@ -109,7 +109,7 @@ export function ArtifactsView() {
   }
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #1A1A1A 100%)", color: COLORS.text }}>
+    <div className="eg-page eg-page--steel min-h-screen font-sans" style={{ color: COLORS.text }}>
       <Navbar />
       <FusionModal open={fusionOpen} onClose={() => setFusionOpen(false)} />
       <ArtifactCertificate
@@ -301,8 +301,8 @@ function ForgeLoadoutPanel({
           return (
             <div
               key={slot.id}
-              className="flex items-center justify-between gap-2 rounded-xl px-3 py-3"
-              style={{ border: `1px solid ${rarity.color}66`, backgroundColor: COLORS.card }}
+              className="eg-surface flex items-center justify-between gap-2 rounded-xl px-3 py-3"
+              style={{ border: `1px solid ${rarity.color}66` }}
             >
               <div className="flex min-w-0 items-center gap-2.5">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg" style={{ border: `1px solid ${rarity.color}` }}>
@@ -397,9 +397,8 @@ function ArtifactCard({
 
   return (
     <article
-      className="flex flex-col rounded-xl p-5 transition-all duration-200"
+      className="eg-surface flex flex-col rounded-xl p-5 transition-all duration-200"
       style={{
-        backgroundColor: COLORS.card,
         border: `1px solid ${equipped ? FORGE_GOLD : COLORS.border}`,
         boxShadow: equipped ? `0 0 0 1px ${FORGE_GOLD}22, 0 8px 28px rgba(212,175,55,0.06)` : "none",
       }}

@@ -129,7 +129,7 @@ export function AuctionsView() {
   const auctionable = useMemo(() => artifacts.filter((a) => a.status !== "listed"), [artifacts])
 
   return (
-    <div className="relative min-h-screen overflow-hidden font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #160B24 100%)", color: COLORS.text }}>
+    <div className="eg-page eg-page--violet relative min-h-screen overflow-hidden font-sans" style={{ color: COLORS.text }}>
       <PremiumBackground variant="market" />
       <Navbar />
 
@@ -170,7 +170,7 @@ export function AuctionsView() {
             { n: metrics.soon, l: "Завершаются в течение часа", Icon: Clock },
             { n: metrics.leading, l: "Вы лидируете", Icon: Crown },
           ].map((m) => (
-            <div key={m.l} className="rounded-xl p-5" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+            <div key={m.l} className="eg-surface premium-card rounded-xl p-5">
               <m.Icon size={16} strokeWidth={1.5} style={{ color: COLORS.label }} />
               <p className="mt-2 text-[24px] font-medium">{m.n}</p>
               <p className="mt-1 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>{m.l}</p>
@@ -184,7 +184,7 @@ export function AuctionsView() {
             <Loader2 size={18} className="animate-spin" /> Загрузка аукционов…
           </div>
         ) : auctions.length === 0 ? (
-          <div className="mt-10 rounded-2xl px-6 py-16 text-center" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+          <div className="eg-surface mt-10 rounded-2xl px-6 py-16 text-center">
             <Gavel size={32} strokeWidth={1.25} style={{ color: COLORS.label }} className="mx-auto" />
             <p className="mt-4 text-[16px]">Сейчас нет активных аукционов</p>
             <p className="mt-1 text-[13px]" style={{ color: COLORS.label }}>Выставьте свой артефакт первым — задайте старт и длительность торгов.</p>
@@ -236,9 +236,8 @@ function AuctionCard({ a, now, onBid }: { a: Auction; now: number; onBid: () => 
 
   return (
     <div
-      className="flex flex-col overflow-hidden rounded-2xl p-5"
+      className="eg-surface flex flex-col overflow-hidden rounded-2xl p-5"
       style={{
-        backgroundColor: COLORS.card,
         border: `1px solid ${a.isTopBidder ? COLORS.accent : COLORS.border}`,
         boxShadow: `inset 0 0 32px ${rarity.color}0d`,
       }}

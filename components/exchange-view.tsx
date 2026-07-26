@@ -66,7 +66,7 @@ function ChartTooltip({ active, payload, currency }: Partial<TooltipContentProps
   const sym = CURRENCIES[currency].symbol
   const fmt = (v: number) => `${formatCurrencyAmount(currency, creditsTo(v, currency))} ${sym}`
   return (
-    <div className="rounded-lg px-3 py-2 text-[12px]" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${BORDER}` }}>
+    <div className="eg-inset rounded-lg px-3 py-2 text-[12px]">
       <p className="mb-1 font-medium" style={{ color: "#FFFFFF" }}>
         {d.t}
       </p>
@@ -131,7 +131,7 @@ export function ExchangeView() {
   }
 
   return (
-    <div className="relative overflow-hidden min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0D0D1A 100%)", color: "#FFFFFF" }}>
+    <div className="eg-page relative overflow-hidden min-h-screen font-sans" style={{ color: "#FFFFFF" }}>
       <PremiumBackground variant="coins" />
       <Navbar />
       <SectionHelp
