@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation"
 import { Plus, GitBranch, Play, Pencil, Trash2, Loader2 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { SnakeBackground } from "./snake-bg"
+import { WorkshopBackdrop } from "./workshop-backdrop"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { orchestratorApi } from "@/lib/orchestrator/api"
@@ -62,6 +63,7 @@ export function OrchestratorView() {
 
   return (
     <div className="eg-page relative overflow-hidden min-h-screen font-sans" style={{ color: COLORS.text }}>
+      <WorkshopBackdrop />
       <SnakeBackground />
       <Navbar />
 
