@@ -186,6 +186,78 @@ const FORGE_CURRENCIES: Record<string, { cost: number; statMult: number }> = {
   timecoin: { cost: FORGE_COST_TC, statMult: 1.0 },
 }
 
+/** Ищет проект по id+владельцу и собирает из него честные сигналы Proof-of-Craft.
+ *  Единый источник для реальной ковки (`POST /forge`) и превью (`GET /forge-preview`) —
+ *  чтобы предсказанная редкость не могла разойтись с фактической. Бросает
+ *  { status, error } (не Error), если projectId задан, но проект не найден/чужой. */
+function resolveCraftSignals(
+  userId: number,
+  projectId: unknown,
+): {
+  resolvedProjectId: number | null
+  craftProject: any
+  fileCount: number
+  craftBreakdown: ReturnType<typeof explainCraftScore>
+} {
+  let resolvedProjectId: number | null = null
+  let craftProject: any = null
+  if (projectId !== undefined && projectId !== null && projectId !== "") {
+    const project: any = db
+      .prepare(
+        `SELECT id, generation_depth, ai_source, template_id FROM projects WHERE id = ? AND user_id = ?`,
+      )
+      .get(Number(projectId), userId)
+    if (!project) {
+      throw { status: 404, error: "Проект не найден" }
+    }
+    resolvedProjectId = project.id
+    craftProject = project
+  }
+
+  const fileCount = resolvedProjectId
+    ? ((db.prepare(`SELECT COUNT(*) as c FROM project_files WHERE project_id = ?`).get(resolvedProjectId) as any)?.c ?? 0)
+    : 0
+  const craftBreakdown = explainCraftScore({
+    hasProject: !!resolvedProjectId,
+    depth: (craftProject?.generation_depth as GenerationDepth) ?? null,
+    fileCount,
+    aiSource: craftProject?.ai_source ?? null,
+    templateId: craftProject?.template_id ?? null,
+  })
+
+  return { resolvedProjectId, craftProject, fileCount, craftBreakdown }
+}
+
+/* ---------------- GET /artifacts/forge-preview ----------------
+   Честный предпоказ редкости ДО коммита ковки. Ручная ковка полностью
+   детерминирована (Proof-of-Craft), поэтому предсказание не обманывает
+   игрока — с теми же projectId/currency результат /forge будет тем же.
+   Только чтение, ничего не списывает и не создаёт. */
+router.get("/forge-preview", requireAuth, (req: AuthRequest, res) => {
+  const { projectId, currency } = req.query as { projectId?: string; currency?: string }
+
+  let resolved: ReturnType<typeof resolveCraftSignals>
+  try {
+    resolved = resolveCraftSignals(req.user!.userId, projectId)
+  } catch (e: any) {
+    if (e && typeof e.status === "number") return res.status(e.status).json({ error: e.error })
+    throw e
+  }
+
+  const forgeCurrency = typeof currency === "string" && FORGE_CURRENCIES[currency] ? currency : "timecoin"
+  const { statMult } = FORGE_CURRENCIES[forgeCurrency]
+
+  const { craftBreakdown } = resolved
+  const predictedRarity = deriveCraftedStats(craftBreakdown.craftScore, statMult, "preview").rarity
+
+  res.json({
+    hasProject: resolved.resolvedProjectId !== null,
+    craftScore: craftBreakdown.craftScore,
+    factors: craftBreakdown.factors,
+    predictedRarity,
+  })
+})
+
 /* ---------------- POST /artifacts/forge ---------------- */
 router.post("/forge", requireAuth, (req: AuthRequest, res) => {
   let { name, type, projectId, currency } = req.body || {}
@@ -203,17 +275,17 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
 
   let resolvedProjectId: number | null = null
   let craftProject: any = null
-  if (projectId !== undefined && projectId !== null && projectId !== "") {
-    const project: any = db
-      .prepare(
-        `SELECT id, generation_depth, ai_source, template_id FROM projects WHERE id = ? AND user_id = ?`,
-      )
-      .get(Number(projectId), req.user!.userId)
-    if (!project) {
-      return res.status(404).json({ error: "Проект не найден" })
-    }
-    resolvedProjectId = project.id
-    craftProject = project
+  let fileCount = 0
+  let craftBreakdown: ReturnType<typeof explainCraftScore>
+  try {
+    const resolved = resolveCraftSignals(req.user!.userId, projectId)
+    resolvedProjectId = resolved.resolvedProjectId
+    craftProject = resolved.craftProject
+    fileCount = resolved.fileCount
+    craftBreakdown = resolved.craftBreakdown
+  } catch (e: any) {
+    if (e && typeof e.status === "number") return res.status(e.status).json({ error: e.error })
+    throw e
   }
 
   const forgeCurrency = typeof currency === "string" && FORGE_CURRENCIES[currency] ? currency : "timecoin"
@@ -237,17 +309,10 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
   /* Proof-of-Craft: статы выводятся детерминированно из реальной субстанции
      проекта (глубина, число файлов, настоящая AI-генерация), а не ГСЧ.
      Куёшь лучшее приложение → лучший артефакт. См. lib/proof-of-craft.ts.
-     Множитель валюты сохраняется поверх (слабее монета → слабее артефакт). */
-  const fileCount = resolvedProjectId
-    ? ((db.prepare(`SELECT COUNT(*) as c FROM project_files WHERE project_id = ?`).get(resolvedProjectId) as any)?.c ?? 0)
-    : 0
-  const craftBreakdown = explainCraftScore({
-    hasProject: !!resolvedProjectId,
-    depth: (craftProject?.generation_depth as GenerationDepth) ?? null,
-    fileCount,
-    aiSource: craftProject?.ai_source ?? null,
-    templateId: craftProject?.template_id ?? null,
-  })
+     Множитель валюты сохраняется поверх (слабее монета → слабее артефакт).
+     Сигналы собраны выше через resolveCraftSignals — тот же хелпер, что и
+     у /forge-preview, поэтому предсказанная редкость не может разойтись
+     с фактической. */
   const craftScore = craftBreakdown.craftScore
   const crafted = deriveCraftedStats(craftScore, statMult, `${resolvedProjectId ?? "solo"}:${name}`)
   const { power, defense, magic, speed, rarity } = crafted
