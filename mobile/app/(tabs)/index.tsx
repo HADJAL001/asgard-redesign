@@ -164,7 +164,7 @@ export default function CreateScreen() {
           handleGenerate();
         }}
         title="Начать ковку?"
-        message={`Спишет ${AI_GENERATE_COST_TC} ∞ TimeCoin с баланса. Валюта не возвращается, даже если результат не понравится.`}
+        message={`Спишет ${AI_GENERATE_COST_TC} ∞ TimeCoin с баланса. Гарантия: деньги списываются только вместе с созданием артефакта — оплата без результата невозможна. Валюта не возвращается, если результат не понравится.`}
         confirmLabel={`Потратить ${AI_GENERATE_COST_TC} TimeCoin`}
       />
     </SafeAreaView>
