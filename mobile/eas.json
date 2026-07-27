@@ -18,14 +18,16 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging-api.osgard.example.com"
+        "EXPO_PUBLIC_API_URL": "https://staging-api.osgard.example.com",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "production": {
       "channel": "production",
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.osgard.example.com"
+        "EXPO_PUBLIC_API_URL": "https://api.osgard.example.com",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     }
   },
