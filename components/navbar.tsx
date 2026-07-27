@@ -43,6 +43,7 @@ import { useAuth } from "@/lib/auth-store"
 import { CURRENCIES, CURRENCY_ORDER, formatCurrencyAmount } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { LOCALES, LOCALE_SHORT, LOCALE_LABELS, type Locale } from "@/lib/i18n"
+import { useAdaptiveLabel } from "@/lib/use-adaptive-label"
 import { useState, useRef, useEffect } from "react"
 import { Globe } from "lucide-react"
 
@@ -357,6 +358,8 @@ export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth()
   const { unreadCount, fetchUnreadCount } = useNotificationsStore()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const showNotificationsLabel = useAdaptiveLabel("nav-notifications")
+  const showMessagesLabel = useAdaptiveLabel("nav-messages")
 
   // Real-time push уведомлений (SSE). Опрос ниже остаётся резервом на случай обрыва потока.
   useNotificationStream(isAuthenticated)
@@ -512,21 +515,31 @@ export function Navbar() {
           href="/notifications"
           aria-label={t("nav.notifications")}
           aria-current={isActive("/notifications") ? "page" : undefined}
-          className="relative transition-colors hover:text-white"
+          className="relative flex items-center gap-1.5 transition-colors hover:text-white"
           style={{ color: isActive("/notifications") ? "var(--color-gold)" : "#6A6A8A" }}
         >
           <Bell size={18} strokeWidth={1.5} aria-hidden="true" />
           <Badge count={isAuthenticated ? unreadCount : 0} />
+          {showNotificationsLabel && (
+            <span className="text-[12px] transition-opacity" aria-hidden="true">
+              {t("nav.notifications")}
+            </span>
+          )}
         </Link>
         <Link
           href="/messages"
           aria-label={t("nav.messages")}
           aria-current={isActive("/messages") ? "page" : undefined}
-          className="relative transition-colors hover:text-white"
+          className="relative flex items-center gap-1.5 transition-colors hover:text-white"
           style={{ color: isActive("/messages") ? "var(--color-gold)" : "#6A6A8A" }}
         >
           <Mail size={18} strokeWidth={1.5} aria-hidden="true" />
           <Badge count={0} />
+          {showMessagesLabel && (
+            <span className="text-[12px] transition-opacity" aria-hidden="true">
+              {t("nav.messages")}
+            </span>
+          )}
         </Link>
 
         <ProfileMenu

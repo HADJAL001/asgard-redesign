@@ -474,7 +474,14 @@ function BuyModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-7 py-5" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-          <h2 className="text-[18px] font-semibold">{done ? t("marketplace.purchaseComplete") : t("marketplace.purchaseTitle")}</h2>
+          <div className="flex items-center gap-3">
+            {!done && (
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full border" style={{ borderColor: COLORS.amber }}>
+                <Coins size={16} color={COLORS.amber} strokeWidth={1.75} />
+              </span>
+            )}
+            <h2 className="text-[18px] font-semibold">{done ? t("marketplace.purchaseComplete") : t("marketplace.purchaseTitle")}</h2>
+          </div>
           <button type="button" aria-label={t("marketplace.close")} onClick={onClose} style={{ color: COLORS.label }}>
             <X size={18} strokeWidth={1.75} />
           </button>

@@ -26,7 +26,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowRight, Plus, Info, DollarSign, Loader2, ArrowDownToLine, ArrowUpFromLine, Send } from "lucide-react"
+import { ArrowRight, Plus, Info, DollarSign, Loader2, ArrowDownToLine, ArrowUpFromLine, Send, AlertTriangle, Coins } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useOsgardStore, type CurrencyKey } from "@/lib/store/osgard-store"
 import { COLORS, CURRENCIES, CURRENCY_ORDER, formatTokens } from "@/lib/economy"
@@ -560,9 +560,11 @@ export function WalletView() {
             className="w-full max-w-md rounded-2xl p-6"
             style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
           >
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-[17px] font-semibold">
-                <ArrowDownToLine size={18} strokeWidth={1.75} style={{ color: "#F1C40F" }} />
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <h2 className="flex items-center gap-3 text-[17px] font-semibold">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full border" style={{ borderColor: COLORS.red }}>
+                  <AlertTriangle size={16} color={COLORS.red} strokeWidth={1.75} />
+                </span>
                 Вывести TC
               </h2>
               <button
@@ -638,7 +640,7 @@ export function WalletView() {
               onClick={doWithdraw}
               disabled={withdrawBusy}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-              style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
+              style={{ backgroundColor: COLORS.red, color: "#FFFFFF" }}
             >
               {withdrawBusy && <Loader2 size={16} className="animate-spin" />}
               Отправить
@@ -658,9 +660,11 @@ export function WalletView() {
             className="w-full max-w-md rounded-2xl p-6"
             style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
           >
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-[17px] font-semibold">
-                <ArrowUpFromLine size={18} strokeWidth={1.75} style={{ color: "#F1C40F" }} />
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <h2 className="flex items-center gap-3 text-[17px] font-semibold">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full border" style={{ borderColor: COLORS.amber }}>
+                  <Coins size={16} color={COLORS.amber} strokeWidth={1.75} />
+                </span>
                 Пополнить из TC
               </h2>
               <button
