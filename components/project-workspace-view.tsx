@@ -37,6 +37,7 @@ import {
   XCircle, Download, PanelsTopLeft, Coins, ShieldCheck, Wrench, ShieldAlert,
 } from "lucide-react"
 import { Navbar } from "./navbar"
+import { WorkshopBackdrop } from "./workshop-backdrop"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
@@ -524,11 +525,12 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   const canRun = currentProjectFiles.length > 0 && isolated !== false
 
   return (
-    <div className="eg-page flex min-h-screen flex-col font-sans" style={{ color: COLORS.text }}>
+    <div className="eg-page relative flex min-h-screen flex-col font-sans" style={{ color: COLORS.text }}>
+      <WorkshopBackdrop />
       <Navbar />
 
       {/* ---- Шапка мастерской ---- */}
-      <header className="mx-auto w-full max-w-[1680px] px-4 pt-5 md:px-8">
+      <header className="relative z-10 mx-auto w-full max-w-[1680px] px-4 pt-5 md:px-8">
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
@@ -812,7 +814,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
       </header>
 
       {/* ---- Рабочая область ---- */}
-      <main className="mx-auto grid w-full max-w-[1680px] flex-1 grid-cols-1 gap-4 px-4 py-5 md:px-8 lg:grid-cols-[210px_minmax(0,1fr)_minmax(0,0.9fr)]">
+      <main className="relative z-10 mx-auto grid w-full max-w-[1680px] flex-1 grid-cols-1 gap-4 px-4 py-5 md:px-8 lg:grid-cols-[210px_minmax(0,1fr)_minmax(0,0.9fr)]">
         {/* Файлы */}
         <aside className={`eg-surface overflow-hidden rounded-2xl ${pane === "code" ? "" : "hidden lg:block"}`}>
           <div className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLORS.label, borderBottom: `1px solid ${COLORS.border}` }}>

@@ -186,7 +186,7 @@ function ProfileMenu({
           className="size-8 rounded-full object-cover"
           style={{ border: "1px solid #2A2A3E" }}
         />
-        <span className="hidden text-[14px] sm:block" style={{ color: "rgba(255,255,255,0.8)" }}>
+        <span className="hidden text-[14px] xl:block" style={{ color: "rgba(255,255,255,0.8)" }}>
           {t("nav.guest")}
         </span>
       </Link>
@@ -211,7 +211,7 @@ function ProfileMenu({
           style={{ border: `1px solid ${isProfileActive || open ? "var(--color-gold)" : "#2A2A3E"}` }}
         />
         <span
-          className="hidden text-[14px] sm:block"
+          className="hidden text-[14px] xl:block"
           style={{ color: isProfileActive || open ? "var(--color-gold)" : "rgba(255,255,255,0.8)" }}
         >
           {displayName}
@@ -417,30 +417,44 @@ export function Navbar() {
           (core nav уже видна по md:, а правый кластер ещё не сжал себя валютами
           под lg:). Сам underline-индикатор активного пункта остаётся видимым —
           overflow здесь не трогаем. */}
-      <nav className="ml-10 hidden min-w-0 items-center gap-7 md:flex" aria-label={t("nav.mainNav")}>
+      <nav
+        className="ml-10 hidden min-w-0 items-center gap-7 overflow-x-auto overflow-y-hidden md:flex [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        aria-label={t("nav.mainNav")}
+      >
         {coreItems.map(({ key, href, Icon }) => {
           const active = isActive(href)
           return (
             <Link
               key={key}
               href={href}
+              aria-label={t(key)}
               aria-current={active ? "page" : undefined}
-              className="group relative flex items-center py-1 text-[14px] font-normal transition-all duration-150 hover:-translate-y-px"
+              className="group relative flex shrink-0 items-center whitespace-nowrap pb-4 pt-1 text-[14px] font-normal transition-all duration-150 hover:-translate-y-px"
               style={{ color: active ? "var(--color-gold)" : "rgba(255,255,255,0.6)" }}
             >
               <Icon
                 size={16}
                 strokeWidth={1.5}
-                className="mr-2 transition-colors group-hover:opacity-100"
+                className="transition-colors group-hover:opacity-100 xl:mr-2"
                 style={{ color: active ? "var(--color-gold)" : "#6A6A8A" }}
                 aria-hidden="true"
               />
-              <span className="group-hover:opacity-100" style={{ opacity: active ? 1 : undefined }}>
+              {/* Текст пункта появляется только с xl (1280px). На lg (1024px)
+                  текст + имя профиля появляются ОДНОВРЕМЕННО (оба завязаны на
+                  один и тот же брейкпоинт), и суммарная ширина в моменте
+                  превышает доступное место — измерено: nav.scrollWidth=461px
+                  при clientWidth=369px на 1024px (скрытый скроллбар молча
+                  обрезал "Оркестратор" без видимого наложения). На md–lg
+                  остаются только иконки (имя доступно через aria-label). */}
+              <span className="hidden group-hover:opacity-100 xl:inline" style={{ opacity: active ? 1 : undefined }}>
                 {t(key)}
               </span>
-              {/* underline = width of the item content */}
+              {/* underline = width of the item content. bottom-0 (not a negative
+                  offset) keeps it inside the link's own box so nav's
+                  overflow-x-auto safety net (which forces overflow-y to clip
+                  too) never cuts it off. */}
               <span
-                className="absolute -bottom-[21px] left-0 h-0.5 w-full transition-opacity"
+                className="absolute bottom-0 left-0 h-0.5 w-full transition-opacity"
                 style={{ backgroundColor: "var(--color-gold)", opacity: active ? 1 : 0 }}
                 aria-hidden="true"
               />
@@ -465,10 +479,14 @@ export function Navbar() {
           style={{ color: "#6A6A8A", border: "1px solid #2A2A3E" }}
         >
           <Menu size={16} strokeWidth={1.75} aria-hidden="true" />
-          {/* Подпись появляется только вместе с валютными балансами (lg:) — на
-              768–1023px core nav уже занимает место, и текст здесь был лишним
-              грузом, из-за которого «Ещё»/«Справка» теснились друг к другу. */}
-          <span className="hidden lg:inline">{t("nav.more")}</span>
+          {/* Текст и валютные балансы вместе физически не влезают рядом с
+              полным core-nav (4 пункта) на самой границе 2xl (1536px) — измерено:
+              nav.scrollWidth=461px против clientWidth=430px ровно на 1536px
+              ("Оркестратор" молча обрезался до "Оркестр" скрытым скроллбаром).
+              На 1920px запас уже есть (461==461), поэтому вместо 2xl используем
+              кастомный порог с запасом в ~64px. На md–1600 остаётся иконка +
+              aria-label. */}
+          <span className="hidden min-[1600px]:inline">{t("nav.more")}</span>
         </button>
         {/* Справка — что за платформа, кому нужна, инвестиции (заметный акцент) */}
         <Link
@@ -479,10 +497,10 @@ export function Navbar() {
           style={{ color: "var(--color-gold)", border: "1px solid var(--color-gold)" }}
         >
           <HelpCircle size={16} strokeWidth={1.9} aria-hidden="true" />
-          <span className="hidden lg:inline">{t("nav.about")}</span>
+          <span className="hidden min-[1600px]:inline">{t("nav.about")}</span>
         </Link>
         <div
-          className="hidden items-center gap-1 rounded-full p-1 lg:flex"
+          className="hidden items-center gap-1 rounded-full p-1 min-[1600px]:flex"
           style={{ border: `1px solid ${isActive("/wallet") ? "var(--color-gold)" : "#2A2A3E"}` }}
           role="group"
           aria-label={t("nav.currencyBalances")}

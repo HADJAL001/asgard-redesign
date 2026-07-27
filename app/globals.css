@@ -866,6 +866,44 @@ svg { width: 1rem; height: 1rem; flex: none; }
   .ambient-aurora, .ambient-stars { animation: none; }
 }
 
+/* ================================================================
+   WorkshopBackdrop — фон «мастерская ИИ» на Оркестраторе и в Мастерской
+   проекта (см. components/workshop-backdrop.tsx). Локальный слой внутри
+   `.eg-page` (position: relative), под <main class="relative z-10">.
+   ================================================================ */
+.workshop-backdrop {
+  position: absolute; inset: 0; z-index: 0; overflow: hidden;
+  pointer-events: none; background: #05060a;
+}
+.workshop-backdrop-image {
+  position: absolute; inset: -3%;
+  background-image: url("/backgrounds/workshop.webp");
+  background-size: cover; background-position: center;
+  filter: saturate(1.05) brightness(0.9);
+  animation: workshop-ken-burns 75s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.workshop-backdrop-grain {
+  position: absolute; inset: 0;
+  background-image: var(--grain); background-size: 120px 120px;
+  opacity: 0.05; mix-blend-mode: overlay;
+}
+.workshop-backdrop-vignette {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, transparent 34%, rgb(3 3 8 / 0.42) 76%, rgb(3 3 8 / 0.78) 100%);
+}
+.workshop-backdrop-fade {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgb(4 5 9 / 0.55) 0%, transparent 22%, transparent 62%, rgb(4 5 9 / 0.88) 100%);
+}
+@keyframes workshop-ken-burns {
+  0%   { transform: scale(1) translate3d(0, 0, 0); }
+  100% { transform: scale(1.08) translate3d(-1.2%, -1%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workshop-backdrop-image { animation: none; }
+}
+
 /* ===== Premium surface utilities (Claude A) ========================
    Переиспользуемый «словарь дороговизны» для конверсионных экранов
    (вход/регистрация) и панелей. Строятся на существующих токенах
@@ -1104,13 +1142,35 @@ svg { width: 1rem; height: 1rem; flex: none; }
    только transform/opacity; `prefers-reduced-motion` гасит блик. Все токены
    существующие (--color-gold-rgb / --eg-* / --ease-premium / --grain / --dur-hover). */
 
-/* --- Сцена: один тёплый ореол вместо золото-бирюзовой пары клякс ----------- */
+/* --- Сцена: космический кадр (SD1.5, work/ai-media) + тёплый ореол ---------
+   Кинематография поверх фото — тот же язык, что у .workshop-backdrop:
+   Ken Burns (медленный zoom), зерно --grain, затемнение под форму входа.
+   `.auth-vault` (непрозрачность 0.88-0.94) и так почти скрывает фон под
+   собой — по краям сцены остаётся видимым роскошный космос. */
 .auth-stage { position: relative; }
 .auth-stage::before {
+  content: ""; position: absolute; inset: -3%; pointer-events: none; z-index: 0;
+  background-image:
+    radial-gradient(46% 34% at 50% 30%, rgb(var(--color-gold-rgb) / 0.10), transparent 68%),
+    radial-gradient(70% 50% at 50% 120%, rgb(8 10 18 / 0.75), transparent 70%),
+    url("/backgrounds/cosmic-login.webp");
+  background-size: auto, auto, cover;
+  background-position: center;
+  filter: saturate(1.1) brightness(0.85);
+  animation: auth-stage-ken-burns 80s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.auth-stage::after {
   content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  background:
-    radial-gradient(46% 34% at 50% 30%, rgb(var(--color-gold-rgb) / 0.075), transparent 68%),
-    radial-gradient(70% 50% at 50% 120%, rgb(8 10 18 / 0.75), transparent 70%);
+  background-image: var(--grain); background-size: 120px 120px;
+  opacity: 0.045; mix-blend-mode: overlay;
+}
+@keyframes auth-stage-ken-burns {
+  0%   { transform: scale(1) translate3d(0, 0, 0); }
+  100% { transform: scale(1.07) translate3d(-1%, -0.8%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-stage::before { animation: none; }
 }
 
 /* --- Оправа: сам контейнер ------------------------------------------------- */
