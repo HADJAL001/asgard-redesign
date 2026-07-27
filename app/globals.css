@@ -977,6 +977,36 @@ svg { width: 1rem; height: 1rem; flex: none; }
   .btn-premium-gold:hover:not(:disabled) { transform: none; }
 }
 
+/* Второстепенное действие рядом с .btn-premium-gold (паспорт, ZIP, «в новой
+   вкладке», «проверить») — стеклянная рамка, БЕЗ золотой заливки. Золото
+   остаётся сигналом «это главное действие»; если покрасить в золото всё —
+   сигнал обесценится (тот же принцип, что уже соблюдён в .premium-panel). */
+.eg-btn-ghost {
+  background: rgb(255 255 255 / 3%);
+  border: 1px solid var(--eg-glass-border);
+  color: #C9C7C2;
+  transition: border-color var(--dur-hover) var(--ease-premium),
+              background var(--dur-hover) var(--ease-premium),
+              color var(--dur-hover) var(--ease-premium);
+}
+.eg-btn-ghost:hover:not(:disabled) {
+  background: rgb(255 255 255 / 6%);
+  border-color: rgb(var(--color-gold-rgb) / 0.35);
+  color: #E5E4E2;
+}
+
+/* Частое действие (например «Сохранить») — плоская золотая заливка без
+   3-стопового CTA-градиента .btn-premium-gold: то же золото, но спокойнее,
+   чтобы не спорить визуально с редким/приоритетным действием на экране. */
+.eg-btn-solid-gold {
+  background: var(--eg-gold-2);
+  color: #1a1405;
+  border: 1px solid rgb(var(--color-gold-rgb) / 0.5);
+  transition: filter var(--dur-hover) var(--ease-premium);
+}
+.eg-btn-solid-gold:hover:not(:disabled) { filter: brightness(1.08); }
+.eg-btn-solid-gold:disabled { opacity: 0.45; cursor: not-allowed; }
+
 /* ===== OSGARD brand mark (∞) — Claude B ============================
    Премиальный фирменный знак: гравированный золотой лемнискат +
    бегущий световой филамент. Лого-использование (вход/регистрация/
