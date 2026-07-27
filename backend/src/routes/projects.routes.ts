@@ -135,6 +135,7 @@ router.get("/:id", requireAuth, (req: AuthRequest, res) => {
       createdAt: project.created_at,
       deployStatus: project.deploy_status,
       deployError: project.deploy_error,
+      deployErrorCode: project.deploy_error_code,
       liveUrl: project.live_url,
     },
     artifacts,
@@ -837,6 +838,13 @@ router.post("/:id/deploy-netlify", requireAuth, asyncHandler(async (req: AuthReq
     return res.status(400).json({ error: "Проект ещё не готов к деплою" })
   }
   if (!isNetlifyConfigured()) {
+    /* Персистим тот же код ошибки, что и async-джоба (netlify-deploy.ts) пишет для
+       этого случая — иначе конвейерная карточка и disable-логика кнопки деплоя
+       (project-workspace-view.tsx) остаются в состоянии "ещё не публиковалось",
+       ведь runNetlifyDeployJob здесь даже не вызывается. */
+    db.prepare(
+      `UPDATE projects SET deploy_status = 'failed', deploy_error = ?, deploy_error_code = 'config_missing' WHERE id = ?`,
+    ).run("Деплой не сконфигурирован на сервере (NETLIFY_AUTH_TOKEN)", id)
     return res.status(400).json({ error: "Деплой не сконфигурирован на сервере (NETLIFY_AUTH_TOKEN)" })
   }
   if (project.deploy_status === "deploying") {

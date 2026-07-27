@@ -964,6 +964,36 @@
     "stepDeployRunning": "publishing",
     "stepDeployDone": "published",
     "stepDeployIdle": "not published yet",
+    "stepDeployFailed": {
+      "config_missing": "server isn't configured for deploys — tell the founder",
+      "no_files": "no files to publish",
+      "build_failed": "the app build failed",
+      "network": "hosting connection failed, you can retry",
+      "unknown": "deploy failed"
+    },
+    "deployRetryBlocked": "Retrying won't help: the server isn't configured for deploys (missing Netlify key). Tell the founder.",
+    "stageSubtitle": {
+      "intent": {
+        "technical": "Parsing the prompt and building the technical spec",
+        "simple": "Figuring out what you want"
+      },
+      "claude": {
+        "technical": "The LLM is generating project files line by line",
+        "simple": "AI is writing your app's code"
+      },
+      "compiler": {
+        "technical": "Static analysis: imports, types, client/server boundaries",
+        "simple": "Checking everything was written correctly"
+      },
+      "run": {
+        "technical": "Starting a dev server inside an isolated WebContainer",
+        "simple": "Running your app right in the browser"
+      },
+      "deploy": {
+        "technical": "Publishing the static build to Netlify hosting",
+        "simple": "Putting your app online"
+      }
+    },
     "paneCode": "Code",
     "panePreview": "App",
     "filesTitle": "Files · {{count}}",

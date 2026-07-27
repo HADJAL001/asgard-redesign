@@ -129,10 +129,9 @@ function slugifySiteName(name: string, projectId: number): string {
  *  Никогда не бросает наружу: любая ошибка помечает деплой failed. */
 export async function runNetlifyDeployJob(projectId: number) {
   if (!isNetlifyConfigured()) {
-    db.prepare(`UPDATE projects SET deploy_status = 'failed', deploy_error = ? WHERE id = ?`).run(
-      "NETLIFY_AUTH_TOKEN не сконфигурирован на сервере",
-      projectId,
-    )
+    db.prepare(
+      `UPDATE projects SET deploy_status = 'failed', deploy_error = ?, deploy_error_code = 'config_missing' WHERE id = ?`,
+    ).run("NETLIFY_AUTH_TOKEN не сконфигурирован на сервере", projectId)
     return
   }
 
@@ -144,17 +143,21 @@ export async function runNetlifyDeployJob(projectId: number) {
     .all(projectId) as Array<{ path: string; content: string }>
 
   if (files.length === 0) {
-    db.prepare(`UPDATE projects SET deploy_status = 'failed', deploy_error = ? WHERE id = ?`).run(
-      "У проекта нет файлов для деплоя",
-      projectId,
-    )
+    db.prepare(
+      `UPDATE projects SET deploy_status = 'failed', deploy_error = ?, deploy_error_code = 'no_files' WHERE id = ?`,
+    ).run("У проекта нет файлов для деплоя", projectId)
     return
   }
 
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), `osgard-deploy-${projectId}-`))
 
   try {
-    const outDir = await buildStaticOut(projectId, files, workDir)
+    let outDir: string
+    try {
+      outDir = await buildStaticOut(projectId, files, workDir)
+    } catch (err: any) {
+      throw Object.assign(err instanceof Error ? err : new Error(String(err)), { deployErrorCode: "build_failed" })
+    }
 
     const zipPath = path.join(os.tmpdir(), `osgard-deploy-${projectId}-${Date.now()}.zip`)
     await zipDirectory(outDir, zipPath)
@@ -162,22 +165,28 @@ export async function runNetlifyDeployJob(projectId: number) {
     try {
       const token = process.env.NETLIFY_AUTH_TOKEN as string
       const siteName = slugifySiteName(project.name, projectId)
-      const site = await createOrReuseSite(project.netlify_site_id || null, siteName, token)
-      const deploy = await uploadDeploy(site.id, zipPath, token)
+      let site: { id: string }
+      let deploy: { url: string; ssl_url?: string }
+      try {
+        site = await createOrReuseSite(project.netlify_site_id || null, siteName, token)
+        deploy = await uploadDeploy(site.id, zipPath, token)
+      } catch (err: any) {
+        throw Object.assign(err instanceof Error ? err : new Error(String(err)), { deployErrorCode: "network" })
+      }
       const liveUrl = deploy.ssl_url || deploy.url
 
       db.prepare(
-        `UPDATE projects SET deploy_status = 'deployed', deploy_error = NULL, live_url = ?, netlify_site_id = ? WHERE id = ?`,
+        `UPDATE projects SET deploy_status = 'deployed', deploy_error = NULL, deploy_error_code = NULL, live_url = ?, netlify_site_id = ? WHERE id = ?`,
       ).run(liveUrl, site.id, projectId)
     } finally {
       await fs.rm(zipPath, { force: true })
     }
   } catch (err: any) {
     captureError("[netlify-deploy] job failed:", err)
-    db.prepare(`UPDATE projects SET deploy_status = 'failed', deploy_error = ? WHERE id = ?`).run(
-      err?.message || "Неизвестная ошибка деплоя",
-      projectId,
-    )
+    const code = err?.deployErrorCode || "unknown"
+    db.prepare(
+      `UPDATE projects SET deploy_status = 'failed', deploy_error = ?, deploy_error_code = ? WHERE id = ?`,
+    ).run(err?.message || "Неизвестная ошибка деплоя", code, projectId)
   } finally {
     await fs.rm(workDir, { recursive: true, force: true })
   }
