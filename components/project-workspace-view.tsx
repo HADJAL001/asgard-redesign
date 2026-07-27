@@ -843,6 +843,21 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             <p className="whitespace-pre-wrap text-[12.5px]">{currentProject.generationError}</p>
           </div>
         )}
+        {/* Честность генерации: проект "готов", но реального ИИ в нём не было */}
+        {currentProject.status === "ready" &&
+          (currentProject.aiSource === "fallback" || currentProject.aiSource === "template-local") && (
+            <div className="mt-3 flex items-start gap-3 rounded-xl px-4 py-3" style={{ backgroundColor: "rgba(251,191,36,0.06)", border: `1px solid ${COLORS.amber}` }}>
+              <Bot size={16} style={{ color: COLORS.amber, flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <p className="text-[12.5px] font-medium" style={{ color: COLORS.amber }}>
+                  {t(`workspace.aiFallbackNotice.${currentProject.aiSource === "fallback" ? "fallback" : "templateLocal"}.title`)}
+                </p>
+                <p className="mt-0.5 whitespace-pre-wrap text-[12.5px]" style={{ color: COLORS.label }}>
+                  {t(`workspace.aiFallbackNotice.${currentProject.aiSource === "fallback" ? "fallback" : "templateLocal"}.body`)}
+                </p>
+              </div>
+            </div>
+          )}
         {currentProject.deployStatus === "deployed" && currentProject.liveUrl && (
           <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl px-4 py-2.5" style={{ backgroundColor: "rgba(74,222,128,0.06)", border: `1px solid ${COLORS.green}` }}>
             <CheckCircle2 size={15} style={{ color: COLORS.green }} />

@@ -972,6 +972,16 @@
       "unknown": "deploy failed"
     },
     "deployRetryBlocked": "Retrying won't help: the server isn't configured for deploys (missing Netlify key). Tell the founder.",
+    "aiFallbackNotice": {
+      "fallback": {
+        "title": "Built without AI — bare skeleton only",
+        "body": "No AI provider is currently available, so a basic starter template was created instead of a full generation. The functionality you described was not implemented. Try recreating the project later or tell the founder."
+      },
+      "templateLocal": {
+        "title": "Assembled from a template without AI personalization",
+        "body": "AI was unavailable to fine-tune this for your request, so a proven working template of a similar theme was reused as-is — renamed, but not rewritten for your description."
+      }
+    },
     "stageSubtitle": {
       "intent": {
         "technical": "Parsing the prompt and building the technical spec",
