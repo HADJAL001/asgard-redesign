@@ -403,6 +403,7 @@ function ArtifactCard({
 
   return (
     <article
+      aria-label={`${a.name}, редкость: ${rarity.label}`}
       className="eg-surface flex flex-col rounded-xl p-5 transition-all duration-200"
       style={{
         border: `1px solid ${equipped ? FORGE_GOLD : COLORS.border}`,

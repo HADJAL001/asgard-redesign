@@ -12,19 +12,21 @@ const THEME_ICONS: Record<ArtifactThemeKey, LucideIcon> = {
 
 type Props = {
   value: ArtifactThemeKey | null;
-  onChange: (key: ArtifactThemeKey) => void;
+  onChange: (key: ArtifactThemeKey | null) => void;
 };
 
 export function ThemePicker({ value, onChange }: Props) {
   return (
-    <View className="flex-row flex-wrap gap-2">
+    <View className="flex-row flex-wrap gap-2" accessibilityRole="radiogroup" accessibilityLabel="Тема артефакта">
       {ARTIFACT_THEMES.map((theme) => {
         const Icon = THEME_ICONS[theme.key];
         const selected = value === theme.key;
         return (
           <Pressable
             key={theme.key}
-            onPress={() => onChange(theme.key)}
+            onPress={() => onChange(selected ? null : theme.key)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
             className={`flex-1 min-w-[45%] flex-row items-center gap-2 rounded-xl border px-3 py-3 ${
               selected ? 'border-accent bg-accent/10' : 'border-border bg-card'
             }`}

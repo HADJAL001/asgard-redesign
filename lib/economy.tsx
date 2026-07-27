@@ -84,7 +84,9 @@ export const RARITY: Record<
   rare: { label: "Редкий", color: "#4A7A9C", mult: 2, stars: 2, symbol: "◇" },
   epic: { label: "Эпический", color: "#9B59B6", mult: 3, stars: 3, symbol: "◆" },
   legendary: { label: "Легендарный", color: "#F1C40F", mult: 4, stars: 4, symbol: "★" },
-  mythic: { label: "Мифический", color: "#E74C3C", mult: 5, stars: 5, symbol: "∞", glow: true },
+  // Символ отличается от ∞ (символ валюты TimeCoin) — иначе редкость "мифический"
+  // визуально сливается с балансом кошелька на одних и тех же экранах (зеркало mobile/lib/economy.ts).
+  mythic: { label: "Мифический", color: "#E74C3C", mult: 5, stars: 5, symbol: "☄", glow: true },
 }
 
 /* Ordered rarity chain for evolution */

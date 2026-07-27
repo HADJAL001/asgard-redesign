@@ -5,6 +5,7 @@ import Animated, {
   useAnimatedStyle,
   withRepeat,
   withTiming,
+  withDelay,
   Easing,
   cancelAnimation,
 } from 'react-native-reanimated';
@@ -28,16 +29,20 @@ type Props = {
   onCycleLanguage?: () => void;
 };
 
+/** delay реально применяется через withDelay — раньше параметр принимался, но не
+ *  влиял на анимацию, из-за чего оба кольца пульсировали синхронно вместо
+ *  расхождения по фазе (см. web components/voice-input-button.tsx, где то же
+ *  расхождение задано через animation-delay 0ms/600ms). */
 function useWaveStyle(isListening: boolean, delay: number) {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(0.5);
 
   useEffect(() => {
     if (isListening) {
-      scale.value = withTiming(1, { duration: 0 });
-      opacity.value = withTiming(0.5, { duration: 0 });
-      scale.value = withRepeat(withTiming(1.8, { duration: 1200, easing: Easing.out(Easing.ease) }), -1, false);
-      opacity.value = withRepeat(withTiming(0, { duration: 1200, easing: Easing.out(Easing.ease) }), -1, false);
+      scale.value = 1;
+      opacity.value = 0.5;
+      scale.value = withDelay(delay, withRepeat(withTiming(1.8, { duration: 1200, easing: Easing.out(Easing.ease) }), -1, false));
+      opacity.value = withDelay(delay, withRepeat(withTiming(0, { duration: 1200, easing: Easing.out(Easing.ease) }), -1, false));
     } else {
       cancelAnimation(scale);
       cancelAnimation(opacity);
@@ -71,7 +76,7 @@ function LevelBar({ volume, isListening, multiplier }: { volume: number; isListe
 
 export function VoiceInputButton({ isListening, onPress, error, volume = 0, language, onCycleLanguage }: Props) {
   const wave1 = useWaveStyle(isListening, 0);
-  const wave2 = useWaveStyle(isListening, 300);
+  const wave2 = useWaveStyle(isListening, 600);
   const barMultipliers = [0.8, 1.3, 1, 1.5, 0.9];
 
   return (

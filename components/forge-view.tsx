@@ -9,6 +9,9 @@ import { fmtTC } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { SectionHelp } from "./section-help"
 import { ArtifactIdentityPanel } from "./artifact-identity-panel"
+import { ThemePicker, ARTIFACT_THEMES, type ArtifactThemeKey } from "./theme-picker"
+import { VoiceInputButton } from "./voice-input-button"
+import { useVoice } from "@/lib/hooks/useVoice"
 import { ConfirmModal } from "./ui/confirm-modal"
 
 const TYPE_KEYS = Object.keys(ARTIFACT_TYPES) as ArtifactType[]
@@ -41,6 +44,34 @@ type ForgeCurrencyId = (typeof FORGE_CURRENCIES)[number]["id"]
 
 /** Стоимость AI-генерации артефакта (см. backend/artifacts.routes.ts AI_GENERATE_COST_TC = FORGE_COST_TC). */
 const AI_GENERATE_COST_TC = FORGE_COST_TC
+
+/** 1:1 с backend/artifacts.routes.ts DAILY_AI_GENERATION_LIMIT и mobile/types/artifact.ts DAILY_AI_GENERATION_SOFT_LIMIT. */
+const DAILY_AI_GENERATION_SOFT_LIMIT = 3
+
+/** 1:1 с mobile/design-system/colors.ts gold — цвет сегментов индикатора лимита (LimitIndicator). */
+const AI_LIMIT_GOLD = "#D4AF37"
+
+/** Число AI-сгенерированных артефактов за текущие календарные сутки (локальное время браузера). */
+function countTodayAiGenerated(artifacts: OsgardArtifact[]): number {
+  const now = new Date()
+  return artifacts.filter((a) => {
+    if (!a.source) return false
+    const d = new Date(a.createdAt)
+    return (
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate()
+    )
+  }).length
+}
+
+function pluralizeGenerations(n: number): string {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return "создание"
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return "создания"
+  return "созданий"
+}
 
 /* ---------------- Премиум-усиление (см. backend/artifacts.routes.ts) ----------------
    - Обычное усиление (/evolve): до уровня 5, шанс крита 5%, занимает 24 часа (эмулируется).
@@ -111,9 +142,11 @@ export function ForgeView() {
 
   /** AI-Генератор артефактов (см. POST /artifacts/generate-ai) — независимое состояние от ручной ковки. */
   const [aiHint, setAiHint] = useState("")
+  const [themeKey, setThemeKey] = useState<ArtifactThemeKey | null>(null)
   const [aiSubmitting, setAiSubmitting] = useState(false)
   const [aiNotice, setAiNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [aiResult, setAiResult] = useState<OsgardArtifact | null>(null)
+  const voice = useVoice((transcript) => setAiHint((prev) => (prev ? `${prev} ${transcript}` : transcript)))
   const [forgeConfirmOpen, setForgeConfirmOpen] = useState(false)
   const [aiConfirmOpen, setAiConfirmOpen] = useState(false)
 
@@ -185,9 +218,11 @@ export function ForgeView() {
   const paidCost = Math.max(1, forgeCost - Math.round(forgeCost * discountRate))
   const canForge = name.trim().length > 0 && forgeBalance >= paidCost
 
-  // Кинематографический эффект при создании
+  // Кинематографический эффект при создании — общий для ручной ковки и AI-генерации,
+  // forgeKind переключает только копирайт фазы charging (см. JSX ниже).
   const [forging, setForging] = useState(false)
   const [forgePhase, setForgePhase] = useState<"idle" | "charging" | "burst" | "reveal">("idle")
+  const [forgeKind, setForgeKind] = useState<"manual" | "ai">("manual")
   const reduceMotion = usePrefersReducedMotion()
   const anim = (value: string) => (reduceMotion ? undefined : value)
 
@@ -195,11 +230,12 @@ export function ForgeView() {
   function closeCinematic() {
     setForging(false)
     setForgePhase("idle")
+    setForgeKind("manual")
     setRevealed(null)
   }
 
   async function doForge() {
-    if (!name.trim() || submitting) return
+    if (!name.trim() || submitting || aiSubmitting) return
     const forgedName = name.trim()
     setSubmitting(true)
     setForging(true)
@@ -249,23 +285,55 @@ export function ForgeView() {
   }
 
   async function doGenerateAi() {
+    if (aiSubmitting || forging) return
+    const theme = themeKey ? ARTIFACT_THEMES.find((th) => th.key === themeKey) : undefined
+    const hint = [theme?.hint, aiHint.trim()].filter(Boolean).join(" ").trim()
+
     setAiSubmitting(true)
+    setForging(true)
+    setForgeKind("ai")
+    setForgePhase("charging")
     setAiNotice(null)
+    setRevealed(null)
+
+    const call = generateAiArtifact(hint || undefined)
+    const minCharge = new Promise((r) => setTimeout(r, reduceMotion ? 250 : 900))
+
     try {
-      const res = await generateAiArtifact(aiHint.trim() || undefined)
+      const [res] = await Promise.all([call, minCharge])
       if (res.success && res.artifact) {
+        setRevealed(res.artifact)
+        setForgePhase("burst")
+        await new Promise((r) => setTimeout(r, reduceMotion ? 200 : 520))
+
+        setForgePhase("reveal")
         setAiResult(res.artifact)
         setAiNotice({ ok: true, text: t("forge.aiGenerate.success", { name: res.artifact.name }) })
         setAiHint("")
+        setThemeKey(null)
+        await new Promise((r) => setTimeout(r, reduceMotion ? 500 : 1800))
+        closeCinematic()
       } else {
+        closeCinematic()
         setAiNotice({ ok: false, text: res.error || t("forge.aiGenerate.failed") })
       }
+    } catch {
+      closeCinematic()
+      setAiNotice({ ok: false, text: t("forge.aiGenerate.failed") })
     } finally {
       setAiSubmitting(false)
     }
   }
 
-  const canGenerateAi = !aiSubmitting && wallet.timecoin >= AI_GENERATE_COST_TC
+  const todayAiCount = countTodayAiGenerated(artifacts)
+  const aiLimitReached = todayAiCount >= DAILY_AI_GENERATION_SOFT_LIMIT
+  const aiLimitText = aiLimitReached
+    ? t("forge.aiGenerate.limitDepleted")
+    : t("forge.aiGenerate.limitRemaining", {
+        count: DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount,
+        noun: pluralizeGenerations(DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount),
+      })
+  const canGenerateAi = !aiSubmitting && !submitting && wallet.timecoin >= AI_GENERATE_COST_TC && !aiLimitReached
   const aiResultRarity: Rarity = (aiResult?.rarity as Rarity) || "common"
 
   const resultRarity: Rarity = (result?.rarity as Rarity) || "common"
@@ -309,7 +377,9 @@ export function ForgeView() {
           Клик по оверлею пропускает финал. */}
       {forging && (
         <div
-          role="status"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="forge-phase-heading"
           aria-live="polite"
           onClick={forgePhase === "reveal" ? closeCinematic : undefined}
           className={`fixed inset-0 z-50 flex items-center justify-center overflow-hidden ${forgePhase === "reveal" ? "cursor-pointer" : ""}`}
@@ -534,6 +604,7 @@ export function ForgeView() {
                 сервера (фазы burst/reveal наступают уже с результатом на руках). */}
             <div>
               <p
+                id="forge-phase-heading"
                 key={forgePhase}
                 className="text-[24px] font-semibold tracking-widest uppercase"
                 style={{
@@ -547,14 +618,18 @@ export function ForgeView() {
                 }}
               >
                 {forgePhase === "charging"
-                  ? "ЗАРЯЖАЕМ КУЗНИЦУ"
+                  ? forgeKind === "ai"
+                    ? "ИЩЕМ ВДОХНОВЕНИЕ"
+                    : "ЗАРЯЖАЕМ КУЗНИЦУ"
                   : forgePhase === "burst"
                     ? "✦  АРТЕФАКТ СОЗДАН  ✦"
                     : RARITY[revealRarity]?.label || "ГОТОВО"}
               </p>
               <p className="mt-2 text-[13px]" style={{ color: forgePhase === "reveal" ? fxColor : "rgba(255,255,255,0.5)" }}>
                 {forgePhase === "charging"
-                  ? "Накапливаем энергию TimeCoin..."
+                  ? forgeKind === "ai"
+                    ? "Советуемся с нейросетью..."
+                    : "Накапливаем энергию TimeCoin..."
                   : revealed?.name || name || "Новый артефакт"}
               </p>
               {forgePhase === "reveal" && (
@@ -778,7 +853,7 @@ export function ForgeView() {
               type="button"
               data-tour="forge-create"
               onClick={() => setForgeConfirmOpen(true)}
-              disabled={!canForge || submitting}
+              disabled={!canForge || submitting || aiSubmitting}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
             >
@@ -807,15 +882,63 @@ export function ForgeView() {
             <p className="mt-1 text-[13px]" style={{ color: "rgba(255,255,255,0.4)" }}>
               {t("forge.aiGenerate.subtitle")}
             </p>
+            <div className="mt-2 flex flex-col gap-1.5">
+              <div className="flex items-center gap-1.5" aria-hidden="true">
+                <Zap size={14} style={{ color: aiLimitReached ? COLORS.label : AI_LIMIT_GOLD }} />
+                <span className="text-[12px]" style={{ color: aiLimitReached ? COLORS.label : "#FFFFFF" }}>
+                  {aiLimitText}
+                </span>
+              </div>
+              <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                {t("forge.aiGenerate.limitHint")}
+              </p>
+              <div
+                className="flex gap-1"
+                role="progressbar"
+                aria-valuenow={DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount}
+                aria-valuemin={0}
+                aria-valuemax={DAILY_AI_GENERATION_SOFT_LIMIT}
+                aria-valuetext={aiLimitText}
+                aria-label={aiLimitText}
+              >
+                {Array.from({ length: DAILY_AI_GENERATION_SOFT_LIMIT }).map((_, i) => (
+                  <div key={i} className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: COLORS.border }} aria-hidden="true">
+                    {i < DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount && (
+                      <div className="h-full w-full rounded-full" style={{ backgroundColor: AI_LIMIT_GOLD }} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
 
-            <div className="mt-5">
-              <input
-                id="ai-generate-hint"
-                type="text"
-                value={aiHint}
-                onChange={(e) => { setAiHint(e.target.value); setAiNotice(null) }}
-                placeholder={t("forge.aiGenerate.hintPlaceholder")}
-                className="cal-input"
+            <div className="mt-5 flex flex-col gap-2">
+              <span className="text-[12px] font-medium" style={{ color: COLORS.label }}>
+                {t("forge.aiGenerate.themeLabel")}
+              </span>
+              <ThemePicker value={themeKey} onChange={setThemeKey} />
+            </div>
+
+            <div className="mt-4 flex items-start gap-3">
+              <div className="flex-1">
+                <label htmlFor="ai-generate-hint" className="mb-2 block text-[13px]" style={{ color: COLORS.label }}>
+                  {t("forge.aiGenerate.hintPlaceholder")}
+                </label>
+                <textarea
+                  id="ai-generate-hint"
+                  value={aiHint}
+                  onChange={(e) => { setAiHint(e.target.value); setAiNotice(null) }}
+                  placeholder={t("forge.aiGenerate.hintPlaceholder")}
+                  rows={3}
+                  className="cal-input w-full resize-none"
+                />
+              </div>
+              <VoiceInputButton
+                isListening={voice.isListening}
+                onPress={voice.isListening ? voice.stop : voice.start}
+                error={voice.error}
+                language={voice.language}
+                onCycleLanguage={voice.cycleLanguage}
+                reduceMotion={reduceMotion}
               />
             </div>
 
@@ -823,12 +946,27 @@ export function ForgeView() {
               type="button"
               onClick={() => setAiConfirmOpen(true)}
               disabled={!canGenerateAi}
+              title={
+                aiLimitReached
+                  ? t("forge.aiGenerate.limitDepleted")
+                  : wallet.timecoin < AI_GENERATE_COST_TC
+                    ? t("forge.aiGenerate.button", { amount: fmtTC(AI_GENERATE_COST_TC) })
+                    : undefined
+              }
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               style={{ backgroundColor: "transparent", border: `1px solid ${COLORS.accent}`, color: COLORS.accent }}
             >
               {aiSubmitting && <Loader2 size={16} className="animate-spin" />}
               {t("forge.aiGenerate.button", { amount: fmtTC(AI_GENERATE_COST_TC) })}
             </button>
+
+            {!aiNotice && !aiSubmitting && (aiLimitReached || wallet.timecoin < AI_GENERATE_COST_TC) && (
+              <p className="mt-3 text-[13px]" role="status" style={{ color: COLORS.red }}>
+                {aiLimitReached
+                  ? t("forge.aiGenerate.limitDepleted")
+                  : t("forge.aiGenerate.needMore", { amount: fmtTC(AI_GENERATE_COST_TC) })}
+              </p>
+            )}
 
             {aiNotice && (
               <p className="mt-3 text-[13px]" role="status" style={{ color: aiNotice.ok ? COLORS.green : COLORS.red }}>
