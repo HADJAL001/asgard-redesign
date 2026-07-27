@@ -16,7 +16,7 @@
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "@sentry/nextjs": "^10.68.0",
-    "@vercel/analytics": "1.6.1",
+    "@vercel/analytics": "2.0.1",
     "@webcontainer/api": "^1.6.4",
     "@xyflow/react": "^12.8.6",
     "class-variance-authority": "^0.7.1",
