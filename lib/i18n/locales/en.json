@@ -900,6 +900,20 @@
     "power": "Power",
     "copied": "Copied"
   },
+  "narration": {
+    "title": "Voice narration",
+    "toggleLabel": "Narrate forge results",
+    "hint": "Speaks the name and rarity of the artifact you just forged. Off by default.",
+    "unsupported": "Your device does not support speech synthesis.",
+    "resultTemplate": "Congratulations! You forged a {{rarity}} artifact: {{name}}",
+    "rarity": {
+      "common": "common",
+      "rare": "rare",
+      "epic": "epic",
+      "legendary": "legendary",
+      "mythic": "mythic"
+    }
+  },
   "vault": {
     "eyebrow": "Encrypted & verified",
     "title": "Provenance Vault",

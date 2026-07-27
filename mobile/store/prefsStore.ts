@@ -4,6 +4,7 @@ import { create } from 'zustand';
 
 const PUSH_ENABLED_KEY = 'osgard_push_enabled';
 const REDUCE_MOTION_OVERRIDE_KEY = 'osgard_reduce_motion_override';
+const VOICE_NARRATION_ENABLED_KEY = 'osgard_voice_narration_enabled';
 
 export type ReduceMotionOverride = 'system' | 'on' | 'off';
 
@@ -15,9 +16,12 @@ type PrefsState = {
   osReduceMotion: boolean;
   /** Итоговое значение, которым должны руководствоваться все анимации в приложении. */
   effectiveReduceMotion: boolean;
+  /** Озвучка результата ковки (expo-speech). По умолчанию выключено. */
+  voiceNarrationEnabled: boolean;
   hydrate: () => Promise<void>;
   setPushEnabled: (enabled: boolean) => Promise<void>;
   setReduceMotionOverride: (override: ReduceMotionOverride) => Promise<void>;
+  setVoiceNarrationEnabled: (enabled: boolean) => Promise<void>;
 };
 
 function computeEffective(override: ReduceMotionOverride, osValue: boolean): boolean {
@@ -31,12 +35,14 @@ export const usePrefsStore = create<PrefsState>((set, get) => ({
   reduceMotionOverride: 'system',
   osReduceMotion: false,
   effectiveReduceMotion: false,
+  voiceNarrationEnabled: false,
 
   hydrate: async () => {
-    const [pushRaw, overrideRaw, osValue] = await Promise.all([
+    const [pushRaw, overrideRaw, osValue, voiceNarrationRaw] = await Promise.all([
       AsyncStorage.getItem(PUSH_ENABLED_KEY),
       AsyncStorage.getItem(REDUCE_MOTION_OVERRIDE_KEY),
       AccessibilityInfo.isReduceMotionEnabled?.() ?? Promise.resolve(false),
+      AsyncStorage.getItem(VOICE_NARRATION_ENABLED_KEY),
     ]);
     const override = (overrideRaw as ReduceMotionOverride | null) ?? 'system';
     set({
@@ -44,6 +50,7 @@ export const usePrefsStore = create<PrefsState>((set, get) => ({
       reduceMotionOverride: override,
       osReduceMotion: osValue,
       effectiveReduceMotion: computeEffective(override, osValue),
+      voiceNarrationEnabled: voiceNarrationRaw === '1',
       isHydrated: true,
     });
 
@@ -60,5 +67,10 @@ export const usePrefsStore = create<PrefsState>((set, get) => ({
   setReduceMotionOverride: async (override) => {
     await AsyncStorage.setItem(REDUCE_MOTION_OVERRIDE_KEY, override);
     set({ reduceMotionOverride: override, effectiveReduceMotion: computeEffective(override, get().osReduceMotion) });
+  },
+
+  setVoiceNarrationEnabled: async (enabled) => {
+    await AsyncStorage.setItem(VOICE_NARRATION_ENABLED_KEY, enabled ? '1' : '0');
+    set({ voiceNarrationEnabled: enabled });
   },
 }));

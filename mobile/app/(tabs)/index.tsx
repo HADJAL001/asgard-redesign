@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as Speech from 'expo-speech';
 import { Coins, Sparkles } from 'lucide-react-native';
 
 import { ThemePicker } from '@/components/ThemePicker';
@@ -18,6 +19,8 @@ import { ARTIFACT_THEMES, DAILY_AI_GENERATION_SOFT_LIMIT, type ArtifactThemeKey 
 import { ApiError } from '@/lib/api-client';
 import { colors } from '@/design-system/colors';
 import { useStatusCopy } from '@/lib/i18n/useStatusCopy';
+import { usePrefsStore } from '@/store/prefsStore';
+import { rarityMeta } from '@/lib/economy';
 
 export default function CreateScreen() {
   const [description, setDescription] = useState('');
@@ -28,6 +31,7 @@ export default function CreateScreen() {
   const [confirmVisible, setConfirmVisible] = useState(false);
 
   const copy = useStatusCopy();
+  const voiceNarrationEnabled = usePrefsStore((s) => s.voiceNarrationEnabled);
   const { data: wallet } = useWalletQuery();
   const { data: artifacts } = useArtifactsQuery();
   const generateArtifact = useGenerateArtifact();
@@ -59,6 +63,12 @@ export default function CreateScreen() {
       setRevealRarity(result.artifact.rarity);
       setPhase('reveal');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      if (voiceNarrationEnabled) {
+        const rarityLabel = rarityMeta(result.artifact.rarity).label;
+        Speech.speak(`Поздравляем! Вы создали ${rarityLabel} артефакт: ${result.artifact.name}`, {
+          language: 'ru-RU',
+        });
+      }
       setTimeout(() => {
         setPhase('idle');
         setRevealRarity(undefined);
@@ -71,7 +81,7 @@ export default function CreateScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       setError(e instanceof ApiError ? e.message : 'Не удалось создать артефакт');
     }
-  }, [canSubmit, themeKey, description, generateArtifact]);
+  }, [canSubmit, themeKey, description, generateArtifact, voiceNarrationEnabled]);
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
