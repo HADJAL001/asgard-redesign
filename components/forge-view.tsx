@@ -14,6 +14,7 @@ import { ThemePicker, ARTIFACT_THEMES, type ArtifactThemeKey } from "./theme-pic
 import { VoiceInputButton } from "./voice-input-button"
 import { useVoice } from "@/lib/hooks/useVoice"
 import { ConfirmModal } from "./ui/confirm-modal"
+import { ForgeRevealClipExport } from "./forge-reveal-clip-export"
 
 const TYPE_KEYS = Object.keys(ARTIFACT_TYPES) as ArtifactType[]
 
@@ -661,9 +662,19 @@ export function ForgeView() {
                   : revealed?.name || name || "Новый артефакт"}
               </p>
               {forgePhase === "reveal" && (
-                <p className="mt-3 text-[11px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.32)" }}>
-                  нажмите, чтобы продолжить
-                </p>
+                <>
+                  <div className="mt-4">
+                    <ForgeRevealClipExport
+                      name={revealed?.name || name || "Новый артефакт"}
+                      rarityLabel={RARITY[revealRarity]?.label || "Артефакт"}
+                      rarityColor={fxColor}
+                      raritySymbol={RARITY[revealRarity]?.symbol || "★"}
+                    />
+                  </div>
+                  <p className="mt-3 text-[11px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.32)" }}>
+                    нажмите, чтобы продолжить
+                  </p>
+                </>
               )}
             </div>
 
