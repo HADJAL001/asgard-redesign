@@ -7,7 +7,7 @@ import { Coins, Sparkles } from 'lucide-react-native';
 
 import { ThemePicker } from '@/components/ThemePicker';
 import { VoiceInputButton } from '@/components/VoiceInputButton';
-import { GenerationProgress, type ForgePhase } from '@/components/GenerationProgress';
+import { GenerationProgress, RARE_REVEAL_RARITIES, type ForgePhase } from '@/components/GenerationProgress';
 import { LimitIndicator } from '@/components/LimitIndicator';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
@@ -53,12 +53,18 @@ export default function CreateScreen() {
       // 'burst' включаем по факту ответа backend, а не по гадательному таймеру — так на
       // долгой AI-генерации анимация не замирает в промежуточном состоянии.
       const result = await generateArtifact.mutateAsync(hint);
-      setPhase('burst');
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      // Редкость выставляем ДО burst — иначе цветовые эффекты фазы (вспышка, удар,
+      // частицы) не могут честно отражать фактический результат с самого начала.
       setRevealRarity(result.artifact.rarity);
-      setPhase('reveal');
+      setPhase('burst');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      setPhase('reveal');
+      if (RARE_REVEAL_RARITIES.has(result.artifact.rarity)) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
       setTimeout(() => {
         setPhase('idle');
         setRevealRarity(undefined);
