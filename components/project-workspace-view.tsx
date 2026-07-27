@@ -38,6 +38,7 @@ import {
 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { WorkshopBackdrop } from "./workshop-backdrop"
+import { PipelineFlipSubtitle, type PipelineStageKey } from "./pipeline-flip-subtitle"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
@@ -289,8 +290,12 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     setDeployError(null)
     try {
       const res = await deployProjectToNetlify(projectId)
-      if (res.success) await pollDeployStatus(projectId)
-      else setDeployError(res.error || t("workspace.deployFailed"))
+      const polled = await pollDeployStatus(projectId)
+      if (polled?.deployStatus === "failed") {
+        setDeployError(polled.deployError || res.error || t("workspace.deployFailed"))
+      } else if (!res.success) {
+        setDeployError(res.error || t("workspace.deployFailed"))
+      }
     } finally {
       setDeploying(false)
     }
@@ -344,6 +349,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
       runState === "starting" ? "active" : runState === "ready" ? "done" : runState === "error" ? "error" : "idle"
 
     const deployStatus = currentProject?.deployStatus
+    const deployErrorCode = currentProject?.deployErrorCode
     const deployState: StepState =
       deploying || deployStatus === "deploying"
         ? "active"
@@ -411,7 +417,9 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             ? t("workspace.stepDeployDone")
             : deployStatus === "deploying" || deploying
               ? t("workspace.stepDeployRunning")
-              : t("workspace.stepDeployIdle"),
+              : deployStatus === "failed"
+                ? t(`workspace.stepDeployFailed.${deployErrorCode ?? "unknown"}`)
+                : t("workspace.stepDeployIdle"),
         state: deployState,
       },
     ]
@@ -524,6 +532,17 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
 
   const canRun = currentProjectFiles.length > 0 && isolated !== false
 
+  /* Шапка обязана говорить то же, что и карточка "Компилятор" ниже: раньше бейдж
+     смотрел только на currentProject.status и красил "Готово" зелёным даже когда
+     инженерный вердикт был "broken" — первое, что видел человек, было неправдой. */
+  const headerBadge = isGenerating
+    ? { color: COLORS.accent, Icon: Loader2, spin: true, label: t("workspace.statusGenerating") }
+    : currentProject.status === "failed"
+      ? { color: COLORS.red, Icon: XCircle, spin: false, label: t("workspace.statusFailed") }
+      : engineering?.verdict === "broken"
+        ? { color: COLORS.amber, Icon: AlertTriangle, spin: false, label: t("workspace.statusNeedsRepair") }
+        : { color: COLORS.green, Icon: CheckCircle2, spin: false, label: t("workspace.statusReady") }
+
   return (
     <div className="eg-page relative flex min-h-screen flex-col font-sans" style={{ color: COLORS.text }}>
       <WorkshopBackdrop />
@@ -546,13 +565,10 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
 
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]"
-            style={{
-              border: `1px solid ${isGenerating ? COLORS.accent : currentProject.status === "failed" ? COLORS.red : COLORS.green}`,
-              color: isGenerating ? COLORS.accent : currentProject.status === "failed" ? COLORS.red : COLORS.green,
-            }}
+            style={{ border: `1px solid ${headerBadge.color}`, color: headerBadge.color }}
           >
-            {isGenerating ? <Loader2 size={11} className="animate-spin" /> : currentProject.status === "failed" ? <XCircle size={11} /> : <CheckCircle2 size={11} />}
-            {isGenerating ? t("workspace.statusGenerating") : currentProject.status === "failed" ? t("workspace.statusFailed") : t("workspace.statusReady")}
+            <headerBadge.Icon size={11} className={headerBadge.spin ? "animate-spin" : undefined} />
+            {headerBadge.label}
           </span>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -579,7 +595,17 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
               type="button"
               data-tour="workspace-deploy-btn"
               onClick={handleDeploy}
-              disabled={deploying || currentProject.deployStatus === "deploying" || currentProject.status !== "ready"}
+              disabled={
+                deploying ||
+                currentProject.deployStatus === "deploying" ||
+                currentProject.status !== "ready" ||
+                (currentProject.deployStatus === "failed" && currentProject.deployErrorCode === "config_missing")
+              }
+              title={
+                currentProject.deployStatus === "failed" && currentProject.deployErrorCode === "config_missing"
+                  ? t("workspace.deployRetryBlocked")
+                  : undefined
+              }
               className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
             >
@@ -619,24 +645,69 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
           )}
         </div>
 
-        {/* ---- Конвейер: кто и что делает прямо сейчас ---- */}
+        {/* ---- Конвейер: кто и что делает прямо сейчас ----
+             Активная карточка чуть шире остальных — под иконкой компактный
+             ореол/искры (адаптация forge-halo/forge-mote из ForgeCeremony),
+             а подпись — флип-субтитр: технический текст переворачивается на
+             простое объяснение, чтобы ожидание не было скучным. */}
         <ol className="mt-4 flex flex-wrap items-stretch gap-2">
           {steps.map((s, i) => (
             <li key={s.key} className="flex items-center gap-2">
               <div
-                className="eg-inset flex min-w-[168px] items-center gap-2.5 rounded-xl px-3 py-2"
-                style={{ border: `1px solid ${s.state === "idle" ? COLORS.border : STEP_COLOR[s.state]}` }}
+                className={`eg-pipeline-card flex items-center gap-2.5 rounded-xl px-3 py-2 ${s.state === "active" ? "eg-pipeline-card--active min-w-[208px]" : "min-w-[168px]"}`}
+                style={
+                  {
+                    border: `1px solid ${s.state === "idle" ? COLORS.border : STEP_COLOR[s.state]}`,
+                    "--pipeline-glow": s.state === "idle" ? "transparent" : `${STEP_COLOR[s.state]}59`,
+                  } as React.CSSProperties
+                }
               >
-                {s.state === "active" ? (
-                  <Loader2 size={15} className="animate-spin" style={{ color: STEP_COLOR.active, flexShrink: 0 }} />
-                ) : (
-                  <s.Icon size={15} strokeWidth={1.6} style={{ color: STEP_COLOR[s.state], flexShrink: 0 }} />
-                )}
+                <span className="relative flex size-[22px] shrink-0 items-center justify-center overflow-hidden">
+                  {s.state === "active" && (
+                    <>
+                      <span
+                        className="forge-halo"
+                        aria-hidden="true"
+                        style={{ background: `radial-gradient(circle, ${STEP_COLOR.active}59 0%, transparent 68%)` }}
+                      />
+                      {Array.from({ length: 3 }).map((_, m) => (
+                        <span
+                          key={m}
+                          aria-hidden="true"
+                          className="forge-mote pointer-events-none absolute rounded-full"
+                          style={
+                            {
+                              width: 2,
+                              height: 2,
+                              top: 0,
+                              left: `${28 + m * 22}%`,
+                              background: STEP_COLOR.active,
+                              boxShadow: `0 0 5px ${STEP_COLOR.active}`,
+                              animationDelay: `${m * 0.4}s`,
+                              "--mote-dx": `${(m % 2 === 0 ? 1 : -1) * 4}px`,
+                            } as React.CSSProperties
+                          }
+                        />
+                      ))}
+                    </>
+                  )}
+                  {s.state === "active" ? (
+                    <Loader2 key={s.state} size={15} className="eg-pipeline-icon-pop relative animate-spin" style={{ color: STEP_COLOR.active }} />
+                  ) : (
+                    <s.Icon key={s.state} size={15} strokeWidth={1.6} className="eg-pipeline-icon-pop relative" style={{ color: STEP_COLOR[s.state] }} />
+                  )}
+                </span>
                 <div className="min-w-0">
                   <p className="truncate text-[12px] font-medium" style={{ color: s.state === "idle" ? COLORS.label : COLORS.text }}>
                     {s.label}
                   </p>
-                  <p className="truncate text-[10.5px]" style={{ color: COLORS.label }}>{s.hint}</p>
+                  {s.state === "active" ? (
+                    <div style={{ color: COLORS.label }} className="text-[10.5px]">
+                      <PipelineFlipSubtitle stage={s.key as PipelineStageKey} />
+                    </div>
+                  ) : (
+                    <p className="truncate text-[10.5px]" style={{ color: COLORS.label }}>{s.hint}</p>
+                  )}
                 </div>
               </div>
               {i < steps.length - 1 && <span aria-hidden="true" style={{ color: COLORS.border }}>→</span>}
@@ -780,6 +851,21 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             <p className="whitespace-pre-wrap text-[12.5px]">{currentProject.generationError}</p>
           </div>
         )}
+        {/* Честность генерации: проект "готов", но реального ИИ в нём не было */}
+        {currentProject.status === "ready" &&
+          (currentProject.aiSource === "fallback" || currentProject.aiSource === "template-local") && (
+            <div className="mt-3 flex items-start gap-3 rounded-xl px-4 py-3" style={{ backgroundColor: "rgba(251,191,36,0.06)", border: `1px solid ${COLORS.amber}` }}>
+              <Bot size={16} style={{ color: COLORS.amber, flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <p className="text-[12.5px] font-medium" style={{ color: COLORS.amber }}>
+                  {t(`workspace.aiFallbackNotice.${currentProject.aiSource === "fallback" ? "fallback" : "templateLocal"}.title`)}
+                </p>
+                <p className="mt-0.5 whitespace-pre-wrap text-[12.5px]" style={{ color: COLORS.label }}>
+                  {t(`workspace.aiFallbackNotice.${currentProject.aiSource === "fallback" ? "fallback" : "templateLocal"}.body`)}
+                </p>
+              </div>
+            </div>
+          )}
         {currentProject.deployStatus === "deployed" && currentProject.liveUrl && (
           <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl px-4 py-2.5" style={{ backgroundColor: "rgba(74,222,128,0.06)", border: `1px solid ${COLORS.green}` }}>
             <CheckCircle2 size={15} style={{ color: COLORS.green }} />

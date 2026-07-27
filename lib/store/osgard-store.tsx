@@ -504,6 +504,8 @@ export interface OsgardProject {
   /** Статус деплоя на Netlify (независим от status — проект можно передеплоить много раз). */
   deployStatus?: "deploying" | "deployed" | "failed" | null
   deployError?: string | null
+  /** Машиночитаемая причина отказа деплоя — решает, можно ли повторить попытку без изменений. */
+  deployErrorCode?: "config_missing" | "no_files" | "build_failed" | "network" | "unknown" | null
   liveUrl?: string | null
   createdAt: number
 }
