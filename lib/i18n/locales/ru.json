@@ -952,6 +952,7 @@
     "backToProjects": "К проектам",
     "statusGenerating": "Клод пишет код",
     "statusReady": "Готово",
+    "statusNeedsRepair": "Нужен ремонт",
     "statusFailed": "Ошибка генерации",
     "openPassport": "Паспорт проекта",
     "exportZip": "Скачать ZIP",

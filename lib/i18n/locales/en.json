@@ -939,6 +939,7 @@
     "backToProjects": "Back to projects",
     "statusGenerating": "Claude is writing code",
     "statusReady": "Ready",
+    "statusNeedsRepair": "Needs repair",
     "statusFailed": "Generation failed",
     "openPassport": "Project passport",
     "exportZip": "Download ZIP",

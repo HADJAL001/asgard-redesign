@@ -532,6 +532,17 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
 
   const canRun = currentProjectFiles.length > 0 && isolated !== false
 
+  /* Шапка обязана говорить то же, что и карточка "Компилятор" ниже: раньше бейдж
+     смотрел только на currentProject.status и красил "Готово" зелёным даже когда
+     инженерный вердикт был "broken" — первое, что видел человек, было неправдой. */
+  const headerBadge = isGenerating
+    ? { color: COLORS.accent, Icon: Loader2, spin: true, label: t("workspace.statusGenerating") }
+    : currentProject.status === "failed"
+      ? { color: COLORS.red, Icon: XCircle, spin: false, label: t("workspace.statusFailed") }
+      : engineering?.verdict === "broken"
+        ? { color: COLORS.amber, Icon: AlertTriangle, spin: false, label: t("workspace.statusNeedsRepair") }
+        : { color: COLORS.green, Icon: CheckCircle2, spin: false, label: t("workspace.statusReady") }
+
   return (
     <div className="eg-page relative flex min-h-screen flex-col font-sans" style={{ color: COLORS.text }}>
       <WorkshopBackdrop />
@@ -554,13 +565,10 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
 
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]"
-            style={{
-              border: `1px solid ${isGenerating ? COLORS.accent : currentProject.status === "failed" ? COLORS.red : COLORS.green}`,
-              color: isGenerating ? COLORS.accent : currentProject.status === "failed" ? COLORS.red : COLORS.green,
-            }}
+            style={{ border: `1px solid ${headerBadge.color}`, color: headerBadge.color }}
           >
-            {isGenerating ? <Loader2 size={11} className="animate-spin" /> : currentProject.status === "failed" ? <XCircle size={11} /> : <CheckCircle2 size={11} />}
-            {isGenerating ? t("workspace.statusGenerating") : currentProject.status === "failed" ? t("workspace.statusFailed") : t("workspace.statusReady")}
+            <headerBadge.Icon size={11} className={headerBadge.spin ? "animate-spin" : undefined} />
+            {headerBadge.label}
           </span>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">

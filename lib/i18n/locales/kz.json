@@ -939,6 +939,7 @@
     "backToProjects": "Жобаларға",
     "statusGenerating": "Клод код жазып жатыр",
     "statusReady": "Дайын",
+    "statusNeedsRepair": "Жөндеу керек",
     "statusFailed": "Генерация қатесі",
     "openPassport": "Жоба паспорты",
     "exportZip": "ZIP жүктеу",

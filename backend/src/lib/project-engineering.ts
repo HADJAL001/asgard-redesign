@@ -273,7 +273,39 @@ export async function runEngineeringContour(
       })
     }
 
-    const remaining = errorsOf(report).length
+    let remaining = errorsOf(report).length
+
+    /* --- Страховочный раунд: бюджет AI-раундов по глубине (особенно "quick" — всего
+       1 раунд × 4 файла) исчерпан, а дефекты остались в файлах, до которых просто не
+       дошла очередь. Раз мы вот-вот вынесем вердикт "broken" и отдадим пользователю
+       не собирающееся приложение — тратим один последний раунд без ограничения на
+       4 файла, чтобы реально дочинить хвост, а не оставить его на волю ручного
+       "Повторного ремонта". Цена платится ТОЛЬКО когда дефекты и так остались —
+       для чистых/уже починенных проектов раунд не запускается. */
+    if (remaining > 0) {
+      const ESCALATION_FILE_LIMIT = 16
+      const escalation = await aiRepairRound(files, report, opts, repairs, ESCALATION_FILE_LIMIT)
+      if (escalation.changedAny) {
+        files = escalation.files
+        attempts += 1
+
+        let next = explainBuildIntegrity(files)
+        const mech = repairIntegrity(files, next)
+        if (mech.actions.length > 0) {
+          files = mech.files
+          repairs.push(...mech.actions)
+          next = explainBuildIntegrity(files)
+        }
+        report = next
+        remaining = errorsOf(report).length
+
+        opts.onProgress?.({
+          phase: "repairing",
+          label: "Финальная проверка после страховочного ремонта",
+          defects: remaining,
+        })
+      }
+    }
 
     /* --- Реальная сборка (там, где доступна) --- */
     const verified = remaining === 0 ? await maybeVerifyBuild(files, opts) : null
@@ -320,8 +352,9 @@ async function aiRepairRound(
   report: IntegrityReport,
   opts: { name: string; hint?: string; brief: DesignBrief; onProgress?: (p: ContourProgress) => void },
   repairs: RepairAction[],
+  fileLimit: number = MAX_FILES_PER_ROUND,
 ): Promise<{ files: SourceFile[]; changedAny: boolean }> {
-  const targets = filesNeedingRegeneration(errorsOf(report)).slice(0, MAX_FILES_PER_ROUND)
+  const targets = filesNeedingRegeneration(errorsOf(report)).slice(0, fileLimit)
   if (targets.length === 0) return { files, changedAny: false }
 
   const siblings = files.filter((f) => /\.(tsx?|css|json)$/.test(f.path)).map((f) => f.path)
