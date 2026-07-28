@@ -103,18 +103,44 @@ if (firstId) {
   console.log("❌ Мастерская НЕ проверена (нет проектов или сессии) — это не «чисто»")
 }
 
-// Контроль: мир не должен «вылечиться» вместе со студией.
+/* Контроль: мир не должен «вылечиться» вместе со студией.
+   Меряем в ЧИСТОЙ вкладке без сессии: с версии «студия по умолчанию»
+   авторизованного человека с «/» намеренно уносит в студию, и проверять
+   мир в той же вкладке бессмысленно — мы бы мерили студию. Гостю же
+   лендинг показывается как был. */
+const guest = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 for (const route of WORLD_ROUTES) {
-  await page.goto(`${BASE}${route}`, { waitUntil: "networkidle", timeout: 60_000 })
-  await page.waitForTimeout(700)
-  const text = await page.evaluate(() => document.body.innerText)
+  await guest.goto(`${BASE}${route}`, { waitUntil: "domcontentloaded", timeout: 60_000 })
+  await guest.waitForTimeout(2500)
+  const text = await guest.evaluate(() => document.body.innerText)
   const present = FORBIDDEN.filter((w) => text.toLowerCase().includes(w.toLowerCase()))
   if (present.length === 0) {
     failures++
     console.log(`❌ ${route} — мир потерял экономику (её должно быть видно!)`)
   } else {
-    console.log(`✅ ${route} — мир нетронут (${present.slice(0, 3).join(", ")}…)`)
+    console.log(`✅ ${route} — мир нетронут для гостя (${present.slice(0, 3).join(", ")}…)`)
   }
+}
+/* Студия — вход по умолчанию (директива основателя). Проверяем оба
+   следствия: гостя на лендинге не трогаем, вошедшего с «/» уводим в студию.
+   Без этой проверки регрессия была бы незаметной: оба экрана «работают». */
+const landedGuest = new URL(guest.url()).pathname
+if (landedGuest === "/") {
+  console.log("✅ гость остаётся на лендинге")
+} else {
+  failures++
+  console.log(`❌ гостя увело с лендинга на ${landedGuest}`)
+}
+await guest.close()
+
+await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded", timeout: 60_000 })
+await page.waitForTimeout(3000)
+const landedUser = new URL(page.url()).pathname
+if (landedUser.startsWith("/dev")) {
+  console.log("✅ вошедший попадает в студию по умолчанию")
+} else {
+  failures++
+  console.log(`❌ вошедший остался на ${landedUser} — студия не стала входом по умолчанию`)
 }
 
 await browser.close()
