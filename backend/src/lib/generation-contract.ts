@@ -213,7 +213,13 @@ export type ContractViolation = {
   symbol?: string
 }
 
-const IMPORT_RE = /^\s*import\s+(?:type\s+)?([\s\S]*?)\s+from\s+["']([^"']+)["']/gm
+/* Разбор строки импорта.
+   Квантификаторы намеренно НЕ перекрываются: `[^"']*?` вместо `[\s\S]*?` и
+   `[ \t]*` вместо `\s+` вокруг `from`. Раньше комбинация `^\s*` + `[\s\S]*?` +
+   `\s+from\s+` давала полиномиальный откат (CodeQL js/polynomial-redos) на
+   строке, начинающейся с `import`, но не содержащей `from`, — а на вход сюда
+   приходит код, сгенерированный AI, то есть по сути недоверенный. */
+const IMPORT_RE = /^[ \t]*import[ \t]+(?:type[ \t]+)?([^"';]*?)[ \t]from[ \t]*["']([^"']+)["']/gm
 /** Пакеты каркаса — ровно те, что staticTemplateFiles объявляет в package.json
  *  (app-generator.ts). Список обязан совпадать с ним и с BUILTIN_PACKAGES в
  *  build-integrity.ts, иначе сверка и детектор скажут разное об одном импорте. */
@@ -621,32 +627,32 @@ export function reconcileWithContract(
 
     // uuid → crypto.randomUUID() (доступен в браузере и в Node ≥ 16)
     content = content.replace(
-      /^\s*import\s*\{[^}]*\bv4\s+as\s+(\w+)[^}]*\}\s*from\s*["']uuid["'];?\s*$/gm,
+      /^[ \t]*import[ \t]*\{[^}]*\bv4[ \t]+as[ \t]+(\w+)[^}]*\}[ \t]*from[ \t]*["']uuid["'];?[ \t]*$/gm,
       (_m, alias) => {
         replaced.push("uuid → crypto.randomUUID()")
         return `const ${alias} = (): string => crypto.randomUUID()`
       },
     )
-    content = content.replace(/^\s*import\s*\{\s*v4\s*\}\s*from\s*["']uuid["'];?\s*$/gm, () => {
+    content = content.replace(/^[ \t]*import[ \t]*\{[ \t]*v4[ \t]*\}[ \t]*from[ \t]*["']uuid["'];?[ \t]*$/gm, () => {
       replaced.push("uuid → crypto.randomUUID()")
       return `const v4 = (): string => crypto.randomUUID()`
     })
 
     // nanoid → та же встроенная генерация идентификаторов
-    content = content.replace(/^\s*import\s*\{\s*nanoid\s*\}\s*from\s*["']nanoid["'];?\s*$/gm, () => {
+    content = content.replace(/^[ \t]*import[ \t]*\{[ \t]*nanoid[ \t]*\}[ \t]*from[ \t]*["']nanoid["'];?[ \t]*$/gm, () => {
       replaced.push("nanoid → crypto.randomUUID()")
       return `const nanoid = (): string => crypto.randomUUID().replace(/-/g, "").slice(0, 12)`
     })
 
     // clsx / classnames → локальная склейка классов (ровно то, что они делают)
     content = content.replace(
-      /^\s*import\s+(\w+)\s+from\s*["'](?:clsx|classnames)["'];?\s*$/gm,
+      /^[ \t]*import[ \t]+(\w+)[ \t]+from[ \t]*["'](?:clsx|classnames)["'];?[ \t]*$/gm,
       (_m, alias) => {
         replaced.push("clsx/classnames → локальная склейка классов")
         return `const ${alias} = (...parts: Array<string | false | null | undefined>): string => parts.filter(Boolean).join(" ")`
       },
     )
-    content = content.replace(/^\s*import\s*\{\s*clsx\s*\}\s*from\s*["']clsx["'];?\s*$/gm, () => {
+    content = content.replace(/^[ \t]*import[ \t]*\{[ \t]*clsx[ \t]*\}[ \t]*from[ \t]*["']clsx["'];?[ \t]*$/gm, () => {
       replaced.push("clsx → локальная склейка классов")
       return `const clsx = (...parts: Array<string | false | null | undefined>): string => parts.filter(Boolean).join(" ")`
     })
