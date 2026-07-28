@@ -7,6 +7,7 @@ import {
   reconcileWithContract,
 } from '../lib/generation-contract';
 import { explainBuildIntegrity, type SourceFile } from '../lib/build-integrity';
+import { hasLessonText } from '../lib/craft-corpus';
 
 /* ================================================================
    OSGARD · Контракт экспортов генерации (lib/generation-contract).
@@ -312,4 +313,76 @@ export default function Page() {
     0,
     `после сверки ошибок импортов должно быть 0, осталось ${after.length}: ${after.map((d) => `${d.file}: ${d.message}`).join('; ')}`,
   );
+});
+
+/* ----------------------------------------------------------------
+   Уроки досборки — платформа обязана учиться на том, что починила сама
+
+   Дефект, который досборка лечит детерминированно, инженерный контур уже
+   не увидит, поэтому в счётчик уроков (`generation_lessons`) он раньше не
+   попадал ВООБЩЕ: модель повторяла один и тот же промах в каждой
+   генерации, а платформа молча его подчищала. Ниже проверено, что каждый
+   класс починки теперь оставляет след, пригодный для промпта.
+   ---------------------------------------------------------------- */
+
+test('досборка возвращает уроки: дубль объявления, самоприсваивание, коллизия с импортом', () => {
+  const files: SourceFile[] = [
+    {
+      // дубль объявления (реальный случай живого прогона)
+      path: 'components/NotesList.tsx',
+      content: `function NotesList() {\n  return <ul />\n}\n\nexport default NotesList;\nexport function NotesList() {\n  return <NotesList />;\n}\n`,
+    },
+    {
+      // самоприсваивание `const X = X`
+      path: 'lib/format.ts',
+      content: `export function format(v: number) {\n  return String(v)\n}\n\nconst format = format\n`,
+    },
+    {
+      // коллизия объявления с импортированным именем
+      path: 'app/search/page.tsx',
+      content: `import { Search } from "lucide-react"\n\nexport default function Search() {\n  return <Search />\n}\n`,
+    },
+  ];
+
+  const contract = deriveExportContract(files.map((f) => f.path));
+  const result = reconcileWithContract(files, contract);
+  const byRule = new Map(result.lessons.map((l) => [l.rule, l.count]));
+
+  assert.ok((byRule.get('duplicate-declaration') ?? 0) >= 1, `дубль объявления обязан стать уроком: ${JSON.stringify(result.lessons)}`);
+  assert.ok((byRule.get('self-assignment') ?? 0) >= 1, `самоприсваивание обязано стать уроком: ${JSON.stringify(result.lessons)}`);
+  assert.ok((byRule.get('import-name-collision') ?? 0) >= 1, `коллизия с импортом обязана стать уроком: ${JSON.stringify(result.lessons)}`);
+
+  for (const lesson of result.lessons) {
+    assert.ok(lesson.count > 0, 'урок с нулевым счётчиком бессмыслен');
+    assert.ok(hasLessonText(lesson.rule), `у правила "${lesson.rule}" нет формулировки в craft-corpus — в промпт оно не попадёт`);
+  }
+});
+
+test('досборка без починок не выдумывает уроков', () => {
+  const files: SourceFile[] = [
+    { path: 'app/page.tsx', content: `export default function Page() {\n  return <main>ок</main>\n}\n` },
+  ];
+  const contract = deriveExportContract(files.map((f) => f.path));
+  const result = reconcileWithContract(files, contract);
+
+  assert.deepEqual(result.actions, [], 'чинить нечего');
+  assert.deepEqual(result.lessons, [], 'учиться тоже нечему — счётчик не должен расти на здоровом коде');
+});
+
+test('уроки досборки складываются в тот же счётчик, что и уроки инженерного контура', () => {
+  // Имена правил общие с lib/build-integrity там, где дефект тот же: статистика
+  // платформы должна быть одна, независимо от того, кто дефект перехватил.
+  const files: SourceFile[] = [
+    { path: 'app/page.tsx', content: `import { cn } from "@/utils/cn"\n\nexport default function Page() {\n  return <div className={cn("a")} />\n}\n` },
+    { path: 'components/Panel.tsx', content: `import { useState } from "react"\n\nexport default function Panel() {\n  const [n] = useState(0)\n  return <div>{n}</div>\n}\n` },
+  ];
+  const contract = deriveExportContract(files.map((f) => f.path));
+  const result = reconcileWithContract(files, contract);
+  const rules = new Set(result.lessons.map((l) => l.rule));
+
+  assert.ok(rules.has('import-missing'), 'досоздание файла по контракту — это урок "import-missing"');
+  assert.ok(rules.has('use-client-missing'), 'добавленная директива клиента — это урок "use-client-missing"');
+  for (const rule of rules) {
+    assert.ok(hasLessonText(rule), `правило "${rule}" не имеет формулировки — урок не дойдёт до промпта`);
+  }
 });
