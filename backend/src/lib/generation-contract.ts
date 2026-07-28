@@ -219,7 +219,7 @@ export type ContractViolation = {
    `\s+from\s+` давала полиномиальный откат (CodeQL js/polynomial-redos) на
    строке, начинающейся с `import`, но не содержащей `from`, — а на вход сюда
    приходит код, сгенерированный AI, то есть по сути недоверенный. */
-const IMPORT_RE = /^[ \t]*import[ \t]+(?:type[ \t]+)?([^"';]*?)[ \t]from[ \t]*["']([^"']+)["']/gm
+const IMPORT_RE = /^[ \t]*import[ \t]+(?:type[ \t]+)?((?:\{[^}]*\}|[\w$*]+(?:[ \t]+as[ \t]+[\w$]+)?)(?:[ \t]*,[ \t]*(?:\{[^}]*\}|[\w$]+))*)[ \t]+from[ \t]*["']([^"']+)["']/gm
 /** Пакеты каркаса — ровно те, что staticTemplateFiles объявляет в package.json
  *  (app-generator.ts). Список обязан совпадать с ним и с BUILTIN_PACKAGES в
  *  build-integrity.ts, иначе сверка и детектор скажут разное об одном импорте. */
