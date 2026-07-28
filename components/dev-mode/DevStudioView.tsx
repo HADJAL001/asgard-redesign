@@ -19,9 +19,12 @@
    • VoiceInputButton + useVoice — тот же голосовой ввод, что на вебе.
    ================================================================ */
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, Sparkles, FolderKanban, CircleCheck, CircleAlert, CircleDashed } from "lucide-react"
+import {
+  Loader2, Sparkles, FolderKanban, CircleCheck, CircleAlert, CircleDashed,
+  Mic, Pencil, ArrowRight,
+} from "lucide-react"
 import { useOsgardStore, type OsgardProject } from "@/lib/store/osgard-store"
 import { ProjectCreateWizard } from "@/components/project-create-wizard"
 import { VoiceInputButton } from "@/components/voice-input-button"
@@ -41,8 +44,31 @@ export function DevStudioView() {
   const [idea, setIdea] = useState("")
   const [wizardOpen, setWizardOpen] = useState(false)
 
-  // Голос дописывает в то же поле, что и клавиатура — один вход, не два.
-  const voice = useVoice((text) => setIdea((prev) => (prev ? `${prev} ${text}` : text)))
+  /* ── Голос как полноценный вход, а не кнопка сбоку ──
+     Раньше распознанное молча дописывалось в textarea: человек говорил
+     и не понимал, услышали ли его и что именно разобрали. Теперь речь
+     попадает в отдельную карточку-расшифровку с явным подтверждением
+     («Собрать») или правкой («Исправить»). Текст один и тот же — поле
+     ввода остаётся источником правды, карточка лишь показывает, что
+     пришло голосом, и предлагает следующий шаг. */
+  const [heard, setHeard] = useState<string | null>(null)
+  const ideaFieldRef = useRef<HTMLTextAreaElement>(null)
+
+  const voice = useVoice((text) => {
+    const clean = text.trim()
+    if (!clean) return
+    setIdea((prev) => (prev ? `${prev} ${clean}` : clean))
+    setHeard(clean)
+  })
+
+  /** Правка голосового: убираем карточку и отдаём фокус полю с курсором в конце. */
+  function editHeard() {
+    setHeard(null)
+    const field = ideaFieldRef.current
+    if (!field) return
+    field.focus()
+    field.setSelectionRange(field.value.length, field.value.length)
+  }
 
   useEffect(() => {
     fetchProjects({ skipAuthRedirect: true })
@@ -64,8 +90,13 @@ export function DevStudioView() {
           </label>
           <textarea
             id="dev-idea"
+            ref={ideaFieldRef}
             value={idea}
-            onChange={(e) => setIdea(e.target.value)}
+            onChange={(e) => {
+              setIdea(e.target.value)
+              // Ручная правка делает карточку расшифровки неактуальной.
+              if (heard) setHeard(null)
+            }}
             rows={3}
             placeholder="Например: сайт кофейни с меню и бронированием столика"
             className="dev-input flex-1 resize-none px-4 py-3.5 text-[15px]"
@@ -83,15 +114,63 @@ export function DevStudioView() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setWizardOpen(true)}
-          className="dev-btn dev-btn--gold mt-4"
-          aria-label="Создать проект — открыть мастер генерации приложения"
-        >
-          <Sparkles size={16} strokeWidth={1.75} aria-hidden="true" />
-          Создать проект
-        </button>
+        {/* Слушаю — человек должен видеть, что микрофон правда работает. */}
+        {voice.isListening ? (
+          <p
+            className="mt-3 inline-flex items-center gap-2 text-[13.5px]"
+            role="status"
+            style={{ color: "#7DD3FC" }}
+          >
+            <Mic size={14} strokeWidth={1.75} className="animate-pulse" aria-hidden="true" />
+            Говорите — я слушаю…
+          </p>
+        ) : null}
+
+        {/* Расшифровка: что именно услышано и что с этим делать дальше. */}
+        {heard && !voice.isListening ? (
+          <div className="dev-card mt-4 p-4" role="status">
+            <p className="text-[12px] uppercase tracking-[0.08em]" style={{ color: "rgb(148 163 184 / 80%)" }}>
+              Услышал
+            </p>
+            <p className="mt-1.5 text-[15px]" style={{ color: "#F1F5F9" }}>
+              «{heard}»
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setWizardOpen(true)}
+                className="dev-btn dev-btn--gold"
+                aria-label="Всё верно — перейти к созданию приложения"
+              >
+                Собрать
+                <ArrowRight size={15} strokeWidth={1.75} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={editHeard}
+                className="dev-btn dev-btn--ghost"
+                aria-label="Исправить распознанный текст вручную"
+              >
+                <Pencil size={14} strokeWidth={1.75} aria-hidden="true" />
+                Исправить
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Пока расшифровка на экране, эта кнопка была бы вторым золотым
+            пятном и спорила бы с «Собрать» за внимание. */}
+        {heard && !voice.isListening ? null : (
+          <button
+            type="button"
+            onClick={() => setWizardOpen(true)}
+            className="dev-btn dev-btn--gold mt-4"
+            aria-label="Создать проект — открыть мастер генерации приложения"
+          >
+            <Sparkles size={16} strokeWidth={1.75} aria-hidden="true" />
+            Создать проект
+          </button>
+        )}
       </section>
 
       {/* ── Свои проекты ── */}
@@ -133,9 +212,9 @@ export function DevStudioView() {
                 <li key={project.id}>
                   <button
                     type="button"
-                    onClick={() => router.push(`/projects/${project.id}`)}
+                    onClick={() => router.push(`/dev/workspace/${project.id}`)}
                     className="dev-card w-full cursor-pointer p-4 text-left"
-                    aria-label={`Проект ${project.name}. Статус: ${status.label}. Открыть Мастерскую`}
+                    aria-label={`Проект ${project.name}. Статус: ${status.label}. Открыть код и превью`}
                   >
                     <p className="text-[15px] font-medium" style={{ color: "#F1F5F9" }}>
                       {project.name}
@@ -167,9 +246,11 @@ export function DevStudioView() {
           onCreated={(projectId: number) => {
             setWizardOpen(false)
             setIdea("")
-            // Тот же маршрут, что и в обычном режиме: сразу внутрь Мастерской,
-            // где человек видит рождение приложения (см. projects-view.tsx).
-            router.push(`/projects/${projectId}/workspace`)
+            setHeard(null)
+            // Тот же сценарий, что и в обычном режиме (сразу внутрь Мастерской,
+            // где видно рождение приложения), но роутом студии: с /projects/...
+            // человек вывалился бы обратно в мир с его навигацией.
+            router.push(`/dev/workspace/${projectId}`)
           }}
         />
       ) : null}

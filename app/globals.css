@@ -1410,6 +1410,15 @@ svg { width: 1rem; height: 1rem; flex: none; }
 /* ── Небо студии: холодная сине-серебряная гамма поверх готового
       AmbientBackdrop. Переиспользуем существующий слой .ambient-*,
       а не рисуем второй фон (components/ambient-backdrop.tsx). ── */
+/* Звёздный слой лежит на z-index:-1, то есть ПОД <body>. Пока у body свой
+   непрозрачный фон (тема задаёт bg-background), небо не видно вообще —
+   именно это и обнаружилось на живом стенде: слои рисовались, но были
+   закрыты заливкой. Отдаём цвет самому backdrop'у, а body делаем
+   прозрачным. Только внутри .dev-mode — тема мира не меняется. */
+.dev-mode,
+.dev-mode body {
+  background-color: transparent !important;
+}
 .dev-mode .ambient-backdrop { background: #070A14; }
 .dev-mode .ambient-base {
   background: radial-gradient(ellipse 130% 100% at 50% -10%, #0B0E1A 0%, #0F172A 55%, #060910 100%);
@@ -1423,6 +1432,92 @@ svg { width: 1rem; height: 1rem; flex: none; }
 /* Золотое пятно в студии почти гасим — золото приберегаем для кнопки. */
 .dev-mode .ambient-aurora--gold {
   background: radial-gradient(circle, rgb(226 232 240 / 10%), rgb(148 163 184 / 4%) 55%, transparent 70%);
+}
+
+/* ── Звёздное небо студии ──
+      Базовый .ambient-stars мира — пять точек: для «космической студии»
+      этого мало, небо читается как плоская заливка. В Dev Mode рисуем
+      три звёздных плана, которые дрейфуют с РАЗНОЙ скоростью — так
+      появляется параллакс и ощущение глубины, без канваса и WebGL
+      (решение основателя: только CSS, без новых зависимостей).
+
+      Слои — псевдоэлементы уже смонтированного .ambient-stars: лишних
+      узлов в DOM не добавляем, обычный режим не трогаем. */
+.dev-mode .ambient-stars {
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 22%, rgb(255 255 255 / 90%), transparent),
+    radial-gradient(1.6px 1.6px at 78% 34%, rgb(226 232 240 / 85%), transparent),
+    radial-gradient(1.4px 1.4px at 44% 68%, rgb(255 255 255 / 80%), transparent),
+    radial-gradient(1.7px 1.7px at 88% 78%, rgb(200 220 255 / 80%), transparent),
+    radial-gradient(1.4px 1.4px at 26% 84%, rgb(226 232 240 / 75%), transparent),
+    radial-gradient(1.5px 1.5px at 62% 12%, rgb(255 255 255 / 85%), transparent),
+    radial-gradient(1.3px 1.3px at 34% 46%, rgb(160 174 192 / 75%), transparent),
+    radial-gradient(1.6px 1.6px at 92% 52%, rgb(255 255 255 / 80%), transparent);
+  animation: ambient-twinkle 6s ease-in-out infinite;
+}
+
+/* Дальний план — мелкая звёздная пыль, движется медленно. */
+.dev-mode .ambient-stars::before,
+.dev-mode .ambient-stars::after {
+  content: "";
+  position: absolute;
+  /* Запас по высоте: слой уезжает вверх и не должен обнажать край. */
+  inset: -50% 0 0 0;
+  height: 200%;
+  pointer-events: none;
+}
+.dev-mode .ambient-stars::before {
+  background-image:
+    radial-gradient(1px 1px at 8% 8%, rgb(226 232 240 / 55%), transparent),
+    radial-gradient(1px 1px at 22% 61%, rgb(255 255 255 / 50%), transparent),
+    radial-gradient(1px 1px at 37% 27%, rgb(160 174 192 / 45%), transparent),
+    radial-gradient(1px 1px at 51% 88%, rgb(226 232 240 / 50%), transparent),
+    radial-gradient(1px 1px at 66% 41%, rgb(255 255 255 / 45%), transparent),
+    radial-gradient(1px 1px at 74% 73%, rgb(200 220 255 / 50%), transparent),
+    radial-gradient(1px 1px at 84% 18%, rgb(226 232 240 / 45%), transparent),
+    radial-gradient(1px 1px at 95% 64%, rgb(255 255 255 / 50%), transparent),
+    radial-gradient(1px 1px at 16% 39%, rgb(226 232 240 / 40%), transparent),
+    radial-gradient(1px 1px at 59% 57%, rgb(255 255 255 / 45%), transparent);
+  background-size: 100% 50%;
+  animation: dev-star-drift-far 150s linear infinite;
+}
+/* Ближний план — редкие яркие звёзды, движутся заметно быстрее. */
+.dev-mode .ambient-stars::after {
+  background-image:
+    radial-gradient(2px 2px at 18% 14%, rgb(255 255 255 / 95%), transparent),
+    radial-gradient(2.2px 2.2px at 71% 29%, rgb(226 232 240 / 90%), transparent),
+    radial-gradient(2px 2px at 41% 77%, rgb(255 255 255 / 85%), transparent),
+    radial-gradient(2.4px 2.4px at 87% 62%, rgb(200 220 255 / 90%), transparent),
+    radial-gradient(2px 2px at 6% 52%, rgb(255 255 255 / 80%), transparent);
+  background-size: 100% 50%;
+  animation: dev-star-drift-near 70s linear infinite;
+}
+
+@keyframes dev-star-drift-far {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, -25%, 0); }
+}
+@keyframes dev-star-drift-near {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, -25%, 0); }
+}
+
+/* Туманность — мягкое свечение, чтобы небо не было пустым.
+   Живёт на .ambient-backdrop, который уже смонтирован глобально. */
+.dev-mode .ambient-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 40% at 22% 28%, rgb(125 211 252 / 9%), transparent 70%),
+    radial-gradient(ellipse 48% 38% at 82% 68%, rgb(148 163 184 / 10%), transparent 72%),
+    radial-gradient(ellipse 40% 30% at 62% 12%, rgb(226 232 240 / 6%), transparent 70%);
+  animation: dev-nebula-breathe 26s ease-in-out infinite;
+}
+@keyframes dev-nebula-breathe {
+  0%, 100% { opacity: 0.75; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.06); }
 }
 .dev-mode .ambient-vignette {
   background: radial-gradient(ellipse at center, transparent 34%, rgb(6 9 16 / 36%) 74%, rgb(6 9 16 / 72%) 100%);
@@ -1587,4 +1682,81 @@ svg { width: 1rem; height: 1rem; flex: none; }
     transition: none !important;
   }
   .dev-card, .dev-btn { transition: none !important; }
+}
+
+/* ── Рельс навигации студии (components/dev-mode/DevRail.tsx) ──
+      Мобильный порядок первым: снизу горизонтальная полоса на всю ширину.
+      С `md` превращается в вертикальную колонку слева — там высота экрана
+      дороже ширины, под ней живут код и превью. */
+.dev-rail {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: space-around;
+  gap: 4px;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: rgb(9 12 22 / 88%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid rgb(226 232 240 / 12%);
+}
+
+.dev-rail__item {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 6px;
+  border-radius: 12px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  color: rgb(148 163 184 / 85%);
+  border: 1px solid transparent;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.dev-rail__item:hover { color: #F1F5F9; background: rgb(226 232 240 / 7%); }
+
+/* Активный раздел — серебряная подсветка. Цвет + рамка + фон вместе:
+   одного цвета мало, чтобы состояние читалось при дневном свете. */
+.dev-rail__item--active {
+  color: #F8FAFC;
+  background: linear-gradient(145deg, rgb(226 232 240 / 16%), rgb(148 163 184 / 8%));
+  border-color: rgb(226 232 240 / 30%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%);
+}
+
+@media (min-width: 768px) {
+  .dev-rail {
+    top: 0; bottom: 0; right: auto;
+    width: 84px;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 6px;
+    /* Отступ сверху пропускает шапку студии (марка + выход в мир). */
+    padding: 92px 10px 20px;
+    border-top: none;
+    border-right: 1px solid rgb(226 232 240 / 12%);
+  }
+  .dev-rail__item { flex: 0 0 auto; padding: 11px 6px; }
+}
+
+/* Контент студии уступает место рельсу: снизу на телефоне, слева на десктопе. */
+.dev-mode-layout { padding-bottom: 84px; }
+@media (min-width: 768px) {
+  .dev-mode-layout { padding-bottom: 0; padding-left: 84px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dev-rail__item { transition: none !important; }
+  /* Звёздный параллакс и дыхание туманности — движение ради атмосферы.
+     Само небо остаётся на месте, отключается только его перемещение. */
+  .dev-mode .ambient-stars,
+  .dev-mode .ambient-stars::before,
+  .dev-mode .ambient-stars::after,
+  .dev-mode .ambient-backdrop::after {
+    animation: none !important;
+  }
 }

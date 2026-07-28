@@ -34,6 +34,10 @@ const nextConfig = {
          запуск + чат в ОДНОМ экране. Тот же credentialless, что у /studio —
          именно он позволяет держать Monaco (CDN) и WebContainer вместе. */
       { source: "/projects/:id/workspace", headers: coiHeaders },
+      /* Та же Мастерская, открытая из режима разработчика (/dev/workspace/:id).
+         Роут другой, компонент тот же — без этих заголовков в студии молча
+         не заработало бы превью: WebContainer'у нужен SharedArrayBuffer. */
+      { source: "/dev/workspace/:id", headers: coiHeaders },
     ]
   },
 }

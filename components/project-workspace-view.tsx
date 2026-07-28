@@ -37,7 +37,10 @@ import {
   XCircle, Download, PanelsTopLeft, Coins, ShieldCheck, Wrench, ShieldAlert,
 } from "lucide-react"
 import { Navbar } from "./navbar"
+import { DevTopBar } from "./dev-mode/DevTopBar"
+import { DevRail } from "./dev-mode/DevRail"
 import { WorkshopBackdrop } from "./workshop-backdrop"
+import { useDevMode } from "@/lib/dev-mode"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
@@ -79,6 +82,26 @@ const STEP_COLOR: Record<StepState, string> = {
 export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   const { t } = useTranslation()
   const router = useRouter()
+  /* Мастерская одна на оба мира OSGARD, но её обрамление зависит от режима:
+     в студии разработчика вместо 24-пунктового Navbar — тихая шапка студии,
+     а экономические элементы (цена доработки, «паспорт проекта») не
+     показываются вовсе. Логика генерации, сборки и деплоя общая — иначе два
+     мира разъехались бы на первой же правке. См. lib/dev-mode.tsx. */
+  const { mode } = useDevMode()
+  const isDev = mode === "dev"
+  /** Шапка экрана — в мире Navbar, в студии шапка студии + её рельс
+   *  разделов. Без рельса Мастерская была бы тупиком: человек попадал в
+   *  код и терял навигацию по студии (проверено на живом стенде). */
+  const TopBar = isDev
+    ? () => (
+        <>
+          <DevRail />
+          <DevTopBar />
+        </>
+      )
+    : Navbar
+  /** Куда возвращает «назад»: в студии — к её списку кода, в мире — к проектам. */
+  const backHref = isDev ? "/dev/workspace" : "/projects"
   const {
     currentProject,
     currentProjectFiles,
@@ -493,7 +516,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   if (loading && !currentProject) {
     return (
       <div className="eg-page min-h-screen font-sans" style={{ color: COLORS.text }}>
-        <Navbar />
+        <TopBar />
         <main className="mx-auto flex max-w-[1240px] flex-col items-center gap-3 px-6 py-24 text-center">
           <Loader2 size={28} className="animate-spin" style={{ color: COLORS.accent }} />
           <p className="text-[14px]" style={{ color: COLORS.label }}>{t("workspace.loading")}</p>
@@ -505,7 +528,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   if (!currentProject) {
     return (
       <div className="eg-page min-h-screen font-sans" style={{ color: COLORS.text }}>
-        <Navbar />
+        <TopBar />
         <main className="mx-auto flex max-w-[1240px] flex-col items-center gap-4 px-6 py-24 text-center">
           <p className="text-[15px]" style={{ color: COLORS.label }}>{error || t("workspace.notFound")}</p>
           <button
@@ -525,21 +548,26 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   const canRun = currentProjectFiles.length > 0 && isolated !== false
 
   return (
-    <div className="eg-page relative flex min-h-screen flex-col font-sans" style={{ color: COLORS.text }}>
-      <WorkshopBackdrop />
-      <Navbar />
+    <div
+      className={`eg-page relative flex min-h-screen flex-col font-sans${isDev ? " dev-mode-layout" : ""}`}
+      style={{ color: COLORS.text }}
+    >
+      {/* Мастерская мира рисует свой тёплый фон; в студии его роль играет
+          общий AmbientBackdrop, перекрашенный в сине-серебряную гамму. */}
+      {isDev ? null : <WorkshopBackdrop />}
+      <TopBar />
 
       {/* ---- Шапка мастерской ---- */}
       <header className="relative z-10 mx-auto w-full max-w-[1680px] px-4 pt-5 md:px-8">
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={() => router.push("/projects")}
+            onClick={() => router.push(backHref)}
             className="inline-flex items-center gap-2 text-[13px] transition-colors"
             style={{ color: COLORS.label }}
           >
             <ArrowLeft size={14} strokeWidth={1.75} />
-            {t("workspace.backToProjects")}
+            {isDev ? "К проектам студии" : t("workspace.backToProjects")}
           </button>
 
           <h1 className="text-[19px] font-semibold leading-tight">{currentProject.name}</h1>
@@ -556,16 +584,21 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
           </span>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            {/* Явный мост к экономической витрине — «паспорт проекта» никуда не делся */}
-            <button
-              type="button"
-              onClick={() => router.push(`/projects/${projectId}`)}
-              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-colors"
-              style={{ border: `1px solid ${COLORS.border}`, color: COLORS.label }}
-            >
-              <Boxes size={14} strokeWidth={1.75} />
-              {t("workspace.openPassport")}
-            </button>
+            {/* Явный мост к экономической витрине — «паспорт проекта» никуда не делся.
+                В студии разработчика его нет: витрина — это артефакты и доход,
+                то есть ровно то, чего в этом режиме не существует. Кому нужно —
+                переключается в мир одной кнопкой в шапке. */}
+            {isDev ? null : (
+              <button
+                type="button"
+                onClick={() => router.push(`/projects/${projectId}`)}
+                className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-colors"
+                style={{ border: `1px solid ${COLORS.border}`, color: COLORS.label }}
+              >
+                <Boxes size={14} strokeWidth={1.75} />
+                {t("workspace.openPassport")}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => window.open(`${API_BASE_URL}/projects/${projectId}/export.zip`, "_blank")}
@@ -1047,7 +1080,10 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                 <Wand2 size={13} strokeWidth={1.75} style={{ color: "var(--elite-gold, #f5c451)" }} />
                 {t("workspace.aiTitle")}
               </span>
-              {refinementsRemaining !== null && (
+              {/* Счётчик бесплатных доработок и цена в кредитах — экономика.
+                  В студии её нет: сама доработка работает ровно так же, просто
+                  не показывается ценник. */}
+              {refinementsRemaining !== null && !isDev && (
                 <span
                   className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px]"
                   style={{
@@ -1104,9 +1140,12 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                       >
                         {r.status === "generating" ? t("workspace.refStatusRunning") : r.status === "ready" ? t("workspace.refStatusReady") : t("workspace.refStatusFailed")}
                       </span>
-                      <span style={{ color: r.costCredits > 0 ? COLORS.label : "var(--elite-gold, #f5c451)" }}>
-                        {r.costCredits > 0 ? `${r.costCredits} cr` : t("workspace.refFree")}
-                      </span>
+                      {/* Стоимость доработки в кредитах — экономика, в студии не показывается. */}
+                      {isDev ? null : (
+                        <span style={{ color: r.costCredits > 0 ? COLORS.label : "var(--elite-gold, #f5c451)" }}>
+                          {r.costCredits > 0 ? `${r.costCredits} cr` : t("workspace.refFree")}
+                        </span>
+                      )}
                     </div>
                     <p className="mt-0.5 line-clamp-2 text-[11.5px]" style={{ color: "#c8d2ea" }}>{r.prompt}</p>
                   </li>

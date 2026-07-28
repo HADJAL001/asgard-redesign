@@ -105,13 +105,37 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
     setHydrated(true)
   }, [])
 
-  // Класс на <html> — им CSS переключает палитру всей страницы (globals.css).
-  // Вешаем именно на documentElement, а не на body: body каждый рендер
-  // пересоздаётся Next.js-ом со своим className из layout.tsx.
+  /* Роут — сильнейший источник правды о режиме, сильнее localStorage.
+     Найдено живой проверкой: при заходе на /dev по прямой ссылке (или
+     после F5, или в новой вкладке) хранилище пустое, режим оставался
+     "world" — и человек видел студию ВМЕСТЕ с подвалом мира: Кузница,
+     Маркет, Биржа, Кошелёк, Зал Славы. То есть весь экономический контур,
+     который режим обязан убирать.
+
+     Синхронизация здесь, а не в switchMode: переключателем режим меняют
+     не всегда — на /dev можно прийти ссылкой, закладкой или «назад». */
+  const inDevRoute = pathname === DEV_MODE_ROUTE || pathname?.startsWith(`${DEV_MODE_ROUTE}/`)
+  useEffect(() => {
+    if (!hydrated || transitioning) return
+    const routeMode: OsgardMode = inDevRoute ? "dev" : "world"
+    // Правим только реальное расхождение — иначе лишний рендер на каждой навигации.
+    if (routeMode === "dev" && mode !== "dev") {
+      setMode("dev")
+      writeStored(STORAGE_KEY_MODE, "dev")
+    }
+  }, [inDevRoute, hydrated, transitioning, mode])
+
+  /* Класс на <html> — им CSS переключает палитру всей страницы (globals.css)
+     и прячет глобальный серверный футер (правило `.dev-mode footer`).
+     Вешаем именно на documentElement, а не на body: body каждый рендер
+     пересоздаётся Next.js-ом со своим className из layout.tsx.
+
+     Условие — режим ИЛИ роут: во время перехода состояние ещё не сменилось,
+     но человек уже на /dev, и подвал мира не должен успеть мигнуть. */
   useEffect(() => {
     if (!hydrated) return
-    document.documentElement.classList.toggle("dev-mode", mode === "dev")
-  }, [mode, hydrated])
+    document.documentElement.classList.toggle("dev-mode", mode === "dev" || Boolean(inDevRoute))
+  }, [mode, hydrated, inDevRoute])
 
   useEffect(() => {
     const pending = timers.current
