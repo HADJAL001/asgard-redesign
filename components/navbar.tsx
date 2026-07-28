@@ -105,14 +105,16 @@ function DevModeSwitch() {
       type="button"
       onClick={() => switchMode("dev")}
       disabled={transitioning}
-      aria-pressed={false}
       aria-label="Перейти в режим разработчика — студия без артефактов, биржи и рейтингов"
       title="Режим разработчика"
-      className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-white/5 disabled:opacity-50"
-      style={{ color: "#94A3B8", border: "1px solid #2A2A3E" }}
+      className="dev-mode-nav-btn"
     >
-      <Terminal size={14} strokeWidth={1.75} aria-hidden="true" />
-      <span className="hidden lg:inline">Dev</span>
+      <Terminal size={15} strokeWidth={2} aria-hidden="true" />
+      {/* Полное название, а не «Dev»: аббревиатура ничего не говорит тому,
+          кто ещё не знает про режим — а именно он и должен его найти.
+          На узких экранах остаётся только иконка (место в шапке конечно),
+          но подпись держим до `md`, а не до `lg`. */}
+      <span className="hidden md:inline">Режим разработчика</span>
     </button>
   )
 }

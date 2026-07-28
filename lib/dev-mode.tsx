@@ -31,7 +31,7 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { playModeSwitchSound } from "./dev-mode-sound"
 
 export type OsgardMode = "world" | "dev"
@@ -39,6 +39,10 @@ export type OsgardMode = "world" | "dev"
 /** Роут студии разработчика. /developer уже занят API-ключами,
  *  /studio — гостевой песочницей лендинга, поэтому /dev. */
 export const DEV_MODE_ROUTE = "/dev"
+
+/** Куда возвращает выход из студии: рабочий контур, а не главная с
+ *  экономикой — человек возвращается к своим проектам. */
+export const WORLD_MODE_ROUTE = "/projects"
 
 const STORAGE_KEY_MODE = "osgard_mode"
 const STORAGE_KEY_SOUND = "osgard_mode_sound"
@@ -86,6 +90,7 @@ function writeStored(key: string, value: string) {
 
 export function DevModeProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [mode, setMode] = useState<OsgardMode>("world")
   const [soundEnabled, setSoundEnabled] = useState(false)
   const [transitioning, setTransitioning] = useState(false)
@@ -125,7 +130,16 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
 
   const switchMode = useCallback(
     (next: OsgardMode) => {
-      if (next === mode || transitioning) return
+      // Ранний выход — ТОЛЬКО пока играет переход. Сверять `next === mode`
+      // здесь нельзя: состояние режима и фактический роут могут разойтись
+      // (человек ушёл из студии по прямой ссылке/кнопкой «назад», а в
+      // localStorage осталось "dev"). Тогда кнопка молча переставала
+      // работать — клик есть, реакции нет. Целевой роут проверяем ниже.
+      if (transitioning) return
+
+      const targetRoute = next === "dev" ? DEV_MODE_ROUTE : WORLD_MODE_ROUTE
+      // Уже и в нужном режиме, и на нужном экране — делать нечего.
+      if (next === mode && pathname === targetRoute) return
 
       const reduceMotion =
         typeof window !== "undefined" &&
@@ -136,7 +150,7 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
         writeStored(STORAGE_KEY_MODE, next)
         // В "dev" уводим на студию; из "dev" — на рабочий контур, а не на
         // главную с экономикой: человек возвращается к своим проектам.
-        router.push(next === "dev" ? DEV_MODE_ROUTE : "/projects")
+        router.push(targetRoute)
       }
 
       // Доступность: при prefers-reduced-motion эффект пропускается целиком.
@@ -156,7 +170,7 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
       timers.current.push(setTimeout(commit, TRANSITION_MS * 0.55))
       timers.current.push(setTimeout(() => setTransitioning(false), TRANSITION_MS))
     },
-    [mode, transitioning, soundEnabled, router],
+    [mode, transitioning, soundEnabled, router, pathname],
   )
 
   const value = useMemo<DevModeContextValue>(

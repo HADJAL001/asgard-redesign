@@ -1511,6 +1511,43 @@ svg { width: 1rem; height: 1rem; flex: none; }
   color: #F1F5F9;
 }
 
+/* ── Кнопка входа в режим разработчика (шапка обычного режима) ──
+      Раньше была неотличима от служебных иконок шапки (серый текст,
+      бордер #2A2A3E) и подписана «Dev» — аббревиатурой, которая ничего
+      не говорит тому, кто про режим ещё не знает. Теперь это заметная
+      золотая кнопка с полным названием: вход во вторую вселенную —
+      не служебная иконка, он обязан бросаться в глаза. */
+.dev-mode-nav-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px; border-radius: 9999px;
+  font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  color: #F3DF9B;
+  background: linear-gradient(135deg, rgb(212 175 55 / 20%), rgb(212 175 55 / 8%));
+  border: 1px solid rgb(212 175 55 / 45%);
+  box-shadow: 0 0 0 0 rgb(212 175 55 / 40%);
+  transition: color .2s ease, background .2s ease, border-color .2s ease,
+              box-shadow .2s ease, transform .18s var(--ease-out-soft, cubic-bezier(.22,.61,.36,1));
+}
+.dev-mode-nav-btn:hover:not(:disabled) {
+  color: #0A0A0F;
+  background: linear-gradient(135deg, #F3DF9B, #D4AF37);
+  border-color: rgb(212 175 55 / 85%);
+  box-shadow: 0 0 18px rgb(212 175 55 / 45%);
+}
+.dev-mode-nav-btn:active:not(:disabled) { transform: scale(0.96); }
+.dev-mode-nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Мягкое «дыхание» рамки — притягивает взгляд, не мигая назойливо. */
+@keyframes dev-nav-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(212 175 55 / 0%); }
+  50%      { box-shadow: 0 0 14px 1px rgb(212 175 55 / 30%); }
+}
+.dev-mode-nav-btn { animation: dev-nav-pulse 3.4s ease-in-out infinite; }
+.dev-mode-nav-btn:hover { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .dev-mode-nav-btn { animation: none; transition: none; }
+}
+
 /* ── Глобальные слои платформы, которым не место в студии ──
       Найдено живой проверкой в браузере: экономика возвращалась в Dev Mode
       «с чёрного хода» — через подвал (Кузница, Маркет, Биржа, Кошелёк,
