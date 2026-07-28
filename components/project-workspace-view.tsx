@@ -39,6 +39,7 @@ import {
 import { Navbar } from "./navbar"
 import { DevTopBar } from "./dev-mode/DevTopBar"
 import { DevRail } from "./dev-mode/DevRail"
+import { DevStatusBar } from "./dev-mode/DevStatusBar"
 import { WorkshopBackdrop } from "./workshop-backdrop"
 import { useDevMode } from "@/lib/dev-mode"
 import { useOsgardStore } from "@/lib/store/osgard-store"
@@ -499,6 +500,53 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     return { tone: "done" as const, text: t("workspace.nextAllDone"), action: null }
   }, [steps, engineering?.verdict, runState, handleRepair, handleRun, handleDeploy, t])
 
+  /* Одна фраза для студии вместо трёх сигналов.
+     На скриншоте основателя экран одновременно утверждал «Готово»
+     (бейдж проекта), «Нужно починить» (eyebrow баннера) и «Дефекты
+     исправлены» (полоса вердикта) — про одно и то же состояние.
+     Причина: бейдж говорит про генерацию, баннер — про следующий шаг,
+     вердикт — про прошлую проверку. Здесь сводим к одному смыслу:
+     что сейчас и что дальше, в одном предложении. */
+  const devHeadline = useMemo(() => {
+    if (currentProject?.status === "generating") return "Клод собирает приложение…"
+    if (currentProject?.status === "failed") return "Сборка не удалась — опишите задачу иначе"
+    if (deploying || currentProject?.deployStatus === "deploying") return "Публикуем в интернете…"
+
+    if (nextAction.tone === "progress") return nextAction.text
+    if (nextAction.tone === "error") return nextAction.text
+
+    /* Свершившийся факт важнее предложения следующего шага: шаг «Деплой»
+       остаётся idle и после успешной публикации, поэтому проверку статуса
+       деплоя держим ВЫШЕ веток stepKey — иначе опубликованный проект
+       предлагал бы «показать миру» то, что уже показано. */
+    if (currentProject?.deployStatus === "deployed") return "Опубликовано и доступно по адресу"
+
+    /* Подсказки шагов написаны языком отчёта («проверка не проводилась»).
+       В студии говорим то же самое как человек — от лица того, что можно
+       сделать сейчас, а не от лица журнала событий. */
+    const stepKey = nextAction.action?.step.key
+    if (stepKey === "compiler") return "Код написан — давайте проверим его"
+    if (stepKey === "run") return "Проверено. Посмотрим, как это работает"
+    if (stepKey === "deploy") return "Работает — можно показать миру"
+
+    const fileCount = currentProjectFiles.length
+    if (runState === "ready") return "Приложение запущено — можно публиковать"
+    if (fileCount > 0) {
+      // Починенные дефекты — часть хорошей новости, а не отдельная тревога.
+      const repaired = repairCount > 0 ? `, ${repairCount} ${repairCount === 1 ? "дефект исправлен" : "дефекта исправлено"}` : ""
+      return `Готово: ${fileCount} ${fileCount === 1 ? "файл" : fileCount < 5 ? "файла" : "файлов"}${repaired}`
+    }
+    return nextAction.text
+  }, [
+    currentProject?.status,
+    currentProject?.deployStatus,
+    deploying,
+    nextAction,
+    currentProjectFiles.length,
+    runState,
+    repairCount,
+  ])
+
   function goToNextAction() {
     if (!nextAction.action) return
     setPane(nextAction.action.pane)
@@ -572,8 +620,10 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
 
           <h1 className="text-[19px] font-semibold leading-tight">{currentProject.name}</h1>
 
+          {/* Бейдж статуса — в студии его роль взяла строка состояния ниже.
+              Именно он спорил с баннером: «Готово» рядом с «Нужно починить». */}
           <span
-            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]"
+            className={`items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] ${isDev ? "hidden" : "inline-flex"}`}
             style={{
               border: `1px solid ${isGenerating ? COLORS.accent : currentProject.status === "failed" ? COLORS.red : COLORS.green}`,
               color: isGenerating ? COLORS.accent : currentProject.status === "failed" ? COLORS.red : COLORS.green,
@@ -622,8 +672,30 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
           </div>
         </div>
 
+        {/* ---- Студия: всё состояние одной строкой ----
+             В режиме разработчика баннер, лента конвейера и полоса вердикта
+             схлопываются в DevStatusBar: пять точек + одна фраза + одно
+             действие. Подробности вердикта раскрываются кнопкой «Подробнее»
+             (тот же showReport, что и в мире) — они ниже по коду и общие. */}
+        {isDev ? (
+          <div className="mt-4">
+            <DevStatusBar
+              steps={steps}
+              tone={nextAction.tone}
+              headline={devHeadline}
+              actionLabel={nextAction.action?.actionLabel}
+              onAction={nextAction.action ? goToNextAction : undefined}
+              detailsOpen={showReport}
+              onToggleDetails={() => setShowReport((v) => !v)}
+              hasDetails={errorDefects.length > 0 || repairCount > 0 || totalChecks > 0}
+            />
+          </div>
+        ) : null}
+
         {/* ---- Что делать дальше: одно приоритетное действие вместо пяти карточек ---- */}
-        <div className="premium-panel mt-4 flex flex-wrap items-center gap-3 rounded-xl px-4 py-3">
+        <div
+          className={`premium-panel mt-4 flex-wrap items-center gap-3 rounded-xl px-4 py-3 ${isDev ? "hidden" : "flex"}`}
+        >
           {nextAction.tone === "error" ? (
             <ShieldAlert size={17} style={{ color: COLORS.red, flexShrink: 0 }} />
           ) : nextAction.tone === "progress" ? (
@@ -652,8 +724,9 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
           )}
         </div>
 
-        {/* ---- Конвейер: кто и что делает прямо сейчас ---- */}
-        <ol className="mt-4 flex flex-wrap items-stretch gap-2">
+        {/* ---- Конвейер: кто и что делает прямо сейчас ----
+             В студии его роль играют пять точек в DevStatusBar выше. */}
+        <ol className={`mt-4 flex-wrap items-stretch gap-2 ${isDev ? "hidden" : "flex"}`}>
           {steps.map((s, i) => (
             <li key={s.key} className="flex items-center gap-2">
               <div
@@ -680,22 +753,32 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
         {/* ---- Инженерный вердикт: чем именно доказана работоспособность ----
              Раскрывается по клику на строку итога. Показываем ровно то, что вынес контур:
              какие проверки прошли, что платформа починила сама, что осталось битым. */}
-        {(engineering?.verdict || repairNotice) && (
+        {/* В студии панель появляется, только когда человек сам нажал
+            «Подробнее»: постоянная цветная полоса — это третий сигнал о
+            статусе на экране, где уже есть точки и фраза. */}
+        {(engineering?.verdict || repairNotice) && (!isDev || showReport) && (
           <div
             className="mt-3 rounded-xl px-4 py-3"
-            style={{
-              backgroundColor:
-                engineering?.verdict === "broken" ? "rgba(248,113,113,0.06)" : "rgba(74,222,128,0.05)",
-              border: `1px solid ${
-                engineering?.verdict === "broken"
-                  ? COLORS.red
-                  : engineering?.verdict === "passed" || engineering?.verdict === "repaired"
-                    ? COLORS.green
-                    : COLORS.border
-              }`,
-            }}
+            style={
+              isDev
+                ? { background: "rgb(226 232 240 / 4%)", border: "1px solid rgb(226 232 240 / 12%)" }
+                : {
+                    backgroundColor:
+                      engineering?.verdict === "broken" ? "rgba(248,113,113,0.06)" : "rgba(74,222,128,0.05)",
+                    border: `1px solid ${
+                      engineering?.verdict === "broken"
+                        ? COLORS.red
+                        : engineering?.verdict === "passed" || engineering?.verdict === "repaired"
+                          ? COLORS.green
+                          : COLORS.border
+                    }`,
+                  }
+            }
           >
-            <div className="flex flex-wrap items-center gap-2">
+            {/* Строка итога — в студии её содержание уже сказано одной фразой
+                в DevStatusBar, второй раз повторять незачем. Раскрытые
+                подробности ниже остаются общими для обоих режимов. */}
+            <div className={`flex-wrap items-center gap-2 ${isDev ? "hidden" : "flex"}`}>
               {engineering?.verdict === "broken" ? (
                 <ShieldAlert size={15} style={{ color: COLORS.red, flexShrink: 0 }} />
               ) : (
@@ -847,7 +930,18 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
       </header>
 
       {/* ---- Рабочая область ---- */}
-      <main className="relative z-10 mx-auto grid w-full max-w-[1680px] flex-1 grid-cols-1 gap-4 px-4 py-5 md:px-8 lg:grid-cols-[210px_minmax(0,1fr)_minmax(0,0.9fr)]">
+      {/* Пропорции панелей зависят от режима.
+          В мире код шире превью (1fr против 0.9fr) — это экран инженера.
+          В студии наоборот: человек пришёл увидеть СВОЁ ПРИЛОЖЕНИЕ, а не
+          читать исходники, поэтому превью получает больше половины, а
+          список файлов ужимается. Код остаётся рядом, не прячется. */}
+      <main
+        className={`relative z-10 mx-auto grid w-full max-w-[1680px] flex-1 grid-cols-1 gap-4 px-4 py-5 md:px-8 ${
+          isDev
+            ? "lg:grid-cols-[180px_minmax(0,0.85fr)_minmax(0,1.35fr)]"
+            : "lg:grid-cols-[210px_minmax(0,1fr)_minmax(0,0.9fr)]"
+        }`}
+      >
         {/* Файлы */}
         <aside className={`eg-surface overflow-hidden rounded-2xl ${pane === "code" ? "" : "hidden lg:block"}`}>
           <div className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLORS.label, borderBottom: `1px solid ${COLORS.border}` }}>

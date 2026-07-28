@@ -33,6 +33,7 @@ import {
 } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { playModeSwitchSound } from "./dev-mode-sound"
+import { useAuth } from "./auth-store"
 
 export type OsgardMode = "world" | "dev"
 
@@ -65,6 +66,9 @@ type DevModeContextValue = {
   switchMode: (next: OsgardMode) => void
   /** Прочитано ли состояние из localStorage (нужно, чтобы не мигать UI). */
   hydrated: boolean
+  /** Переключал ли человек режим сам. false — значит он тут впервые и ещё
+   *  не знает про вторую вселенную: показываем стрелку-подсказку. */
+  modeChosen: boolean
 }
 
 const DevModeContext = createContext<DevModeContextValue | null>(null)
@@ -97,13 +101,54 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
 
+  /* Выбирал ли человек режим сам. Отличать «не выбирал» от «выбрал мир»
+     обязательно: студия — вход по умолчанию, но осознанный выбор мира
+     мы обязаны уважать, иначе человека будет выкидывать из мира при
+     каждом заходе на главную. */
+  const [modeChosen, setModeChosen] = useState(false)
+
+  /* Авторизован ли человек. AuthProvider смонтирован в app/layout.tsx
+     СНАРУЖИ AppShell, поэтому хук здесь доступен. Нужен для того, чтобы
+     вход по умолчанию срабатывал только для своих: гость должен видеть
+     лендинг, а не студию. */
+  const { isAuthenticated } = useAuth()
+
   // Восстановление состояния — строго после монтирования (см. заголовок про SSR).
   useEffect(() => {
     const storedMode = readStored<OsgardMode>(STORAGE_KEY_MODE, ["world", "dev"])
-    if (storedMode) setMode(storedMode)
+    if (storedMode) {
+      setMode(storedMode)
+      setModeChosen(true)
+    }
     setSoundEnabled(readStored(STORAGE_KEY_SOUND, ["on", "off"]) === "on")
     setHydrated(true)
   }, [])
+
+  /* ── Студия как вход по умолчанию ──
+     Директива основателя: «стиль разработчика должен быть по умолчанию».
+     Поэтому первый заход на рабочий контур платформы ведёт в студию —
+     но ровно один раз и только с корневых экранов входа. Уводить с
+     произвольной страницы нельзя: человек, открывший ссылку на Кузницу,
+     должен попасть в Кузницу, а не в студию.
+
+     Дальше выбор запоминается: нажал «Мир OSGARD» — больше сюда не
+     возвращаем (см. modeChosen). */
+  const redirectedToStudio = useRef(false)
+  useEffect(() => {
+    if (!hydrated || transitioning || modeChosen || redirectedToStudio.current) return
+    /* Гостя не трогаем вообще: «/» — это лендинг, он рассказывает про
+       платформу и ведёт к регистрации. Проверка на живом стенде показала,
+       что автоперенос встречал незнакомого человека пустой студией вместо
+       рассказа о продукте. Вход по умолчанию — для того, кто пришёл
+       работать, а не для случайного посетителя. */
+    if (!isAuthenticated) return
+
+    const isEntryPoint = pathname === "/" || pathname === WORLD_MODE_ROUTE
+    if (!isEntryPoint) return
+    redirectedToStudio.current = true
+    setMode("dev")
+    router.replace(DEV_MODE_ROUTE)
+  }, [hydrated, transitioning, modeChosen, pathname, router, isAuthenticated])
 
   /* Роут — сильнейший источник правды о режиме, сильнее localStorage.
      Найдено живой проверкой: при заходе на /dev по прямой ссылке (или
@@ -121,7 +166,11 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
     // Правим только реальное расхождение — иначе лишний рендер на каждой навигации.
     if (routeMode === "dev" && mode !== "dev") {
       setMode("dev")
-      writeStored(STORAGE_KEY_MODE, "dev")
+      /* В хранилище НЕ пишем: нахождение на /dev само по себе не выбор
+         человека — сюда мог привести автоперенос по умолчанию. Записывает
+         только switchMode, то есть явное нажатие кнопки. Иначе первый же
+         автоперенос «застывал» бы как решение и стрелка-подсказка
+         исчезала, ни разу не показавшись. */
     }
   }, [inDevRoute, hydrated, transitioning, mode])
 
@@ -172,6 +221,9 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
       const commit = () => {
         setMode(next)
         writeStored(STORAGE_KEY_MODE, next)
+        /* Человек выбрал сам — автоперенос в студию больше не срабатывает.
+           Без этого нажатие «Мир OSGARD» отменялось бы автопереходом. */
+        setModeChosen(true)
         // В "dev" уводим на студию; из "dev" — на рабочий контур, а не на
         // главную с экономикой: человек возвращается к своим проектам.
         router.push(targetRoute)
@@ -198,8 +250,8 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo<DevModeContextValue>(
-    () => ({ mode, transitioning, soundEnabled, toggleSound, switchMode, hydrated }),
-    [mode, transitioning, soundEnabled, toggleSound, switchMode, hydrated],
+    () => ({ mode, transitioning, soundEnabled, toggleSound, switchMode, hydrated, modeChosen }),
+    [mode, transitioning, soundEnabled, toggleSound, switchMode, hydrated, modeChosen],
   )
 
   return <DevModeContext.Provider value={value}>{children}</DevModeContext.Provider>
