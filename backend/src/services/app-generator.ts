@@ -3,6 +3,13 @@ import { callClaudeRaw, callDeepSeekRaw, callGrokRaw, extractJson, isAiConfigure
 import { captureError } from "../lib/sentry"
 import { durableCache } from "./agents/durable-cache"
 import {
+  deriveExportContract,
+  renderExportContract,
+  reconcileWithContract,
+  verifyAgainstContract,
+  type ExportContract,
+} from "../lib/generation-contract"
+import {
   ARCHETYPE_MENU,
   DESIGN_BRIEF_VERSION,
   EFFECT_MENU,
@@ -114,6 +121,13 @@ function staticTemplateFiles(name: string, brief: DesignBrief, description: stri
             next: "^14.2.0",
             react: "^18.3.0",
             "react-dom": "^18.3.0",
+            // Иконки. Модели тянут lucide-react практически в каждом приложении
+            // (это фактический стандарт для Next+Tailwind), а пакета в каркасе не
+            // было — каждый такой импорт становился ошибкой сборки
+            // "dependency-missing". Дешевле и честнее объявить его в каркасе, чем
+            // заставлять модель рисовать иконки инлайновым SVG: приложение
+            // получается лучше, а класс ошибок исчезает целиком.
+            "lucide-react": "^0.454.0",
           },
           devDependencies: {
             typescript: "^5.7.0",
@@ -270,7 +284,10 @@ async function generateManifest(name: string, hint: string | undefined, brief: D
   const entries: ManifestEntry[] = rawFiles
     .filter((f: any) => f && typeof f.path === "string" && typeof f.purpose === "string")
     .map((f: any) => ({ path: f.path.replace(/^\/+/, ""), purpose: f.purpose }))
-    .filter((f: ManifestEntry) => /^(app|components|hooks|lib)\/[\w\-/]+\.tsx?$/.test(f.path))
+    // utils/ и types/ намеренно разрешены: модель постоянно пишет
+    // `import { cn } from "@/utils/cn"`, а прежний фильтр такой файл выбрасывал из
+    // манифеста — он не генерировался НИКОГДА, и сборка падала с "Module not found".
+    .filter((f: ManifestEntry) => /^(app|components|hooks|lib|utils|types)\/[\w\-/]+\.tsx?$/.test(f.path))
     .filter((f: ManifestEntry) => !RESERVED_PATHS.has(f.path.toLowerCase()))
     .slice(0, 40)
 
@@ -285,9 +302,13 @@ function fallbackManifest(): ManifestEntry[] {
   return [{ path: "app/page.tsx", purpose: "Главная страница приложения" }]
 }
 
-/** Промпт содержимого файла. Ключевое здесь — блок дизайн-контракта: файлы
- *  генерируются ПАРАЛЛЕЛЬНО и не видят друг друга, поэтому без общего контракта
- *  каждый изобретал собственную палитру, и приложение расползалось по стилю. */
+/** Промпт содержимого файла. Ключевых контрактов здесь ДВА, и оба нужны потому,
+ *  что файлы генерируются ПАРАЛЛЕЛЬНО и не видят друг друга:
+ *    - дизайн-контракт — иначе каждый файл изобретал свою палитру;
+ *    - контракт ЭКСПОРТОВ — иначе каждый файл угадывал форму импорта соседа
+ *      (`import Hero from` против `export function Hero`), что и дало 18 ошибок
+ *      импортов на живом тесте. Контракт выводится кодом из манифеста, без
+ *      дополнительных AI-вызовов. */
 function buildFilePrompt(
   name: string,
   hint: string | undefined,
@@ -295,12 +316,12 @@ function buildFilePrompt(
   entry: ManifestEntry,
   brief: DesignBrief,
   lessons: string,
+  contract: ExportContract,
 ): string {
-  const fileList = manifest.map((f) => `- ${f.path}: ${f.purpose}`).join("\n")
+  const purposeByPath = new Map(manifest.map((f) => [f.path.replace(/^\/+/, ""), f.purpose]))
   return `Ты пишешь исходный код для реального Next.js (App Router, TypeScript, Tailwind CSS) приложения "${name}"${hint ? ` в теме: "${hint}"` : ""}.
 
-Полный список файлов приложения (для контекста, чтобы импорты между ними совпадали):
-${fileList}
+${renderExportContract(contract, purposeByPath, entry.path)}
 
 ${renderDesignContract(brief)}
 ${lessons ? `
@@ -311,7 +332,7 @@ ${lessons}
 Требования:
 - Валидный TypeScript/TSX, готовый к сборке Next.js App Router (используй "use client" только если нужны хуки/интерактивность).
 - Стилизация только через Tailwind-классы дизайн-контракта выше.
-- Импорты компонентов из "./ComponentName" или "@/components/ComponentName" — точно соответствуй путям из списка выше.
+- Импортируй соседей ТОЛЬКО строками из «КОНТРАКТА ЭКСПОРТОВ» выше — дословно, не меняя форму (default против именованного). Файлов вне контракта не существует.
 - Приложение собирается через "next build" со статическим экспортом (output: "export") —
   без серверных API-роутов и Server Actions. Обращения к внешним API возможны только
   клиентски (компонент с "use client" + fetch/useEffect), не через серверные компоненты.
@@ -325,8 +346,9 @@ async function generateFileContent(
   entry: ManifestEntry,
   brief: DesignBrief,
   lessons: string,
+  contract: ExportContract,
 ): Promise<string | null> {
-  const text = await callAnyProvider(buildFilePrompt(name, hint, manifest, entry, brief, lessons), 8000)
+  const text = await callAnyProvider(buildFilePrompt(name, hint, manifest, entry, brief, lessons, contract), 8000)
   if (!text) return null
   return extractCodeBlock(text)
 }
@@ -366,7 +388,7 @@ ${current.slice(0, 12000)}
 - Верни ПОЛНОЕ исправленное содержимое файла, а не патч и не пояснения.
 - Сохрани замысел и вёрстку файла — правь ровно то, что перечислено в дефектах.
 - Импортируй только существующие файлы из списка выше; сторонние пакеты запрещены,
-  кроме next, react и react-dom.
+  кроме next, react, react-dom и lucide-react (иконки).
 - Если нужен хук или обработчик события — первой строкой файла поставь "use client".
 - Приложение собирается со статическим экспортом (output: "export"): без API-роутов,
   без "use server", без next/headers, без export const dynamic.
@@ -465,9 +487,16 @@ export async function generateApp(
 
     const manifest = (await generateManifest(name, hint, brief)) || fallbackManifest()
 
+    /* ФАЗА 1 — КОНТРАКТ. Только списки экспортов, без тел файлов. Выводится кодом
+       из манифеста (deriveExportContract), поэтому НЕ стоит ни одного AI-вызова:
+       имя экспорта у файла приложения однозначно следует из его пути. */
+    const contract = deriveExportContract(manifest.map((entry) => entry.path))
+
+    /* ФАЗА 2 — ТЕЛА. По-прежнему параллельно (скорость не теряем), но каждый файл
+       пишется поверх ОБЩЕГО контракта и больше не угадывает форму импорта соседа. */
     const generated = await Promise.all(
       manifest.map(async (entry) => {
-        const content = await generateFileContent(name, hint, manifest, entry, brief, lessons)
+        const content = await generateFileContent(name, hint, manifest, entry, brief, lessons, contract)
         return {
           path: entry.path,
           content: content ?? (entry.path === "app/page.tsx" ? renderFallbackPage(brief, name, hint) : null),
@@ -475,10 +504,28 @@ export async function generateApp(
       }),
     )
 
-    const files = generated.filter((f): f is GeneratedAppFile => typeof f.content === "string")
+    let files = generated.filter((f): f is GeneratedAppFile => typeof f.content === "string")
 
     if (!files.some((f) => f.path === "app/page.tsx")) {
       files.push({ path: "app/page.tsx", content: renderFallbackPage(brief, name, hint) })
+    }
+
+    /* ФАЗА 3 — СВЕРКА С КОНТРАКТОМ ДО ВЫДАЧИ. Расхождение — ошибка, а не
+       предупреждение: недостающий файл достраивается по контракту, недостающий
+       экспорт дописывается. Всё детерминированно, без AI-вызовов. */
+    const reconciled = reconcileWithContract(files, contract)
+    files = reconciled.files
+    const residual = verifyAgainstContract(files, reconciled.contract)
+    if (residual.length > 0) {
+      // Не глотаем: остаток уедет в инженерный контур, который вправе не выпустить
+      // проект в ready. Здесь только честно фиксируем, что сверка не сошлась.
+      captureError(
+        `[app-generator] контракт экспортов не сошёлся после досборки: ${residual
+          .slice(0, 5)
+          .map((v) => `${v.file}: ${v.message}`)
+          .join("; ")}`,
+        new Error(`contract-violations:${residual.length}`),
+      )
     }
 
     const source: "ai" | "fallback" = files.length > 0 ? "ai" : "fallback"

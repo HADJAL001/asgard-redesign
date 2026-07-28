@@ -130,8 +130,10 @@ function packageOf(spec: string): string {
   return spec.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0]
 }
 
-/** Всегда доступные пакеты каркаса (их ставит staticTemplateFiles). */
-const BUILTIN_PACKAGES = new Set(["next", "react", "react-dom", "typescript"])
+/** Всегда доступные пакеты каркаса (их ставит staticTemplateFiles).
+ *  lucide-react входит в каркас: модели тянут иконки практически в каждом
+ *  приложении, и без объявления пакета каждый такой импорт был ошибкой сборки. */
+const BUILTIN_PACKAGES = new Set(["next", "react", "react-dom", "typescript", "lucide-react"])
 
 const RESOLVE_SUFFIXES = ["", ".tsx", ".ts", "/index.tsx", "/index.ts", ".css", ".json"]
 

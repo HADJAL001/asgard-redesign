@@ -20,6 +20,7 @@ import { addArchitectXp } from "./architect-progression"
 import { deriveDesignBrief, renderDesignSystemFiles, DESIGN_SYSTEM_PATHS, type DesignBrief } from "./design-system"
 import { explainDesignQuality } from "./design-qa"
 import { runEngineeringContour, summarizeVerdict, type EngineeringReport } from "./project-engineering"
+import { deriveExportContract, reconcileWithContract } from "./generation-contract"
 import { craftQuality, isWorthLearning, recordLessons, renderLessonsContract } from "./craft-corpus"
 
 /* ================================================================
@@ -270,6 +271,24 @@ async function runAppGenerationJob(
     // Стадия 4: синтаксическая проверка файлов.
     emitGenerationStage({ projectId, stage: "validating", label: "Проверяю файлы", progress: 0.62, fileCount: files.length })
 
+    /* СВЕРКА С КОНТРАКТОМ ЭКСПОРТОВ — ДО инженерного контура и до выдачи.
+       Стоит здесь, а не внутри generateApp, намеренно: этот путь проходят ОБА
+       способа получить файлы — и полная AI-генерация, и адаптация шаблона из
+       корпуса. Досборка детерминированная (ни одного AI-вызова): файл, который
+       импортируют, но которого нет, создаётся по контракту; недостающий экспорт
+       дописывается. Остаток расхождений не глотается — он неизбежно всплывёт
+       ошибками графа модулей в контуре ниже и повлияет на вердикт. */
+    const contractBefore = deriveExportContract(files.map((f) => f.path))
+    const contractCheck = reconcileWithContract(files, contractBefore)
+    if (contractCheck.actions.length > 0) {
+      files = contractCheck.files.map((f) => ({ path: f.path, content: f.content }))
+      console.log(
+        `[projects.generate] контракт экспортов: досборка ${contractCheck.actions.length} — ${contractCheck.actions
+          .slice(0, 6)
+          .join("; ")}`,
+      )
+    }
+
     // Стадия 5: ИНЖЕНЕРНЫЙ КОНТУР. Раньше здесь ничего не было: проект объявлялся
     // готовым сразу после синтаксической проверки одного файла за раз. Теперь
     // приложение проверяется как ЦЕЛОЕ (граф модулей, клиент/сервер, контракт
@@ -337,9 +356,46 @@ async function runAppGenerationJob(
       insertFile.run(projectId, file.path, file.content, now)
     }
 
+    /* ВЫДАЧА. Раньше статус был безусловным 'ready' при любом вердикте: проект с
+       битыми импортами объявлялся готовым, а дефекты уходили текстом в
+       generation_error — то есть несовпадение было предупреждением. Теперь оно
+       ошибка: приложение, у которого не сходится граф модулей, физически не
+       собирается, и показывать его как готовое — враньё.
+
+       Статус для такого случая — существующий 'failed', а НЕ новый 'broken':
+       фронт знает ровно три статуса (generating/ready/failed) и уже умеет
+       показывать 'failed' вместе с generation_error (project-detail-view.tsx).
+       Новый статус означал бы экран, который никто не рисует, — проект завис бы
+       в невидимом состоянии. Инженерный вердикт 'broken' при этом сохраняется
+       отдельно в build_status (091) — разбор и кнопка ремонта на месте.
+
+       Все прочие дефекты (стиль, клиент/сервер и т.п.) на статус НЕ влияют —
+       блокируем ровно то, что делает сборку невозможной. */
+    const blockingImportErrors = engineering.report.defects.filter(
+      (d) =>
+        d.severity === "error" &&
+        (d.rule === "import-missing" || d.rule === "named-import-missing" || d.rule === "default-export-missing" || d.rule === "dependency-missing"),
+    )
+    const finalStatus = blockingImportErrors.length > 0 ? "failed" : "ready"
+    const finalError =
+      blockingImportErrors.length > 0
+        ? `Приложение не собирается: несогласованных импортов — ${blockingImportErrors.length}. ` +
+          blockingImportErrors
+            .slice(0, 3)
+            .map((d) => `${d.file}: ${d.message}`)
+            .join("; ") +
+          (blockingImportErrors.length > 3 ? ` (и ещё ${blockingImportErrors.length - 3})` : "")
+        : engineeringError
+    if (blockingImportErrors.length > 0) {
+      console.warn(
+        `[projects.generate] проект ${projectId} НЕ выпущен в ready: ошибок импортов ${blockingImportErrors.length} — ` +
+          blockingImportErrors.slice(0, 6).map((d) => `${d.file}: ${d.message}`).join("; "),
+      )
+    }
+
     db.prepare(
-      `UPDATE projects SET status = 'ready', ai_source = ?, generation_error = ?, description = ?, badge = ? WHERE id = ?`,
-    ).run(source, engineeringError, description, badge, projectId)
+      `UPDATE projects SET status = ?, ai_source = ?, generation_error = ?, description = ?, badge = ? WHERE id = ?`,
+    ).run(finalStatus, source, finalError, description, badge, projectId)
 
     // Дизайн-система и разбор её качества — отдельным стейтментом, чтобы схема без
     // колонок 090 не мешала проекту стать ready.
