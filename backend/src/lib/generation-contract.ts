@@ -392,15 +392,38 @@ export default ${shape.symbol}
 /**
  * Достраивает файлы, которые импортируются, но не существуют, и добавляет
  * недостающие экспорты. Детерминированно — без AI-вызовов. Возвращает новый
- * набор файлов и список выполненных действий.
+ * набор файлов, список выполненных действий и УРОКИ (правило → сколько раз).
+ *
+ * Уроки здесь — не украшение отчёта, а вход в память платформы
+ * (`lib/craft-corpus`, таблица `generation_lessons`): топ правил подмешивается
+ * в промпт следующих генераций. Без них досборка получалась «слишком хорошей»
+ * учительницей: дефект чинился ДО инженерного контура, счётчик уроков его не
+ * видел, и модель повторяла ту же ошибку бесконечно — платформа исправляла
+ * последствия вместо того, чтобы отучаться от причины.
  */
 export function reconcileWithContract(
   files: SourceFile[],
   contract: ExportContract,
-): { files: SourceFile[]; actions: string[]; contract: ExportContract } {
+): {
+  files: SourceFile[]
+  actions: string[]
+  contract: ExportContract
+  lessons: Array<{ rule: string; count: number }>
+} {
   const actions: string[] = []
   const out = files.map((f) => ({ path: normalize(f.path), content: f.content }))
   const known = new Set(out.map((f) => f.path))
+
+  /* Счётчик уроков. Имена правил намеренно совпадают с правилами
+     `lib/build-integrity` там, где дефект тот же самый (use-client-missing,
+     dependency-missing, …): статистика платформы должна быть ОДНА, независимо от
+     того, кто дефект перехватил — досборка или инженерный контур. Правила,
+     которых у контура нет (дубль объявления, самоприсваивание, коллизия с
+     импортом), добавлены как новые — их формулировки лежат в craft-corpus. */
+  const lessonCounts = new Map<string, number>()
+  const learn = (rule: string, count = 1): void => {
+    lessonCounts.set(rule, (lessonCounts.get(rule) ?? 0) + count)
+  }
 
   /* 1. Досборка файлов, которых импортируют, но которых нет. */
   for (const file of [...out]) {
@@ -461,6 +484,7 @@ export function reconcileWithContract(
       contract.files.push(resolved)
       contract.byPath.set(targetPath, resolved)
       actions.push(`досоздан ${targetPath} по контракту (импортировался из ${file.path}, но не был сгенерирован)`)
+      learn("import-missing")
     }
   }
 
@@ -528,7 +552,10 @@ export function reconcileWithContract(
     }
 
     const seen = new Set<string>()
-    const duplicates: Array<{ symbol: string; start: number; end: number }> = []
+    /* `kind` различает два дефекта с общим лечением (срезать стейтмент), но
+       разными уроками для модели: повторное объявление того же имени и
+       бессмысленное самоприсваивание `const X = X`. */
+    const duplicates: Array<{ symbol: string; start: number; end: number; kind: "duplicate" | "self-assign" }> = []
     const collisions: Array<{ symbol: string; nameStart: number; nameEnd: number }> = []
     for (const stmt of sf.statements) {
       let symbol: string | null = null
@@ -557,6 +584,7 @@ export function reconcileWithContract(
             symbol: ts.isIdentifier(decls[0].name) ? decls[0].name.text : "?",
             start: stmt.getStart(sf),
             end: stmt.getEnd(),
+            kind: "self-assign",
           })
           continue
         }
@@ -573,7 +601,7 @@ export function reconcileWithContract(
         continue
       }
       if (seen.has(symbol)) {
-        duplicates.push({ symbol, start: stmt.getStart(sf), end: stmt.getEnd() })
+        duplicates.push({ symbol, start: stmt.getStart(sf), end: stmt.getEnd(), kind: "duplicate" })
       } else {
         seen.add(symbol)
       }
@@ -596,6 +624,7 @@ export function reconcileWithContract(
         actions.push(
           `${file.path}: объявление "${col.symbol}" переименовано в "${candidate}" — имя занято импортом (webpack: redefined)`,
         )
+        learn("import-name-collision")
       }
       file.content = renamed
       // Позиции дублей считались по исходному тексту и после переименования уже
@@ -611,6 +640,7 @@ export function reconcileWithContract(
     for (const dup of [...duplicates].sort((a, b) => b.start - a.start)) {
       content = `${content.slice(0, dup.start).trimEnd()}\n${content.slice(dup.end).replace(/^[ \t]*;?[ \t]*\n?/, "")}`
       cutSymbols.push(dup.symbol)
+      learn(dup.kind === "self-assign" ? "self-assignment" : "duplicate-declaration")
     }
     if (cutSymbols.length === 0) continue
 
@@ -686,6 +716,7 @@ export function reconcileWithContract(
     if (replaced.length > 0) {
       file.content = content
       actions.push(`${file.path}: ${[...new Set(replaced)].join(", ")} (пакета нет в каркасе приложения)`)
+      learn("dependency-missing", new Set(replaced).size)
     }
   }
 
@@ -733,6 +764,7 @@ export function reconcileWithContract(
 
       file.content = `"use client"\n\n${file.content.replace(/^﻿/, "")}`
       actions.push(`${file.path}: добавлена директива "use client" (импортирует клиентский модуль)`)
+      learn("use-client-missing")
       changed = true
     }
     if (!changed) break
@@ -752,6 +784,7 @@ export function reconcileWithContract(
     if (shape.requiresDefault && !hasDefault && hasNamed) {
       file.content = `${file.content.trimEnd()}\n\nexport default ${shape.symbol}\n`
       actions.push(`${file.path}: дописан "export default ${shape.symbol}" по контракту`)
+      learn("default-export-missing")
       continue
     }
 
@@ -761,9 +794,14 @@ export function reconcileWithContract(
       if (declared) {
         file.content = `${file.content.trimEnd()}\n\nexport { ${shape.symbol} }\n`
         actions.push(`${file.path}: дописан именованный экспорт "${shape.symbol}" по контракту`)
+        learn("named-import-missing")
       }
     }
   }
 
-  return { files: out, actions, contract }
+  const lessons = [...lessonCounts.entries()]
+    .map(([rule, count]) => ({ rule, count }))
+    .sort((a, b) => b.count - a.count || a.rule.localeCompare(b.rule))
+
+  return { files: out, actions, contract, lessons }
 }

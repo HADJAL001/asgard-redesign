@@ -9,6 +9,7 @@ import {
   verifyAgainstContract,
   type ExportContract,
 } from "../lib/generation-contract"
+import { SCAFFOLD_DEPENDENCIES, SCAFFOLD_DEV_DEPENDENCIES } from "../lib/app-scaffold-deps"
 import {
   ARCHETYPE_MENU,
   DESIGN_BRIEF_VERSION,
@@ -57,6 +58,14 @@ export type AppGenerationResult = {
   source: "ai" | "fallback"
   /** Дизайн-система, по которой собрано приложение. Сохраняется вместе с проектом. */
   brief: DesignBrief
+  /**
+   * Уроки досборки контракта (правило → сколько раз), выведенные НАРУЖУ намеренно:
+   * досборка живёт внутри генерации, чинит дефект на месте, и ниже по конвейеру
+   * его уже никто не увидит. Без этого поля память платформы (`craft-corpus`)
+   * не узнаёт о самых частых промахах модели — они «слишком хорошо» лечатся.
+   * Пусто, если досборке нечего было чинить или файлы пришли из кэша.
+   */
+  lessons?: Array<{ rule: string; count: number }>
 }
 
 export type ManifestEntry = {
@@ -117,27 +126,12 @@ function staticTemplateFiles(name: string, brief: DesignBrief, description: stri
             build: "next build",
             start: "next start",
           },
-          dependencies: {
-            next: "^14.2.0",
-            react: "^18.3.0",
-            "react-dom": "^18.3.0",
-            // Иконки. Модели тянут lucide-react практически в каждом приложении
-            // (это фактический стандарт для Next+Tailwind), а пакета в каркасе не
-            // было — каждый такой импорт становился ошибкой сборки
-            // "dependency-missing". Дешевле и честнее объявить его в каркасе, чем
-            // заставлять модель рисовать иконки инлайновым SVG: приложение
-            // получается лучше, а класс ошибок исчезает целиком.
-            "lucide-react": "^0.454.0",
-          },
-          devDependencies: {
-            typescript: "^5.7.0",
-            tailwindcss: "^3.4.0",
-            postcss: "^8.4.0",
-            autoprefixer: "^10.4.0",
-            "@types/node": "^22.0.0",
-            "@types/react": "^18.3.0",
-            "@types/react-dom": "^18.3.0",
-          },
+          /* Набор зависимостей — из lib/app-scaffold-deps: тот же объект читает
+             образ песочницы (кэш node_modules). Раньше он был вписан здесь, а в
+             Dockerfile образа скопирован руками — копия отстала на lucide-react,
+             и быстрая оффлайн-сборка молча перестала работать вообще. */
+          dependencies: SCAFFOLD_DEPENDENCIES,
+          devDependencies: SCAFFOLD_DEV_DEPENDENCIES,
         },
         null,
         2,
@@ -532,7 +526,7 @@ export async function generateApp(
     const allFiles = [...template, ...files]
     // Кешируем только реальный ai-результат, чтобы не «залипал» fallback.
     if (source === "ai") durableCache.set(cacheKey, { files: allFiles, brief }, APP_CACHE_TTL_SECONDS)
-    return { files: allFiles, source, brief }
+    return { files: allFiles, source, brief, lessons: reconciled.lessons }
   } catch (err) {
     captureError("[app-generator] generation failed, falling back:", err)
     return {
