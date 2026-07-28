@@ -328,7 +328,9 @@ export function verifyAgainstContract(files: SourceFile[], contract: ExportContr
       if (!targetShape) continue
 
       const wantsDefault = /^\s*[A-Za-z_$][\w$]*\s*(,|$)/.test(clause.trim())
-      const namedMatch = clause.match(/\{([^}]*)\}/)
+      // Скобки — индексами, не регэкспом: см. пояснение в reconcileWithContract.
+      const braceStart = clause.indexOf("{")
+      const wantsNamed = braceStart >= 0 && clause.indexOf("}", braceStart + 1) > braceStart
 
       if (wantsDefault && !targetShape.requiresDefault) {
         violations.push({
@@ -339,7 +341,7 @@ export function verifyAgainstContract(files: SourceFile[], contract: ExportContr
         })
       }
 
-      if (namedMatch && !targetShape.requiresNamed) {
+      if (wantsNamed && !targetShape.requiresNamed) {
         violations.push({
           kind: "wrong-import-form",
           file: path,
@@ -434,16 +436,21 @@ export function reconcileWithContract(
       const shape = shapeFor(targetPath)
       // Форму берём из того, КАК его импортируют: контракт обязан совпасть с местом вызова.
       const clause = match[1]
-      const namedMatch = clause.match(/\{([^}]*)\}/)
+      // Фигурные скобки ищем индексами, а не регэкспом: `/\{([^}]*)\}/` без
+      // анкера перебирает каждую стартовую позицию и на строке из одних `{`
+      // даёт квадратичное время (CodeQL js/polynomial-redos).
+      const braceStart = clause.indexOf("{")
+      const braceEnd = braceStart >= 0 ? clause.indexOf("}", braceStart + 1) : -1
+      const namedInner = braceEnd > braceStart ? clause.slice(braceStart + 1, braceEnd) : null
       const defaultName = clause.trim().match(/^([A-Za-z_$][\w$]*)/)?.[1] ?? null
 
       const resolved: ExportShape = {
         ...shape,
         requiresDefault: shape.requiresDefault || !!defaultName,
-        requiresNamed: shape.requiresNamed || !!namedMatch,
+        requiresNamed: shape.requiresNamed || namedInner !== null,
         // `X as Y` режем по одиночным пробелам: /\s+as\s+/ давал полиномиальный
         // откат на строке из пробелов без "as" (CodeQL js/polynomial-redos).
-        symbol: namedMatch?.[1]?.split(",")[0]?.trim().split(/[ \t]as[ \t]/)[0]?.trim() || defaultName || shape.symbol,
+        symbol: namedInner?.split(",")[0]?.trim().split(/[ \t]as[ \t]/)[0]?.trim() || defaultName || shape.symbol,
       }
       resolved.importLine = resolved.requiresDefault
         ? `import ${resolved.symbol} from "${resolved.importSpec}"`
@@ -488,13 +495,23 @@ export function reconcileWithContract(
     const ts = loadTs()
     if (!ts) continue
 
-    const sf = ts.createSourceFile(
-      file.path,
-      file.content,
-      ts.ScriptTarget.Latest,
-      true,
-      file.path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-    )
+    /* Парсер TS рекурсивный: патологический вход (десятки тысяч незакрытых `{`
+       от сорвавшейся модели) валит его RangeError'ом. Роняем ОДИН файл, а не всю
+       генерацию — он останется как есть, а его дефекты возьмёт инженерный контур. */
+    const sf = (() => {
+      try {
+        return ts.createSourceFile(
+          file.path,
+          file.content,
+          ts.ScriptTarget.Latest,
+          true,
+          file.path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+        )
+      } catch {
+        return null
+      }
+    })()
+    if (!sf) continue
 
     /* Имена, занятые импортами: коллизия объявления с импортом — тот же webpack
        "redefined". Реальный случай живого прогона: `import { Search } from
