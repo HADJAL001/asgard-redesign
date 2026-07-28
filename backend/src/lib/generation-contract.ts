@@ -441,7 +441,9 @@ export function reconcileWithContract(
         ...shape,
         requiresDefault: shape.requiresDefault || !!defaultName,
         requiresNamed: shape.requiresNamed || !!namedMatch,
-        symbol: namedMatch?.[1]?.split(",")[0]?.trim().split(/\s+as\s+/)[0]?.trim() || defaultName || shape.symbol,
+        // `X as Y` режем по одиночным пробелам: /\s+as\s+/ давал полиномиальный
+        // откат на строке из пробелов без "as" (CodeQL js/polynomial-redos).
+        symbol: namedMatch?.[1]?.split(",")[0]?.trim().split(/[ \t]as[ \t]/)[0]?.trim() || defaultName || shape.symbol,
       }
       resolved.importLine = resolved.requiresDefault
         ? `import ${resolved.symbol} from "${resolved.importSpec}"`
@@ -625,18 +627,25 @@ export function reconcileWithContract(
     let content = file.content
     const replaced: string[] = []
 
-    // uuid → crypto.randomUUID() (доступен в браузере и в Node ≥ 16)
+    /* uuid → crypto.randomUUID() (доступен в браузере и в Node ≥ 16).
+       Одна регулярка на оба случая (`{ v4 }` и `{ v4 as uuidv4 }`): содержимое
+       скобок берём ЦЕЛИКОМ одним `[^}]*`, имя разбираем кодом. Два ленивых
+       класса по обе стороны от литерала `v4` давали полиномиальный откат
+       (CodeQL js/polynomial-redos), а вход сюда — код от AI, недоверенный. */
     content = content.replace(
-      /^[ \t]*import[ \t]*\{[^}]*\bv4[ \t]+as[ \t]+(\w+)[^}]*\}[ \t]*from[ \t]*["']uuid["'];?[ \t]*$/gm,
-      (_m, alias) => {
+      /^[ \t]*import[ \t]*\{([^}]*)\}[ \t]*from[ \t]*["']uuid["'];?[ \t]*$/gm,
+      (whole, inner: string) => {
+        const entry = inner
+          .split(",")
+          .map((s) => s.trim())
+          .find((s) => s === "v4" || s.startsWith("v4 as ") || s.startsWith("v4\tas\t"))
+        if (!entry) return whole // импорт из uuid, но не v4 — не наш случай
+        const alias = entry === "v4" ? "v4" : entry.split(/[ \t]as[ \t]/)[1]?.trim()
+        if (!alias) return whole
         replaced.push("uuid → crypto.randomUUID()")
         return `const ${alias} = (): string => crypto.randomUUID()`
       },
     )
-    content = content.replace(/^[ \t]*import[ \t]*\{[ \t]*v4[ \t]*\}[ \t]*from[ \t]*["']uuid["'];?[ \t]*$/gm, () => {
-      replaced.push("uuid → crypto.randomUUID()")
-      return `const v4 = (): string => crypto.randomUUID()`
-    })
 
     // nanoid → та же встроенная генерация идентификаторов
     content = content.replace(/^[ \t]*import[ \t]*\{[ \t]*nanoid[ \t]*\}[ \t]*from[ \t]*["']nanoid["'];?[ \t]*$/gm, () => {
