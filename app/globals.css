@@ -1392,3 +1392,162 @@ svg { width: 1rem; height: 1rem; flex: none; }
   .osgard-loader-halo,
   .osgard-loader-decor { animation: none !important; }
 }
+
+/* ================================================================
+   OSGARD · DEV MODE — «Космическая студия разработчика»
+   ----------------------------------------------------------------
+   Второй режим платформы: тёмно-синее звёздное небо + премиальное
+   серебро. Золото остаётся ТОЛЬКО на главном действии — так на экране
+   всегда ровно одна точка притяжения взгляда (см. lib/dev-mode.tsx).
+
+   Дисциплина этого блока — он ДОБАВЛЯЕТ, но ничего не переопределяет
+   глобально: всё живёт под классом `.dev-mode` на <html>. Обычный
+   режим OSGARD физически не может измениться из-за этих правил.
+   Блок намеренно дописан в самый конец файла: globals.css — горячий
+   файл (его правят параллельные ветки), так конфликты тривиальны.
+   ================================================================ */
+
+/* ── Небо студии: холодная сине-серебряная гамма поверх готового
+      AmbientBackdrop. Переиспользуем существующий слой .ambient-*,
+      а не рисуем второй фон (components/ambient-backdrop.tsx). ── */
+.dev-mode .ambient-backdrop { background: #070A14; }
+.dev-mode .ambient-base {
+  background: radial-gradient(ellipse 130% 100% at 50% -10%, #0B0E1A 0%, #0F172A 55%, #060910 100%);
+}
+.dev-mode .ambient-aurora--teal {
+  background: radial-gradient(circle, rgb(125 211 252 / 20%), rgb(30 64 110 / 6%) 60%, transparent 72%);
+}
+.dev-mode .ambient-aurora--royal {
+  background: radial-gradient(circle, rgb(148 163 184 / 22%), rgb(51 65 85 / 6%) 58%, transparent 72%);
+}
+/* Золотое пятно в студии почти гасим — золото приберегаем для кнопки. */
+.dev-mode .ambient-aurora--gold {
+  background: radial-gradient(circle, rgb(226 232 240 / 10%), rgb(148 163 184 / 4%) 55%, transparent 70%);
+}
+.dev-mode .ambient-vignette {
+  background: radial-gradient(ellipse at center, transparent 34%, rgb(6 9 16 / 36%) 74%, rgb(6 9 16 / 72%) 100%);
+}
+
+/* ── Премиальная серебристая кнопка (матовый металлик) ── */
+.dev-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 20px; border-radius: 14px;
+  font-size: 14px; font-weight: 500; letter-spacing: 0.01em;
+  color: #0F172A;
+  background: linear-gradient(145deg, #F1F5F9 0%, #E2E8F0 45%, #CBD5E1 100%);
+  border: 1px solid rgb(226 232 240 / 55%);
+  box-shadow: 0 4px 12px rgb(148 163 184 / 30%), inset 0 1px 0 rgb(255 255 255 / 70%);
+  transition: transform 0.18s var(--ease-out-soft, cubic-bezier(.16,1,.3,1)),
+              box-shadow 0.18s ease, filter 0.18s ease;
+  cursor: pointer;
+}
+.dev-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 18px rgb(148 163 184 / 42%), inset 0 1px 0 rgb(255 255 255 / 80%);
+}
+.dev-btn:active:not(:disabled) { transform: scale(0.975); }
+.dev-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Главное действие — единственное золото на экране студии. */
+.dev-btn--gold {
+  color: #1A1206;
+  background: linear-gradient(145deg, #F3DF9B 0%, #D4AF37 48%, #B4922B 100%);
+  border-color: rgb(212 175 55 / 60%);
+  box-shadow: 0 4px 16px rgb(212 175 55 / 34%), inset 0 1px 0 rgb(255 255 255 / 45%);
+}
+.dev-btn--gold:hover:not(:disabled) {
+  box-shadow: 0 6px 22px rgb(212 175 55 / 46%), inset 0 1px 0 rgb(255 255 255 / 55%);
+}
+
+/* Тихая кнопка-призрак (например «← В мир OSGARD»). */
+.dev-btn--ghost {
+  color: #CBD5E1;
+  background: rgb(226 232 240 / 6%);
+  border: 1px solid rgb(226 232 240 / 16%);
+  box-shadow: none;
+}
+.dev-btn--ghost:hover:not(:disabled) {
+  background: rgb(226 232 240 / 12%);
+  color: #F1F5F9;
+  filter: none;
+}
+
+/* ── Стеклянная карточка проекта ── */
+.dev-card {
+  background: rgb(255 255 255 / 3%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgb(226 232 240 / 12%);
+  border-radius: 16px;
+  transition: border-color 0.2s ease, transform 0.2s var(--ease-out-soft, cubic-bezier(.16,1,.3,1)),
+              background 0.2s ease;
+}
+.dev-card:hover {
+  border-color: rgb(226 232 240 / 30%);
+  background: rgb(255 255 255 / 6%);
+  transform: translateY(-2px);
+}
+
+/* ── Поле ввода: прозрачное, с серебристой обводкой ── */
+.dev-input {
+  width: 100%;
+  background: rgb(226 232 240 / 6%);
+  border: 1px solid rgb(226 232 240 / 18%);
+  border-radius: 14px;
+  color: #F1F5F9;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.dev-input::placeholder { color: rgb(148 163 184 / 75%); }
+.dev-input:focus {
+  outline: none;
+  border-color: rgb(226 232 240 / 45%);
+  background: rgb(226 232 240 / 9%);
+}
+
+/* Тонкий заголовок студии — «дорогая» типографика. */
+.dev-title {
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  color: #F1F5F9;
+}
+
+/* ── Глобальные слои платформы, которым не место в студии ──
+      Найдено живой проверкой в браузере: экономика возвращалась в Dev Mode
+      «с чёрного хода» — через подвал (Кузница, Маркет, Биржа, Кошелёк,
+      Зал Славы) и плавающий виджет ДЖАРВИСа. Оба слоя монтируются глобально
+      (footer — в серверном app/layout.tsx), поэтому скрывается здесь, а не
+      правкой самого компонента: обычный режим обязан остаться нетронутым.
+      Плавающий виджет ДЖАРВИСа выключается иначе — он клиентский, поэтому
+      просто не монтируется в Dev Mode (см. AppShell). */
+.dev-mode footer {
+  display: none !important;
+}
+
+/* ── Канвас перехода «Матрица» ──
+      Над всем интерфейсом, но полностью прозрачен для событий.
+      z-index выше навбара (z-50) и модалок платформы. */
+.matrix-transition-canvas {
+  position: fixed; inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* Экран под канвасом «плывёт» в момент распада — усиливает эффект
+   дезинтеграции без единой лишней анимации на самом контенте. */
+.mode-switching .app-root-content {
+  filter: blur(7px) saturate(0.55);
+  transform: scale(0.985);
+  transition: filter 0.5s ease, transform 0.5s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Переход целиком отключён в lib/dev-mode.tsx (режим меняется мгновенно),
+     здесь страхуемся на случай, если слой всё же смонтирован. */
+  .matrix-transition-canvas { display: none !important; }
+  .mode-switching .app-root-content {
+    filter: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .dev-card, .dev-btn { transition: none !important; }
+}

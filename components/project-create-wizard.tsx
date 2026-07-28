@@ -76,9 +76,14 @@ const THEMES: Theme[] = [
 type Props = {
   onClose: () => void
   onCreated: (projectId: number) => void
+  /** Предзаполненное описание идеи. Нужен режиму разработчика (/dev), где
+   *  человек уже описал приложение словом или голосом до открытия мастера —
+   *  без этого текст пришлось бы вводить повторно. Необязателен: обычный
+   *  режим вызывает мастер без него и работает ровно как раньше. */
+  initialDescription?: string
 }
 
-export function ProjectCreateWizard({ onClose, onCreated }: Props) {
+export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "" }: Props) {
   const { t } = useTranslation()
   const { generateProject, pollProjectStatus } = useOsgardStore()
   const wallet = useOsgardStore((s) => s.wallet)
@@ -88,7 +93,7 @@ export function ProjectCreateWizard({ onClose, onCreated }: Props) {
   const [name, setName] = useState("")
   const [theme, setTheme] = useState<Theme | null>(null)
   const [customThemeText, setCustomThemeText] = useState("")
-  const [description, setDescription] = useState("")
+  const [description, setDescription] = useState(initialDescription)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   /** true, пока идёт фоновая генерация файлов реального приложения (после создания проекта). */

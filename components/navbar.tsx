@@ -33,6 +33,7 @@ import {
   Gem,
   GraduationCap,
   BadgeCheck,
+  Terminal,
   X,
   type LucideIcon,
 } from "lucide-react"
@@ -44,6 +45,7 @@ import { CURRENCIES, CURRENCY_ORDER, formatCurrencyAmount } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { LOCALES, LOCALE_SHORT, LOCALE_LABELS, type Locale } from "@/lib/i18n"
 import { useAdaptiveLabel } from "@/lib/use-adaptive-label"
+import { useDevMode } from "@/lib/dev-mode"
 import { useState, useRef, useEffect } from "react"
 import { Globe } from "lucide-react"
 
@@ -90,6 +92,30 @@ export const NAV: NavItem[] = [
  *  меню: оттуда они по-прежнему в один клик, но не спорят за первое место с
  *  главным сценарием платформы. Порядок берётся из NAV (см. фильтр ниже). */
 const CORE_NAV_KEYS = ["nav.home", "nav.projects", "nav.refinements", "nav.orchestrator"]
+
+/** Вход в режим разработчика — минималистичную студию без экономики.
+ *  Namespace NAV намеренно не трогаем: Dev Mode устроен как отдельный
+ *  слой поверх (роут /dev + своя оболочка), а не как фильтр по 24
+ *  пунктам навигации. Поэтому обычный режим тут ничего не теряет. */
+function DevModeSwitch() {
+  const { switchMode, transitioning } = useDevMode()
+
+  return (
+    <button
+      type="button"
+      onClick={() => switchMode("dev")}
+      disabled={transitioning}
+      aria-pressed={false}
+      aria-label="Перейти в режим разработчика — студия без артефактов, биржи и рейтингов"
+      title="Режим разработчика"
+      className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-white/5 disabled:opacity-50"
+      style={{ color: "#94A3B8", border: "1px solid #2A2A3E" }}
+    >
+      <Terminal size={14} strokeWidth={1.75} aria-hidden="true" />
+      <span className="hidden lg:inline">Dev</span>
+    </button>
+  )
+}
 
 /** Переключатель языка · выпадающий список RU / EN / KZ */
 function LanguageSwitcher() {
@@ -528,6 +554,7 @@ export function Navbar() {
             )
           })}
         </div>
+        <DevModeSwitch />
         <LanguageSwitcher />
         <Link
           href="/notifications"
