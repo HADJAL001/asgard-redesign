@@ -966,6 +966,8 @@
     "stepDeployIdle": "әлі жарияланған жоқ",
     "paneCode": "Код",
     "panePreview": "Қосымша",
+    "showCode": "Кодты көрсету",
+    "hideCode": "Кодты жасыру",
     "filesTitle": "Файлдар · {{count}}",
     "filesEmpty": "Әзірге файл жоқ",
     "filesGenerating": "Клод қосымша файлдарын жазып жатыр…",

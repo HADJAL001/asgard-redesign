@@ -26,6 +26,7 @@ import {
 } from "lucide-react"
 import { useOsgardStore, type OsgardProject } from "@/lib/store/osgard-store"
 import { useProjectGenerationStream } from "@/hooks/useProjectGenerationStream"
+import { LiveGenerationMeter } from "./GenerationMeter"
 
 /** Человеческие подписи стадий бэкенда. Стадия приходит и с готовым
  *  label от сервера — его и предпочитаем; этот словарь нужен на случай
@@ -87,6 +88,16 @@ function AgentRow({ project }: { project: OsgardProject }) {
             {stageLabel}
             {stream.latest?.fileCount ? ` · файлов: ${stream.latest.fileCount}` : ""}
           </p>
+
+          {/* Расход тикает прямо здесь, пока идёт сборка: сколько это уже
+              стоило человеку, видно ДО того, как счёт закрыт. Именно это
+              претензия №1 к конкурентам — цена выясняется постфактум. */}
+          <LiveGenerationMeter
+            meter={stream.meter}
+            startedAt={stream.stages[0]?.at ?? null}
+            active={!stream.done}
+            compact
+          />
 
           {percent !== null ? (
             <div

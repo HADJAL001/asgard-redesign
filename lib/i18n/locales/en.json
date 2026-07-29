@@ -966,6 +966,8 @@
     "stepDeployIdle": "not published yet",
     "paneCode": "Code",
     "panePreview": "App",
+    "showCode": "Show code",
+    "hideCode": "Hide code",
     "filesTitle": "Files · {{count}}",
     "filesEmpty": "No files yet",
     "filesGenerating": "Claude is writing the app files…",

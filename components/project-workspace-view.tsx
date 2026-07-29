@@ -40,6 +40,8 @@ import { Navbar } from "./navbar"
 import { DevTopBar } from "./dev-mode/DevTopBar"
 import { DevRail } from "./dev-mode/DevRail"
 import { DevStatusBar } from "./dev-mode/DevStatusBar"
+import { LiveGenerationMeter, GenerationMeterCard } from "./dev-mode/GenerationMeter"
+import { GenerationStory } from "./dev-mode/GenerationStory"
 import { WorkshopBackdrop } from "./workshop-backdrop"
 import { useDevMode } from "@/lib/dev-mode"
 import { useOsgardStore } from "@/lib/store/osgard-store"
@@ -52,6 +54,8 @@ import { runInWebContainer, syncFileToPreview } from "@/lib/integrations/webcont
 /** Цена доработки в кредитах после гранта. Паритет с backend/src/lib/refinements.ts. */
 const REFINEMENT_CREDIT_COST = 20
 const REFINE_PROMPT_MAX = 2000
+/** Выбор «показать код» переживает перезагрузку: разработчик не должен жать кнопку каждый заход. */
+const CODE_OPEN_STORAGE_KEY = "osgard.workspace.codeOpen"
 
 type RunState = "idle" | "starting" | "ready" | "error"
 type StepState = "idle" | "active" | "done" | "error"
@@ -164,6 +168,47 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   /* ---- мобильная раскладка: код или превью ---- */
   const [pane, setPane] = useState<Pane>("code")
 
+  /* ---- код спрятан по умолчанию ----
+     Претензия основателя к этому экрану: «пусть будет видно только как
+     генерируется проект, потому что обычный человек это не поймёт эту
+     панель — пусть будет скрыто всё, пока пользователь сам не нажмёт
+     показать код». Список файлов, Monaco с исходником и инженерные
+     проверки — инструменты разработчика; человек пришёл посмотреть на
+     СВОЁ ПРИЛОЖЕНИЕ.
+
+     Значение читается из localStorage ПОСЛЕ гидратации, а не в
+     инициализаторе useState: сервер про localStorage не знает, и
+     несовпадение первого клиентского рендера с серверным дало бы ошибку
+     гидратации. Поэтому первый кадр всегда «код скрыт» — то есть
+     новый человек видит рассказ о сборке, а тот, кто однажды открыл код,
+     получает его открытым сразу после гидратации и не жмёт кнопку каждый
+     раз. */
+  const [codeOpen, setCodeOpen] = useState(false)
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(CODE_OPEN_STORAGE_KEY) === "1") setCodeOpen(true)
+    } catch {
+      // Приватный режим и заблокированное хранилище — не повод падать:
+      // просто останемся на значении по умолчанию.
+    }
+  }, [])
+
+  const toggleCode = useCallback(() => {
+    setCodeOpen((open) => {
+      // Прятать редактор с несохранёнными правками — молча их терять.
+      // Тот же вопрос, что при переключении файла, и с тем же текстом.
+      if (open && dirtyRef.current && !confirm(t("workspace.confirmDiscard"))) return open
+      const next = !open
+      try {
+        window.localStorage.setItem(CODE_OPEN_STORAGE_KEY, next ? "1" : "0")
+      } catch {
+        // Не смогли запомнить выбор — показываем то, что попросили сейчас.
+      }
+      return next
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t])
+
   useEffect(() => {
     fetchProject(projectId, { skipAuthRedirect: true })
     fetchProjectFiles(projectId, { skipAuthRedirect: true })
@@ -221,6 +266,11 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   }, [selectedFile?.path])
 
   const dirty = selectedFile !== null && draft !== selectedFile.content
+  /* toggleCode объявлен выше самого `dirty` (он нужен кнопке в шапке), а
+     читать его должен всегда свежим — иначе кнопка «Скрыть код» судила бы о
+     несохранённых правках по состоянию на момент своего создания. */
+  const dirtyRef = useRef(dirty)
+  dirtyRef.current = dirty
 
   /* ---------------- действия ---------------- */
 
@@ -649,6 +699,23 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                 {t("workspace.openPassport")}
               </button>
             )}
+            {/* Вход в инструменты разработчика. Кнопка есть всегда — «скрыто»
+                не значит «недоступно»; человек, которому код нужен, находит его
+                одним нажатием, а не в настройках. */}
+            <button
+              type="button"
+              data-tour="workspace-code-toggle"
+              onClick={toggleCode}
+              aria-expanded={codeOpen}
+              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-colors"
+              style={{
+                border: `1px solid ${codeOpen ? COLORS.accent : COLORS.border}`,
+                color: codeOpen ? COLORS.accent : COLORS.label,
+              }}
+            >
+              <FileCode2 size={14} strokeWidth={1.75} />
+              {codeOpen ? t("workspace.hideCode") : t("workspace.showCode")}
+            </button>
             <button
               type="button"
               onClick={() => window.open(`${API_BASE_URL}/projects/${projectId}/export.zip`, "_blank")}
@@ -687,7 +754,27 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
               onAction={nextAction.action ? goToNextAction : undefined}
               detailsOpen={showReport}
               onToggleDetails={() => setShowReport((v) => !v)}
-              hasDetails={errorDefects.length > 0 || repairCount > 0 || totalChecks > 0}
+              hasDetails={
+                errorDefects.length > 0 || repairCount > 0 || totalChecks > 0 || !!engineering?.meter
+              }
+            />
+          </div>
+        ) : null}
+
+        {/* ---- Живой расход, пока приложение собирается ----
+             Показывается в ОБОИХ режимах: непредсказуемость расхода — претензия
+             №1 к AI-сборщикам, и она не про режим интерфейса. Итоговый чек
+             намеренно уехал в «Подробнее» (ниже): его цветная строка «с первого
+             раза / понадобился ремонт» рядом с фразой статуса дала бы на экране
+             два спорящих сигнала — ровно та ошибка, из-за которой в студии
+             появился DevStatusBar. Пока сборка идёт, спорить не с чем: статус
+             говорит «что происходит», счётчик — «во что это обходится». */}
+        {isGenerating ? (
+          <div className="mt-3">
+            <LiveGenerationMeter
+              meter={genStream.meter}
+              startedAt={genStream.stages[0]?.at ?? null}
+              active={!genStream.done}
             />
           </div>
         ) : null}
@@ -816,6 +903,13 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
               <p className="mt-2 text-[12px]" style={{ color: COLORS.amber }}>{repairNotice}</p>
             )}
 
+            {/* ---- Чек сборки: во что обошлась и вышло ли с первого раза ----
+                 Первым в подробностях, до списка проверок: человека сначала
+                 интересует цена и результат целиком, а уже потом — чем именно
+                 он доказан. `meter=null` честно пишет «не измерялось» вместо
+                 нулей (проекты старше миграции 095). */}
+            {showReport && <GenerationMeterCard meter={engineering?.meter} />}
+
             {showReport && (
               <div className="mt-3 grid gap-3 lg:grid-cols-3">
                 {/* Что проверяли */}
@@ -910,8 +1004,11 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
           <p className="mt-3 text-[12.5px]" style={{ color: COLORS.red }}>{deployError}</p>
         )}
 
-        {/* Переключатель для узких экранов: код ↔ превью */}
-        <div className="mt-4 grid grid-cols-2 gap-2 lg:hidden">
+        {/* Переключатель для узких экранов: код ↔ превью.
+            Прячем вместе с кодом — выбирать между «кодом» и «приложением»
+            там, где кода нет, значит предлагать несуществующий выбор. */}
+        <div className={`mt-4 grid-cols-2 gap-2 lg:hidden ${codeOpen ? "grid" : "hidden"}`}>
+
           {(["code", "preview"] as Pane[]).map((p) => (
             <button
               key={p}
@@ -936,13 +1033,19 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
           читать исходники, поэтому превью получает больше половины, а
           список файлов ужимается. Код остаётся рядом, не прячется. */}
       <main
-        className={`relative z-10 mx-auto grid w-full max-w-[1680px] flex-1 grid-cols-1 gap-4 px-4 py-5 md:px-8 ${
-          isDev
-            ? "lg:grid-cols-[180px_minmax(0,0.85fr)_minmax(0,1.35fr)]"
-            : "lg:grid-cols-[210px_minmax(0,1fr)_minmax(0,0.9fr)]"
+        className={`relative z-10 mx-auto grid w-full flex-1 grid-cols-1 gap-4 px-4 py-5 md:px-8 ${
+          codeOpen
+            ? isDev
+              ? "max-w-[1680px] lg:grid-cols-[180px_minmax(0,0.85fr)_minmax(0,1.35fr)]"
+              : "max-w-[1680px] lg:grid-cols-[210px_minmax(0,1fr)_minmax(0,0.9fr)]"
+            : // Код скрыт: одна колонка и уже максимум — приложение и рассказ о
+              // сборке читаются по центру, а не растянутыми на весь монитор.
+              "max-w-[1100px]"
         }`}
       >
-        {/* Файлы */}
+        {/* Файлы. Не `hidden`, а вовсе не смонтированы, когда код скрыт:
+            иначе список и Monaco грузились бы ради экрана, где их не видно. */}
+        {codeOpen && (
         <aside className={`eg-surface overflow-hidden rounded-2xl ${pane === "code" ? "" : "hidden lg:block"}`}>
           <div className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLORS.label, borderBottom: `1px solid ${COLORS.border}` }}>
             {t("workspace.filesTitle", { count: currentProjectFiles.length })}
@@ -978,8 +1081,10 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             )}
           </div>
         </aside>
+        )}
 
         {/* Редактор */}
+        {codeOpen && (
         <section className={`eg-surface flex flex-col overflow-hidden rounded-2xl ${pane === "code" ? "" : "hidden lg:flex"}`}>
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
             <span className="truncate text-[12px]" style={{ color: COLORS.label }}>
@@ -1089,9 +1194,35 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             </div>
           )}
         </section>
+        )}
 
-        {/* Живой запуск + чат с Клодом */}
-        <section className={`flex flex-col gap-4 ${pane === "preview" ? "" : "hidden lg:flex"}`}>
+        {/* Живой запуск + чат с Клодом.
+            Когда код скрыт, эта колонка — весь экран, и прятать её на узких
+            экранах по `pane` нельзя: скрывать было бы нечего в пользу чего. */}
+        <section className={`flex flex-col gap-4 ${!codeOpen || pane === "preview" ? "" : "hidden lg:flex"}`}>
+          {/* Рождение приложения вместо инструментов, пока смотреть ещё не на
+              что: генерация идёт или файлов нет. Это и есть «видно только как
+              генерируется проект» из претензии основателя. */}
+          {!codeOpen && (isGenerating || currentProjectFiles.length === 0) && (
+            <GenerationStory
+              steps={steps}
+              headline={devHeadline}
+              progress={isGenerating ? genStream.progress || 0.05 : null}
+              projectName={currentProject.name}
+              failed={currentProject.status === "failed"}
+              /* Пока Клод пишет код, действия не предлагаем вовсе. Найдено
+                 глазами на живом экране: рассказ показывал кнопку «Проверить»
+                 в момент генерации — то есть предлагал проверить то, чего ещё
+                 нет, и вторым экземпляром той же кнопки из полосы статуса.
+                 Действие уместно, когда генерация кончилась: например
+                 «Попробовать снова» после провала. */
+              actionLabel={isGenerating ? undefined : nextAction.action?.actionLabel}
+              onAction={isGenerating || !nextAction.action ? undefined : goToNextAction}
+            />
+          )}
+          {/* Пока приложения ещё нет, пустая рамка «Живой запуск» с недоступной
+              кнопкой ничего не сообщает — на её месте рассказ выше. */}
+          {(codeOpen || !(isGenerating || currentProjectFiles.length === 0)) && (
           <div className="eg-surface flex flex-col overflow-hidden rounded-2xl">
             <div className="flex items-center justify-between gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${COLORS.border}` }}>
               <span className="inline-flex items-center gap-2 text-[12px] font-medium" style={{ color: COLORS.label }}>
@@ -1131,7 +1262,15 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
               </div>
             </div>
 
-            <div className="h-[300px] lg:h-[calc(100vh-560px)] lg:min-h-[260px]">
+            {/* Без колонки кода приложению отдаётся почти весь экран: человек
+                пришёл смотреть на него, а не на рамку вокруг него. */}
+            <div
+              className={
+                codeOpen
+                  ? "h-[300px] lg:h-[calc(100vh-560px)] lg:min-h-[260px]"
+                  : "h-[440px] lg:h-[calc(100vh-420px)] lg:min-h-[420px]"
+              }
+            >
               {isolated === false ? (
                 <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
                   <AlertTriangle size={22} style={{ color: COLORS.amber }} />
@@ -1166,6 +1305,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
               )}
             </div>
           </div>
+          )}
 
           {/* Чат с Клодом — доработка приложения словами */}
           <div className="eg-surface flex flex-col rounded-2xl p-4">

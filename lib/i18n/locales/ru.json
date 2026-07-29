@@ -979,6 +979,8 @@
     "stepDeployIdle": "ещё не публиковалось",
     "paneCode": "Код",
     "panePreview": "Приложение",
+    "showCode": "Показать код",
+    "hideCode": "Скрыть код",
     "filesTitle": "Файлы · {{count}}",
     "filesEmpty": "Файлов пока нет",
     "filesGenerating": "Клод пишет файлы приложения…",
