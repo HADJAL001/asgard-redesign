@@ -173,14 +173,57 @@ ${lessons.map((l, i) => `${i + 1}. ${LESSON_TEXT[l.rule]}`).join("\n")}
 === КОНЕЦ УРОКОВ ===`
 }
 
-/** Сводка обучения для витрины/админки: сколько уроков и как часто они повторялись. */
-export function getLessonsReport(): { rules: number; occurrences: number; top: Lesson[] } {
+/** Урок с формулировкой — ровно в том виде, в каком он доходит до модели. */
+export type TaughtLesson = Lesson & { text: string }
+
+export type LessonsReport = {
+  rules: number
+  occurrences: number
+  top: Lesson[]
+  /** Правила, которые РЕАЛЬНО уходят в промпт следующей генерации (топ + формулировка). */
+  taught: TaughtLesson[]
+  /** Правила, которые копятся в базе, но в промпт не попадают — учёба впустую. */
+  silent: Lesson[]
+  /** Сколько правил промпт берёт за раз (тот же лимит, что у renderLessonsContract). */
+  promptLimit: number
+}
+
+/**
+ * Сводка обучения для витрины: сколько уроков, как часто повторялись, и — главное —
+ * ЧТО из этого доходит до модели.
+ *
+ * Разделение `taught`/`silent` не косметика. Правило без формулировки копится в
+ * `generation_lessons`, но `renderLessonsContract` его отбрасывает: платформа честно
+ * считает свои поломки и при этом ничему не учится. Ровно это и происходило до волны 2
+ * с правилами досборки контракта. Пока цифру некому показать, регресс возвращается
+ * молча — поэтому «сколько правил учится впустую» обязано быть видно наружу.
+ *
+ * Ещё одна асимметрия, которую делает видимой `promptLimit`: в промпт уходит только
+ * ТОП правил, поэтому редкое правило может иметь формулировку и всё равно не доходить
+ * до модели — оно попадёт в `taught` лишь когда поднимется в топ.
+ */
+export function getLessonsReport(limit = 6): LessonsReport {
+  const empty: LessonsReport = { rules: 0, occurrences: 0, top: [], taught: [], silent: [], promptLimit: limit }
   try {
     const totals = db
       .prepare(`SELECT COUNT(*) as rules, COALESCE(SUM(occurrences), 0) as occurrences FROM generation_lessons`)
       .get() as { rules: number; occurrences: number }
-    return { ...totals, top: topLessons(5) }
+
+    /* Полный список нужен, чтобы посчитать «впустую» честно: правило без формулировки
+       может не попасть в топ и тогда осталось бы незамеченным именно там, где важно. */
+    const all = topLessons(500)
+
+    return {
+      ...totals,
+      top: all.slice(0, 5),
+      taught: all
+        .filter((l) => LESSON_TEXT[l.rule])
+        .slice(0, limit)
+        .map((l) => ({ ...l, text: LESSON_TEXT[l.rule] })),
+      silent: all.filter((l) => !LESSON_TEXT[l.rule]),
+      promptLimit: limit,
+    }
   } catch {
-    return { rules: 0, occurrences: 0, top: [] }
+    return empty // схема без 092 — витрина честно пустая, а не выдуманная
   }
 }
