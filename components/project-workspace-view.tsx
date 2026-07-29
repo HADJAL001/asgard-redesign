@@ -39,6 +39,7 @@ import {
 import { Navbar } from "./navbar"
 import { WorkshopBackdrop } from "./workshop-backdrop"
 import { PipelineFlipSubtitle, type PipelineStageKey } from "./pipeline-flip-subtitle"
+import { LiveRunDiagnostic } from "./workspace/live-run-diagnostic"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
@@ -72,7 +73,7 @@ function languageForPath(path: string): string {
 
 const STEP_COLOR: Record<StepState, string> = {
   idle: COLORS.label,
-  active: COLORS.accent,
+  active: "var(--eg-gold-2)",
   done: COLORS.green,
   error: COLORS.red,
 }
@@ -405,7 +406,9 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             ? t("workspace.stepRunStarting")
             : runState === "ready"
               ? t("workspace.stepRunReady")
-              : t("workspace.stepRunIdle"),
+              : isolated === false
+                ? t("workspace.stepRunUnsupported")
+                : t("workspace.stepRunIdle"),
         state: runStepState,
       },
       {
@@ -436,6 +439,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     saveErrors,
     runState,
     deploying,
+    isolated,
     t,
   ])
 
@@ -456,13 +460,19 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
         onAction: handleRepair,
         actionLabel: engineering?.verdict === "broken" ? t("workspace.repair") : t("workspace.verify"),
       },
-      {
-        step: runStep,
-        tour: "workspace-run-btn",
-        pane: "preview" as Pane,
-        onAction: handleRun,
-        actionLabel: runState === "ready" ? t("workspace.restart") : t("workspace.run"),
-      },
+      /* isolated === false: браузер физически не даёт запустить WebContainer —
+         не указываем баннер на недостижимый шаг, сразу переходим к деплою. */
+      ...(isolated === false
+        ? []
+        : [
+            {
+              step: runStep,
+              tour: "workspace-run-btn",
+              pane: "preview" as Pane,
+              onAction: handleRun,
+              actionLabel: runState === "ready" ? t("workspace.restart") : t("workspace.run"),
+            },
+          ]),
       {
         step: deployStep,
         tour: "workspace-deploy-btn",
@@ -482,7 +492,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     if (pending) return { tone: "action" as const, text: pending.step.hint, action: pending }
 
     return { tone: "done" as const, text: t("workspace.nextAllDone"), action: null }
-  }, [steps, engineering?.verdict, runState, handleRepair, handleRun, handleDeploy, t])
+  }, [steps, engineering?.verdict, runState, isolated, handleRepair, handleRun, handleDeploy, t])
 
   function goToNextAction() {
     if (!nextAction.action) return
@@ -561,7 +571,12 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             {t("workspace.backToProjects")}
           </button>
 
-          <h1 className="text-[19px] font-semibold leading-tight">{currentProject.name}</h1>
+          <h1
+            className="text-[19px] font-semibold leading-tight"
+            style={{ borderBottom: "1px solid rgb(var(--color-gold-rgb) / 0.4)", paddingBottom: 2 }}
+          >
+            {currentProject.name}
+          </h1>
 
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px]"
@@ -576,8 +591,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             <button
               type="button"
               onClick={() => router.push(`/projects/${projectId}`)}
-              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-colors"
-              style={{ border: `1px solid ${COLORS.border}`, color: COLORS.label }}
+              className="eg-btn-ghost inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-medium"
             >
               <Boxes size={14} strokeWidth={1.75} />
               {t("workspace.openPassport")}
@@ -585,8 +599,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             <button
               type="button"
               onClick={() => window.open(`${API_BASE_URL}/projects/${projectId}/export.zip`, "_blank")}
-              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-colors"
-              style={{ border: `1px solid ${COLORS.border}`, color: COLORS.label }}
+              className="eg-btn-ghost inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-medium"
             >
               <Download size={14} strokeWidth={1.75} />
               {t("workspace.exportZip")}
@@ -606,8 +619,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                   ? t("workspace.deployRetryBlocked")
                   : undefined
               }
-              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-              style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+              className="btn-premium-gold inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-medium disabled:cursor-not-allowed disabled:opacity-40"
             >
               {deploying || currentProject.deployStatus === "deploying" ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} strokeWidth={1.75} />}
               {t("workspace.deploy")}
@@ -925,11 +937,12 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                     }}
                     className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] transition-colors"
                     style={{
-                      color: active ? COLORS.accent : COLORS.text,
-                      backgroundColor: active ? "rgba(0,212,255,0.08)" : "transparent",
+                      color: active ? "var(--eg-gold-2)" : COLORS.text,
+                      backgroundColor: active ? "rgb(var(--color-gold-rgb) / 0.08)" : "transparent",
+                      borderLeft: active ? "2px solid var(--eg-gold-2)" : "2px solid transparent",
                     }}
                   >
-                    <FileCode2 size={13} strokeWidth={1.5} style={{ flexShrink: 0, color: active ? COLORS.accent : COLORS.label }} />
+                    <FileCode2 size={13} strokeWidth={1.5} style={{ flexShrink: 0, color: active ? "var(--eg-gold-2)" : COLORS.label }} />
                     <span className="truncate">{f.path}</span>
                   </button>
                 )
@@ -958,8 +971,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                 onClick={handleRepair}
                 disabled={repairing || isGenerating || currentProjectFiles.length === 0}
                 title={t("workspace.verifyHint")}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+                className="eg-btn-ghost inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {repairing || contourStage ? <Loader2 size={13} className="animate-spin" /> : <Wrench size={13} strokeWidth={1.75} />}
                 {engineering?.verdict === "broken" ? t("workspace.repair") : t("workspace.verify")}
@@ -968,8 +980,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                 type="button"
                 onClick={handleSave}
                 disabled={!dirty || saving}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
-                style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
+                className="eg-btn-solid-gold inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium"
               >
                 {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} strokeWidth={1.75} />}
                 {t("workspace.save")}
@@ -1063,8 +1074,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                     href={previewUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] transition-colors"
-                    style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+                    className="eg-btn-ghost inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px]"
                   >
                     <ExternalLink size={12} strokeWidth={1.75} />
                     {t("workspace.openTab")}
@@ -1075,8 +1085,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                   data-tour="workspace-run-btn"
                   onClick={handleRun}
                   disabled={!canRun || runState === "starting"}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
-                  style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
+                  className="btn-premium-gold inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {runState === "starting" ? (
                     <Loader2 size={13} className="animate-spin" />
@@ -1092,10 +1101,12 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
 
             <div className="h-[300px] lg:h-[calc(100vh-560px)] lg:min-h-[260px]">
               {isolated === false ? (
-                <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-                  <AlertTriangle size={22} style={{ color: COLORS.amber }} />
-                  <p className="text-[12.5px]" style={{ color: COLORS.label }}>{t("workspace.noIsolation")}</p>
-                </div>
+                <LiveRunDiagnostic
+                  liveUrl={currentProject.liveUrl}
+                  deployStatus={currentProject.deployStatus}
+                  deploying={deploying}
+                  onDeploy={handleDeploy}
+                />
               ) : previewUrl ? (
                 <iframe
                   src={previewUrl}
