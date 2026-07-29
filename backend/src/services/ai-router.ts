@@ -112,14 +112,49 @@ export async function callOpenAiCompatible<T>(
   }
 }
 
+/**
+ * Модель для задач, где цена ошибки выше цены вызова. Такая задача в проекте одна —
+ * авторство уроков платформы (lib/lesson-author): сформулированный урок уходит в промпт
+ * КАЖДОЙ последующей генерации, поэтому неудачная формулировка вредит не одному
+ * приложению, а всем следующим. Экономия на модели здесь обходится дороже вызова.
+ *
+ * Отдельная переменная, а не общий ANTHROPIC_MODEL: обычная генерация кода и разбор
+ * дефектов — разные задачи с разным профилем, и менять модель одной, задевая другую,
+ * нельзя. Имя модели ОБЯЗАНО задаваться конфигом: прод ходит к Claude через шлюз
+ * (CLAUDE_API_URL), а тот знает свой список имён и на незнакомое отдаёт 404.
+ */
+const CLAUDE_REASONING_MODEL = process.env.ANTHROPIC_REASONING_MODEL || "claude-opus-4.7"
+
+/** true, если ключ Claude задан — вызов имеет смысл (валидность ключа этим не проверяется). */
+export function isClaudeConfigured(): boolean {
+  return !!CLAUDE_API_KEY
+}
+
+/** Какая модель отвечает за рассуждение — для витрин и отчётов (значение неизменяемо снаружи). */
+export function reasoningModelName(): string {
+  return CLAUDE_REASONING_MODEL
+}
+
+export type ClaudeCallOptions = {
+  /** Явное имя модели. По умолчанию — CLAUDE_MODEL (обычная рабочая модель). */
+  model?: string
+  /** Причина отказа наружу: HTTP-статус или текст ошибки. Нужна витринам, которые
+   *  обязаны показывать ПРОВАЛ анализа, а не молчать о нём. */
+  onFailure?: (reason: string) => void
+}
+
 /** Общий вызов Claude API (Anthropic messages endpoint), возвращает сырой текст ответа. */
 export async function callClaudeApi(
   prompt: string,
   maxTokens: number = 1024,
   systemPrompt?: string,
   temperature?: number,
+  options?: ClaudeCallOptions,
 ): Promise<string | null> {
-  if (!CLAUDE_API_KEY) return null
+  if (!CLAUDE_API_KEY) {
+    options?.onFailure?.("ключ Claude не задан")
+    return null
+  }
 
   try {
     const res = await fetch(CLAUDE_API_URL, {
@@ -130,7 +165,7 @@ export async function callClaudeApi(
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: CLAUDE_MODEL,
+        model: options?.model || CLAUDE_MODEL,
         max_tokens: maxTokens,
         ...(systemPrompt ? { system: systemPrompt } : {}),
         ...(temperature !== undefined ? { temperature } : {}),
@@ -140,6 +175,7 @@ export async function callClaudeApi(
 
     if (!res.ok) {
       console.error(`[ai-router] Claude API error: ${res.status} ${res.statusText}`)
+      options?.onFailure?.(`HTTP ${res.status} ${res.statusText}`)
       return null
     }
 
@@ -147,8 +183,27 @@ export async function callClaudeApi(
     return data?.content?.[0]?.text || ""
   } catch (err) {
     captureError("[ai-router] Claude API call failed:", err)
+    options?.onFailure?.(err instanceof Error ? err.message : "вызов не удался")
     return null
   }
+}
+
+/**
+ * Вызов сильной модели для задач разбора. Фолбэка на более слабую модель здесь НЕТ
+ * намеренно: для авторства уроков честнее не записать урок вовсе, чем записать
+ * сомнительный — он попадёт в промпт всех будущих генераций. Провал виден вызывающему
+ * через `onFailure` и доходит до витрины.
+ */
+export async function callClaudeReasoning(
+  prompt: string,
+  maxTokens: number,
+  systemPrompt?: string,
+  onFailure?: (reason: string) => void,
+): Promise<string | null> {
+  return callClaudeApi(prompt, maxTokens, systemPrompt, 0, {
+    model: CLAUDE_REASONING_MODEL,
+    onFailure,
+  })
 }
 
 /** Сырые (без JSON-парсинга) вызовы провайдеров — для генератора реальных приложений
