@@ -812,7 +812,7 @@ export interface OsgardStoreState {
    *  standard/deep списывают кредиты и включают полную AI-генерацию / bypass кеша соответственно.
    *  Отвечает немедленно (HTTP 202) проектом со статусом 'generating' — прогресс отслеживается
    *  через pollProjectStatus/fetchProject, а не через этот единственный вызов. */
-  generateProject: (name: string, hint?: string, depth?: string) => Promise<ProjectActionResult>
+  generateProject: (name: string | undefined, hint?: string, depth?: string) => Promise<ProjectActionResult>
   /** Опрашивает GET /projects/:id, пока project.status не станет 'ready'/'failed' (или не истечёт таймаут). */
   pollProjectStatus: (id: number, opts?: { intervalMs?: number; timeoutMs?: number }) => Promise<OsgardProject | null>
   /** GET /projects/:id/files — файлы сгенерированного приложения. */

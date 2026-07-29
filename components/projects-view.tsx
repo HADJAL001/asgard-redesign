@@ -35,6 +35,9 @@ export function ProjectsView() {
 
   const [wizardOpen, setWizardOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  /** Идея из композера «в один клик» — если заполнена, мастер запускает
+   *  генерацию сразу (без шагов имени/темы), как в студии /dev. */
+  const [idea, setIdea] = useState("")
 
   useEffect(() => {
     fetchProjects({ skipAuthRedirect: true })
@@ -100,6 +103,32 @@ export function ProjectsView() {
             </button>
           </div>
         </div>
+
+        {/* Композер «в один клик»: идея → сразу генерация, без шагов имени/темы мастера. */}
+        <form
+          className="mt-6 flex flex-col gap-2 sm:flex-row"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (idea.trim()) setWizardOpen(true)
+          }}
+        >
+          <input
+            type="text"
+            value={idea}
+            onChange={(e) => setIdea(e.target.value)}
+            placeholder={t("projects.ideaPlaceholder")}
+            className="cal-input flex-1"
+          />
+          <button
+            type="submit"
+            disabled={!idea.trim()}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
+          >
+            <Sparkles size={16} strokeWidth={1.75} aria-hidden="true" />
+            {t("projects.ideaSubmit")}
+          </button>
+        </form>
 
         {/* Summary */}
         <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -270,9 +299,12 @@ export function ProjectsView() {
 
       {wizardOpen && (
         <ProjectCreateWizard
+          initialDescription={idea}
+          autoStart={idea.trim().length > 0}
           onClose={() => setWizardOpen(false)}
           onCreated={(projectId: number) => {
             setWizardOpen(false)
+            setIdea("")
             // Сразу внутрь: человек видит, как рождается его приложение —
             // живой лог стадий, файлы по мере готовности, кнопку запуска.
             router.push(`/projects/${projectId}/workspace`)

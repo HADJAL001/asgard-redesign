@@ -17,9 +17,11 @@
    ================================================================ */
 
 export interface PendingGeneration {
-  /** Что пользователь описал в hero-форме — идёт в generateProject(name). */
-  name: string
-  /** Необязательная подсказка/тема для генерации. */
+  /** Явное имя проекта, если человек его указал. Необязательно: свободная фраза
+   *  из hero-формы идёт в hint, а имя выводит бэкенд из неё же кодом
+   *  (lib/project-title.ts на бэкенде) — как и у остальных точек входа. */
+  name?: string
+  /** Идея/бриф из hero-формы — то, что реально описал человек. */
   hint?: string
   /** Необязательная глубина (quick|standard|deep). По умолчанию бэкенд берёт quick (бесплатно). */
   depth?: string
@@ -33,7 +35,7 @@ export const PENDING_GEN_KEY = "osgard_pending_gen"
 export const PENDING_GEN_TTL_MS = 30 * 60 * 1000
 
 interface SaveInput {
-  name: string
+  name?: string
   hint?: string
   depth?: string
 }
@@ -44,15 +46,16 @@ function hasStorage(): boolean {
 
 /**
  * Сохраняет намерение генерации перед уходом гостя на регистрацию.
- * Пустое/пробельное имя игнорируется (нечего генерировать).
+ * Нужна хоть какая-то суть (имя ИЛИ бриф) — иначе сохранять нечего.
  */
 export function savePendingGeneration(input: SaveInput): void {
   if (!hasStorage()) return
-  const name = (input.name ?? "").trim()
-  if (!name) return
+  const name = (input.name ?? "").trim() || undefined
+  const hint = (input.hint ?? "").trim() || undefined
+  if (!name && !hint) return
   const payload: PendingGeneration = {
     name,
-    hint: input.hint?.trim() || undefined,
+    hint,
     depth: input.depth || undefined,
     savedAt: Date.now(),
   }
@@ -96,9 +99,10 @@ export function peekPendingGeneration(): PendingGeneration | null {
     return null
   }
 
-  const name = typeof parsed?.name === "string" ? parsed.name.trim() : ""
+  const name = typeof parsed?.name === "string" && parsed.name.trim() ? parsed.name.trim() : undefined
+  const hint = typeof parsed?.hint === "string" && parsed.hint.trim() ? parsed.hint.trim() : undefined
   const savedAt = typeof parsed?.savedAt === "number" ? parsed.savedAt : 0
-  if (!name || !savedAt) {
+  if ((!name && !hint) || !savedAt) {
     clearPendingGeneration()
     return null
   }
@@ -109,7 +113,7 @@ export function peekPendingGeneration(): PendingGeneration | null {
 
   return {
     name,
-    hint: typeof parsed.hint === "string" && parsed.hint.trim() ? parsed.hint.trim() : undefined,
+    hint,
     depth: typeof parsed.depth === "string" && parsed.depth ? parsed.depth : undefined,
     savedAt,
   }

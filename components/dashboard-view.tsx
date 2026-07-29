@@ -97,7 +97,7 @@ export function DashboardView() {
     if (!intent) return
     pendingRanRef.current = true
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAutoGenName(intent.name)
+    setAutoGenName(intent.name || intent.hint || null)
     ;(async () => {
       try {
         const res = await generateProject(intent.name, intent.hint, intent.depth)
