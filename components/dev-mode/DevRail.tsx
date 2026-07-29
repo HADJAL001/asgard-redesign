@@ -18,7 +18,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Sparkles, Bot, Rocket, Code2, type LucideIcon } from "lucide-react"
+import { Sparkles, Bot, Rocket, Code2, Brain, type LucideIcon } from "lucide-react"
 
 type DevSection = {
   href: string
@@ -35,6 +35,9 @@ export const DEV_SECTIONS: DevSection[] = [
   { href: "/dev/agents", label: "Агенты", Icon: Bot, hint: "Агенты — кто и над чем работает прямо сейчас" },
   { href: "/dev/workspace", label: "Код", Icon: Code2, hint: "Код — файлы, редактор и живое превью приложения" },
   { href: "/dev/deploy", label: "Деплой", Icon: Rocket, hint: "Деплой — публикация и адреса готовых приложений" },
+  /* Память стоит последней осознанно: это не шаг работы над приложением, а отчёт о
+     самой платформе — чему она научилась на прошлых сборках. */
+  { href: "/dev/memory", label: "Память", Icon: Brain, hint: "Память — чему платформа научилась на своих ошибках" },
 ]
 
 /** Активен раздел, если путь совпадает или лежит внутри него.

@@ -21,6 +21,8 @@ import { GENERATION_DEPTHS, resolveDepth, serializeDepths } from "../lib/generat
 import { logAudit } from "../lib/audit"
 import { generationEvents, getRecentStages, type GenerationStageEvent } from "../lib/generation-events"
 import { guestProjectCapReached } from "../lib/guest-service"
+import { getLessonsReport } from "../lib/craft-corpus"
+import { getTemplateSavingsReport } from "../services/template-store"
 import {
   refinementsRemaining,
   recordRefinement,
@@ -91,6 +93,55 @@ router.get("/generation-limits", requireAuth, (req: AuthRequest, res) => {
 /* ---------------- GET /projects/generation-depths — каталог уровней глубины ---------------- */
 router.get("/generation-depths", requireAuth, (_req: AuthRequest, res) => {
   res.json({ depths: serializeDepths() })
+})
+
+/* ---------------- GET /projects/platform-memory — чему платформа научилась ----------------
+   Обе памяти корпуса ремесла (lib/craft-corpus) БЫЛИ слепыми: `getLessonsReport` и
+   `getTemplateSavingsReport` существовали, но не были подключены ни к одному роуту —
+   ни из UI, ни из API нельзя было увидеть, учится ли платформа на самом деле. А шелла
+   в прод-контейнер нет, значит проверить было нечем в принципе: «платформа учится»
+   оставалось утверждением про код, а не наблюдаемым фактом.
+
+   Отдельно показываем `silent` — правила, которые копятся в базе, но в промпт не
+   попадают из-за отсутствующей формулировки. Это тихий регресс: счётчик растёт,
+   обучения нет. Ровно он и случился до волны 2 с правилами досборки контракта.
+
+   Данные не приватные (имена правил, счётчики, агрегаты по шаблонам) и не привязаны к
+   пользователю, поэтому доступ — любому авторизованному: честность платформы адресована
+   тому, кто ей платит за генерацию. Ленивый доступ к БД внутри хендлера — как и в
+   остальных роутах после инцидента #59. */
+router.get("/platform-memory", requireAuth, (_req: AuthRequest, res) => {
+  const lessons = getLessonsReport()
+
+  let savings: { templates: number; reuses: number; tokensSaved: number } = {
+    templates: 0,
+    reuses: 0,
+    tokensSaved: 0,
+  }
+  try {
+    savings = getTemplateSavingsReport()
+  } catch {
+    /* Схема без миграции корпуса — витрина остаётся честно нулевой. Витрина памяти
+       не имеет права ронять ответ: она диагностическая, а не критичная. */
+  }
+
+  res.json({
+    /* Память ошибок: на чём генератор ломается и что из этого реально уходит в промпт. */
+    mistakes: {
+      rules: lessons.rules,
+      occurrences: lessons.occurrences,
+      promptLimit: lessons.promptLimit,
+      taught: lessons.taught,
+      silent: lessons.silent,
+      /* Прямая метрика бесполезной учёбы: правила есть, обучения нет. */
+      silentRules: lessons.silent.length,
+    },
+    /* Память удач: корпус шаблонов, отобранных по измеримому качеству. */
+    successes: savings,
+    /* Учится ли платформа хоть чему-нибудь прямо сейчас — одним булевым полем, чтобы
+       витрина не заставляла считать это глазами. */
+    learning: lessons.taught.length > 0,
+  })
 })
 
 /* ---------------- GET /projects/mine — список проектов пользователя ---------------- */

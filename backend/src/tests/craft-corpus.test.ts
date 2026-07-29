@@ -176,3 +176,110 @@ test('запись уроков никогда не бросает наружу'
   assert.doesNotThrow(() => corpus.recordLessons([]));
   assert.doesNotThrow(() => corpus.recordLessons([{ rule: '', count: 0 }]));
 });
+
+/* ================================================================
+   Наблюдаемость памяти (волна 4).
+
+   До этой волны обе памяти были СЛЕПЫМИ: `getLessonsReport` и
+   `getTemplateSavingsReport` существовали, но не были подключены ни к
+   одному роуту, а шелла в прод-контейнер нет — то есть проверить, учится
+   ли платформа, было нечем в принципе.
+
+   Главное, что должна показывать сводка, — не сумма счётчиков, а РАЗРЫВ
+   между «посчитано» и «выучено»: правило без формулировки копится в базе,
+   но `renderLessonsContract` его отбрасывает. Именно этот тихий регресс
+   случился до волны 2 с правилами досборки контракта, и именно он
+   возвращается незаметно, пока цифру некому показать.
+   ================================================================ */
+
+test('сводка разделяет выученное и бесполезно накопленное', () => {
+  db.exec(`DELETE FROM generation_lessons`);
+  corpus.recordLessons([
+    { rule: 'use-client-missing', count: 4 }, // формулировка есть → дойдёт до модели
+    { rule: 'выдуманное-правило', count: 7 }, // формулировки нет → учёба впустую
+  ]);
+
+  const report = corpus.getLessonsReport();
+
+  assert.deepEqual(
+    report.taught.map((l) => l.rule),
+    ['use-client-missing'],
+    'в промпт обязаны попадать только правила с формулировкой',
+  );
+  assert.match(report.taught[0].text, /use client/i, 'сводка обязана отдавать сам текст урока, а не только имя правила');
+  assert.deepEqual(
+    report.silent.map((l) => l.rule),
+    ['выдуманное-правило'],
+    'правило без формулировки обязано быть видно как накопленное впустую',
+  );
+  assert.equal(report.rules, 2, 'счётчик правил считает и то, что не учится');
+  assert.equal(report.occurrences, 11);
+});
+
+test('бесполезное правило видно, даже если оно НЕ в топе', () => {
+  db.exec(`DELETE FROM generation_lessons`);
+  /* Ключевая деталь: `silent` считается по ВСЕМ правилам, а не по топу. Иначе редкий
+     дефект без формулировки прятался бы именно там, где его важно заметить. */
+  corpus.recordLessons([
+    { rule: 'use-client-missing', count: 50 },
+    { rule: 'import-missing', count: 40 },
+    { rule: 'dependency-missing', count: 30 },
+    { rule: 'default-export-missing', count: 20 },
+    { rule: 'named-import-missing', count: 10 },
+    { rule: 'placeholder-code', count: 9 },
+    { rule: 'редкое-безымянное', count: 1 },
+  ]);
+
+  const report = corpus.getLessonsReport();
+
+  assert.equal(report.top.length, 5, 'топ остаётся коротким — он для глаз, не для полноты');
+  assert.ok(
+    report.silent.some((l) => l.rule === 'редкое-безымянное'),
+    'правило вне топа обязано попасть в silent',
+  );
+  assert.ok(report.taught.length <= report.promptLimit, 'в промпт уходит не больше promptLimit правил');
+});
+
+test('правило с формулировкой вне топа честно не считается выученным', () => {
+  db.exec(`DELETE FROM generation_lessons`);
+  /* Асимметрия, которую легко не заметить: формулировка есть, но правило не попало в
+     топ — значит до модели оно НЕ доходит. Сводка не имеет права выдавать это за
+     обучение, иначе витрина будет врать в самую выгодную для себя сторону. */
+  const heavy = [
+    'use-client-missing',
+    'import-missing',
+    'dependency-missing',
+    'default-export-missing',
+    'named-import-missing',
+    'placeholder-code',
+  ];
+  corpus.recordLessons(heavy.map((rule, i) => ({ rule, count: 100 - i })));
+  corpus.recordLessons([{ rule: 'prop-type-mismatch', count: 1 }]);
+
+  const report = corpus.getLessonsReport(6);
+
+  assert.equal(report.taught.length, 6);
+  assert.ok(
+    !report.taught.some((l) => l.rule === 'prop-type-mismatch'),
+    'правило вне promptLimit не обязано выглядеть выученным',
+  );
+  assert.ok(
+    !report.silent.some((l) => l.rule === 'prop-type-mismatch'),
+    'но и в «впустую» его записывать нельзя — формулировка у него есть',
+  );
+});
+
+test('пустая память — витрина честно пустая, а не выдуманная', () => {
+  db.exec(`DELETE FROM generation_lessons`);
+  const report = corpus.getLessonsReport();
+  assert.deepEqual(report.taught, []);
+  assert.deepEqual(report.silent, []);
+  assert.equal(report.rules, 0);
+  assert.equal(report.occurrences, 0);
+});
+
+test('сводка памяти никогда не бросает наружу', () => {
+  /* Витрина диагностическая: уронить ответ она права не имеет. */
+  assert.doesNotThrow(() => corpus.getLessonsReport());
+  assert.doesNotThrow(() => store.getTemplateSavingsReport());
+});
