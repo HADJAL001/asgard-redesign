@@ -157,6 +157,98 @@ export function hasLessonText(rule: string): boolean {
   return Object.prototype.hasOwnProperty.call(LESSON_TEXT, rule)
 }
 
+/** Рукописная формулировка правила, если она есть. Всегда старше любой машинной. */
+export function handwrittenLessonText(rule: string): string | undefined {
+  return Object.prototype.hasOwnProperty.call(LESSON_TEXT, rule) ? LESSON_TEXT[rule] : undefined
+}
+
+/**
+ * Образцы стиля для автора уроков (lib/lesson-author): по ним модель понимает, какой
+ * длины и тона ждут от формулировки. Берём рукописные — это эталон, выверенный руками.
+ * Порядок стабилен, поэтому промпт разбора детерминирован при том же входе.
+ */
+export function lessonStyleExamples(limit = 3): string[] {
+  return Object.values(LESSON_TEXT).slice(0, Math.max(0, limit))
+}
+
+/* ----------------------------------------------------------------
+   Формулировки, которые платформа написала себе сама (миграция 093)
+   ----------------------------------------------------------------
+   Рукописный словарь выше — предел обучения: правило без строки в КОДЕ промпт
+   отбрасывал, сколько бы раз дефект ни ломал сборку. Волна 5 дала платформе право
+   формулировать урок самой, разобрав реальный дефект сильной моделью.
+
+   Читается здесь, а пишется в lib/lesson-author — намеренно: craft-corpus владеет
+   памятью платформы, автор только пополняет её. Обратный импорт дал бы цикл модулей.
+   ---------------------------------------------------------------- */
+
+/**
+ * Принятые машинные формулировки: правило → текст. Читается на КАЖДОЙ сборке промпта,
+ * поэтому запрос минимальный и никогда не бросает: отказ БД обязан значить «своих
+ * уроков нет» (поведение волны 4), а не «генерация упала».
+ */
+export function authoredLessonTexts(): Map<string, string> {
+  try {
+    const rows = db
+      .prepare(`SELECT rule, text FROM generation_lesson_texts WHERE text IS NOT NULL`)
+      .all() as Array<{ rule: string; text: string }>
+    return new Map(rows.map((r) => [r.rule, r.text]))
+  } catch {
+    return new Map() // схема без 093 — как до волны 5
+  }
+}
+
+export type AuthoredLessonRow = {
+  rule: string
+  text: string | null
+  source: string
+  model: string | null
+  attempts: number
+  lastError: string | null
+  occurrencesAtAuthoring: number
+  sampleMessage: string | null
+  sampleFile: string | null
+  diagnosis: string | null
+  createdAt: number
+  updatedAt: number
+}
+
+/** Все записи авторства — и принятые уроки, и забракованные попытки (нужно витрине). */
+export function listAuthoredLessons(): AuthoredLessonRow[] {
+  try {
+    const rows = db
+      .prepare(`SELECT * FROM generation_lesson_texts ORDER BY (text IS NULL), updated_at DESC`)
+      .all() as any[]
+    return rows.map((row) => ({
+      rule: row.rule,
+      text: row.text ?? null,
+      source: row.source,
+      model: row.model ?? null,
+      attempts: row.attempts ?? 0,
+      lastError: row.last_error ?? null,
+      occurrencesAtAuthoring: row.occurrences_at_authoring ?? 0,
+      sampleMessage: row.sample_message ?? null,
+      sampleFile: row.sample_file ?? null,
+      diagnosis: row.diagnosis ?? null,
+      createdAt: row.created_at ?? 0,
+      updatedAt: row.updated_at ?? 0,
+    }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Итоговый текст урока: рукописный, иначе свой машинный.
+ *
+ * Приоритет рукописного безусловен и не настраивается: выверенная руками формулировка
+ * надёжнее любой сгенерированной, а расхождение двух источников на одном правиле
+ * должно решаться предсказуемо, а не по дате записи.
+ */
+export function resolveLessonText(rule: string, authored?: Map<string, string>): string | undefined {
+  return handwrittenLessonText(rule) ?? (authored ?? authoredLessonTexts()).get(rule)
+}
+
 /**
  * Блок «выученные уроки» для промпта генерации. Строится из РЕАЛЬНОЙ статистики
  * дефектов этой платформы, а не из общих советов: чем чаще генератор ошибался на
@@ -164,17 +256,35 @@ export function hasLessonText(rule: string): boolean {
  * меняется, деградации нет).
  */
 export function renderLessonsContract(limit = 6): string {
-  const lessons = topLessons(limit).filter((l) => LESSON_TEXT[l.rule])
+  /* Собственные формулировки читаем ОДНИМ запросом на всю сборку блока: до волны 5
+     правило без строки в коде отбрасывалось здесь молча, и частый дефект мог годами
+     не доходить до модели. */
+  const authored = authoredLessonTexts()
+  const lessons = topLessons(limit)
+    .map((l) => ({ lesson: l, text: resolveLessonText(l.rule, authored) }))
+    .filter((entry): entry is { lesson: Lesson; text: string } => !!entry.text)
+
   if (lessons.length === 0) return ""
 
   return `=== ВЫУЧЕННЫЕ УРОКИ (статистика реальных поломок этой платформы) ===
 Эти ошибки уже ломали сборку сгенерированных приложений. Не повторяй их:
-${lessons.map((l, i) => `${i + 1}. ${LESSON_TEXT[l.rule]}`).join("\n")}
+${lessons.map((entry, i) => `${i + 1}. ${entry.text}`).join("\n")}
 === КОНЕЦ УРОКОВ ===`
 }
 
 /** Урок с формулировкой — ровно в том виде, в каком он доходит до модели. */
-export type TaughtLesson = Lesson & { text: string }
+export type TaughtLesson = Lesson & {
+  text: string
+  /** Кто автор формулировки: рука разработчика или сама платформа (волна 5). */
+  origin: "hand" | "self"
+  /**
+   * Сколько раз дефект повторился ПОСЛЕ того, как урок начал доходить до модели.
+   * Есть только у своих уроков: для рукописных момент обучения не зафиксирован —
+   * они появились вместе с кодом, точки отсчёта нет. `null` значит «не измеряем»,
+   * а не «нуль повторов»: выдавать одно за другое — врать в отчёте.
+   */
+  repeatedAfterLearning: number | null
+}
 
 export type LessonsReport = {
   rules: number
@@ -186,6 +296,14 @@ export type LessonsReport = {
   silent: Lesson[]
   /** Сколько правил промпт берёт за раз (тот же лимит, что у renderLessonsContract). */
   promptLimit: number
+  /** Сколько формулировок платформа написала себе сама — рост знания без правки кода. */
+  selfAuthored: number
+  /**
+   * Попытки разбора, закончившиеся отказом (модель недоступна, ответ не прошёл
+   * валидацию). Показывается наружу намеренно: провал обучения обязан быть виден,
+   * иначе «платформа ничему не научилась» становится необъяснимым фактом.
+   */
+  authoringFailures: Array<{ rule: string; reason: string; attempts: number }>
 }
 
 /**
@@ -201,9 +319,23 @@ export type LessonsReport = {
  * Ещё одна асимметрия, которую делает видимой `promptLimit`: в промпт уходит только
  * ТОП правил, поэтому редкое правило может иметь формулировку и всё равно не доходить
  * до модели — оно попадёт в `taught` лишь когда поднимется в топ.
+ *
+ * С волны 5 сводка отвечает и на главный вопрос — РАБОТАЕТ ли обучение:
+ * `repeatedAfterLearning` считает повторы дефекта после того, как урок дошёл до модели.
+ * Ноль повторов — урок сработал; растущее число — формулировку надо менять. Без этой
+ * цифры «платформа умнеет» остаётся верой, а не измерением.
  */
 export function getLessonsReport(limit = 6): LessonsReport {
-  const empty: LessonsReport = { rules: 0, occurrences: 0, top: [], taught: [], silent: [], promptLimit: limit }
+  const empty: LessonsReport = {
+    rules: 0,
+    occurrences: 0,
+    top: [],
+    taught: [],
+    silent: [],
+    promptLimit: limit,
+    selfAuthored: 0,
+    authoringFailures: [],
+  }
   try {
     const totals = db
       .prepare(`SELECT COUNT(*) as rules, COALESCE(SUM(occurrences), 0) as occurrences FROM generation_lessons`)
@@ -213,15 +345,41 @@ export function getLessonsReport(limit = 6): LessonsReport {
        может не попасть в топ и тогда осталось бы незамеченным именно там, где важно. */
     const all = topLessons(500)
 
+    /* Записи авторства читаем один раз: нужны и для текстов, и для точки отсчёта
+       обучения, и для списка отказов. */
+    const authoredRows = listAuthoredLessons()
+    const authoredText = new Map(authoredRows.filter((r) => r.text).map((r) => [r.rule, r.text as string]))
+    const learnedAt = new Map(authoredRows.filter((r) => r.text).map((r) => [r.rule, r.occurrencesAtAuthoring]))
+
+    const taught: TaughtLesson[] = []
+    const silent: Lesson[] = []
+    for (const lesson of all) {
+      const hand = handwrittenLessonText(lesson.rule)
+      const text = hand ?? authoredText.get(lesson.rule)
+      if (!text) {
+        silent.push(lesson)
+        continue
+      }
+      if (taught.length >= limit) continue // в промпт уходит только топ — остальное честно не «выучено»
+      const base = hand ? null : learnedAt.get(lesson.rule)
+      taught.push({
+        ...lesson,
+        text,
+        origin: hand ? "hand" : "self",
+        repeatedAfterLearning: base === null || base === undefined ? null : Math.max(0, lesson.count - base),
+      })
+    }
+
     return {
       ...totals,
       top: all.slice(0, 5),
-      taught: all
-        .filter((l) => LESSON_TEXT[l.rule])
-        .slice(0, limit)
-        .map((l) => ({ ...l, text: LESSON_TEXT[l.rule] })),
-      silent: all.filter((l) => !LESSON_TEXT[l.rule]),
+      taught,
+      silent,
       promptLimit: limit,
+      selfAuthored: authoredText.size,
+      authoringFailures: authoredRows
+        .filter((r) => !r.text && r.lastError)
+        .map((r) => ({ rule: r.rule, reason: r.lastError as string, attempts: r.attempts })),
     }
   } catch {
     return empty // схема без 092 — витрина честно пустая, а не выдуманная

@@ -25,6 +25,14 @@
    ТОП правил, поэтому редкое правило с формулировкой всё равно до
    модели не доходит. Мы не выдаём это за обучение.
 
+   Волна 5 сняла главный предел обучения: раньше формулировка урока
+   существовала только в рукописном словаре внутри кода, и правило без
+   строки в КОДЕ промпт отбрасывал навсегда. Теперь платформа формулирует
+   урок сама, разобрав реальный дефект. Витрина показывает это ЧЕСТНО:
+   у каждого урока видно, кто автор, а рядом — отказы разбора и то,
+   повторялся ли дефект ПОСЛЕ обучения. Урок, который не помог, здесь
+   виден числом; без этого «платформа умнеет» осталось бы верой.
+
    Тексты русские прямо здесь — принятый в dev-зоне паттерн
    (см. DevAgentsView/DevDeployView, i18n сюда не заведён).
    ================================================================ */
@@ -33,8 +41,17 @@ import { useCallback, useEffect, useState } from "react"
 import { Brain, Loader2, GraduationCap, EyeOff, Package, RefreshCw, AlertTriangle } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 
-type TaughtLesson = { rule: string; count: number; text: string }
+type TaughtLesson = {
+  rule: string
+  count: number
+  text: string
+  /** `hand` — формулировка написана руками, `self` — платформа разобрала дефект сама. */
+  origin?: "hand" | "self"
+  /** Повторы дефекта после начала обучения. `null` — не измеряется (у рукописных). */
+  repeatedAfterLearning?: number | null
+}
 type SilentLesson = { rule: string; count: number }
+type AuthoringFailure = { rule: string; reason: string; attempts: number }
 
 type PlatformMemory = {
   mistakes: {
@@ -47,6 +64,10 @@ type PlatformMemory = {
   }
   successes: { templates: number; reuses: number; tokensSaved: number }
   learning: boolean
+  /* Поля волны 5. Необязательные намеренно: витрина обязана работать и против
+     бэкенда без авторства (частичный выкат) — иначе диагностика падает там, где
+     нужна больше всего. */
+  authoring?: { selfAuthored: number; failures: AuthoringFailure[] }
 }
 
 const MUTED = "rgb(148 163 184 / 90%)"
@@ -98,6 +119,10 @@ export function DevMemoryView() {
      честно: всего с формулировками минус то, что реально уходит в промпт. */
   const withText = m ? m.rules - m.silentRules : 0
   const waiting = m ? Math.max(0, withText - m.taught.length) : 0
+  /* Бэкенд без волны 5 не отдаёт `authoring` вовсе — тогда блоков авторства просто нет,
+     а остальная витрина работает как раньше. */
+  const failures = data?.authoring?.failures ?? []
+  const selfAuthored = data?.authoring?.selfAuthored ?? 0
 
   return (
     <>
@@ -155,6 +180,23 @@ export function DevMemoryView() {
             />
           </div>
 
+          {/* Рост знания, которого не было в коде. Это и есть ответ на вопрос «платформа
+              умнеет сама или только когда её правит разработчик». */}
+          {data.authoring ? (
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Stat
+                label="уроков платформа написала сама"
+                value={String(selfAuthored)}
+                hint={selfAuthored > 0 ? "знание, которого не было в коде" : "пока все формулировки рукописные"}
+              />
+              <Stat
+                label="разборов без результата"
+                value={String(failures.length)}
+                hint={failures.length > 0 ? "причины — ниже, это не тишина" : "неудачных разборов нет"}
+              />
+            </div>
+          ) : null}
+
           {/* Выученное — то, что реально доходит до модели. */}
           <section className="mt-8">
             <h2 className="flex items-center gap-2 text-[15px] font-medium">
@@ -169,8 +211,28 @@ export function DevMemoryView() {
                       <span className="dev-title text-[15px] leading-none">{i + 1}</span>
                       <p className="text-[14px] leading-relaxed">{lesson.text}</p>
                     </div>
-                    <div className="mt-2 text-[12px]" style={{ color: "rgb(148 163 184 / 65%)" }}>
-                      {lesson.rule} · ломало сборку {lesson.count} раз(а)
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]" style={{ color: "rgb(148 163 184 / 65%)" }}>
+                      <span>
+                        {lesson.rule} · ломало сборку {lesson.count} раз(а)
+                      </span>
+                      {lesson.origin === "self" ? (
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[11px]"
+                          style={{ border: DASHED, color: "#F59E0B" }}
+                          title="Формулировку платформа написала сама, разобрав реальный дефект"
+                        >
+                          сформулировала сама
+                        </span>
+                      ) : null}
+                      {/* Работает ли урок. Показываем ТОЛЬКО когда измеряем: у рукописных
+                          точки отсчёта нет, и подставлять ноль было бы ложью. */}
+                      {typeof lesson.repeatedAfterLearning === "number" ? (
+                        <span style={{ color: lesson.repeatedAfterLearning === 0 ? "#34D399" : "#F59E0B" }}>
+                          {lesson.repeatedAfterLearning === 0
+                            ? "после урока не повторялось"
+                            : `повторилось ${lesson.repeatedAfterLearning} раз(а) после урока — формулировка не работает`}
+                        </span>
+                      ) : null}
                     </div>
                   </li>
                 ))}
@@ -190,8 +252,9 @@ export function DevMemoryView() {
                 Считается, но не учит
               </h2>
               <p className="mt-2 text-[13px]" style={{ color: MUTED }}>
-                У этих правил нет человеческой формулировки, поэтому промпт их отбрасывает: счётчик
-                растёт, а модель ошибку повторяет. Лечится добавлением текста урока в код платформы.
+                У этих правил пока нет формулировки, поэтому промпт их отбрасывает: счётчик растёт, а
+                модель ошибку повторяет. Платформа берёт их на разбор сама — по два за генерацию,
+                начиная с самых частых. Если правило задержалось здесь, причина видна ниже.
               </p>
               <ul className="mt-4 grid list-none grid-cols-1 gap-2 p-0 sm:grid-cols-2">
                 {m.silent.map((lesson) => (
@@ -213,6 +276,33 @@ export function DevMemoryView() {
               Ещё {waiting} правил(о) с формулировкой ждут очереди: в промпт уходит только топ по
               частоте, поэтому редкий дефект до модели пока не доходит.
             </p>
+          ) : null}
+
+          {/* Отказы разбора. Без этого блока задержка правила в «не учит» была бы
+              необъяснимой: непонятно, разбор ещё не доходил до него или модель не смогла
+              дать годную формулировку. Провал обучения обязан быть виден так же, как успех. */}
+          {failures.length > 0 ? (
+            <section className="mt-8">
+              <h2 className="flex items-center gap-2 text-[15px] font-medium">
+                <AlertTriangle size={17} strokeWidth={1.75} style={{ color: "#F59E0B" }} aria-hidden="true" />
+                Разбор не дал урока
+              </h2>
+              <p className="mt-2 text-[13px]" style={{ color: MUTED }}>
+                Платформа пыталась сформулировать урок для этих правил и отказалась от результата.
+                Формулировка уходит в промпт каждой следующей генерации, поэтому сомнительную лучше
+                не принимать вовсе: после двух отказов правило перестаёт тратить вызовы модели.
+              </p>
+              <ul className="mt-4 grid list-none grid-cols-1 gap-2 p-0">
+                {failures.map((f) => (
+                  <li key={f.rule} className="rounded-xl px-4 py-3 text-[13px]" style={{ border: DASHED }}>
+                    <span>{f.rule}</span>
+                    <span className="ml-2" style={{ color: "rgb(148 163 184 / 65%)" }}>
+                      {f.reason} · попыток: {f.attempts}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ) : null}
 
           {/* Память удач — вторая половина корпуса ремесла. */}

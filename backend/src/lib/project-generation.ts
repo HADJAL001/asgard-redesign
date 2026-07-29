@@ -22,7 +22,8 @@ import { deriveDesignBrief, renderDesignSystemFiles, DESIGN_SYSTEM_PATHS, type D
 import { explainDesignQuality } from "./design-qa"
 import { runEngineeringContour, summarizeVerdict, type EngineeringReport } from "./project-engineering"
 import { deriveExportContract, reconcileWithContract } from "./generation-contract"
-import { craftQuality, isWorthLearning, recordLessons, renderLessonsContract } from "./craft-corpus"
+import { craftQuality, getLessonsReport, isWorthLearning, recordLessons, renderLessonsContract } from "./craft-corpus"
+import { authorMissingLessons, pendingAuthoringCandidates, type LessonDefectSample } from "./lesson-author"
 import { resolveProjectTitle } from "./project-title"
 
 /* ================================================================
@@ -46,6 +47,73 @@ export const ARTIFACT_SELECT_COLUMNS = `id, project_id as projectId, name, type,
 function computePrice(a: { power: number; defense: number; magic: number; speed: number }): number {
   const statSum = a.power + a.defense + a.magic + a.speed
   return Math.round(statSum * 5) // базовая цена common-артефакта без спроса
+}
+
+/** Сколько строк кода вокруг дефекта отдаём на разбор: причина видна по окрестности. */
+const LESSON_SNIPPET_RADIUS = 12
+
+/** Фрагмент файла вокруг дефекта — контекст, без которого разбор гадает по сообщению. */
+function snippetAround(content: string, line?: number): string {
+  const lines = content.split("\n")
+  if (!line || line < 1) return lines.slice(0, LESSON_SNIPPET_RADIUS * 2).join("\n")
+  const from = Math.max(0, line - 1 - LESSON_SNIPPET_RADIUS)
+  return lines.slice(from, line - 1 + LESSON_SNIPPET_RADIUS).join("\n")
+}
+
+/**
+ * Достраивает память платформы: правило, которое ломает сборку, но не имеет
+ * формулировки, отправляется на разбор сильной модели (lib/lesson-author).
+ *
+ * Зачем вообще: до волны 5 текст урока существовал только в рукописном словаре, и
+ * правило без строки в КОДЕ промпт отбрасывал — сколько бы раз дефект ни повторялся.
+ * Платформа умнела лишь настолько, насколько её успевал описать разработчик.
+ *
+ * Запускается ПОСЛЕ того, как приложение отдано пользователю, и намеренно не влияет на
+ * выдачу: обучение — улучшение памяти, а не часть результата. Поэтому вызов не
+ * ожидается (`void`), а любая ошибка внутри остаётся внутри.
+ */
+function authorLessonsInBackground(report: EngineeringReport, files: Array<{ path: string; content: string }>): void {
+  try {
+    const silent = getLessonsReport().silent
+    if (silent.length === 0) return
+
+    const candidates = pendingAuthoringCandidates(silent)
+    if (candidates.length === 0) return
+
+    const contentByPath = new Map(files.map((f) => [f.path, f.content]))
+    const counts = new Map(report.lessons.map((l) => [l.rule, l.count]))
+
+    /* Берём ПЕРВЫЙ дефект каждого правила: для формулировки нужен один достоверный
+       пример, а не полный список — остальные повторяют ту же суть и только удорожают
+       разбор. */
+    const samples: LessonDefectSample[] = []
+    for (const rule of candidates) {
+      const defect = report.defects.find((d) => d.rule === rule)
+      if (!defect) continue // правило пришло из другого этапа — примера кода под рукой нет
+      const content = contentByPath.get(defect.file)
+      samples.push({
+        rule: defect.rule,
+        message: defect.message,
+        file: defect.file,
+        line: defect.line,
+        snippet: content ? snippetAround(content, defect.line) : undefined,
+      })
+    }
+    if (samples.length === 0) return
+
+    void authorMissingLessons(samples, counts)
+      .then((outcome) => {
+        for (const lesson of outcome.authored) {
+          console.log(`[craft-corpus] платформа сформулировала урок для «${lesson.rule}»: ${lesson.text}`)
+        }
+        for (const fail of outcome.rejected) {
+          console.log(`[craft-corpus] урок для «${fail.rule}» не принят: ${fail.reason}`)
+        }
+      })
+      .catch((err) => captureError("[craft-corpus] авторство уроков сорвалось:", err))
+  } catch (err) {
+    captureError("[craft-corpus] не удалось запустить авторство уроков:", err)
+  }
 }
 
 /** Стат [10..39] из provably-fair float'а [0,1) — распределение 1:1 с прежним
@@ -391,8 +459,11 @@ async function runAppGenerationJobInner(
     /* --- Самообучение платформы (корпус ремесла) ---
        (1) Память ошибок: на каких правилах генератор споткнулся в этот раз.
        (2) Память удач: в корпус шаблонов уходит ТОЛЬКО проверенный код —
-           и только если он лучше того, что уже лежит по этой теме. */
+           и только если он лучше того, что уже лежит по этой теме.
+       (3) Формулировки: правило без текста урока разбирается моделью и получает его
+           само — иначе счётчик растёт, а промпт следующей генерации его отбрасывает. */
     recordLessons(engineering.report.lessons)
+    authorLessonsInBackground(engineering.report, files)
 
     if (source === "ai" && isWorthLearning(engineering.report.verdict)) {
       saveTemplateFromGeneration({
@@ -669,8 +740,10 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
       )
       persistEngineering(project.id, engineering.report)
       // Ремонт — такой же источник знания о слабых местах генератора, как и сама
-      // генерация: дефекты, найденные здесь, тоже идут в память ошибок платформы.
+      // генерация: дефекты, найденные здесь, тоже идут в память ошибок платформы —
+      // включая формулировку урока для правил, которых нет в рукописном словаре.
       recordLessons(engineering.report.lessons)
+      authorLessonsInBackground(engineering.report, engineering.files)
       persistDesign(project.id, brief, explainDesignQuality(engineering.files, brief))
 
       emitGenerationStage({
