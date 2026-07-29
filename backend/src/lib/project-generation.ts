@@ -23,6 +23,7 @@ import { explainDesignQuality } from "./design-qa"
 import { runEngineeringContour, summarizeVerdict, type EngineeringReport } from "./project-engineering"
 import { deriveExportContract, reconcileWithContract } from "./generation-contract"
 import { craftQuality, isWorthLearning, recordLessons, renderLessonsContract } from "./craft-corpus"
+import { resolveProjectTitle } from "./project-title"
 
 /* ================================================================
    OSGARD · Общий сервис генерации проектов
@@ -542,12 +543,12 @@ async function runAppGenerationJobInner(
  */
 export function createGeneratedProject(params: {
   userId: number
-  name: string
+  name?: string | null
   hint?: string
   depth?: GenerationDepth
 }): { project: any; artifacts: any[]; projectId: number } {
-  const trimmedName = params.name.trim()
   const safeHint = typeof params.hint === "string" && params.hint.trim() ? params.hint.trim() : undefined
+  const trimmedName = resolveProjectTitle(params.name, safeHint)
 
   const depth = params.depth ?? "quick"
   const depthCfg = GENERATION_DEPTHS[depth]

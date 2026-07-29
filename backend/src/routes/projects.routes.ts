@@ -30,6 +30,7 @@ import {
   listProjectRefinements,
   REFINEMENT_CREDIT_COST,
 } from "../lib/refinements"
+import { resolveProjectTitle } from "../lib/project-title"
 
 const router = Router()
 
@@ -340,10 +341,17 @@ router.post("/", requireAuth, (req: AuthRequest, res) => {
 router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const { name, hint } = req.body || {}
   const userId = req.user!.userId
+  const safeHint = typeof hint === "string" ? hint : undefined
 
-  if (!name || typeof name !== "string" || !name.trim()) {
-    return res.status(400).json({ error: "Укажите название проекта" })
+  /* Имя не обязательно: если человек уже описал идею (hint), название
+     выводится из неё же кодом — см. lib/project-title.ts. Обязательна
+     хоть какая-то суть запроса (имя ИЛИ идея), иначе генерировать нечего. */
+  const hasName = typeof name === "string" && name.trim()
+  const hasHint = !!safeHint?.trim()
+  if (!hasName && !hasHint) {
+    return res.status(400).json({ error: "Опишите идею или укажите название проекта" })
   }
+  const resolvedName = resolveProjectTitle(name, safeHint)
 
   /* Хард-кап гостя: второй проект гостя отклоняется ДО квот/списаний. */
   if (guestProjectCapReached(userId)) {
@@ -352,7 +360,6 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
 
   const depth = resolveDepth(req.body?.depth)
   const depthCfg = GENERATION_DEPTHS[depth]
-  const safeHint = typeof hint === "string" ? hint : undefined
 
   /* --- Бесплатная (quick) генерация: расход дневной квоты тарифа --- */
   if (depthCfg.countsAgainstQuota) {
@@ -379,7 +386,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     }
 
     try {
-      const { project, artifacts } = createGeneratedProject({ userId, name, hint: safeHint, depth })
+      const { project, artifacts } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth })
       return res.status(202).json({ project, artifacts, depth, costCredits: 0, aiConfigured: isAiConfigured() })
     } catch (err) {
       captureError("[projects.generate] error:", err)
@@ -414,16 +421,16 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     db.prepare(
       `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
        VALUES (?, 'project_generation', ?, 'OSGARD', ?, 'credits', 'done')`,
-    ).run(userId, `Генерация (${depthCfg.label}): ${name.trim()}`, cost)
+    ).run(userId, `Генерация (${depthCfg.label}): ${resolvedName}`, cost)
     db.exec("COMMIT")
   } catch (err) {
     db.exec("ROLLBACK")
     throw err
   }
-  logAudit(userId, "debit", cost, "project_generation", { depth, name: name.trim() })
+  logAudit(userId, "debit", cost, "project_generation", { depth, name: resolvedName })
 
   try {
-    const { project, artifacts } = createGeneratedProject({ userId, name, hint: safeHint, depth })
+    const { project, artifacts } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth })
     return res.status(202).json({ project, artifacts, depth, costCredits: cost, aiConfigured: isAiConfigured() })
   } catch (err) {
     /* Синхронный сбой создания — честно возвращаем кредиты. */

@@ -242,6 +242,7 @@ export function DevStudioView() {
       {wizardOpen ? (
         <ProjectCreateWizard
           initialDescription={idea}
+          autoStart={idea.trim().length > 0}
           onClose={() => setWizardOpen(false)}
           onCreated={(projectId: number) => {
             setWizardOpen(false)
