@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events"
+import { currentTelemetry } from "./generation-telemetry"
 
 /* ================================================================
    OSGARD · Generation events — живой прогресс генерации проекта (SSE)
@@ -52,13 +53,60 @@ export type GenerationStageEvent = {
   defects?: number
   /** Инженерный вердикт на терминале ready: passed | repaired | broken | unverified. */
   verdict?: string
+  /* --- Счётчик расхода (lib/generation-telemetry). Приходит на каждой стадии,
+     чтобы цифры в интерфейсе росли по мере работы, а не появлялись в конце:
+     непредсказуемость расхода — главная претензия рынка к AI-сборщикам. --- */
+  /** Сколько обращений к моделям сделано на этот момент. */
+  aiCalls?: number
+  /** Токенов отправлено моделям. */
+  tokensIn?: number
+  /** Токенов получено от моделей. */
+  tokensOut?: number
+  /** Сколько вызовов не отдали точный usage — оговорка к точности цифры. */
+  tokensEstimated?: number
+  /** true на терминале ready, если приложение заработало без единого ремонта. */
+  firstTry?: boolean
   at: number
 }
 
-/** Общая шина: событие "gen:<projectId>" несёт GenerationStageEvent.
+/** Событие «расход изменился» — отдельно от стадий.
+ *
+ *  Зачем отдельный тип, а не ещё одна стадия: самая долгая часть генерации —
+ *  одна стадия `ai`, внутри которой десятки вызовов моделей. Если счётчик
+ *  обновлять только на смене стадии, человек минуту смотрит на замерший расход
+ *  и не понимает, идёт работа или всё встало. Здесь цифры тикают по факту
+ *  каждого вызова к модели.
+ *
+ *  В буфер стадий такие события НЕ кладутся: они не про прогресс и мгновенно
+ *  устаревают. Поздний подписчик получит актуальный расход из ближайшей
+ *  стадии — тот же счётчик подмешан и туда. */
+export type GenerationMeterEvent = {
+  type: "meter"
+  projectId: number
+  aiCalls: number
+  tokensIn: number
+  tokensOut: number
+  /** Сколько вызовов не отдали точный usage — оговорка к точности цифры. */
+  tokensEstimated: number
+  /** Сумма времени сетевых вызовов (без пауз между ними). */
+  aiMs: number
+  at: number
+}
+
+/** Всё, что может прийти подписчику канала "gen:<projectId>". */
+export type GenerationStreamEvent = GenerationStageEvent | GenerationMeterEvent
+
+/** Общая шина: событие "gen:<projectId>" несёт GenerationStreamEvent.
  *  Одно SSE-подключение на активную вкладку страницы проекта → лимит слушателей снят. */
 export const generationEvents = new EventEmitter()
 generationEvents.setMaxListeners(0)
+
+/* Троттлинг живого счётчика: при параллельной генерации файлов вызовы
+   возвращаются пачками, и без ограничения на каждую пачку ушёл бы десяток
+   кадров в одну миллисекунду. Пропущенный тик безвреден — расход только
+   растёт, а финальные числа всё равно придут со следующей стадией. */
+const METER_MIN_INTERVAL_MS = 300
+const lastMeterAt = new Map<number, number>()
 
 const BUFFER_CAP = 24 // максимум стадий в буфере одного проекта
 const TERMINAL_TTL_MS = 30_000 // сколько держать буфер после ready/failed
@@ -72,6 +120,12 @@ function isTerminal(stage: GenerationStage): boolean {
 
 /** Эмитит стадию генерации: кладёт в буфер проекта и проталкивает подписчикам SSE. */
 export function emitGenerationStage(evt: Omit<GenerationStageEvent, "type" | "at"> & { at?: number }) {
+  /* Счётчик расхода подмешивается сам из активного контекста телеметрии
+     (lib/generation-telemetry). Так ни одна стадия не может «забыть» показать
+     расход: добавлять поля вручную в каждый из десятка вызовов — гарантия того,
+     что где-то они разойдутся. Явно переданное значение имеет приоритет. */
+  const meter = currentTelemetry()
+
   const full: GenerationStageEvent = {
     type: "stage",
     at: evt.at ?? Date.now(),
@@ -84,6 +138,11 @@ export function emitGenerationStage(evt: Omit<GenerationStageEvent, "type" | "at
     error: evt.error,
     defects: evt.defects,
     verdict: evt.verdict,
+    aiCalls: evt.aiCalls ?? meter?.calls,
+    tokensIn: evt.tokensIn ?? meter?.inputTokens,
+    tokensOut: evt.tokensOut ?? meter?.outputTokens,
+    tokensEstimated: evt.tokensEstimated ?? meter?.unmeasured,
+    firstTry: evt.firstTry,
   }
 
   const buf = recentStages.get(full.projectId) ?? []
@@ -101,11 +160,39 @@ export function emitGenerationStage(evt: Omit<GenerationStageEvent, "type" | "at
     const timer = setTimeout(() => {
       recentStages.delete(full.projectId)
       terminalTimers.delete(full.projectId)
+      lastMeterAt.delete(full.projectId)
     }, TERMINAL_TTL_MS)
     // Не держим процесс живым только ради очистки буфера.
     if (typeof timer.unref === "function") timer.unref()
     terminalTimers.set(full.projectId, timer)
   }
+}
+
+/** Проталкивает подписчикам текущий расход генерации, не меняя стадию.
+ *
+ *  Вызывается из onUpdate-слушателя телеметрии (lib/project-generation.ts),
+ *  то есть по факту каждого обращения к модели. Ничего не бросает наружу:
+ *  живой счётчик не имеет права уронить генерацию. */
+export function emitGenerationMeter(
+  projectId: number,
+  meter: { calls: number; inputTokens: number; outputTokens: number; unmeasured: number; aiMs: number },
+) {
+  const now = Date.now()
+  const prev = lastMeterAt.get(projectId) ?? 0
+  if (now - prev < METER_MIN_INTERVAL_MS) return
+  lastMeterAt.set(projectId, now)
+
+  const evt: GenerationMeterEvent = {
+    type: "meter",
+    projectId,
+    aiCalls: meter.calls,
+    tokensIn: meter.inputTokens,
+    tokensOut: meter.outputTokens,
+    tokensEstimated: meter.unmeasured,
+    aiMs: meter.aiMs,
+    at: now,
+  }
+  generationEvents.emit(`gen:${projectId}`, evt)
 }
 
 /** Буферизованные стадии проекта — отдаём позднему подписчику при подключении. */

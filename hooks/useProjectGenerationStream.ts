@@ -47,7 +47,45 @@ export type GenerationStageEvent = {
   defects?: number
   /** Инженерный вердикт на терминале ready: passed | repaired | broken | unverified. */
   verdict?: string
+  /* --- Счётчик расхода (backend: lib/generation-telemetry). Подмешивается в КАЖДУЮ
+     стадию, чтобы цифры не могли «отстать» от прогресса. --- */
+  /** Сколько обращений к моделям сделано на этот момент. */
+  aiCalls?: number
+  /** Токенов отправлено моделям. */
+  tokensIn?: number
+  /** Токенов получено от моделей. */
+  tokensOut?: number
+  /** Сколько вызовов не отдали точный usage — оговорка к точности цифры. */
+  tokensEstimated?: number
+  /** true на терминале ready, если приложение заработало без единого ремонта. */
+  firstTry?: boolean
   at: number
+}
+
+/** Тик живого счётчика расхода: приходит по факту каждого вызова модели,
+ *  отдельно от стадий (самая долгая стадия `ai` — одна, и внутри неё
+ *  десятки вызовов; иначе счётчик выглядел бы зависшим). */
+export type GenerationMeterEvent = {
+  type: "meter"
+  projectId: number
+  aiCalls: number
+  tokensIn: number
+  tokensOut: number
+  tokensEstimated: number
+  aiMs: number
+  at: number
+}
+
+/** Расход генерации в том виде, в каком его показывает интерфейс. */
+export type LiveMeter = {
+  aiCalls: number
+  tokensIn: number
+  tokensOut: number
+  totalTokens: number
+  /** Сколько вызовов не отдали точный usage: >0 — цифру нельзя выдавать за точную. */
+  estimated: number
+  /** Сумма времени сетевых вызовов. null — тиков ещё не было. */
+  aiMs: number | null
 }
 
 export function isTerminalStage(stage: GenerationStage): boolean {
@@ -63,9 +101,51 @@ type StreamState = {
   progress: number
   /** Поток дошёл до терминальной стадии (ready/failed). */
   done: boolean
+  /** Живой расход генерации. null — ни один вызов модели ещё не отчитался
+   *  (важно отличать от «нуля потрачено»: шаблонная сборка может обойтись
+   *  вообще без обращений к моделям, и это надо показать словами, а не нулём). */
+  meter: LiveMeter | null
+  /** true на терминале ready, если приложение заработало без единого ремонта. */
+  firstTry: boolean | null
 }
 
-const INITIAL: StreamState = { stages: [], latest: null, progress: 0, done: false }
+const INITIAL: StreamState = {
+  stages: [],
+  latest: null,
+  progress: 0,
+  done: false,
+  meter: null,
+  firstTry: null,
+}
+
+/** Поля счётчика в том виде, в каком они приходят и в стадии, и в тике.
+ *  Описаны отдельной формой, а не пересечением событий: у тех конфликтует
+ *  литерал `type` («stage» & «meter» = never), и пересечение обнуляло бы весь тип. */
+type MeterFields = {
+  aiCalls?: number
+  tokensIn?: number
+  tokensOut?: number
+  tokensEstimated?: number
+  aiMs?: number
+}
+
+/** Собирает расход из полей события. Возвращает предыдущее значение, если счётчика
+ *  в кадре нет: старый бэкенд без телеметрии не должен выглядеть как «0 токенов». */
+function meterFrom(evt: MeterFields, prev: LiveMeter | null): LiveMeter | null {
+  if (evt.aiCalls === undefined && evt.tokensIn === undefined && evt.tokensOut === undefined) {
+    return prev
+  }
+  const tokensIn = evt.tokensIn ?? 0
+  const tokensOut = evt.tokensOut ?? 0
+  return {
+    aiCalls: evt.aiCalls ?? 0,
+    tokensIn,
+    tokensOut,
+    totalTokens: tokensIn + tokensOut,
+    estimated: evt.tokensEstimated ?? 0,
+    aiMs: evt.aiMs ?? prev?.aiMs ?? null,
+  }
+}
 
 /**
  * @param projectId  проект, чью генерацию слушаем
@@ -119,6 +199,9 @@ export function useProjectGenerationStream(
           latest: evt,
           progress: evt.progress,
           done: isTerminalStage(evt.stage),
+          meter: meterFrom(evt, prev.meter),
+          // firstTry приходит только на терминале ready; до него ответа нет.
+          firstTry: evt.firstTry ?? prev.firstTry,
         }
       })
 
@@ -126,6 +209,16 @@ export function useProjectGenerationStream(
         terminated = true
         onTerminalRef.current?.(evt)
       }
+    }
+
+    /* Тик счётчика: обновляет ТОЛЬКО расход. Стадию, прогресс и лог не трогает —
+       иначе тик выглядел бы как шаг конвейера и ломал бы полосу прогресса. */
+    const applyMeter = (evt: GenerationMeterEvent) => {
+      setState((prev) => {
+        const meter = meterFrom(evt, prev.meter)
+        if (!meter) return prev
+        return { ...prev, meter }
+      })
     }
 
     const connect = () => {
@@ -137,9 +230,13 @@ export function useProjectGenerationStream(
 
       source.onmessage = (e) => {
         try {
-          const msg = JSON.parse(e.data) as { type?: string; status?: string } & Partial<GenerationStageEvent>
+          const msg = JSON.parse(e.data) as { type?: string; status?: string } &
+            Partial<Omit<GenerationStageEvent, "type">> &
+            Partial<Omit<GenerationMeterEvent, "type">>
           if (msg.type === "stage" && msg.stage) {
             applyStage(msg as GenerationStageEvent)
+          } else if (msg.type === "meter") {
+            applyMeter(msg as GenerationMeterEvent)
           }
           // snapshot ({type:"snapshot", status}) не несёт стадии — игнорируем, статус берём из стора.
         } catch {
