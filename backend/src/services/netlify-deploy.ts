@@ -208,10 +208,16 @@ async function buildStaticOut(
 
   // Fallback: хостовая сборка (Docker не поднят).
   await writeProjectFiles(workDir, files)
-  await runCommand("npm", ["install", "--no-audit", "--no-fund"], workDir)
-  // Бэкенд сам обычно запущен с NODE_ENV=development (ts-node-dev) — без явного
-  // override дочерний `next build` наследует это и смешивает dev/prod-рантаймы
-  // Next.js при статическом экспорте (TypeError: useContext null на prerender).
+  // NODE_ENV=production здесь недопустим — npm install тогда пропускает
+  // devDependencies (tailwindcss/postcss/autoprefixer из app-generator.ts),
+  // и next build падает с "Cannot find module 'tailwindcss'". На Railway
+  // NODE_ENV=production выставлен на самом бэкенд-процессе и без явного
+  // override наследуется дочерним npm install — тот же приём уже применён
+  // в Docker-пути сборки (см. sandbox.service.ts: install без NODE_ENV=production).
+  await runCommand("npm", ["install", "--no-audit", "--no-fund"], workDir, { NODE_ENV: "development" })
+  // А вот next build, наоборот, должен идти с NODE_ENV=production — иначе Next.js
+  // смешивает dev/prod-рантаймы при статическом экспорте (TypeError: useContext
+  // null на prerender).
   await runCommand("npx", ["next", "build"], workDir, { NODE_ENV: "production" })
   return path.join(workDir, "out")
 }
