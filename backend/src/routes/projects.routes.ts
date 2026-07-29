@@ -19,7 +19,7 @@ import {
 import { rateLimit } from "../middleware/rateLimiter"
 import { GENERATION_DEPTHS, resolveDepth, serializeDepths } from "../lib/generation-depths"
 import { logAudit } from "../lib/audit"
-import { generationEvents, getRecentStages, type GenerationStageEvent } from "../lib/generation-events"
+import { generationEvents, getRecentStages, type GenerationStreamEvent } from "../lib/generation-events"
 import { guestProjectCapReached } from "../lib/guest-service"
 import { getLessonsReport } from "../lib/craft-corpus"
 import { getTemplateSavingsReport } from "../services/template-store"
@@ -651,11 +651,63 @@ router.get("/:id/engineering", requireAuth, (req: AuthRequest, res) => {
     }
   }
 
+  /* Счётчик расхода (колонки 095) — отдельным запросом и в собственном try/catch
+     по той же причине, что и сам вердикт выше: на БД без миграции 095 отсутствие
+     счётчика не имеет права спрятать уже посчитанный инженерный вердикт. */
+  let meter: {
+    aiCalls: number | null
+    tokensIn: number | null
+    tokensOut: number | null
+    durationMs: number | null
+    firstTry: boolean | null
+    detail: unknown
+  } | null = null
+  try {
+    const m = db
+      .prepare(
+        `SELECT gen_ai_calls as aiCalls, gen_tokens_in as tokensIn, gen_tokens_out as tokensOut,
+                gen_duration_ms as durationMs, gen_first_try as firstTry, gen_meter as detail
+         FROM projects WHERE id = ? AND user_id = ?`,
+      )
+      .get(projectId, req.user!.userId) as
+      | {
+          aiCalls: number | null
+          tokensIn: number | null
+          tokensOut: number | null
+          durationMs: number | null
+          firstTry: number | null
+          detail: string | null
+        }
+      | undefined
+    // measured:false у старых проектов — расход не измерялся, это не «ноль потрачено».
+    if (m && m.durationMs !== null) {
+      let detail: unknown = null
+      if (m.detail) {
+        try {
+          detail = JSON.parse(m.detail)
+        } catch {
+          detail = null
+        }
+      }
+      meter = {
+        aiCalls: m.aiCalls,
+        tokensIn: m.tokensIn,
+        tokensOut: m.tokensOut,
+        durationMs: m.durationMs,
+        firstTry: m.firstTry === null ? null : m.firstTry === 1,
+        detail,
+      }
+    }
+  } catch {
+    meter = null
+  }
+
   return res.json({
     verified: !!row.buildStatus,
     verdict: row.buildStatus,
     report,
     verifiedAt: row.verifiedAt ?? null,
+    meter,
   })
 })
 
@@ -757,9 +809,11 @@ router.get("/:id/stream", requireAuth, (req: AuthRequest, res) => {
   if (bufferedTerminal) return res.end()
 
   const channel = `gen:${id}`
-  const onStage = (evt: GenerationStageEvent) => {
+  /* Канал несёт и стадии, и тики живого счётчика расхода (type:"meter").
+     Тик стадию не меняет и поток не закрывает — закрываемся только на терминале. */
+  const onStage = (evt: GenerationStreamEvent) => {
     send(evt)
-    if (evt.stage === "ready" || evt.stage === "failed") {
+    if (evt.type === "stage" && (evt.stage === "ready" || evt.stage === "failed")) {
       cleanup()
       res.end()
     }

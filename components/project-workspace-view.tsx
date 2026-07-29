@@ -40,6 +40,7 @@ import { Navbar } from "./navbar"
 import { DevTopBar } from "./dev-mode/DevTopBar"
 import { DevRail } from "./dev-mode/DevRail"
 import { DevStatusBar } from "./dev-mode/DevStatusBar"
+import { LiveGenerationMeter, GenerationMeterCard } from "./dev-mode/GenerationMeter"
 import { WorkshopBackdrop } from "./workshop-backdrop"
 import { useDevMode } from "@/lib/dev-mode"
 import { useOsgardStore } from "@/lib/store/osgard-store"
@@ -687,7 +688,27 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
               onAction={nextAction.action ? goToNextAction : undefined}
               detailsOpen={showReport}
               onToggleDetails={() => setShowReport((v) => !v)}
-              hasDetails={errorDefects.length > 0 || repairCount > 0 || totalChecks > 0}
+              hasDetails={
+                errorDefects.length > 0 || repairCount > 0 || totalChecks > 0 || !!engineering?.meter
+              }
+            />
+          </div>
+        ) : null}
+
+        {/* ---- Живой расход, пока приложение собирается ----
+             Показывается в ОБОИХ режимах: непредсказуемость расхода — претензия
+             №1 к AI-сборщикам, и она не про режим интерфейса. Итоговый чек
+             намеренно уехал в «Подробнее» (ниже): его цветная строка «с первого
+             раза / понадобился ремонт» рядом с фразой статуса дала бы на экране
+             два спорящих сигнала — ровно та ошибка, из-за которой в студии
+             появился DevStatusBar. Пока сборка идёт, спорить не с чем: статус
+             говорит «что происходит», счётчик — «во что это обходится». */}
+        {isGenerating ? (
+          <div className="mt-3">
+            <LiveGenerationMeter
+              meter={genStream.meter}
+              startedAt={genStream.stages[0]?.at ?? null}
+              active={!genStream.done}
             />
           </div>
         ) : null}
@@ -815,6 +836,13 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             {repairNotice && (
               <p className="mt-2 text-[12px]" style={{ color: COLORS.amber }}>{repairNotice}</p>
             )}
+
+            {/* ---- Чек сборки: во что обошлась и вышло ли с первого раза ----
+                 Первым в подробностях, до списка проверок: человека сначала
+                 интересует цена и результат целиком, а уже потом — чем именно
+                 он доказан. `meter=null` честно пишет «не измерялось» вместо
+                 нулей (проекты старше миграции 095). */}
+            {showReport && <GenerationMeterCard meter={engineering?.meter} />}
 
             {showReport && (
               <div className="mt-3 grid gap-3 lg:grid-cols-3">

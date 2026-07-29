@@ -13,7 +13,8 @@ import { adaptTemplate } from "../services/template-adapter"
 import { captureError } from "./sentry"
 import { GENERATION_DEPTHS, type GenerationDepth } from "./generation-depths"
 import { createNotification } from "./notifications"
-import { emitGenerationStage } from "./generation-events"
+import { emitGenerationStage, emitGenerationMeter } from "./generation-events"
+import { withGenerationTelemetry, currentTelemetry, type TelemetrySnapshot } from "./generation-telemetry"
 import { getForgeBonusForUser } from "./forge-loadout"
 import { nextFloats } from "./provably-fair"
 import { addArchitectXp } from "./architect-progression"
@@ -194,9 +195,67 @@ function applyDesignSystem(
   return [...files.filter((f) => !owned.has(f.path)), ...rendered]
 }
 
+/** Сохраняет счётчик расхода генерации (колонки 095).
+ *
+ *  «С первого раза» — самый строгий из возможных смыслов: приложение признано
+ *  работоспособным (`passed`) и при этом не потребовало НИ ОДНОГО ремонта.
+ *  Вердикт `repaired` сюда не входит намеренно: платформа его починила, значит
+ *  с первого раза не получилось, и засчитывать это себе в успех — самообман.
+ *  Отдельным стейтментом от `status='ready'` по тому же принципу, что 090/091:
+ *  новая колонка не имеет права уронить генерацию (урок #59). */
+function persistGenerationMeter(
+  projectId: number,
+  telemetry: TelemetrySnapshot,
+  report: EngineeringReport,
+) {
+  const firstTry = report.verdict === "passed" && report.repairs.length === 0
+  try {
+    db.prepare(
+      `UPDATE projects SET gen_ai_calls = ?, gen_tokens_in = ?, gen_tokens_out = ?,
+         gen_duration_ms = ?, gen_first_try = ?, gen_meter = ? WHERE id = ?`,
+    ).run(
+      telemetry.calls,
+      telemetry.inputTokens,
+      telemetry.outputTokens,
+      telemetry.elapsedMs,
+      firstTry ? 1 : 0,
+      JSON.stringify({
+        byProvider: telemetry.byProvider,
+        aiMs: telemetry.aiMs,
+        unmeasured: telemetry.unmeasured,
+        failedCalls: telemetry.failed,
+        repairRounds: report.attempts,
+        repairedFiles: report.repairs.length,
+        verdict: report.verdict,
+      }),
+      projectId,
+    )
+  } catch (err) {
+    captureError("[projects.generate] meter persist skipped (schema without 095 columns):", err)
+  }
+  return firstTry
+}
+
 /** Асинхронный джоб генерации реального приложения — вызывается fire-and-forget сразу
- *  после ответа клиенту. Никогда не бросает наружу: любая ошибка помечает проект failed. */
-async function runAppGenerationJob(
+ *  после ответа клиенту. Никогда не бросает наружу: любая ошибка помечает проект failed.
+ *
+ *  Обёртка существует ради одного: весь джоб целиком выполняется внутри контекста
+ *  телеметрии, поэтому КАЖДЫЙ вызов модели на любой глубине (генерация файлов,
+ *  арт-дирекция, AI-ремонт в инженерном контуре) попадает в счётчик расхода этого
+ *  проекта и не смешивается с параллельными генерациями других пользователей.
+ *
+ *  Слушатель onUpdate проталкивает расход в SSE по факту каждого вызова модели.
+ *  Без него цифры обновлялись бы только на смене стадии, а самая долгая стадия
+ *  (`ai`) — одна: человек минуту смотрел бы на замерший счётчик. */
+async function runAppGenerationJob(...args: Parameters<typeof runAppGenerationJobInner>) {
+  const projectId = args[1]
+  await withGenerationTelemetry(
+    () => runAppGenerationJobInner(...args),
+    (snapshot) => emitGenerationMeter(projectId, snapshot),
+  )
+}
+
+async function runAppGenerationJobInner(
   userId: number,
   projectId: number,
   name: string,
@@ -412,6 +471,11 @@ async function runAppGenerationJob(
     persistDesign(projectId, brief, designReport)
     // То же для инженерного вердикта (колонки 091).
     persistEngineering(projectId, engineering.report)
+    // И для счётчика расхода (колонки 095): во что обошлась эта генерация.
+    const meter = currentTelemetry()
+    const firstTry = meter
+      ? persistGenerationMeter(projectId, meter, engineering.report)
+      : engineering.report.verdict === "passed" && engineering.report.repairs.length === 0
 
     if (artifactNames) {
       const rows = db
@@ -438,6 +502,7 @@ async function runAppGenerationJob(
       source,
       verdict: engineering.report.verdict,
       defects: engineering.report.defects.filter((d) => d.severity === "error").length,
+      firstTry,
     })
 
     // Реальное асинхронное событие завершения: мгновенно пушим уведомление через SSE.

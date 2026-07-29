@@ -577,11 +577,45 @@ export interface EngineeringReport {
   sandbox?: { ok: boolean; skipped: boolean }
 }
 
+/* ---- Счётчик расхода генерации (backend: lib/generation-telemetry, миграция 095) ----
+   Во что обошлась сборка приложения: обращения к моделям, токены, время. Отдельно от
+   вердикта по той же причине, по которой `verified:false` ≠ `broken`: у проектов,
+   сгенерированных до миграции, расход НИКТО не измерял. `meter: null` означает
+   «не измерялось» и обязан выглядеть в интерфейсе так, а не как «0 токенов» —
+   выдумать числа значило бы соврать ровно в том месте, ради честности которого
+   счётчик и сделан. */
+export interface GenerationMeterDetail {
+  /** Разбивка по провайдерам: видно, кто сколько съел. */
+  byProvider?: Record<string, { calls: number; tokens: number }>
+  /** Сумма времени сетевых вызовов (без пауз между ними). */
+  aiMs?: number
+  /** Сколько вызовов не отдали точный usage — оговорка к точности цифры. */
+  unmeasured?: number
+  failedCalls?: number
+  /** Сколько раундов ремонта потребовалось инженерному контуру. */
+  repairRounds?: number
+  repairedFiles?: number
+  verdict?: EngineeringVerdict
+}
+
+export interface GenerationMeter {
+  aiCalls: number | null
+  tokensIn: number | null
+  tokensOut: number | null
+  /** Полное время генерации (не сумма вызовов: включает проверки, ремонт и запись). */
+  durationMs: number | null
+  /** true — приложение заработало БЕЗ единого ремонта. null — не измерялось. */
+  firstTry: boolean | null
+  detail: GenerationMeterDetail | null
+}
+
 export interface ProjectEngineering {
   verified: boolean
   verdict: EngineeringVerdict | null
   report: EngineeringReport | null
   verifiedAt: number | null
+  /** Расход этой генерации. null — проект сгенерирован до появления счётчика. */
+  meter?: GenerationMeter | null
 }
 
 /** Результат refineProject (см. POST /projects/:id/refine, 202). */

@@ -1,5 +1,6 @@
 import dotenv from "dotenv"
 import { captureError } from "../lib/sentry"
+import { recordAiCall, estimateTokens } from "../lib/generation-telemetry"
 
 dotenv.config()
 
@@ -79,6 +80,11 @@ export async function callOpenAiCompatible<T>(
 ): Promise<T | null> {
   if (!apiKey) return null
 
+  /* Замер начинается ДО сетевого вызова и закрывается на каждом пути выхода
+     (успех, HTTP-ошибка, исключение) — упавший вызов тоже стоил пользователю
+     времени, и прятать его из счётчика было бы нечестно. */
+  const startedAt = Date.now()
+
   try {
     const messages = systemPrompt
       ? [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }]
@@ -100,14 +106,45 @@ export async function callOpenAiCompatible<T>(
 
     if (!res.ok) {
       console.error(`[ai-router] ${logLabel} API error: ${res.status} ${res.statusText}`)
+      recordAiCall({
+        provider: logLabel,
+        model,
+        inputTokens: estimateTokens(prompt),
+        outputTokens: 0,
+        ms: Date.now() - startedAt,
+        estimated: true,
+        ok: false,
+      })
       return null
     }
 
     const data: any = await res.json()
     const text: string = data?.choices?.[0]?.message?.content || ""
+    /* OpenAI-совместимые провайдеры отдают usage.prompt_tokens/completion_tokens.
+       Если поля нет — считаем оценкой по длине и помечаем estimated. */
+    const usage = data?.usage
+    const measured = typeof usage?.prompt_tokens === "number" && typeof usage?.completion_tokens === "number"
+    recordAiCall({
+      provider: logLabel,
+      model,
+      inputTokens: measured ? usage.prompt_tokens : estimateTokens(prompt),
+      outputTokens: measured ? usage.completion_tokens : estimateTokens(text),
+      ms: Date.now() - startedAt,
+      estimated: !measured,
+      ok: true,
+    })
     return parser(text)
   } catch (err) {
     captureError(`[ai-router] ${logLabel} API call failed:`, err)
+    recordAiCall({
+      provider: logLabel,
+      model,
+      inputTokens: estimateTokens(prompt),
+      outputTokens: 0,
+      ms: Date.now() - startedAt,
+      estimated: true,
+      ok: false,
+    })
     return null
   }
 }
@@ -120,6 +157,8 @@ export async function callClaudeApi(
   temperature?: number,
 ): Promise<string | null> {
   if (!CLAUDE_API_KEY) return null
+
+  const startedAt = Date.now()
 
   try {
     const res = await fetch(CLAUDE_API_URL, {
@@ -140,13 +179,44 @@ export async function callClaudeApi(
 
     if (!res.ok) {
       console.error(`[ai-router] Claude API error: ${res.status} ${res.statusText}`)
+      recordAiCall({
+        provider: "claude",
+        model: CLAUDE_MODEL,
+        inputTokens: estimateTokens(prompt),
+        outputTokens: 0,
+        ms: Date.now() - startedAt,
+        estimated: true,
+        ok: false,
+      })
       return null
     }
 
     const data: any = await res.json()
-    return data?.content?.[0]?.text || ""
+    const text: string = data?.content?.[0]?.text || ""
+    /* Anthropic-формат: usage.input_tokens/output_tokens (иначе, чем у OpenAI). */
+    const usage = data?.usage
+    const measured = typeof usage?.input_tokens === "number" && typeof usage?.output_tokens === "number"
+    recordAiCall({
+      provider: "claude",
+      model: CLAUDE_MODEL,
+      inputTokens: measured ? usage.input_tokens : estimateTokens(prompt),
+      outputTokens: measured ? usage.output_tokens : estimateTokens(text),
+      ms: Date.now() - startedAt,
+      estimated: !measured,
+      ok: true,
+    })
+    return text
   } catch (err) {
     captureError("[ai-router] Claude API call failed:", err)
+    recordAiCall({
+      provider: "claude",
+      model: CLAUDE_MODEL,
+      inputTokens: estimateTokens(prompt),
+      outputTokens: 0,
+      ms: Date.now() - startedAt,
+      estimated: true,
+      ok: false,
+    })
     return null
   }
 }
