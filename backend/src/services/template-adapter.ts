@@ -32,14 +32,32 @@ export type TemplateAdaptationResult = {
 
 const SECTION_MARKERS = ["===META===", "===PAGE===", "===LAYOUT===", "===README==="] as const
 
-function buildAdaptationPrompt(template: MatchedTemplate, name: string, hint?: string): string {
+/** Вызов модели — параметром, чтобы адаптацию можно было измерить без сети (тот же
+ *  приём, что у lib/lesson-author: тестируемость через инъекцию, а не через моки модулей). */
+export type ProviderCall = (prompt: string, maxTokens: number) => Promise<string | null>
+
+export type TemplateAdaptationOptions = {
+  /** Блок «выученные уроки» (lib/craft-corpus). Пустая строка → промпт как до волны 7. */
+  lessons?: string
+  /** Подмена вызова модели (тесты и замер). По умолчанию — обычная цепочка провайдеров. */
+  call?: ProviderCall
+}
+
+function buildAdaptationPrompt(
+  template: MatchedTemplate,
+  name: string,
+  hint?: string,
+  lessons?: string,
+): string {
   return `Ты адаптируешь уже готовое приложение под новое название, сохраняя его тему и структуру.
 Тема приложения: "${template.theme}". Новое название: "${name}"${hint ? `, направление: "${hint}"` : ""}.
 
 Текущее описание: "${template.description || ""}"
 Текущий файл app/page.tsx:
 ${template.files.find((f) => f.path === "app/page.tsx")?.content || ""}
-
+${lessons?.trim() ? `
+${lessons}
+` : ""}
 Верни ответ СТРОГО в следующем формате, без пояснений, разделяя секции указанными маркерами
 ровно как показано (каждая секция на новой строке после маркера):
 
@@ -92,14 +110,26 @@ function localAdapt(template: MatchedTemplate, name: string): TemplateAdaptation
 }
 
 /** Адаптирует закэшированный шаблон под новое название/подсказку — один короткий AI-вызов
- *  вместо полной регенерации. При недоступности/сбое AI — локальный фоллбэк (никогда не бросает). */
+ *  вместо полной регенерации. При недоступности/сбое AI — локальный фоллбэк (никогда не бросает).
+ *
+ *  Уроки платформы (волна 7) идут в этот промпт наравне с промптом полной генерации, и это
+ *  не формальность: модель здесь ПЕРЕПИСЫВАЕТ `app/page.tsx` и `app/layout.tsx` — ровно те
+ *  файлы, где живут «use client», дубли объявлений и конфликт metadata с хуками. До волны 7
+ *  бесплатный путь (`quick` — глубина по умолчанию, основной трафик) уроков не получал
+ *  вообще: платформа копила знание и не давала его самому частому своему пути.
+ *
+ *  Локальный фоллбэк уроков не получает и получить не может — там нет модели, только
+ *  замена строк. Поэтому `source` — честный признак того, участвовала ли эта адаптация в
+ *  обучении: `template-ai` — да, `template-local` — нет. */
 export async function adaptTemplate(
   template: MatchedTemplate,
   name: string,
   hint?: string,
+  options?: TemplateAdaptationOptions,
 ): Promise<TemplateAdaptationResult> {
+  const call = options?.call ?? callAnyProvider
   try {
-    const raw = await callAnyProvider(buildAdaptationPrompt(template, name, hint), 1500)
+    const raw = await call(buildAdaptationPrompt(template, name, hint, options?.lessons), 1500)
     if (!raw) return localAdapt(template, name)
 
     const sections = splitSections(raw)

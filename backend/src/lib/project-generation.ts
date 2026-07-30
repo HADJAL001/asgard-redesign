@@ -31,6 +31,8 @@ import {
   recordLessons,
   renderLessonsContract,
 } from "./craft-corpus"
+import { countLessonsInContract, lessonsFingerprint } from "./lessons-fingerprint"
+import { recordGenerationLearning, type GenerationPath } from "./learning-coverage"
 import {
   authorMissingLessons,
   pendingAuthoringCandidates,
@@ -402,6 +404,28 @@ async function runAppGenerationJobInner(
     let badge = quick.badge
     let artifactNames: string[] | null = null
 
+    /* Уроки платформы считаются ОДИН раз на генерацию и уходят в ОБА пути (волна 7).
+       До неё блок собирался только внутри AI-ветки, а шаблонная адаптация — глубина
+       `quick`, то есть путь по умолчанию и основной трафик — не получала уроков вовсе:
+       память платформы росла и не доходила до самого частого своего пути.
+
+       Один вызов, а не по одному в каждой ветке: отпечаток набора попадает в ключ кэша,
+       и если бы ветки читали память в разные моменты, отпечаток мог бы разойтись с тем,
+       что реально стоит в промпте. */
+    const lessons = renderLessonsContract()
+    const lessonsCount = countLessonsInContract(lessons)
+    const fingerprint = lessonsFingerprint(lessons)
+    /* Сколько уроков дошло до модели в этой генерации. Ноль до тех пор, пока путь не
+       доказал, что промпт с уроками действительно собирался: платформа с богатой памятью
+       и не обучающейся выдачей — ровно тот случай, который аудит волны 7 и вскрыл. */
+    let lessonsTaught = 0
+    let learningPath: GenerationPath = "fallback"
+    /* Обратное направление обучения: сколько уроков генерация вернула в память. Считается
+       отдельно от `lessonsTaught` и складывается по ВСЕМ трём точкам записи — иначе
+       генерация, которая учит платформу и сама при этом ничему не учится (так и вёл себя
+       шаблонный путь), в одной общей цифре выглядела бы обучающейся. */
+    let lessonsLearned = 0
+
     // Стадия 1: замысел разобран (тема/шаблон уже определены синхронно при создании проекта).
     emitGenerationStage({ projectId, stage: "analyzing", label: "Анализирую замысел", progress: 0.1 })
 
@@ -422,12 +446,17 @@ async function runAppGenerationJobInner(
     if (template) {
       // Стадия 3a: найден подходящий шаблон — адаптируем (быстрее и дешевле AI).
       emitGenerationStage({ projectId, stage: "template", label: "Адаптирую шаблон", progress: 0.4 })
-      const adapted = await adaptTemplate(template, name, hint)
+      const adapted = await adaptTemplate(template, name, hint, { lessons })
       files = adapted.files
       source = adapted.source
       description = adapted.description
       badge = adapted.badge
       artifactNames = adapted.artifactNames
+
+      /* Локальный фоллбэк адаптации модель не зовёт вообще (замена строк), поэтому
+         уроки до неё не доходят — и записывать их как дошедшие нельзя. */
+      learningPath = adapted.source === "template-ai" ? "template-ai" : "template-local"
+      lessonsTaught = adapted.source === "template-ai" ? lessonsCount : 0
 
       incrementTemplateUsage(template.id, estimateTokensSaved(template.files.length))
     } else {
@@ -442,15 +471,24 @@ async function runAppGenerationJobInner(
         // Платформа учится на себе: в промпт каждого файла подмешивается реальная
         // статистика собственных поломок (lib/craft-corpus). Пустая статистика —
         // пустая строка, поведение как раньше.
-        lessons: renderLessonsContract(),
+        lessons,
       })
       files = result.files
       source = result.source
       brief = result.brief
+      /* Попадание в кэш — не обучение ЭТОЙ генерации: ни одного промпта не собиралось.
+         Код при этом рождён под тем же набором уроков (отпечаток входит в ключ кэша,
+         волна 7), но выдавать «повлияли раньше» за «дошли сейчас» — значит завысить долю
+         обучающихся генераций собственным кэшем. Поэтому ветвь пишется отдельно. */
+      learningPath = result.source === "fallback" ? "fallback" : result.cached ? "ai-cached" : "ai"
+      lessonsTaught = result.source === "ai" && !result.cached ? lessonsCount : 0
       /* Уроки досборки, случившейся ВНУТРИ генерации. Записываем здесь, потому
          что повторная сверка ниже их уже не увидит — дефект к тому моменту
          починен. Именно этот разрыв и делал память платформы неполной. */
-      if (result.lessons?.length) recordLessons(result.lessons)
+      if (result.lessons?.length) {
+        recordLessons(result.lessons)
+        lessonsLearned += result.lessons.length
+      }
       // Сохранение в корпус переехало ПОСЛЕ инженерного контура: раньше шаблон
       // писался прямо здесь — то есть в память платформы попадал непроверенный
       // код, и следующие проекты наследовали его дефекты.
@@ -485,6 +523,7 @@ async function runAppGenerationJobInner(
          НЕ смогла починить детерминированно, и продолжала получать от модели
          один и тот же дубль объявления в каждой генерации. */
       recordLessons(contractCheck.lessons)
+      lessonsLearned += contractCheck.lessons.length
     }
 
     // Стадия 5: ИНЖЕНЕРНЫЙ КОНТУР. Раньше здесь ничего не было: проект объявлялся
@@ -525,6 +564,7 @@ async function runAppGenerationJobInner(
        (4) Пересмотр: формулировка, после которой дефект продолжает повторяться,
            переписывается — знание, не давшее результата, обязано уступить место. */
     recordLessons(engineering.report.lessons)
+    lessonsLearned += engineering.report.lessons.length
     learnFromGenerationInBackground(engineering.report, files)
 
     if (source === "ai" && isWorthLearning(engineering.report.verdict)) {
@@ -610,6 +650,24 @@ async function runAppGenerationJobInner(
     const firstTry = meter
       ? persistGenerationMeter(projectId, meter, engineering.report)
       : engineering.report.verdict === "passed" && engineering.report.repairs.length === 0
+
+    /* --- След обучения (миграция 094, волна 7) ---
+       Одна строка на генерацию: каким путём получен код, дошли ли уроки до модели и
+       сколько уроков вернулось в память. Без этой записи «платформа умнеет с каждой
+       генерации» проверить нечем: витрина показывала, ЧТО платформа выучила, и не
+       показывала, в какой ДОЛЕ генераций обучение вообще участвует. Ровно в этой слепой
+       зоне и жили две дыры аудита — шаблонный путь без уроков и кэш, отдающий код,
+       рождённый под прошлым знанием. */
+    recordGenerationLearning({
+      projectId,
+      depth,
+      path: learningPath,
+      lessonsTaught,
+      lessonsLearned,
+      /* Отпечаток пишем только когда уроки действительно дошли: иначе строка утверждала
+         бы, что код рождён под этим набором, хотя набор до модели не доехал. */
+      fingerprint: lessonsTaught > 0 ? fingerprint : null,
+    })
 
     if (artifactNames) {
       const rows = db

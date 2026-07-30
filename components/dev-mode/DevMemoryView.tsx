@@ -45,6 +45,15 @@
    урока видна пометка о ревизии, иначе «платформа исправила свой урок»
    было бы неотличимо от «урок такой и был».
 
+   Волна 7 закрывает дыру, из-за которой всё вышеперечисленное могло
+   быть правдой и при этом ничего не значить: витрина отвечала, ЧТО
+   платформа знает, и молчала о том, в какой ДОЛЕ генераций это знание
+   участвует. А доля была далека от единицы — основной, бесплатный путь
+   (адаптация шаблона) собирал промпт без уроков вовсе, и раздел при
+   этом честно светил «платформа учится». Поэтому доля стоит первой
+   цифрой, с разрезом по ветвям: одна средняя цифра снова спрятала бы
+   неучащийся путь внутри себя.
+
    Тексты русские прямо здесь — принятый в dev-зоне паттерн
    (см. DevAgentsView/DevDeployView, i18n сюда не заведён).
    ================================================================ */
@@ -69,6 +78,19 @@ type AuthoringFailure = { rule: string; reason: string; attempts: number }
 /** Урок с формулировкой, который в промпт не попал, и почему именно (волна 6). */
 type DemotedLesson = { rule: string; count: number; reason: string; revisions: number }
 
+/** Разрез охвата обучения: `key` — ветвь получения кода или глубина (волна 7). */
+type CoverageSlice = { key: string; total: number; taught: number }
+type LearningCoverage = {
+  total: number
+  taught: number
+  learned: number
+  /** `null` значит «генераций в окне не было» и отличается от нуля намеренно. */
+  taughtShare: number | null
+  learnedShare: number | null
+  byPath: CoverageSlice[]
+  byDepth: CoverageSlice[]
+}
+
 type PlatformMemory = {
   mistakes: {
     rules: number
@@ -87,6 +109,31 @@ type PlatformMemory = {
   /* Поля волны 6 — так же необязательные: против бэкенда без отбора по пользе витрина
      обязана остаться рабочей, просто без вердиктов. */
   effectiveness?: { working: number; failing: number; demoted: DemotedLesson[] }
+  /* Поле волны 7. Необязательное по той же причине: старый бэкенд доли не отдаёт, и
+     тогда блока охвата просто нет — выдумывать 100% нельзя, это была бы ровно та ложь,
+     которую волна 7 и снимает. */
+  coverage?: { allTime: LearningCoverage; lastWeek: LearningCoverage }
+}
+
+/* Человеческие имена ветвей получения кода. Ветвь важнее процента: она отвечает на
+   вопрос «почему не учится», а не только «насколько». */
+const PATH_LABELS: Record<string, string> = {
+  ai: "полная AI-генерация",
+  "ai-cached": "выдано из кэша",
+  "template-ai": "адаптация шаблона моделью",
+  "template-local": "шаблон без модели",
+  fallback: "статическая заглушка",
+}
+
+const DEPTH_LABELS: Record<string, string> = {
+  quick: "быстрая (бесплатная)",
+  standard: "стандартная",
+  deep: "глубокая",
+}
+
+/** Доля в проценты. `null` (генераций не было) — прочерк, а не «0%». */
+function pct(value: number | null): string {
+  return value === null ? "—" : `${Math.round(value * 100)}%`
 }
 
 const MUTED = "rgb(148 163 184 / 90%)"
@@ -143,6 +190,7 @@ export function DevMemoryView() {
   const failures = data?.authoring?.failures ?? []
   const selfAuthored = data?.authoring?.selfAuthored ?? 0
   const demoted = data?.effectiveness?.demoted ?? []
+  const coverage = data?.coverage
 
   return (
     <>
@@ -157,7 +205,12 @@ export function DevMemoryView() {
                    ошибке ниже и врала в самую невыгодную для платформы сторону. */
                 "Память платформы сейчас недоступна — что в ней лежит, неизвестно."
               : data?.learning
-                ? "Платформа учится на своих поломках: правила ниже уходят в промпт каждой следующей генерации."
+                ? /* «Учится» без доли — полуправда: до волны 7 эта фраза стояла и при том,
+                     что основной путь генерации уроков не видел. Если доля известна, она
+                     идёт в ту же фразу, чтобы успех нельзя было прочитать шире факта. */
+                  coverage && coverage.allTime.taughtShare !== null
+                  ? `Платформа учится на своих поломках, и это участвует в ${pct(coverage.allTime.taughtShare)} генераций: правила ниже уходят в промпт.`
+                  : "Платформа учится на своих поломках: правила ниже уходят в промпт каждой следующей генерации."
                 : "Платформа пока ничему не научилась — уроки появятся после первых сборок с дефектами."}
         </p>
       </section>
@@ -186,6 +239,86 @@ export function DevMemoryView() {
 
       {m && !error ? (
         <>
+          {/* ГЛАВНАЯ ЦИФРА РАЗДЕЛА, и она стоит первой намеренно. Всё остальное описывает
+              содержимое памяти; эта — отвечает, участвует ли память в работе платформы
+              вообще. Без неё «уроков 24, все уходят в промпт» звучало как успех при том,
+              что четыре генерации из пяти шли мимо обучения. */}
+          {coverage ? (
+            <section className="mt-7">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Stat
+                  label="генераций учатся (за неделю)"
+                  value={pct(coverage.lastWeek.taughtShare)}
+                  hint={
+                    coverage.lastWeek.total === 0
+                      ? "генераций за неделю не было — это не ноль"
+                      : `${coverage.lastWeek.taught} из ${coverage.lastWeek.total}: код рождён промптом с уроками`
+                  }
+                />
+                <Stat
+                  label="генераций учатся (за всё время)"
+                  value={pct(coverage.allTime.taughtShare)}
+                  hint={
+                    coverage.allTime.total === 0
+                      ? "журнал пуст: измерение началось с волны 7"
+                      : `${coverage.allTime.taught} из ${coverage.allTime.total}`
+                  }
+                />
+                <Stat
+                  label="генераций пополнили память"
+                  value={pct(coverage.allTime.learnedShare)}
+                  hint="вернули уроки платформе — обратное направление, считается отдельно"
+                />
+              </div>
+
+              {/* Разрез по ветвям — единственное место, где видно, ПОЧЕМУ доля не 100%.
+                  Средняя цифра выше прячет неучащийся путь внутри себя, поэтому одна без
+                  другой бесполезна. */}
+              {coverage.allTime.byPath.length > 0 ? (
+                <>
+                  <p className="mt-4 text-[13px]" style={{ color: MUTED }}>
+                    Код можно получить пятью путями, и обучение доходит не до всех. Ветвь важнее
+                    процента: она говорит, что именно чинить. Кэш и шаблон без модели уроков не
+                    получают по своей природе — там код не рождается заново.
+                  </p>
+                  <ul className="mt-3 grid list-none grid-cols-1 gap-2 p-0">
+                    {coverage.allTime.byPath.map((slice) => (
+                      <li
+                        key={slice.key}
+                        className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl px-4 py-3 text-[13px]"
+                        style={{ border: DASHED }}
+                      >
+                        <span>{PATH_LABELS[slice.key] ?? slice.key}</span>
+                        <span style={{ color: "rgb(148 163 184 / 65%)" }}>{slice.key}</span>
+                        <span
+                          className="ml-auto"
+                          style={{ color: slice.taught > 0 ? "#34D399" : "rgb(148 163 184 / 65%)" }}
+                        >
+                          {slice.taught} из {slice.total} с уроками
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+
+              {/* Разрез по глубине — проверка того самого дефекта: беден ли обучением
+                  именно бесплатный путь, которым идёт основной трафик. */}
+              {coverage.allTime.byDepth.length > 0 ? (
+                <ul className="mt-3 grid list-none grid-cols-1 gap-2 p-0 sm:grid-cols-3">
+                  {coverage.allTime.byDepth.map((slice) => (
+                    <li key={slice.key} className="rounded-xl px-4 py-3 text-[13px]" style={{ border: DASHED }}>
+                      <div>{DEPTH_LABELS[slice.key] ?? slice.key}</div>
+                      <div className="mt-1" style={{ color: "rgb(148 163 184 / 65%)" }}>
+                        {slice.taught} из {slice.total} с уроками
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+          ) : null}
+
           <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Stat label="правил в памяти" value={String(m.rules)} hint={`${m.occurrences} поломок всего`} />
             <Stat
