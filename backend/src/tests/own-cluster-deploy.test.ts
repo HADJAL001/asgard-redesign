@@ -29,6 +29,7 @@ import path from "node:path"
 
 import {
   slugifyClusterSlug,
+  repoCreateEndpoint,
   redactSecrets,
   classifyDeploymentStatus,
   describeFailure,
@@ -65,6 +66,23 @@ test("слаг приложения годен и как поддомен, и к
   assert.notEqual(slugifyClusterSlug("Тот же", 1), slugifyClusterSlug("Тот же", 2))
   // Идемпотентность: повторный деплой того же проекта уходит по тому же адресу.
   assert.equal(slugifyClusterSlug("VITALIS", 34), slugifyClusterSlug("VITALIS", 34))
+})
+
+test("ручка создания репозитория выбирается по владельцу, а не по коду ошибки", () => {
+  /* Дефект, поймавшийся выстрелом в прод 30.07.2026: код пробовал
+     /orgs/<владелец>/repos первым и откатывался на /user/repos по 404. Forgejo
+     на владельце-пользователе отвечает 403 «нужен scope write:organization»
+     (проверка скоупа идёт РАНЬШЕ разрешения имени) — откат не срабатывал,
+     деплой падал, а сообщение указывало чинить не то место. */
+  assert.equal(repoCreateEndpoint("osgard-deploy-bot", "osgard-deploy-bot"), "/user/repos")
+  // Регистр логина Forgejo не различает — иначе «Osgard-Deploy-Bot» уехал бы в /orgs.
+  assert.equal(repoCreateEndpoint("osgard-deploy-bot", "Osgard-Deploy-Bot"), "/user/repos")
+  // Владелец-организация: личная ручка создала бы репозиторий НЕ у того владельца,
+  // и последующий push ушёл бы в никуда (404) вместо честного отказа по скоупу.
+  assert.equal(repoCreateEndpoint("apps", "osgard-deploy-bot"), "/orgs/apps/repos")
+  // Неопознанный токен (GET /user не ответил) — не повод считать владельца собой.
+  assert.equal(repoCreateEndpoint("osgard-deploy-bot", undefined), "/orgs/osgard-deploy-bot/repos")
+  assert.equal(repoCreateEndpoint("osgard-deploy-bot", ""), "/orgs/osgard-deploy-bot/repos")
 })
 
 test("секрет не переживает redactSecrets ни в тексте, ни в URL", () => {

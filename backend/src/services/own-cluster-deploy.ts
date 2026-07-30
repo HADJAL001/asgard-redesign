@@ -273,6 +273,15 @@ async function forgejoFetch(
   })
 }
 
+/** Ручка создания репозитория зависит от того, кто владелец: сам пользователь
+ *  токена или организация. Решение отдельной функцией — чтобы закрепить его
+ *  тестом: угадывание по коду ответа Forgejo уже приводило к падению деплоя
+ *  (403 «нужен write:organization» на владельце, который вовсе не организация). */
+export function repoCreateEndpoint(owner: string, tokenLogin: string | undefined): string {
+  const ownerIsSelf = !!tokenLogin && tokenLogin.toLowerCase() === owner.toLowerCase()
+  return ownerIsSelf ? "/user/repos" : `/orgs/${owner}/repos`
+}
+
 /** Создаёт репозиторий приложения в нашем Forgejo, если его ещё нет.
  *  Приватный: исходники клиентского приложения — не публичные по умолчанию. */
 async function ensureForgejoRepo(cfg: OwnClusterConfig, repoName: string): Promise<void> {
@@ -285,20 +294,34 @@ async function ensureForgejoRepo(cfg: OwnClusterConfig, repoName: string): Promi
 
   const payload = { name: repoName, private: true, auto_init: false, default_branch: CLUSTER_BRANCH }
 
-  // Владелец может быть как организацией, так и самим пользователем токена —
-  // пробуем организацию, при 404 (организации нет) создаём личный репозиторий.
-  let created = await forgejoFetch(cfg, `/orgs/${cfg.forgejoOwner}/repos`, {
-    method: "POST",
-    body: payload,
-  })
-  if (created.status === 404) {
-    created = await forgejoFetch(cfg, `/user/repos`, { method: "POST", body: payload })
-  }
+  /* Владелец бывает и организацией, и самим пользователем токена, и ручка для них
+     разная. Спрашиваем Forgejo, кто мы, а не угадываем по коду ответа: прежняя
+     версия пробовала /orgs/... первой и откатывалась на /user/repos по 404 — но
+     Forgejo на чужой/несуществующей организации отвечает 403 (проверка скоупа
+     идёт РАНЬШЕ разрешения имени), откат не срабатывал, и деплой падал с
+     «нужен scope write:organization» там, где организации нет вовсе.
+     Проверено выстрелом в прод 30.07.2026 на владельце-пользователе. */
+  const whoami = await forgejoFetch(cfg, `/user`)
+  const login = whoami.ok
+    ? ((await whoami.json().catch(() => null)) as { login?: string } | null)?.login
+    : undefined
+  const endpoint = repoCreateEndpoint(cfg.forgejoOwner, login)
+  const ownerIsSelf = endpoint === "/user/repos"
+
+  const created = await forgejoFetch(cfg, endpoint, { method: "POST", body: payload })
 
   // 409 — кто-то создал репозиторий параллельно; это успех, а не отказ.
   if (!created.ok && created.status !== 409) {
     const text = redactSecrets(await created.text().catch(() => ""), [cfg.forgejoToken])
-    throw new Error(`Не удалось создать репозиторий в Forgejo: ${created.status} ${text}`)
+    // Причину отказа называем адресно: без этого оператор чинит не то место —
+    // «403» на владельце-организации значит нехватку скоупа токена, а не
+    // отсутствие организации.
+    const hint = !whoami.ok
+      ? ` Токен Forgejo не опознан (GET /user → ${whoami.status}) — проверьте OSGARD_FORGEJO_TOKEN.`
+      : ownerIsSelf
+        ? ` Владелец ${cfg.forgejoOwner} — это сам пользователь токена; нужен scope write:repository.`
+        : ` Владелец ${cfg.forgejoOwner} — организация (пользователь токена: ${login}); нужен scope write:organization.`
+    throw new Error(`Не удалось создать репозиторий в Forgejo: ${created.status} ${text}${hint}`)
   }
 }
 
