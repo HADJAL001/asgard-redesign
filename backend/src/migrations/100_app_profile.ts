@@ -1,7 +1,7 @@
 import db from "../lib/db"
 
 /* ================================================================
-   OSGARD · Миграция 094: профиль приложения
+   OSGARD · Миграция 100: профиль приложения
    ----------------------------------------------------------------
    Платформа умела ровно один вид приложения — статический экспорт:
    только клиент и localStorage. Первая живая прод-генерация показала
@@ -31,10 +31,10 @@ export function runAppProfileMigration() {
 
   if (!cols.includes("app_profile")) {
     db.exec(`ALTER TABLE projects ADD COLUMN app_profile TEXT NOT NULL DEFAULT 'static'`)
-    console.log("✅ Migration 094: added projects.app_profile (default 'static')")
+    console.log("✅ Migration 100: added projects.app_profile (default 'static')")
   }
 
-  console.log("✅ Migration 094: App profile ready")
+  console.log("✅ Migration 100: App profile ready")
 }
 
 runAppProfileMigration()

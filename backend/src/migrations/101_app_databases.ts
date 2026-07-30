@@ -1,7 +1,7 @@
 import db from "../lib/db"
 
 /* ================================================================
-   OSGARD · Миграция 096: база данных, выданная приложению
+   OSGARD · Миграция 101: база данных, выданная приложению
    ----------------------------------------------------------------
    Приложение с профилем fullstack получает СВОЮ схему и СВОЮ роль в
    кластере Postgres (services/app-database.service.ts). Платформа
@@ -19,7 +19,7 @@ import db from "../lib/db"
    перевыдаёт пароль и ОБНОВЛЯЕТ строку, а не копит вторую запись —
    иначе непонятно, какая из них действующая.
 
-   Идемпотентно, самовызов на импорте (стиль 091/094).
+   Идемпотентно, самовызов на импорте (стиль 091/100).
    ================================================================ */
 
 export function runAppDatabasesMigration() {
@@ -47,7 +47,7 @@ export function runAppDatabasesMigration() {
 
   db.exec(`CREATE INDEX IF NOT EXISTS idx_app_databases_project ON app_databases(project_id)`)
 
-  console.log("✅ Migration 096: app_databases ready (credentials encrypted at rest)")
+  console.log("✅ Migration 101: app_databases ready (credentials encrypted at rest)")
 }
 
 runAppDatabasesMigration()
