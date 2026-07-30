@@ -289,6 +289,7 @@ import orchestratorRoutes, { getActiveSseConnections } from "./routes/orchestrat
 import generateProjectRoutes, { getGenerationSseConnections } from "./routes/generate-project.routes"
 import webhooksRoutes from "./routes/webhooks.routes"
 import serviceBridgeRoutes from "./routes/service-bridge.routes"
+import illustrationWorkerRoutes from "./routes/illustration-worker.routes"
 import { runGenerationTasksMigration } from "./migrations/044_generation_tasks"
 import { runGenerationMetricsMigration } from "./migrations/045_generation_metrics"
 import { runWebhooksMigration } from "./migrations/046_webhooks"
@@ -339,6 +340,7 @@ import "./migrations/089_refinements"
 import "./migrations/090_design_system"
 import "./migrations/091_engineering_contour"
 import "./migrations/092_craft_corpus"
+import "./migrations/094_artifact_illustration"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
@@ -569,6 +571,7 @@ app.use("/", generateProjectRoutes)
 app.use("/webhooks", webhooksRoutes)
 app.use("/integrations", serviceBridgeRoutes)
 app.use("/wh", webhookTriggerPublicRoutes)
+app.use("/worker", illustrationWorkerRoutes)
 
 
 

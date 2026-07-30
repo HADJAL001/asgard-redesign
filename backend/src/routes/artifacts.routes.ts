@@ -17,6 +17,7 @@ import { fuseStats, fusedRarity, fusionHint, MUTATION_CHANCE } from "../lib/arti
 import { explainCraftScore, deriveCraftedStats, type GenerationDepth } from "../lib/proof-of-craft"
 import { deriveArtifactIdentity, type ArtifactIdentity } from "../lib/artifact-identity"
 import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
+import { queueIllustrationJob, buildIllustrationPrompt } from "../lib/illustration-jobs"
 
 const router = Router()
 
@@ -401,6 +402,17 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
         ).run(req.user!.userId, name, paidCost, forgeCurrency)
 
         const artifactId = Number(info.lastInsertRowid)
+
+        // Поставить артефакт в очередь иллюстраций (асинхронная генерация на локальном воркере)
+        const illustrationPrompt = buildIllustrationPrompt({
+          artifactId: String(artifactId),
+          name,
+          type,
+          rarity,
+          identity,
+        })
+        queueIllustrationJob(String(artifactId), illustrationPrompt)
+
         const artifact = db
           .prepare(
             `SELECT id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
@@ -557,6 +569,18 @@ router.post("/generate-ai", requireAuth, asyncHandler(async (req: AuthRequest, r
      VALUES (?, 'ai_generate', ?, 'AI-Генератор Артефактов', ?, 'timecoin', 'done')`,
   ).run(req.user!.userId, finalName, AI_GENERATE_COST_TC)
   logAudit(req.user!.userId, "debit", AI_GENERATE_COST_TC, "artifact_ai_generate", { name: finalName })
+
+  // Поставить артефакт в очередь иллюстраций (асинхронная генерация на локальном воркере)
+  const aiArtifactId = Number(info.lastInsertRowid)
+  const aiIllustrationPrompt = buildIllustrationPrompt({
+    artifactId: String(aiArtifactId),
+    name: finalName,
+    type: "ai",
+    rarity,
+    lore: generated.lore,
+    description: generated.description,
+  })
+  queueIllustrationJob(String(aiArtifactId), aiIllustrationPrompt)
 
   const artifact = db
     .prepare(
