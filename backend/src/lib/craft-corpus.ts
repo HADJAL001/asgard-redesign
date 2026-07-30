@@ -101,6 +101,140 @@ export function topLessons(limit = 6): Lesson[] {
   }
 }
 
+/* ----------------------------------------------------------------
+   Точка отсчёта пользы урока (волна 8, миграция 098)
+   ----------------------------------------------------------------
+   До волны 8 точка отсчёта существовала только у машинных уроков — она была
+   побочным продуктом авторства (`occurrences_at_authoring`). Рукописный урок
+   появляется вместе с кодом, события «начали учить» у него нет, поэтому пользу
+   рукописного нельзя было измерить в принципе. На проде это значило: 13 боевых
+   правил из 13 неизмеримы, `working: 0 / failing: 0` навсегда.
+
+   Теперь точка отсчёта живёт рядом со счётчиком, к которому относится, — в
+   `generation_lessons`, одинаково для уроков любого происхождения.
+   ---------------------------------------------------------------- */
+
+/** Правило со счётчиком и точкой отсчёта: всё, что нужно, чтобы судить о пользе урока. */
+export type LessonBaseline = Lesson & {
+  /** Когда урок впервые ушёл в промпт (ms). `null` = ещё не уходил. */
+  taughtFrom: number | null
+  /** Счётчик повторов на момент начала обучения. `null` = точки отсчёта нет. */
+  occurrencesAtTeaching: number | null
+  /** Сколько раз урок дошёл до модели после точки отсчёта (зрелость измерения). */
+  taughtTimes: number
+  /**
+   * Есть ли в базе колонки волны 8 вообще.
+   *
+   * `false` — старая схема, и это НЕ то же самое, что «точки отсчёта нет». Разница
+   * важна: на старой схеме измерение машинных уроков обязано продолжать работать
+   * по-старому (от момента авторства), иначе накат волны 8 на базу, где миграция ещё не
+   * прошла, молча отключил бы измерение, которое работало с волны 5.
+   */
+  baselineSchema: boolean
+}
+
+/**
+ * Правила со счётчиками и точками отсчёта.
+ *
+ * Схема без 098 (колонок ещё нет) обязана значить «точек отсчёта нет», а не отказ:
+ * тогда всё поведение сходится к волне 6, и платформа работает как до этой волны.
+ */
+export function lessonBaselines(limit = 500): LessonBaseline[] {
+  try {
+    const rows = db
+      .prepare(
+        `SELECT rule, occurrences as count, taught_from, occurrences_at_teaching, taught_times
+           FROM generation_lessons ORDER BY occurrences DESC, rule ASC LIMIT ?`,
+      )
+      .all(limit) as Array<{
+      rule: string
+      count: number
+      taught_from: number | null
+      occurrences_at_teaching: number | null
+      taught_times: number | null
+    }>
+    return rows.map((row) => ({
+      rule: row.rule,
+      count: row.count,
+      taughtFrom: row.taught_from ?? null,
+      occurrencesAtTeaching: row.occurrences_at_teaching ?? null,
+      taughtTimes: row.taught_times ?? 0,
+      baselineSchema: true,
+    }))
+  } catch {
+    /* Колонок 098 нет — падать нельзя: отбор уроков идёт на КАЖДОЙ генерации.
+       Отдаём счётчики без точек отсчёта и честно помечаем схему старой: выше по коду
+       это значит «мерить по-старому», а не «мерить нечем». */
+    return topLessons(limit).map((lesson) => ({
+      ...lesson,
+      taughtFrom: null,
+      occurrencesAtTeaching: null,
+      /* Пробега старая схема не хранит. Считаем его неограниченным намеренно: понизить
+         вердикт до «идёт измерение» здесь значило бы объявить неизмеримым то, что волна
+         6 измеряла, — то есть сделать накат кода без миграции шагом назад. */
+      taughtTimes: Number.MAX_SAFE_INTEGER,
+      baselineSchema: false,
+    }))
+  }
+}
+
+/**
+ * Отмечает, что уроки РЕАЛЬНО ушли в промпт: ставит точку отсчёта тем, у кого её не
+ * было, и наращивает пробег остальным.
+ *
+ * Вызывается из `renderLessonsContract` — то есть из единственного места, где урок
+ * действительно доходит до модели. Витрина этого не делает намеренно: если бы точку
+ * отсчёта ставил просмотр `/dev/memory`, обучение начиналось бы от открытия страницы
+ * — измерение стало бы функцией наблюдателя, а не работы платформы.
+ *
+ * `taught_from` пишется ТОЛЬКО когда он NULL: начало обучения — событие однократное,
+ * иначе каждая генерация сдвигала бы отсчёт вперёд и повторы всегда были бы нулём
+ * («урок работает» превратилось бы в тавтологию).
+ */
+export function markLessonsTaught(rules: string[]): void {
+  if (rules.length === 0) return
+  try {
+    const now = Date.now()
+    const update = db.prepare(
+      `UPDATE generation_lessons SET
+         taught_from = COALESCE(taught_from, ?),
+         occurrences_at_teaching = COALESCE(occurrences_at_teaching, occurrences),
+         taught_times = taught_times + 1
+       WHERE rule = ?`,
+    )
+    const apply = db.transaction((list: string[]) => {
+      for (const rule of list) update.run(now, rule)
+    })
+    apply(rules)
+  } catch (err) {
+    /* Схема без 098 либо занятая база: измерение — не причина ронять генерацию.
+       Промпт уже собран и уйдёт модели, потеряется только запись о пробеге. */
+    captureError("[craft-corpus] не удалось отметить отправку уроков в промпт (схема без 098?):", err)
+  }
+}
+
+/**
+ * Начинает отсчёт заново — вызывается при СМЕНЕ формулировки (ревизия, волна 6).
+ *
+ * Обязательная половина переписывания, а не удобство: новую формулировку нельзя судить
+ * по повторам, которые натворила прежняя. Без сброса переписанный урок унаследовал бы
+ * чужой провал и остался бы «не работает» навсегда — механизм ревизии выглядел бы
+ * работающим и не давал результата.
+ *
+ * Пробег обнуляется вместе с точкой: модель ещё ни разу не видела НОВЫЙ текст, и
+ * зачесть ему показы старого значило бы объявить его доказанным без доказательства.
+ */
+export function resetLessonBaseline(rule: string): void {
+  try {
+    db.prepare(
+      `UPDATE generation_lessons SET taught_from = ?, occurrences_at_teaching = occurrences, taught_times = 0
+        WHERE rule = ?`,
+    ).run(Date.now(), rule)
+  } catch (err) {
+    captureError("[craft-corpus] не удалось сбросить точку отсчёта урока (схема без 098?):", err)
+  }
+}
+
 /** Человеческая формулировка урока для промпта. Правило → конкретный запрет. */
 const LESSON_TEXT: Record<string, string> = {
   "use-client-missing":
@@ -163,6 +297,21 @@ export function handwrittenLessonText(rule: string): string | undefined {
 }
 
 /**
+ * Все правила, у которых формулировка написана рукой.
+ *
+ * Нужен миграции 098: словарь живёт в КОДЕ, в базе его нет, и отличить в SQL
+ * рукописное правило от правила без формулировки нельзя — а разница
+ * принципиальная. Первому точка отсчёта нужна (урок давно уходит в промпт, просто
+ * не измерялся), второму она была бы прямой ложью: в промпт оно не попадает.
+ *
+ * Порядок стабилен (порядок объявления в словаре), поэтому миграция идемпотентна и
+ * воспроизводима.
+ */
+export function handwrittenLessonRules(): string[] {
+  return Object.keys(LESSON_TEXT)
+}
+
+/**
  * Образцы стиля для автора уроков (lib/lesson-author): по ним модель понимает, какой
  * длины и тона ждут от формулировки. Берём рукописные — это эталон, выверенный руками.
  * Порядок стабилен, поэтому промпт разбора детерминирован при том же входе.
@@ -216,6 +365,12 @@ export type AuthoredLessonRow = {
   /** Формулировки, уже доказавшие бесполезность: принимать их снова нельзя (097). */
   retiredTexts: string[]
   lastRevisedAt: number | null
+  /**
+   * Машинная формулировка заменяет РУКОПИСНУЮ, потому что та доказанно не работала
+   * (волна 8). Единственное исключение из безусловного приоритета рукописного текста,
+   * и оно покупается доказательством: `fails` = дефект повторился после обучения.
+   */
+  supersedesHandwritten: boolean
 }
 
 /** Все записи авторства — и принятые уроки, и забракованные попытки (нужно витрине). */
@@ -242,6 +397,9 @@ export function listAuthoredLessons(): AuthoredLessonRow[] {
       revisions: row.revisions ?? 0,
       retiredTexts: parseRetiredTexts(row.retired_texts),
       lastRevisedAt: row.last_revised_at ?? null,
+      /* Колонка волны 8. Схема без 098 → undefined → false: замены рукописного не
+         существует, приоритет рукописного остаётся безусловным (поведение волны 6). */
+      supersedesHandwritten: Boolean(row.supersedes_handwritten),
     }))
   } catch {
     return []
@@ -264,14 +422,37 @@ function parseRetiredTexts(raw: unknown): string[] {
 }
 
 /**
+ * Машинные формулировки, которым разрешено заменить рукописную: та доказанно не
+ * сработала (волна 8). Пустая карта на схеме без 098 — приоритет рукописного остаётся
+ * безусловным, как в волне 6.
+ */
+export function supersedingLessonTexts(): Map<string, string> {
+  try {
+    const rows = db
+      .prepare(
+        `SELECT rule, text FROM generation_lesson_texts
+          WHERE text IS NOT NULL AND supersedes_handwritten = 1`,
+      )
+      .all() as Array<{ rule: string; text: string }>
+    return new Map(rows.map((r) => [r.rule, r.text]))
+  } catch {
+    return new Map()
+  }
+}
+
+/**
  * Итоговый текст урока: рукописный, иначе свой машинный.
  *
- * Приоритет рукописного безусловен и не настраивается: выверенная руками формулировка
- * надёжнее любой сгенерированной, а расхождение двух источников на одном правиле
- * должно решаться предсказуемо, а не по дате записи.
+ * Приоритет рукописного не решается по дате записи — иначе расхождение двух
+ * источников на одном правиле стало бы лотереей. Он уступает ровно одному
+ * обстоятельству: рукописная формулировка ИЗМЕРЕННО не работает (дефект повторялся
+ * после обучения) и платформа написала замену. До волны 8 такой случай был
+ * невозможен — у рукописных уроков не было точки отсчёта, а значит и вердикта.
  */
 export function resolveLessonText(rule: string, authored?: Map<string, string>): string | undefined {
-  return handwrittenLessonText(rule) ?? (authored ?? authoredLessonTexts()).get(rule)
+  const hand = handwrittenLessonText(rule)
+  if (!hand) return (authored ?? authoredLessonTexts()).get(rule)
+  return supersedingLessonTexts().get(rule) ?? hand
 }
 
 /* ----------------------------------------------------------------
@@ -308,29 +489,54 @@ const LESSON_FAIL_THRESHOLD = 2
  */
 const PROVEN_SLOT_SHARE = 0.5
 
+/**
+ * Сколько раз урок должен дойти до модели, чтобы ноль повторов считался
+ * ДОКАЗАТЕЛЬСТВОМ пользы, а не просто отсутствием данных (волна 8).
+ *
+ * Зачем порог вообще. Волна 8 дала точку отсчёта рукописным уроком — и сразу после
+ * миграции у всех тринадцати боевых правил ноль повторов «после обучения», потому
+ * что обучение только что началось. Без порога платформа объявила бы их доказанно
+ * работающими и закрепила бы за ними половину мест в промпте, не измерив ничего:
+ * тот же обман, от которого волна 6 защищалась состоянием `unmeasured`, только
+ * пришедший с другой стороны.
+ *
+ * Три — потому что одна генерация ничего не показывает (дефект мог не встретиться по
+ * несвязанным причинам: другая тема, меньше файлов), а ждать десятков значит держать
+ * витрину в «идёт измерение» месяцами.
+ */
+const LESSON_PROOF_MIN_TEACHINGS = 3
+
 export type LessonEffect =
-  /** После урока дефект не повторялся ни разу — формулировка работает. */
+  /** После урока дефект не повторялся ни разу, и урок дошёл до модели достаточно раз. */
   | "works"
   /** Повторы есть, но их мало для приговора. */
   | "unclear"
   /** Дефект повторяется после урока — формулировка не работает. */
   | "fails"
-  /** Точки отсчёта нет (рукописные уроки): судить не по чему. */
+  /** Точка отсчёта есть, но пробега после неё мало — вердикта пока нет (волна 8). */
+  | "measuring"
+  /** Точки отсчёта нет (урок ещё не уходил в промпт): судить не по чему. */
   | "unmeasured"
 
 /**
- * Классификация пользы урока по числу повторов после обучения.
+ * Классификация пользы урока: сколько раз дефект повторился после обучения и сколько
+ * раз урок вообще дошёл до модели.
  *
- * `null` на входе — это «не измеряем», и оно НЕ равно нулю повторов: у рукописных
- * уроков момента обучения не существует, они появились вместе с кодом. Смешать эти
- * два случая значило бы объявить рукописные уроки доказанно работающими и закрепить
- * за ними места в промпте без единого измерения.
+ * `null` на входе — это «не измеряем», и оно НЕ равно нулю повторов: у правила без
+ * формулировки (или ещё ни разу не попавшего в промпт) момента обучения не
+ * существует. Смешать эти два случая значило бы объявить неизмеренные уроки
+ * доказанно работающими и закрепить за ними места в промпте.
+ *
+ * Провал (`fails`) зрелости НЕ требует: если дефект повторился дважды после того, как
+ * урок дошёл до модели, формулировка уже не сработала — сколько бы раз её ни
+ * показывали дальше, это факт против неё. Доказательство пользы дороже доказательства
+ * провала, и такая асимметрия здесь намеренная.
  */
-export function classifyLessonEffect(repeatedAfterLearning: number | null): LessonEffect {
+export function classifyLessonEffect(repeatedAfterLearning: number | null, taughtTimes = Number.MAX_SAFE_INTEGER): LessonEffect {
   if (repeatedAfterLearning === null) return "unmeasured"
-  if (repeatedAfterLearning <= 0) return "works"
   if (repeatedAfterLearning >= LESSON_FAIL_THRESHOLD) return "fails"
-  return "unclear"
+  if (repeatedAfterLearning > 0) return "unclear"
+  return taughtTimes >= LESSON_PROOF_MIN_TEACHINGS ? "works" : "measuring"
 }
 
 /** Урок с формулировкой и измеренной пользой — то, чем оперируют и промпт, и витрина. */
@@ -341,6 +547,10 @@ export type RankedLesson = Lesson & {
   effect: LessonEffect
   /** Сколько раз формулировку уже переписывали (волна 6). */
   revisions: number
+  /** Когда урок впервые ушёл в промпт — начало измерения (волна 8). */
+  taughtFrom: number | null
+  /** Сколько раз урок дошёл до модели после этого момента (волна 8). */
+  taughtTimes: number
 }
 
 /**
@@ -351,10 +561,9 @@ export type RankedLesson = Lesson & {
  * ровно этот дефект честности ловили в волне 4.
  */
 function buildLessonView(): { withText: RankedLesson[]; silent: Lesson[]; authoredRows: AuthoredLessonRow[] } {
-  const all = topLessons(500)
+  const all = lessonBaselines(500)
   const authoredRows = listAuthoredLessons()
-  const authoredText = new Map(authoredRows.filter((r) => r.text).map((r) => [r.rule, r.text as string]))
-  const learnedAt = new Map(authoredRows.filter((r) => r.text).map((r) => [r.rule, r.occurrencesAtAuthoring]))
+  const authored = new Map(authoredRows.filter((r) => r.text).map((r) => [r.rule, r]))
   const revisionsOf = new Map(authoredRows.map((r) => [r.rule, r.revisions]))
 
   const withText: RankedLesson[] = []
@@ -362,20 +571,37 @@ function buildLessonView(): { withText: RankedLesson[]; silent: Lesson[]; author
 
   for (const lesson of all) {
     const hand = handwrittenLessonText(lesson.rule)
-    const text = hand ?? authoredText.get(lesson.rule)
+    const self = authored.get(lesson.rule)
+    /* Рукописный текст сильнее машинного — кроме одного случая: он уже доказанно не
+       сработал, и платформа сформулировала замену (волна 8, `supersedesHandwritten`).
+       Держать провалившуюся формулировку только потому, что её написал человек, —
+       значит сохранять место в промпте за тем, что измеренно не помогает. */
+    const text = self?.supersedesHandwritten ? (self.text as string) : (hand ?? self?.text)
     if (!text) {
-      silent.push(lesson)
+      silent.push({ rule: lesson.rule, count: lesson.count })
       continue
     }
-    const base = hand ? null : learnedAt.get(lesson.rule)
-    const repeated = base === null || base === undefined ? null : Math.max(0, lesson.count - base)
+    /* Точка отсчёта — одна для уроков любого происхождения и лежит рядом со
+       счётчиком, к которому относится (волна 8, миграция 098). До неё измерение
+       машинных уроков шло от МОМЕНТА АВТОРСТВА, что завышало «повторы после
+       обучения»: правило вне топа в промпт не попадало, но повторы ему уже считались.
+       Теперь отсчёт идёт от факта «урок дошёл до модели». */
+    const base = lesson.baselineSchema
+      ? lesson.occurrencesAtTeaching
+      : /* Старая схема (098 не прошла): измеряем как волна 5 — от момента авторства.
+           Рукописные там неизмеримы, ровно как и было. */
+        (self?.occurrencesAtAuthoring ?? null)
+    const repeated = base === null ? null : Math.max(0, lesson.count - base)
     withText.push({
-      ...lesson,
+      rule: lesson.rule,
+      count: lesson.count,
       text,
-      origin: hand ? "hand" : "self",
+      origin: self?.supersedesHandwritten || (!hand && self) ? "self" : "hand",
       repeatedAfterLearning: repeated,
-      effect: classifyLessonEffect(repeated),
+      effect: classifyLessonEffect(repeated, lesson.taughtTimes),
       revisions: revisionsOf.get(lesson.rule) ?? 0,
+      taughtFrom: lesson.taughtFrom,
+      taughtTimes: lesson.taughtTimes,
     })
   }
 
@@ -455,6 +681,12 @@ export function renderLessonsContract(limit = 6): string {
   const lessons = selectPromptLessons(limit)
   if (lessons.length === 0) return ""
 
+  /* Единственное место, где урок ДЕЙСТВИТЕЛЬНО доходит до модели, — здесь и только
+     здесь начинается измерение его пользы (волна 8). Отмечаем факт отправки: тем, у
+     кого точки отсчёта не было, она ставится сейчас; остальным растёт пробег.
+     Запись не имеет права помешать генерации — внутри всё проглатывается. */
+  markLessonsTaught(lessons.map((l) => l.rule))
+
   return `=== ВЫУЧЕННЫЕ УРОКИ (статистика реальных поломок этой платформы) ===
 Эти ошибки уже ломали сборку сгенерированных приложений. Не повторяй их:
 ${lessons.map((entry, i) => `${i + 1}. ${entry.text}`).join("\n")}
@@ -504,6 +736,23 @@ export type LessonsReport = {
   working: number
   /** Сколько уроков доказанно не работают — кандидаты на переписывание. */
   failing: number
+  /**
+   * Сколько уроков ИЗМЕРЯЕТСЯ прямо сейчас: точка отсчёта есть, повторов пока нет, но
+   * модель видела урок меньше `LESSON_PROOF_MIN_TEACHINGS` раз (волна 8).
+   *
+   * Отдельное число, а не часть `working`, именно потому, что это разные утверждения:
+   * «доказано» и «пока не опровергнуто». Ровно на этом смешении витрина показала бы
+   * 13 доказанно работающих уроков на следующий день после миграции, не измерив ничего.
+   */
+  measuring: number
+  /**
+   * Сколько уроков не измеряется вовсе — формулировка есть, но в промпт правило ещё не
+   * уходило (редкий дефект вне топа). До волны 8 такими были ВСЕ рукописные уроки, то
+   * есть все 13 боевых правил, и `working`/`failing` были обречены на ноль.
+   */
+  unmeasured: number
+  /** Сколько раз машинная формулировка заменила провалившуюся рукописную (волна 8). */
+  supersededHandwritten: number
 }
 
 /**
@@ -538,6 +787,9 @@ export function getLessonsReport(limit = 6): LessonsReport {
     demoted: [],
     working: 0,
     failing: 0,
+    measuring: 0,
+    unmeasured: 0,
+    supersededHandwritten: 0,
   }
   try {
     const totals = db
@@ -574,6 +826,9 @@ export function getLessonsReport(limit = 6): LessonsReport {
         })),
       working: withText.filter((l) => l.effect === "works").length,
       failing: withText.filter((l) => l.effect === "fails").length,
+      measuring: withText.filter((l) => l.effect === "measuring").length,
+      unmeasured: withText.filter((l) => l.effect === "unmeasured").length,
+      supersededHandwritten: authoredRows.filter((r) => r.text && r.supersedesHandwritten).length,
     }
   } catch {
     return empty // схема без 092 — витрина честно пустая, а не выдуманная
