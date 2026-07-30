@@ -157,6 +157,7 @@ app.use(
    Свой signing secret STRIPE_WEBHOOK_SECRET_ACADEMY (с фолбэком). За фичефлагом. */
 import academyRoutes from "./routes/academy.routes"
 import certifiedRoutes from "./routes/certified.routes"
+import rarestRoutes from "./routes/rarest.routes"
 app.use(
   "/academy/webhook",
   express.raw({ type: "application/json" }),
@@ -555,6 +556,7 @@ app.use("/addons/customization", customizationRoutes)
 app.use("/addons/courses", coursesRoutes)
 app.use("/academy", academyRoutes)
 app.use("/certified", certifiedRoutes)
+app.use("/rarest", rarestRoutes)
 app.use("/jarvis", jarvisRoutes)
 app.use("/jarvis", jarvisShopRoutes)
 app.use("/twin", twinRoutes)
