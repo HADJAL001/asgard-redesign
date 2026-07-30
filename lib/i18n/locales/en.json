@@ -286,12 +286,12 @@
     "recommendedPrice": "Recommended price",
     "recentCreated": "Recently created",
     "createdSuccess": "Artifact \"{{name}}\" created!",
-    "createdFailed": "Failed to create artifact",
+    "createdFailed": "Failed to create artifact. TimeCoin wasn't charged.",
     "premiumUpgrade": {
       "button": "⭐ Upgrade for {{cost}}",
       "tooltip": "Instant upgrade with TimeCoin · {{chance}}% crit chance",
       "maxed": "⭐ Maximum premium level reached",
-      "failed": "Failed to perform premium upgrade",
+      "failed": "Failed to perform premium upgrade. TimeCoin wasn't charged.",
       "result": {
         "normal": "+{{gain}} lvl",
         "crit": "CRIT! +{{gain}} lvl"

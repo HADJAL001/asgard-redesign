@@ -286,12 +286,12 @@
     "recommendedPrice": "Ұсынылатын баға",
     "recentCreated": "Соңғы жасалғандар",
     "createdSuccess": "«{{name}}» артефакты жасалды!",
-    "createdFailed": "Артефакт жасалмады",
+    "createdFailed": "Артефакт жасалмады. TimeCoin шешілмеді.",
     "premiumUpgrade": {
       "button": "⭐ {{cost}} үшін күшейту",
       "tooltip": "TimeCoin арқылы лезде күшейту · крит мүмкіндігі {{chance}}%",
       "maxed": "⭐ Максималды премиум деңгейіне жетті",
-      "failed": "Премиум күшейтуді орындау мүмкін болмады",
+      "failed": "Премиум күшейтуді орындау мүмкін болмады. TimeCoin шешілмеді.",
       "result": {
         "normal": "+{{gain}} дең.",
         "crit": "КРИТ! +{{gain}} дең."
