@@ -704,7 +704,7 @@ const STATIC_ONLY_RULES = new Set([
 /** Формулировки, которые звучат иначе, когда серверный код разрешён. */
 const FULLSTACK_LESSON_TEXT: Record<string, string> = {
   "dependency-missing":
-    "сторонние npm-пакеты запрещены: доступны только next, react, react-dom, lucide-react и клиент Supabase (@supabase/supabase-js, @supabase/ssr)",
+    "сторонние npm-пакеты запрещены: доступны только next, react, react-dom, lucide-react и драйвер базы pg",
 }
 
 function appliesToProfile(rule: string, profile: AppProfile): boolean {
@@ -728,10 +728,6 @@ function lessonTextForProfile(
  * С волны 6 порядок определяется не только частотой, но и доказанной пользой урока —
  * см. `selectPromptLessons`.
  */
-<<<<<<< HEAD
-export function renderLessonsContract(limit = 6): string {
-  const lessons = selectPromptLessons(limit)
-=======
 export function renderLessonsContract(limit = 6, profile: AppProfile = DEFAULT_APP_PROFILE): string {
   /* Собственные формулировки читаем ОДНИМ запросом на всю сборку блока: до волны 5
      правило без строки в коде отбрасывалось здесь молча, и частый дефект мог годами
@@ -742,13 +738,16 @@ export function renderLessonsContract(limit = 6, profile: AppProfile = DEFAULT_A
      fullstack-генерация получала бы меньше уроков, чем static, — не потому что их
      нет, а потому что запретные заняли места в топе. */
   const pool = allowsServerCode(profile) ? limit + STATIC_ONLY_RULES.size : limit
-  const lessons = topLessons(pool)
+  /* Отбор — по доказанной пользе урока (волна 6), а не по одной частоте: профиль
+     решает ТОЛЬКО, применимо ли правило и как оно звучит. Иначе fullstack-ветка
+     тихо откатила бы ранжирование обратно к `topLessons`. */
+  const lessons = selectPromptLessons(pool)
     .filter((l) => appliesToProfile(l.rule, profile))
-    .map((l) => ({ lesson: l, text: lessonTextForProfile(l.rule, profile, authored) }))
-    .filter((entry): entry is { lesson: Lesson; text: string } => !!entry.text)
+    /* Для части правил у fullstack своя формулировка: «серверного кода не бывает» в
+       приложении с базой — вредный совет. Нет своей — остаётся общая. */
+    .map((l) => ({ ...l, text: lessonTextForProfile(l.rule, profile, authored) ?? l.text }))
     .slice(0, limit)
 
->>>>>>> 48183e8 (feat(generator): профиль fullstack — приложение может иметь серверный код и базу)
   if (lessons.length === 0) return ""
 
   /* Единственное место, где урок ДЕЙСТВИТЕЛЬНО доходит до модели, — здесь и только

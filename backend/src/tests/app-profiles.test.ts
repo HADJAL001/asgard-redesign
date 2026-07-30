@@ -12,8 +12,8 @@ import { FULLSTACK_DEPENDENCIES, normalizeAppProfile } from '../lib/app-profiles
    ограничение.
 
    Проверяем ДВЕ стороны, и вторая важнее первой:
-   • fullstack: серверный роут, "use server", next/headers и клиент
-     Supabase больше не дефект, а механический ремонт НЕ удаляет
+   • fullstack: серверный роут, "use server", next/headers и драйвер
+     базы `pg` больше не дефект, а механический ремонт НЕ удаляет
      app/api (раньше удалял безусловно);
    • static (по умолчанию): всё перечисленное по-прежнему бракуется.
      Профиль обязан РАСШИРЯТЬ поведение, а не ослаблять старое —
@@ -46,26 +46,34 @@ const PAGE: SourceFile = {
 
 const API_ROUTE: SourceFile = {
   path: 'app/api/notes/route.ts',
-  content: `import { createServerClient } from "@/lib/supabase/server"
+  content: `import { query } from "@/lib/db"
 
 export async function GET() {
-  const supabase = createServerClient()
-  const { data } = await supabase.from("notes").select("*")
-  return Response.json({ notes: data ?? [] })
+  const notes = await query<{ id: number; title: string }>("SELECT id, title FROM notes")
+  return Response.json({ notes })
 }
 `,
 };
 
-const SUPABASE_SERVER: SourceFile = {
-  path: 'lib/supabase/server.ts',
+/* Модуль доступа к базе — тот, что платформа вписывает сама (DB_MODULE_PATH).
+   Здесь он нужен вместе с `next/headers`: проверяется, что для fullstack не
+   бракуется НИ драйвер базы, НИ серверный API самого Next. */
+const DB_MODULE: SourceFile = {
+  path: 'lib/db.ts',
   content: `import { cookies } from "next/headers"
-import { createServerClient as createClient } from "@supabase/ssr"
+import { Pool } from "pg"
 
-export function createServerClient() {
-  const store = cookies()
-  return createClient("https://example.supabase.co", "anon-key", {
-    cookies: { get: (name: string) => store.get(name)?.value },
-  })
+let pool: Pool | undefined
+
+export function getPool(): Pool {
+  if (!pool) pool = new Pool({ connectionString: process.env.DATABASE_URL })
+  return pool
+}
+
+export async function query<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
+  void cookies()
+  const result = await getPool().query(sql, params)
+  return result.rows as T[]
 }
 `,
 };
@@ -85,7 +93,7 @@ function packageJson(fullstack: boolean): SourceFile {
   };
 }
 
-const FULLSTACK_SET: SourceFile[] = [packageJson(true), GLOBALS, LAYOUT, PAGE, API_ROUTE, SUPABASE_SERVER];
+const FULLSTACK_SET: SourceFile[] = [packageJson(true), GLOBALS, LAYOUT, PAGE, API_ROUTE, DB_MODULE];
 
 test('normalizeAppProfile: неизвестное значение падает в самый безопасный режим', () => {
   assert.equal(normalizeAppProfile('fullstack'), 'fullstack');
@@ -94,14 +102,14 @@ test('normalizeAppProfile: неизвестное значение падает 
   assert.equal(normalizeAppProfile('произвольная строка из БД'), 'static');
 });
 
-test('fullstack: серверный роут, next/headers и клиент Supabase — не дефекты', () => {
+test('fullstack: серверный роут, next/headers и драйвер базы pg — не дефекты', () => {
   const report = explainBuildIntegrity(FULLSTACK_SET, 'fullstack');
 
   assert.equal(report.analyzed, true);
   const rules = report.defects.filter((d) => d.severity === 'error').map((d) => d.rule);
   assert.ok(!rules.includes('api-route-unsupported'), `api-роут забракован: ${rules.join(', ')}`);
   assert.ok(!rules.includes('server-only-api'), `next/headers забракован: ${rules.join(', ')}`);
-  assert.ok(!rules.includes('dependency-missing'), `клиент Supabase не разрешён: ${rules.join(', ')}`);
+  assert.ok(!rules.includes('dependency-missing'), `драйвер базы pg не разрешён: ${rules.join(', ')}`);
   assert.equal(report.ok, true, `остались дефекты: ${rules.join(', ')}`);
 });
 
@@ -148,7 +156,7 @@ test('static: механический ремонт по-прежнему уда
   assert.ok(outcome.actions.some((a) => a.rule === 'api-route-unsupported'));
 });
 
-test('static: клиент Supabase в зависимостях не открывает импорт произвольного пакета', () => {
+test('static: драйвер базы в зависимостях не открывает импорт произвольного пакета', () => {
   const withStripe: SourceFile[] = [
     packageJson(false),
     GLOBALS,

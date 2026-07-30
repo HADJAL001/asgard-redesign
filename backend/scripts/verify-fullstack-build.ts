@@ -1,14 +1,23 @@
+import { execFile } from "node:child_process"
+import { promisify } from "node:util"
 import { buildNextFullstackApp } from "../src/services/sandbox.service"
 import { SCAFFOLD_DEPENDENCIES, SCAFFOLD_DEV_DEPENDENCIES } from "../src/lib/app-scaffold-deps"
-import { FULLSTACK_DEPENDENCIES } from "../src/lib/app-profiles"
+import { FULLSTACK_DEPENDENCIES, FULLSTACK_DEV_DEPENDENCIES } from "../src/lib/app-profiles"
+
+const execFileAsync = promisify(execFile)
 
 /* ================================================================
    Гейт волны DB-A: fullstack-приложение РЕАЛЬНО собирается.
 
    Проверяется фактом, а не рассуждением: минимальный набор с
-   серверным роутом, серверным клиентом Supabase (next/headers) и
-   next.config.js БЕЗ output:"export" уходит в настоящий
-   `npm install && next build` в изолированном контейнере.
+   серверным роутом, платформенным модулем доступа к базе (`lib/db.ts`
+   на драйвере `pg`) и next.config.js БЕЗ output:"export" уходит в
+   настоящий `npm install && next build` в изолированном контейнере.
+
+   Сборка идёт БЕЗ доступной базы (в контейнере `--network none`), и это
+   осознанно: `next build` не должен требовать живого Postgres — иначе
+   сборка приложения оказалась бы завязана на рантайм. Страница и роут
+   поэтому переносят ошибку подключения, а не падают на ней.
 
    Запуск (из backend/): npx tsx scripts/verify-fullstack-build.ts
    Требует поднятого Docker. Ничего в БД не пишет.
@@ -24,7 +33,7 @@ const files = [
         private: true,
         scripts: { dev: "next dev", build: "next build", start: "next start" },
         dependencies: { ...SCAFFOLD_DEPENDENCIES, ...FULLSTACK_DEPENDENCIES },
-        devDependencies: SCAFFOLD_DEV_DEPENDENCIES,
+        devDependencies: { ...SCAFFOLD_DEV_DEPENDENCIES, ...FULLSTACK_DEV_DEPENDENCIES },
       },
       null,
       2,
@@ -100,74 +109,96 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 `,
   },
+  /* Ровно тот модуль доступа к базе, который платформа вписывает в fullstack-набор
+     сама (app-generator, DB_MODULE_PATH). Гейт обязан собирать то же, что уедет
+     пользователю, иначе он доказывает сборку постороннего кода. */
   {
-    path: "lib/supabase/server.ts",
-    content: `import { cookies } from "next/headers"
-import { createServerClient as createClient } from "@supabase/ssr"
+    path: "lib/db.ts",
+    content: `import { Pool } from "pg"
 
-export function createServerClient() {
-  const store = cookies()
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://example.supabase.co",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "anon-key",
-    {
-      cookies: {
-        get: (name: string) => store.get(name)?.value,
-        set: () => {},
-        remove: () => {},
-      },
-    },
-  )
+declare global {
+  var __osgardPool: Pool | undefined
+}
+
+function createPool(): Pool {
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) {
+    throw new Error("DATABASE_URL не задан: строку подключения выдаёт платформа OSGARD")
+  }
+  return new Pool({
+    connectionString,
+    max: 5,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 10_000,
+  })
+}
+
+export function getPool(): Pool {
+  if (!global.__osgardPool) global.__osgardPool = createPool()
+  return global.__osgardPool
+}
+
+export async function query<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
+  const result = await getPool().query(sql, params)
+  return result.rows as T[]
 }
 `,
   },
   {
-    path: "lib/supabase/client.ts",
-    content: `import { createBrowserClient } from "@supabase/ssr"
-
-export function createClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://example.supabase.co",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "anon-key",
-  )
-}
+    path: "db/schema.sql",
+    content: `CREATE TABLE IF NOT EXISTS notes (
+  id SERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 `,
   },
   {
     path: "app/api/notes/route.ts",
-    content: `import { createServerClient } from "@/lib/supabase/server"
+    content: `import { query } from "@/lib/db"
 
 export async function GET() {
-  const supabase = createServerClient()
-  const { data, error } = await supabase.from("notes").select("*").limit(20)
-  if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json({ notes: data ?? [] })
+  try {
+    const notes = await query<{ id: number; title: string }>("SELECT id, title FROM notes ORDER BY id DESC LIMIT 20")
+    return Response.json({ notes })
+  } catch (error) {
+    return Response.json({ error: (error as Error).message }, { status: 500 })
+  }
 }
 
 export async function POST(request: Request) {
   const body = (await request.json()) as { title?: string }
-  const supabase = createServerClient()
-  const { data, error } = await supabase.from("notes").insert({ title: body.title ?? "Без названия" }).select()
-  if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json({ note: data?.[0] ?? null }, { status: 201 })
+  try {
+    const rows = await query<{ id: number; title: string }>(
+      "INSERT INTO notes (title) VALUES ($1) RETURNING id, title",
+      [body.title ?? "Без названия"],
+    )
+    return Response.json({ note: rows[0] ?? null }, { status: 201 })
+  } catch (error) {
+    return Response.json({ error: (error as Error).message }, { status: 500 })
+  }
 }
 `,
   },
   {
     path: "app/page.tsx",
-    content: `import { createServerClient } from "@/lib/supabase/server"
+    content: `import { query } from "@/lib/db"
 
 export const dynamic = "force-dynamic"
 
 export default async function Page() {
-  const supabase = createServerClient()
-  const { data } = await supabase.from("notes").select("title").limit(5)
+  let notes: Array<{ title: string }> = []
+  try {
+    notes = await query<{ title: string }>("SELECT title FROM notes ORDER BY id DESC LIMIT 5")
+  } catch {
+    notes = []
+  }
 
   return (
     <main className="min-h-screen p-8">
       <h1 className="text-2xl font-semibold">Заметки</h1>
       <ul className="mt-4 space-y-2">
-        {(data ?? []).map((note: { title: string }, i: number) => (
+        {notes.map((note, i) => (
           <li key={i}>{note.title}</li>
         ))}
       </ul>
@@ -178,10 +209,65 @@ export default async function Page() {
   },
 ]
 
-async function main() {
-  console.log(`[gate] fullstack-набор: ${files.length} файлов, реальная сборка в Docker`)
+/**
+ * Сборка того же набора БЕЗ Docker — на случай, когда демон не поднимается
+ * (на dev-машинах это бывает). Изоляции здесь нет и не заявляется: набор
+ * собирается в каталоге вне репозитория обычным `npm install && next build`.
+ *
+ * Что этот режим доказывает: набор файлов действительно собирается, серверный
+ * роут попадает в сборку, статического экспорта нет.
+ * Чего он НЕ доказывает: работу самой песочницы (`--network none`, лимиты,
+ * `docker cp`). Поэтому он именно резервный, а не замена основному пути, и
+ * говорит об этом вслух в выводе.
+ */
+async function buildLocally(): Promise<{ ok: boolean; logs: string; durationMs: number; timedOut: boolean }> {
+  const os = await import("node:os")
+  const fs = await import("node:fs/promises")
+  const path = await import("node:path")
+
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "osgard-fullstack-gate-"))
+  console.log(`[gate] РЕЗЕРВНЫЙ режим без Docker (изоляции нет): ${dir}`)
+
+  for (const file of files) {
+    const target = path.join(dir, file.path)
+    await fs.mkdir(path.dirname(target), { recursive: true })
+    await fs.writeFile(target, file.content, "utf8")
+  }
+
   const started = Date.now()
-  const result = await buildNextFullstackApp(files, { logLabel: "gate-fullstack" })
+  let logs = ""
+  let ok = false
+  try {
+    const install = await execFileAsync("npm", ["install", "--no-audit", "--no-fund"], {
+      cwd: dir,
+      maxBuffer: 32 * 1024 * 1024,
+      shell: true,
+    })
+    logs += install.stdout + install.stderr
+
+    const build = await execFileAsync("npx", ["next", "build"], {
+      cwd: dir,
+      maxBuffer: 32 * 1024 * 1024,
+      shell: true,
+      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
+    })
+    logs += build.stdout + build.stderr
+    ok = true
+  } catch (err: any) {
+    logs += String(err?.stdout ?? "") + String(err?.stderr ?? "") + `\n${err?.message ?? err}`
+  }
+
+  await fs.rm(dir, { recursive: true, force: true }).catch(() => {})
+  return { ok, logs, durationMs: Date.now() - started, timedOut: false }
+}
+
+async function main() {
+  const local = process.env.GATE_LOCAL_BUILD === "1"
+  console.log(
+    `[gate] fullstack-набор: ${files.length} файлов, реальная сборка ${local ? "локально (без Docker)" : "в Docker"}`,
+  )
+  const started = Date.now()
+  const result = local ? await buildLocally() : await buildNextFullstackApp(files, { logLabel: "gate-fullstack" })
 
   const seconds = Math.round(result.durationMs / 1000)
   console.log(`\n[gate] ok=${result.ok} timedOut=${result.timedOut} ${seconds}с`)

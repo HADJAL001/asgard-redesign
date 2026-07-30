@@ -1,6 +1,12 @@
 import { captureError } from "./sentry"
 import { propsContractDefects, repairPropValue } from "./props-contract"
-import { allowsServerCode, DEFAULT_APP_PROFILE, FULLSTACK_DEPENDENCIES, type AppProfile } from "./app-profiles"
+import {
+  allowsServerCode,
+  DEFAULT_APP_PROFILE,
+  FULLSTACK_DEPENDENCIES,
+  FULLSTACK_DEV_DEPENDENCIES,
+  type AppProfile,
+} from "./app-profiles"
 
 /* ================================================================
    OSGARD · Инженерная целостность сгенерированного приложения
@@ -137,10 +143,14 @@ function packageOf(spec: string): string {
  *  приложении, и без объявления пакета каждый такой импорт был ошибкой сборки. */
 const BUILTIN_PACKAGES = new Set(["next", "react", "react-dom", "typescript", "lucide-react"])
 
-/** Набор каркаса плюс то, что разрешено профилю (для fullstack — клиент Supabase). */
+/** Набор каркаса плюс то, что разрешено профилю (для fullstack — драйвер Postgres). */
 function builtinPackages(profile: AppProfile): Set<string> {
   if (!allowsServerCode(profile)) return BUILTIN_PACKAGES
-  return new Set([...BUILTIN_PACKAGES, ...Object.keys(FULLSTACK_DEPENDENCIES)])
+  return new Set([
+    ...BUILTIN_PACKAGES,
+    ...Object.keys(FULLSTACK_DEPENDENCIES),
+    ...Object.keys(FULLSTACK_DEV_DEPENDENCIES),
+  ])
 }
 
 const RESOLVE_SUFFIXES = ["", ".tsx", ".ts", "/index.tsx", "/index.ts", ".css", ".json"]

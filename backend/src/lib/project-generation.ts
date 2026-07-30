@@ -13,6 +13,7 @@ import { adaptTemplate } from "../services/template-adapter"
 import { captureError } from "./sentry"
 import { GENERATION_DEPTHS, type GenerationDepth } from "./generation-depths"
 import { allowsServerCode, DEFAULT_APP_PROFILE, normalizeAppProfile, type AppProfile } from "./app-profiles"
+import { bindAppDatabase } from "../services/app-database-binding"
 import { createNotification } from "./notifications"
 import { emitGenerationStage, emitGenerationMeter } from "./generation-events"
 import { withGenerationTelemetry, currentTelemetry, type TelemetrySnapshot } from "./generation-telemetry"
@@ -415,7 +416,10 @@ async function runAppGenerationJobInner(
        Один вызов, а не по одному в каждой ветке: отпечаток набора попадает в ключ кэша,
        и если бы ветки читали память в разные моменты, отпечаток мог бы разойтись с тем,
        что реально стоит в промпте. */
-    const lessons = renderLessonsContract()
+    /* Профиль передаётся сюда же, а не подмешивается на месте вызова AI: иначе
+       `lessonsCount` и отпечаток считались бы по одному тексту, а в промпт уходил бы
+       другой, да и `markLessonsTaught` внутри сработал бы дважды за генерацию. */
+    const lessons = renderLessonsContract(6, profile)
     const lessonsCount = countLessonsInContract(lessons)
     const fingerprint = lessonsFingerprint(lessons)
     /* Сколько уроков дошло до модели в этой генерации. Ноль до тех пор, пока путь не
@@ -474,12 +478,8 @@ async function runAppGenerationJobInner(
         // Платформа учится на себе: в промпт каждого файла подмешивается реальная
         // статистика собственных поломок (lib/craft-corpus). Пустая статистика —
         // пустая строка, поведение как раньше.
-<<<<<<< HEAD
         lessons,
-=======
-        lessons: renderLessonsContract(6, profile),
         profile,
->>>>>>> 48183e8 (feat(generator): профиль fullstack — приложение может иметь серверный код и базу)
       })
       files = result.files
       source = result.source
@@ -597,6 +597,28 @@ async function runAppGenerationJobInner(
         verdict: engineering.report.verdict,
         designScore: designReport.score,
         repairs: engineering.report.repairs.length,
+      })
+    }
+
+    /* --- База данных приложения ---
+       Для профиля fullstack приложение получает СВОЮ схему и СВОЮ роль в кластере
+       Postgres, а объявленные им таблицы (db/schema.sql) сразу применяются. Сама
+       строка подключения в файлы не пишется (она бы уехала в архив и деплой) —
+       только пример env и инструкция; настоящие креды лежат зашифрованными.
+
+       Отказ кластера генерацию НЕ роняет: приложение отдаётся пользователю, а
+       статус базы попадает в отчёт как есть — «не выдана» вместо тихого молчания. */
+    const dbBinding = await bindAppDatabase({ projectId, profile, files })
+    if (dbBinding.extraFiles.length > 0) files = [...files, ...dbBinding.extraFiles]
+    if (dbBinding.status === "provisioned") {
+      emitGenerationStage({
+        projectId,
+        stage: "writing",
+        label:
+          dbBinding.schemaStatus === "applied"
+            ? "База данных приложения готова, таблицы созданы"
+            : "База данных приложения готова",
+        progress: 0.88,
       })
     }
 

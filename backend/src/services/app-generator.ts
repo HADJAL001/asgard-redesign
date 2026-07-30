@@ -13,8 +13,10 @@ import { SCAFFOLD_DEPENDENCIES, SCAFFOLD_DEV_DEPENDENCIES } from "../lib/app-sca
 import { lessonsFingerprint } from "../lib/lessons-fingerprint"
 import {
   allowsServerCode,
+  DB_MODULE_PATH,
   DEFAULT_APP_PROFILE,
   FULLSTACK_DEPENDENCIES,
+  FULLSTACK_DEV_DEPENDENCIES,
   type AppProfile,
 } from "../lib/app-profiles"
 import {
@@ -166,7 +168,9 @@ export function staticTemplateFiles(
           dependencies: fullstack
             ? { ...SCAFFOLD_DEPENDENCIES, ...FULLSTACK_DEPENDENCIES }
             : SCAFFOLD_DEPENDENCIES,
-          devDependencies: SCAFFOLD_DEV_DEPENDENCIES,
+          devDependencies: fullstack
+            ? { ...SCAFFOLD_DEV_DEPENDENCIES, ...FULLSTACK_DEV_DEPENDENCIES }
+            : SCAFFOLD_DEV_DEPENDENCIES,
         },
         null,
         2,
@@ -211,6 +215,62 @@ export function staticTemplateFiles(
       path: "postcss.config.js",
       content: `module.exports = {\n  plugins: { tailwindcss: {}, autoprefixer: {} },\n}\n`,
     },
+    /* Доступ к базе пишет ПЛАТФОРМА, а не модель. Причина ровно та же, по которой
+       дизайн-система не отдана модели: это контракт, а не творчество. Пул на модуль,
+       строка подключения из серверного окружения, никакого `NEXT_PUBLIC_` — модель,
+       предоставленная себе, регулярно кладёт креды в клиентский код. */
+    ...(fullstack
+      ? [
+          {
+            path: DB_MODULE_PATH,
+            content: `import { Pool } from "pg"
+
+/* Доступ к базе данных приложения. Файл создан платформой OSGARD.
+
+   Строка подключения приходит из DATABASE_URL — переменной СЕРВЕРНОГО окружения.
+   Префикса NEXT_PUBLIC_ у неё нет намеренно: с ним Next.js вписал бы пароль базы
+   в клиентский бандл, то есть отдал бы базу любому посетителю.
+
+   Пул один на процесс (глобальный кеш переживает hot-reload в разработке, иначе
+   каждый пересбор открывал бы новые соединения, пока база не откажет). */
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __osgardPool: Pool | undefined
+}
+
+function createPool(): Pool {
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) {
+    throw new Error(
+      "DATABASE_URL не задан. Скопируй .env.local.example в .env.local — строка подключения к базе выдана вместе с приложением.",
+    )
+  }
+  return new Pool({
+    connectionString,
+    max: 5,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 10_000,
+  })
+}
+
+export function getPool(): Pool {
+  if (!global.__osgardPool) global.__osgardPool = createPool()
+  return global.__osgardPool
+}
+
+/** Запрос к базе. Значения передавай ТОЛЬКО параметрами ($1, $2) — не склеивай SQL строками. */
+export async function query<T = Record<string, unknown>>(
+  sql: string,
+  params: unknown[] = [],
+): Promise<T[]> {
+  const result = await getPool().query(sql, params)
+  return result.rows as T[]
+}
+`,
+          },
+        ]
+      : []),
     {
       path: "README.md",
       content: `# ${name}\n\nПриложение сгенерировано в OSGARD. Это реальный Next.js-проект: можно запускать\nлокально (\`npm install && npm run dev\`), редактировать и публиковать на GitHub.\n\n## Дизайн-система\n\nАрхетип «${brief.archetype}» · ${brief.mood}\n\nЦвета, типографика, отступы и тени объявлены токенами в \`tailwind.config.ts\`\nи \`app/globals.css\`. Контраст основного текста к фону — ${brief.contrast.inkOnCanvas}:1\n(WCAG AA требует 4.5:1). Используй токены (\`bg-canvas\`, \`bg-surface\`, \`text-ink\`,\n\`bg-primary\`), а не сырые цвета — тогда интерфейс останется цельным.\n`,
@@ -221,9 +281,14 @@ export function staticTemplateFiles(
 /** Бриф по умолчанию — нужен только для вычисления списка занятых путей. */
 const DEFAULT_BRIEF = deriveDesignBrief({ name: "osgard", theme: "general" })
 
-const RESERVED_PATHS = new Set(
-  staticTemplateFiles("x", DEFAULT_BRIEF, "").map((f) => f.path.toLowerCase()),
-)
+/* Пути каркаса + модуль доступа к базе: модель не имеет права их занимать. Без
+   DB_MODULE_PATH здесь модель, которой в промпте велено работать через "@/lib/db",
+   вполне может дописать этот модуль сама — и набор получил бы ДВА файла с одним
+   путём (платформенный и её), что ломает сборку неочевидно. */
+const RESERVED_PATHS = new Set([
+  ...staticTemplateFiles("x", DEFAULT_BRIEF, "").map((f) => f.path.toLowerCase()),
+  DB_MODULE_PATH.toLowerCase(),
+])
 
 /* ----------------------------------------------------------------
    AI-арт-директор
@@ -311,11 +376,12 @@ ${brief.layout.map((l) => `- ${l}`).join("\n")}
 - Описание purpose — 1 короткое предложение на русском.${
     allowsServerCode(profile)
       ? `
-- У приложения ЕСТЬ своя база Postgres (Supabase) и серверный рантайм. Спроектируй
+- У приложения ЕСТЬ своя база PostgreSQL и серверный рантайм. Спроектируй
   настоящее хранение данных, а не localStorage: серверные роуты чтения/записи в
-  "app/api/<сущность>/route.ts" и файл "lib/types.ts" с типами записей базы.
-  Клиенты базы ("lib/supabase/client.ts", "lib/supabase/server.ts") платформа
-  создаёт сама — в список их НЕ включай.`
+  "app/api/<сущность>/route.ts", файл "lib/types.ts" с типами записей базы и
+  ОБЯЗАТЕЛЬНО "db/schema.sql" — идемпотентный скрипт создания таблиц
+  (CREATE TABLE IF NOT EXISTS). Модуль доступа к базе ("lib/db.ts") платформа
+  создаёт сама — в список его НЕ включай.`
       : ""
   }
 Ответь только JSON.`
@@ -339,7 +405,13 @@ async function generateManifest(
     // utils/ и types/ намеренно разрешены: модель постоянно пишет
     // `import { cn } from "@/utils/cn"`, а прежний фильтр такой файл выбрасывал из
     // манифеста — он не генерировался НИКОГДА, и сборка падала с "Module not found".
-    .filter((f: ManifestEntry) => /^(app|components|hooks|lib|utils|types)\/[\w\-/]+\.tsx?$/.test(f.path))
+    /* db/schema.sql разрешён только fullstack-профилю: это объявление таблиц базы
+       приложения, которое платформа применит к его схеме. У static базы нет. */
+    .filter((f: ManifestEntry) =>
+      allowsServerCode(profile) && f.path === "db/schema.sql"
+        ? true
+        : /^(app|components|hooks|lib|utils|types)\/[\w\-/]+\.tsx?$/.test(f.path),
+    )
     .filter((f: ManifestEntry) => !RESERVED_PATHS.has(f.path.toLowerCase()))
     .slice(0, 40)
 
@@ -370,12 +442,20 @@ function renderRuntimeContract(profile: AppProfile): string {
   if (allowsServerCode(profile)) {
     return `- Приложение собирается обычным "next build" с серверным рантаймом: API-роуты
   (app/api/**/route.ts), серверные компоненты, Server Actions и next/headers РАЗРЕШЕНЫ.
-- У приложения есть своя база Postgres (Supabase). Доступ к ней — ТОЛЬКО через
-  "@supabase/supabase-js" / "@supabase/ssr" и клиенты из "@/lib/supabase/client"
-  (браузер) и "@/lib/supabase/server" (сервер). Свои драйверы Postgres, строки
-  подключения и SQL-запросы напрямую из компонента запрещены.
-- Секреты берутся только из process.env (NEXT_PUBLIC_SUPABASE_URL,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY) — никогда не вписывай ключи в код.`
+- У приложения ЕСТЬ своя база PostgreSQL. Работай с ней ТОЛЬКО через готовый модуль
+  "@/lib/db" (он создан платформой, не переписывай его):
+    import { query } from "@/lib/db"
+    const rows = await query<{ id: number; title: string }>("SELECT id, title FROM notes ORDER BY id DESC LIMIT 50")
+- Модуль базы работает ТОЛЬКО в серверном коде (API-роуты, серверные компоненты).
+  Из файла с "use client" его импортировать нельзя — пароль базы попал бы в браузер.
+  Клиентский компонент получает данные через fetch к своему же API-роуту.
+- SQL-значения передавай ТОЛЬКО параметрами ($1, $2), никогда не склеивай строками —
+  иначе SQL-инъекция.
+- Строку подключения не вписывай в код: она приходит из process.env.DATABASE_URL,
+  и модуль "@/lib/db" уже это делает.
+- Таблицы, которые нужны приложению, объявляй в файле "db/schema.sql" одним
+  идемпотентным скриптом (CREATE TABLE IF NOT EXISTS ...) — платформа применит его
+  к базе приложения.`
   }
   return `- Приложение собирается через "next build" со статическим экспортом (output: "export") —
   без серверных API-роутов и Server Actions. Обращения к внешним API возможны только

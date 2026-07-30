@@ -346,6 +346,7 @@ import "./migrations/096_own_cluster_deploy"
 import "./migrations/097_lesson_effectiveness"
 import "./migrations/098_lesson_teaching_baseline"
 import "./migrations/100_app_profile"
+import "./migrations/101_app_databases"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"

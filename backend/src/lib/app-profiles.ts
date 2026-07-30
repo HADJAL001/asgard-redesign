@@ -39,14 +39,25 @@ export function normalizeAppProfile(value: unknown): AppProfile {
 /**
  * Пакеты, доступные fullstack-приложению сверх набора каркаса. Список намеренно
  * узкий: `dependency-missing` — содержательная проверка, и чем шире allow-list,
- * тем меньше она значит. Доступ к базе — только через официальный клиент
- * Supabase; свои драйверы Postgres в сгенерированном коде запрещены (креды в
- * браузерном бандле — прямая утечка базы).
+ * тем меньше она значит.
+ *
+ * База — свой Postgres (решение основателя: сервера уже есть, внешней зависимости
+ * не заводим). Драйвер один — `pg`, и он работает ТОЛЬКО в серверном коде: строка
+ * подключения живёт в `DATABASE_URL` без префикса `NEXT_PUBLIC_`, поэтому в
+ * браузерный бандл она попасть не может. Это строго безопаснее публичного
+ * ключа-в-бандле, который пришлось бы отдавать при доступе к базе из браузера.
  */
 export const FULLSTACK_DEPENDENCIES: Readonly<Record<string, string>> = {
-  "@supabase/supabase-js": "^2.45.0",
-  "@supabase/ssr": "^0.5.0",
+  pg: "^8.13.0",
 }
+
+/** Типы драйвера — только для сборки (в рантайме приложения не нужны). */
+export const FULLSTACK_DEV_DEPENDENCIES: Readonly<Record<string, string>> = {
+  "@types/pg": "^8.11.0",
+}
+
+/** Модуль доступа к базе, который платформа пишет САМА (модель его не генерирует). */
+export const DB_MODULE_PATH = "lib/db.ts"
 
 /** Разрешён ли профилю серверный код (API-роуты, Server Actions, next/headers). */
 export function allowsServerCode(profile: AppProfile): boolean {
