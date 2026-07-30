@@ -209,9 +209,19 @@ type Row = {
   title: string
   staticClean: boolean
   buildFailed: boolean
+  standCrashed: boolean
   rulesFromLog: string[]
   logTail: string
 }
+
+/* Эта машина иногда роняет сам процесс `next build` до того, как компилятор
+   успел хоть что-то напечатать — код выхода 3221226505 (0xC0000409), типичный
+   для Windows под нагрузкой параллельных worktree (см. память
+   env-parallel-worktrees-tests). Это крах СТЕНДА, а не вердикт компилятора:
+   лог в этом случае состоит из одной строки про воркер, и парсер правил
+   честно даёт ноль — считать это «не учится» было бы ложным отрицательным. */
+const STAND_CRASH = /Next\.js build worker exited with code/i
+const BUILD_RETRIES = 2
 
 async function writeApp(files: Array<{ path: string; content: string }>) {
   /* Каталог app чистим целиком: остатки предыдущего случая (например,
@@ -225,7 +235,7 @@ async function writeApp(files: Array<{ path: string; content: string }>) {
   }
 }
 
-function runBuild(): Promise<{ ok: boolean; log: string }> {
+function runBuildOnce(): Promise<{ ok: boolean; log: string }> {
   return new Promise((resolve) => {
     const child = spawn("npx", ["next", "build"], {
       cwd: PROBE_DIR,
@@ -241,6 +251,19 @@ function runBuild(): Promise<{ ok: boolean; log: string }> {
       resolve({ ok: code === 0, log: out })
     })
   })
+}
+
+/* Повторяет сборку, пока лог — крах воркера, а не ответ компилятора. Настоящий
+   провал компиляции (синтаксис, missing suspense и т.п.) стабилен и повторной
+   попытки не требует; крах стенда — событие среды, шанс не повториться есть. */
+async function runBuild(): Promise<{ ok: boolean; log: string; standCrashed: boolean }> {
+  let last = await runBuildOnce()
+  let attempt = 1
+  while (STAND_CRASH.test(last.log) && attempt < BUILD_RETRIES) {
+    attempt += 1
+    last = await runBuildOnce()
+  }
+  return { ...last, standCrashed: STAND_CRASH.test(last.log) }
 }
 
 async function main() {
@@ -271,11 +294,12 @@ async function main() {
       title: testCase.title,
       staticClean: report.analyzed && staticErrors.length === 0,
       buildFailed: !build.ok,
+      standCrashed: build.standCrashed,
       rulesFromLog: fromLog.map((l) => l.rule),
       logTail: build.log.slice(-1400),
     })
 
-    const mark = !build.ok ? "СБОРКА УПАЛА" : "собралось   "
+    const mark = build.standCrashed ? "СТЕНД РУХНУЛ" : !build.ok ? "СБОРКА УПАЛА" : "собралось   "
     const seen = staticErrors.length === 0 ? "разбор чист " : `разбор видит ${staticErrors.length}`
     console.log(
       `${mark}  ${seen}  ${testCase.key.padEnd(26)} уроки из лога: ${
@@ -287,8 +311,12 @@ async function main() {
 
   /* ---------------- Итог ---------------- */
 
-  /* Знаменатель — ровно спорные ветки: разбор чист, а сборка упала. */
-  const blind = rows.filter((r) => r.staticClean && r.buildFailed)
+  /* Знаменатель — ровно спорные ветки: разбор чист, а сборка упала НАСТОЯЩИМ
+     вердиктом компилятора. Случаи, где рухнул сам стенд (см. STAND_CRASH),
+     в знаменатель не входят — это отказ машины, а не молчание платформы, и
+     смешивать их с «не учится» дало бы заниженное и нестабильное число. */
+  const crashed = rows.filter((r) => r.staticClean && r.buildFailed && r.standCrashed)
+  const blind = rows.filter((r) => r.staticClean && r.buildFailed && !r.standCrashed)
   const learned = blind.filter((r) => r.rulesFromLog.length > 0)
 
   console.log("")
@@ -308,6 +336,13 @@ async function main() {
       blind.length ? Math.round((learned.length / blind.length) * 1000) / 10 : 0
     }%`,
   )
+  if (crashed.length > 0) {
+    console.log(
+      `Стенд рухнул на ${crashed.length} случаях после ${BUILD_RETRIES} попыток (${crashed
+        .map((r) => r.key)
+        .join(", ")}) — машина под нагрузкой, это НЕ ответ компилятора и в число выше не входит. Перезапусти стенд отдельно.`,
+    )
+  }
   console.log("")
 
   /* Негативные контроли замера. Стенд, у которого «падает всё» или «ловится всё»,
