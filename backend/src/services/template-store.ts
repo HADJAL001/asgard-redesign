@@ -1,5 +1,6 @@
 import crypto from "node:crypto"
 import db from "../lib/db"
+import { linkProjectToCorpus } from "../lib/craft-corpus"
 import type { GeneratedAppFile, ManifestEntry } from "./app-generator"
 import type { AiArtifactSuggestion } from "./ai-generator"
 
@@ -156,6 +157,10 @@ export function saveTemplateFromGeneration(params: {
   verdict?: string
   designScore?: number
   repairs?: number
+  /** Проект, чей код претендует на строку корпуса. Нужен, чтобы поздние
+   *  человеческие сигналы («переделай», «задеплоил») знали свой адрес
+   *  в корпусе (волна 7, п.2). Связь ставится ТОЛЬКО если код выиграл отбор. */
+  sourceProjectId?: number
 }) {
   const { theme, keywords } = detectTheme(params.name, params.hint)
   if (theme === "general") return // тема не распознана — нечего кэшировать по теме
@@ -177,7 +182,7 @@ export function saveTemplateFromGeneration(params: {
   ]
 
   try {
-    db.prepare(
+    const info = db.prepare(
       `INSERT INTO project_templates
          (hash, theme, keywords, name_sample, description_sample, badge, manifest, files, artifact_types,
           usage_count, tokens_saved_estimate, created_at, updated_at, quality_score, verdict, design_score, repairs)
@@ -202,6 +207,14 @@ export function saveTemplateFromGeneration(params: {
       params.designScore ?? null,
       params.repairs ?? 0,
     )
+
+    /* Адрес в корпусе ставим, только если строка реально досталась этому коду
+       (`changes > 0`). Проиграл отбор — связи нет: тогда «переделай» от этого
+       проекта относится к коду, которого в корпусе нет, и бить им по чужой
+       строке нельзя. */
+    if (params.sourceProjectId && info.changes > 0) {
+      linkProjectToCorpus(params.sourceProjectId, hash)
+    }
   } catch {
     // Схема без 092 — сохраняем как раньше, без качества (деградация, а не отказ).
     db.prepare(

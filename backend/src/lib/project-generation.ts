@@ -28,6 +28,7 @@ import {
   isWorthLearning,
   listAuthoredLessons,
   rankedLessons,
+  recordHumanSignal,
   recordLessons,
   renderLessonsContract,
 } from "./craft-corpus"
@@ -584,6 +585,8 @@ async function runAppGenerationJobInner(
         verdict: engineering.report.verdict,
         designScore: designReport.score,
         repairs: engineering.report.repairs.length,
+        // Адрес для поздних человеческих сигналов (волна 7, п.2).
+        sourceProjectId: projectId,
       })
     }
 
@@ -933,6 +936,13 @@ export function refineGeneratedProject(params: {
   ]
     .filter(Boolean)
     .join(" ")
+
+  /* Человеческий сигнал «не подошло» (волна 7, п.2). Просьба переделать —
+     самое честное доказательство неудачи: код собрался, прошёл инженерный
+     контур и всё равно не годится. Пишем ДО перегенерации, пока адрес в
+     корпусе указывает на тот код, который человек забраковал: успешная
+     доработка перепишет строку корпуса своим результатом. */
+  recordHumanSignal(project.id, "redo")
 
   db.prepare(`UPDATE projects SET status = 'generating', generation_error = NULL WHERE id = ?`).run(project.id)
 

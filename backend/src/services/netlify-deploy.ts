@@ -6,6 +6,7 @@ import os from "node:os"
 import archiver from "archiver"
 import db from "../lib/db"
 import { captureError } from "../lib/sentry"
+import { recordHumanSignal } from "../lib/craft-corpus"
 import { buildNextStaticExport, isDockerAvailable } from "./sandbox.service"
 
 /* ================================================================
@@ -169,6 +170,9 @@ export async function runNetlifyDeployJob(projectId: number) {
       db.prepare(
         `UPDATE projects SET deploy_status = 'deployed', deploy_error = NULL, live_url = ?, netlify_site_id = ? WHERE id = ?`,
       ).run(liveUrl, site.id, projectId)
+
+      // Человеческий сигнал «годится» (волна 7, п.2): человек увёз код в прод.
+      recordHumanSignal(projectId, "deployed")
     } finally {
       await fs.rm(zipPath, { force: true })
     }

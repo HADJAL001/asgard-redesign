@@ -37,29 +37,228 @@ export type CraftQualityInput = {
   designScore: number
   /** Сколько ремонтов потребовалось коду, чтобы стать рабочим. */
   repairs: number
+  /** Сколько раз человек просил переделать этот код (волна 7, п.2). */
+  redos?: number
+  /** Сколько раз человек увёз этот код в прод (волна 7, п.2). */
+  deploys?: number
+}
+
+/* Цена человеческих сигналов. Числа выбраны так, чтобы человек мог перебить
+   машинную оценку, но не отменял её:
+   — одна просьба переделать (−18) весит больше самого дорогого ремонта (−15):
+     ремонт платформа заметила и починила сама, а «переделай» значит, что код
+     собрался и всё равно не подошёл — это дефект, которого приборы не видят;
+   — потолок −45 (три просьбы): дальше сигнал уже получен, добивать нечего,
+     а без потолка одна злая серия обнулила бы годную строку корпуса;
+   — деплой даёт +10 и ровно один раз: «увёз в прод» — событие булево,
+     деплоить дважды не значит быть вдвое лучше. */
+export const REDO_PENALTY = 18
+export const REDO_PENALTY_CAP = 45
+export const DEPLOY_BONUS = 10
+
+export type CraftQualityBreakdown = {
+  score: number
+  /** Слагаемые в порядке применения — из них и получается score. */
+  factors: Array<{ key: string; label: string; delta: number }>
+}
+
+/**
+ * Разбор балла корпуса. Балл ПРОИЗВОДЕН от разбора (см. craftQuality ниже),
+ * поэтому число и объяснение разойтись не могут — приём explainCraftScore
+ * из lib/proof-of-craft.
+ */
+export function explainCraftQuality(input: CraftQualityInput): CraftQualityBreakdown {
+  if (input.verdict === "broken" || input.verdict === "unverified") {
+    return {
+      score: 0,
+      factors: [
+        { key: "verdict", label: `Инженерный вердикт «${input.verdict}» — код в память платформы не берётся`, delta: 0 },
+      ],
+    }
+  }
+
+  const base = Math.max(0, Math.min(100, input.designScore))
+  // Код, которому потребовался ремонт, честно слабее того, что родился рабочим.
+  const verdictFactor = input.verdict === "passed" ? 1 : 0.9
+  const repairs = Math.max(0, input.repairs)
+  const repairPenalty = Math.min(15, repairs * 3)
+  const redos = Math.max(0, input.redos ?? 0)
+  const redoPenalty = Math.min(REDO_PENALTY_CAP, redos * REDO_PENALTY)
+  const deployBonus = (input.deploys ?? 0) > 0 ? DEPLOY_BONUS : 0
+
+  const factors: CraftQualityBreakdown["factors"] = [
+    { key: "design", label: "Балл интерфейса", delta: base },
+  ]
+  if (verdictFactor !== 1) {
+    factors.push({
+      key: "verdict",
+      label: "Код потребовал ремонта, чтобы заработать",
+      delta: Math.round(base * verdictFactor - base),
+    })
+  }
+  if (repairPenalty > 0) {
+    factors.push({ key: "repairs", label: `Ремонтов: ${repairs}`, delta: -repairPenalty })
+  }
+  if (redoPenalty > 0) {
+    factors.push({
+      key: "human-redo",
+      label: `Человек просил переделать: ${redos}`,
+      delta: -redoPenalty,
+    })
+  }
+  if (deployBonus > 0) {
+    factors.push({ key: "human-deploy", label: "Человек увёз результат в прод", delta: deployBonus })
+  }
+
+  const raw = factors.reduce((sum, f) => sum + f.delta, 0)
+  return { score: Math.max(0, Math.min(100, Math.round(raw))), factors }
 }
 
 /**
  * Качество кода для корпуса, 0..100. Производно от измерений, а не от мнения:
- * основа — балл интерфейса, множитель — инженерный вердикт, штраф — цена ремонта.
+ * основа — балл интерфейса, множитель — инженерный вердикт, штраф — цена ремонта
+ * и просьбы переделать, надбавка — состоявшийся деплой.
  *
  * `broken`/`unverified` дают 0: непроверенному коду в памяти платформы не место,
  * иначе следующие проекты унаследуют его дефекты (ровно это и происходило).
  */
 export function craftQuality(input: CraftQualityInput): number {
-  if (input.verdict === "broken" || input.verdict === "unverified") return 0
-
-  const base = Math.max(0, Math.min(100, input.designScore))
-  // Код, которому потребовался ремонт, честно слабее того, что родился рабочим.
-  const verdictFactor = input.verdict === "passed" ? 1 : 0.9
-  const repairPenalty = Math.min(15, Math.max(0, input.repairs) * 3)
-
-  return Math.max(0, Math.min(100, Math.round(base * verdictFactor - repairPenalty)))
+  return explainCraftQuality(input).score
 }
 
 /** Годится ли результат для памяти платформы вообще. */
 export function isWorthLearning(verdict: EngineeringVerdict): boolean {
   return verdict === "passed" || verdict === "repaired"
+}
+
+/* ----------------------------------------------------------------
+   Человеческие сигналы качества (волна 7, пункт 2; миграция 099)
+   ----------------------------------------------------------------
+   Компилятор отвечает на вопрос «собралось ли», человек — на вопрос
+   «годится ли». Второй вопрос важнее, и ответ на него платформа
+   получала всегда, просто выбрасывала: просьба переделать и
+   состоявшийся деплой лежали в базе и ни на что не влияли.
+
+   Сигнал приходит ПОЗЖЕ генерации (через минуты или дни), поэтому
+   балл строки корпуса пересчитывается задним числом — из слагаемых,
+   сохранённых при записи строки (вердикт, балл интерфейса, ремонты)
+   плюс накопленные счётчики сигналов. Балл остаётся производным:
+   мы не «правим оценку», мы пересчитываем ту же формулу с полными
+   входными данными.
+
+   Ничего не бросает: обучение не имеет права ронять ни генерацию,
+   ни деплой, ни доработку.
+   ---------------------------------------------------------------- */
+
+export type HumanSignal = "redo" | "deployed"
+
+/** Запоминает, в какую строку корпуса ушёл код проекта. Без этого адреса
+ *  поздний человеческий сигнал доставить некуда: корпус ключуется темой,
+ *  а не проектом. Зовётся только когда генерация РЕАЛЬНО заняла строку. */
+export function linkProjectToCorpus(projectId: number, hash: string): void {
+  try {
+    db.prepare(`UPDATE projects SET corpus_hash = ? WHERE id = ?`).run(hash, projectId)
+  } catch (err) {
+    captureError("[craft-corpus] не удалось связать проект со строкой корпуса (схема без 099?):", err)
+  }
+}
+
+/**
+ * Доставляет человеческий сигнал в память платформы и пересчитывает балл
+ * строки корпуса.
+ *
+ * Возвращает `true`, только если сигнал реально дошёл до строки корпуса.
+ * `false` — это НЕ ошибка: у проекта может не быть адреса в корпусе (его код
+ * не выиграл отбор, или проект старше миграции 099). Тихо ничего не делаем —
+ * бить по случайной соседней строке хуже, чем не учесть сигнал.
+ */
+export function recordHumanSignal(projectId: number, signal: HumanSignal): boolean {
+  try {
+    const project = db.prepare(`SELECT corpus_hash as hash FROM projects WHERE id = ?`).get(projectId) as
+      | { hash: string | null }
+      | undefined
+    const hash = project?.hash
+    if (!hash) return false
+
+    const row = db
+      .prepare(
+        `SELECT verdict, design_score as designScore, repairs, human_redos as redos, human_deploys as deploys
+         FROM project_templates WHERE hash = ?`,
+      )
+      .get(hash) as
+      | { verdict: string | null; designScore: number | null; repairs: number | null; redos: number; deploys: number }
+      | undefined
+    if (!row) return false
+
+    const redos = (row.redos ?? 0) + (signal === "redo" ? 1 : 0)
+    const deploys = (row.deploys ?? 0) + (signal === "deployed" ? 1 : 0)
+
+    // Вердикта/балла может не быть у строк, записанных до миграции 092: тогда
+    // пересчитывать нечего — считаем сигнал, но балл не выдумываем.
+    const recomputed =
+      row.verdict && row.designScore !== null
+        ? craftQuality({
+            verdict: row.verdict as EngineeringVerdict,
+            designScore: row.designScore,
+            repairs: row.repairs ?? 0,
+            redos,
+            deploys,
+          })
+        : null
+
+    if (recomputed === null) {
+      db.prepare(
+        `UPDATE project_templates SET human_redos = ?, human_deploys = ?, human_signal_at = ? WHERE hash = ?`,
+      ).run(redos, deploys, Date.now(), hash)
+    } else {
+      db.prepare(
+        `UPDATE project_templates
+         SET human_redos = ?, human_deploys = ?, human_signal_at = ?, quality_score = ?
+         WHERE hash = ?`,
+      ).run(redos, deploys, Date.now(), recomputed, hash)
+    }
+    return true
+  } catch (err) {
+    captureError("[craft-corpus] не удалось учесть человеческий сигнал (схема без 099?):", err)
+    return false
+  }
+}
+
+export type HumanSignalCoverage = {
+  /** Строк корпуса всего. */
+  total: number
+  /** Строк, о которых человек уже высказался (переделать и/или деплой). */
+  withSignal: number
+  /** Доля 0..1, либо null если корпус пуст (ноль из нуля — не «плохо», а «нечего мерить»). */
+  share: number | null
+  redos: number
+  deploys: number
+}
+
+/** Наблюдаемость: сколько памяти платформы подтверждено живым человеком. */
+export function humanSignalCoverage(): HumanSignalCoverage {
+  try {
+    const row = db
+      .prepare(
+        `SELECT COUNT(*) AS total,
+                SUM(CASE WHEN human_redos > 0 OR human_deploys > 0 THEN 1 ELSE 0 END) AS withSignal,
+                SUM(human_redos) AS redos,
+                SUM(human_deploys) AS deploys
+         FROM project_templates`,
+      )
+      .get() as { total: number; withSignal: number | null; redos: number | null; deploys: number | null }
+    const total = row?.total ?? 0
+    const withSignal = row?.withSignal ?? 0
+    return {
+      total,
+      withSignal,
+      share: total > 0 ? withSignal / total : null,
+      redos: row?.redos ?? 0,
+      deploys: row?.deploys ?? 0,
+    }
+  } catch {
+    return { total: 0, withSignal: 0, share: null, redos: 0, deploys: 0 }
+  }
 }
 
 /* ----------------------------------------------------------------

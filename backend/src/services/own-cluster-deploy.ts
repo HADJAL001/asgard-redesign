@@ -5,6 +5,7 @@ import path from "node:path"
 import os from "node:os"
 import db from "../lib/db"
 import { captureError } from "../lib/sentry"
+import { recordHumanSignal } from "../lib/craft-corpus"
 
 /* ================================================================
    OSGARD · Деплой сгенерированных приложений на СВОЮ инфраструктуру
@@ -539,6 +540,9 @@ export async function runOwnClusterDeployJob(projectId: number) {
     db.prepare(
       `UPDATE projects SET deploy_status = 'deployed', deploy_error = NULL, live_url = ?, cluster_slug = ? WHERE id = ?`,
     ).run(liveUrl, slug, projectId)
+
+    // Человеческий сигнал «годится» (волна 7, п.2): человек увёз код в прод.
+    recordHumanSignal(projectId, "deployed")
   } catch (err: any) {
     const message = redactSecrets(
       String(err?.message || "Неизвестная ошибка деплоя"),
