@@ -1041,5 +1041,26 @@
     "ready": "Done",
     "failed": "Didn't work out",
     "defectsFound": "{{count}} defects found — the platform is repairing them live"
+  },
+  "generationPreflight": {
+    "loading": "The platform is reading your brief…",
+    "emptyInvite": "Describe your idea — the platform will tell you what it understood, what it resembles and what is missing, before you start",
+    "title": "What the platform sees in your brief",
+    "productLabel": "Product:",
+    "productUnknown": "the brief doesn't say what should actually work",
+    "evidence": "from the words: {{words}}",
+    "similarNone": "The platform has no similar generations yet — nothing to compare with",
+    "similarCount": "Similar generations: {{count}}",
+    "outcomeDeployed": "shipped: {{count}} of {{total}}",
+    "outcomeRefined": "asked for a redo: {{count}} of {{total}}",
+    "outcomeBroken": "left with defects: {{count}} of {{total}}",
+    "fewFacts": "no conclusions drawn: {{count}} is too few for a fact",
+    "ownDeployed": "yours, shipped",
+    "ownNotDeployed": "yours, never shipped",
+    "ownRefined": "redos: {{count}}",
+    "allClear": "The brief is complete — nothing left for the platform to ask",
+    "gapFact": "past generations with the same gap: {{count}}, of them {{refined}} needed a redo and {{broken}} were left with defects",
+    "gapNoFact": "the platform has no facts about this gap yet",
+    "disclaimer": "The analysis runs on your brief and generation history, with no AI call — it costs neither credits nor generation time"
   }
 }

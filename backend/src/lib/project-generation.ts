@@ -18,6 +18,7 @@ import { withGenerationTelemetry, currentTelemetry, type TelemetrySnapshot } fro
 import { getForgeBonusForUser } from "./forge-loadout"
 import { nextFloats } from "./provably-fair"
 import { addArchitectXp } from "./architect-progression"
+import { classifyProduct } from "./product-class"
 import { deriveDesignBrief, renderDesignSystemFiles, DESIGN_SYSTEM_PATHS, type DesignBrief } from "./design-system"
 import { explainDesignQuality } from "./design-qa"
 import { runEngineeringContour, summarizeVerdict, type EngineeringReport } from "./project-engineering"
@@ -770,6 +771,23 @@ export function createGeneratedProject(params: {
     .run(params.userId, trimmedName, quick.description, quick.badge, template?.id ?? null, depth, now)
 
   const projectId = Number(projectInfo.lastInsertRowid)
+
+  /* Класс продукта (волна 7, п.4). Пишется ТЕМ ЖЕ кодом, который показал человеку взгляд
+     до генерации, — иначе ответ платформы «это каталог с продажей» и класс, под которым
+     проект потом лёг в корпус, разъехались бы, и похожесть искалась бы не по тому, что
+     человеку обещали. Отдельным стейтментом и с проглатыванием ошибки: схема без
+     миграции 101 не имеет права мешать генерации (урок #59). */
+  try {
+    const product = classifyProduct(trimmedName, safeHint)
+    db.prepare(`UPDATE projects SET product_class = ?, product_capabilities = ? WHERE id = ?`).run(
+      product.cls,
+      JSON.stringify(product.capabilities),
+      projectId,
+    )
+  } catch (err) {
+    captureError("[projects.generate] product class skipped (schema without 101 columns):", err)
+  }
+
   insertStarterArtifacts(params.userId, projectId, quick.artifacts, now)
   // «Мастерство Архитектора»: XP за реальную генерацию проекта (аддитивно, no-op при отсутствии колонок).
   addArchitectXp(params.userId, "project_generated")
