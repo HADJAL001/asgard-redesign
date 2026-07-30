@@ -12,6 +12,14 @@ import {
 import { SCAFFOLD_DEPENDENCIES, SCAFFOLD_DEV_DEPENDENCIES } from "../lib/app-scaffold-deps"
 import { lessonsFingerprint } from "../lib/lessons-fingerprint"
 import {
+  allowsServerCode,
+  DB_MODULE_PATH,
+  DEFAULT_APP_PROFILE,
+  FULLSTACK_DEPENDENCIES,
+  FULLSTACK_DEV_DEPENDENCIES,
+  type AppProfile,
+} from "../lib/app-profiles"
+import {
   ARCHETYPE_MENU,
   DESIGN_BRIEF_VERSION,
   EFFECT_MENU,
@@ -130,8 +138,14 @@ function slugify(name: string): string {
  *  Три файла дизайн-системы (tailwind.config.ts, globals.css, layout.tsx) приходят
  *  из брифа: раньше здесь лежали пустой `theme: { extend: {} }` и голый layout,
  *  из-за чего у приложения не было дизайн-системы вообще. */
-export function staticTemplateFiles(name: string, brief: DesignBrief, description: string): GeneratedAppFile[] {
+export function staticTemplateFiles(
+  name: string,
+  brief: DesignBrief,
+  description: string,
+  profile: AppProfile = DEFAULT_APP_PROFILE,
+): GeneratedAppFile[] {
   const slug = slugify(name)
+  const fullstack = allowsServerCode(profile)
 
   return [
     ...renderDesignSystemFiles(brief, name, description),
@@ -151,16 +165,24 @@ export function staticTemplateFiles(name: string, brief: DesignBrief, descriptio
              образ песочницы (кэш node_modules). Раньше он был вписан здесь, а в
              Dockerfile образа скопирован руками — копия отстала на lucide-react,
              и быстрая оффлайн-сборка молча перестала работать вообще. */
-          dependencies: SCAFFOLD_DEPENDENCIES,
-          devDependencies: SCAFFOLD_DEV_DEPENDENCIES,
+          dependencies: fullstack
+            ? { ...SCAFFOLD_DEPENDENCIES, ...FULLSTACK_DEPENDENCIES }
+            : SCAFFOLD_DEPENDENCIES,
+          devDependencies: fullstack
+            ? { ...SCAFFOLD_DEV_DEPENDENCIES, ...FULLSTACK_DEV_DEPENDENCIES }
+            : SCAFFOLD_DEV_DEPENDENCIES,
         },
         null,
         2,
       ),
     },
     {
+      /* Статический экспорт исключает серверный рантайм целиком: с ним нет ни
+         API-роутов, ни доступа к базе. Для профиля fullstack режим обычный. */
       path: "next.config.js",
-      content: `/** @type {import('next').NextConfig} */\nconst nextConfig = {\n  output: "export",\n  images: { unoptimized: true },\n  typescript: { ignoreBuildErrors: true },\n  eslint: { ignoreDuringBuilds: true },\n}\n\nmodule.exports = nextConfig\n`,
+      content: fullstack
+        ? `/** @type {import('next').NextConfig} */\nconst nextConfig = {\n  images: { unoptimized: true },\n  typescript: { ignoreBuildErrors: true },\n  eslint: { ignoreDuringBuilds: true },\n}\n\nmodule.exports = nextConfig\n`
+        : `/** @type {import('next').NextConfig} */\nconst nextConfig = {\n  output: "export",\n  images: { unoptimized: true },\n  typescript: { ignoreBuildErrors: true },\n  eslint: { ignoreDuringBuilds: true },\n}\n\nmodule.exports = nextConfig\n`,
     },
     {
       path: "tsconfig.json",
@@ -193,6 +215,62 @@ export function staticTemplateFiles(name: string, brief: DesignBrief, descriptio
       path: "postcss.config.js",
       content: `module.exports = {\n  plugins: { tailwindcss: {}, autoprefixer: {} },\n}\n`,
     },
+    /* Доступ к базе пишет ПЛАТФОРМА, а не модель. Причина ровно та же, по которой
+       дизайн-система не отдана модели: это контракт, а не творчество. Пул на модуль,
+       строка подключения из серверного окружения, никакого `NEXT_PUBLIC_` — модель,
+       предоставленная себе, регулярно кладёт креды в клиентский код. */
+    ...(fullstack
+      ? [
+          {
+            path: DB_MODULE_PATH,
+            content: `import { Pool } from "pg"
+
+/* Доступ к базе данных приложения. Файл создан платформой OSGARD.
+
+   Строка подключения приходит из DATABASE_URL — переменной СЕРВЕРНОГО окружения.
+   Префикса NEXT_PUBLIC_ у неё нет намеренно: с ним Next.js вписал бы пароль базы
+   в клиентский бандл, то есть отдал бы базу любому посетителю.
+
+   Пул один на процесс (глобальный кеш переживает hot-reload в разработке, иначе
+   каждый пересбор открывал бы новые соединения, пока база не откажет). */
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __osgardPool: Pool | undefined
+}
+
+function createPool(): Pool {
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) {
+    throw new Error(
+      "DATABASE_URL не задан. Скопируй .env.local.example в .env.local — строка подключения к базе выдана вместе с приложением.",
+    )
+  }
+  return new Pool({
+    connectionString,
+    max: 5,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 10_000,
+  })
+}
+
+export function getPool(): Pool {
+  if (!global.__osgardPool) global.__osgardPool = createPool()
+  return global.__osgardPool
+}
+
+/** Запрос к базе. Значения передавай ТОЛЬКО параметрами ($1, $2) — не склеивай SQL строками. */
+export async function query<T = Record<string, unknown>>(
+  sql: string,
+  params: unknown[] = [],
+): Promise<T[]> {
+  const result = await getPool().query(sql, params)
+  return result.rows as T[]
+}
+`,
+          },
+        ]
+      : []),
     {
       path: "README.md",
       content: `# ${name}\n\nПриложение сгенерировано в OSGARD. Это реальный Next.js-проект: можно запускать\nлокально (\`npm install && npm run dev\`), редактировать и публиковать на GitHub.\n\n## Дизайн-система\n\nАрхетип «${brief.archetype}» · ${brief.mood}\n\nЦвета, типографика, отступы и тени объявлены токенами в \`tailwind.config.ts\`\nи \`app/globals.css\`. Контраст основного текста к фону — ${brief.contrast.inkOnCanvas}:1\n(WCAG AA требует 4.5:1). Используй токены (\`bg-canvas\`, \`bg-surface\`, \`text-ink\`,\n\`bg-primary\`), а не сырые цвета — тогда интерфейс останется цельным.\n`,
@@ -203,9 +281,14 @@ export function staticTemplateFiles(name: string, brief: DesignBrief, descriptio
 /** Бриф по умолчанию — нужен только для вычисления списка занятых путей. */
 const DEFAULT_BRIEF = deriveDesignBrief({ name: "osgard", theme: "general" })
 
-const RESERVED_PATHS = new Set(
-  staticTemplateFiles("x", DEFAULT_BRIEF, "").map((f) => f.path.toLowerCase()),
-)
+/* Пути каркаса + модуль доступа к базе: модель не имеет права их занимать. Без
+   DB_MODULE_PATH здесь модель, которой в промпте велено работать через "@/lib/db",
+   вполне может дописать этот модуль сама — и набор получил бы ДВА файла с одним
+   путём (платформенный и её), что ломает сборку неочевидно. */
+const RESERVED_PATHS = new Set([
+  ...staticTemplateFiles("x", DEFAULT_BRIEF, "").map((f) => f.path.toLowerCase()),
+  DB_MODULE_PATH.toLowerCase(),
+])
 
 /* ----------------------------------------------------------------
    AI-арт-директор
@@ -259,7 +342,12 @@ async function directDesign(name: string, hint: string | undefined, base: Design
   }
 }
 
-function buildManifestPrompt(name: string, hint: string | undefined, brief: DesignBrief): string {
+function buildManifestPrompt(
+  name: string,
+  hint: string | undefined,
+  brief: DesignBrief,
+  profile: AppProfile = DEFAULT_APP_PROFILE,
+): string {
   return `Ты — генератор реальных React/Next.js (App Router) приложений для платформы OSGARD.
 Пользователь хочет приложение с названием "${name}"${hint ? ` в направлении/теме: "${hint}"` : ""}.
 
@@ -285,12 +373,27 @@ ${brief.layout.map((l) => `- ${l}`).join("\n")}
 - Спроектируй ПРОДУКТ, а не витрину: продумай реальные экраны и состояния (пустое,
   загрузка, ошибка), а не одну страницу с текстом.
 - Пути только внутри app/, components/, hooks/ или lib/; расширение .tsx или .ts.
-- Описание purpose — 1 короткое предложение на русском.
+- Описание purpose — 1 короткое предложение на русском.${
+    allowsServerCode(profile)
+      ? `
+- У приложения ЕСТЬ своя база PostgreSQL и серверный рантайм. Спроектируй
+  настоящее хранение данных, а не localStorage: серверные роуты чтения/записи в
+  "app/api/<сущность>/route.ts", файл "lib/types.ts" с типами записей базы и
+  ОБЯЗАТЕЛЬНО "db/schema.sql" — идемпотентный скрипт создания таблиц
+  (CREATE TABLE IF NOT EXISTS). Модуль доступа к базе ("lib/db.ts") платформа
+  создаёт сама — в список его НЕ включай.`
+      : ""
+  }
 Ответь только JSON.`
 }
 
-async function generateManifest(name: string, hint: string | undefined, brief: DesignBrief): Promise<ManifestEntry[] | null> {
-  const text = await callAnyProvider(buildManifestPrompt(name, hint, brief), 4096)
+async function generateManifest(
+  name: string,
+  hint: string | undefined,
+  brief: DesignBrief,
+  profile: AppProfile = DEFAULT_APP_PROFILE,
+): Promise<ManifestEntry[] | null> {
+  const text = await callAnyProvider(buildManifestPrompt(name, hint, brief, profile), 4096)
   if (!text) return null
 
   const parsed = extractJson(text)
@@ -302,7 +405,13 @@ async function generateManifest(name: string, hint: string | undefined, brief: D
     // utils/ и types/ намеренно разрешены: модель постоянно пишет
     // `import { cn } from "@/utils/cn"`, а прежний фильтр такой файл выбрасывал из
     // манифеста — он не генерировался НИКОГДА, и сборка падала с "Module not found".
-    .filter((f: ManifestEntry) => /^(app|components|hooks|lib|utils|types)\/[\w\-/]+\.tsx?$/.test(f.path))
+    /* db/schema.sql разрешён только fullstack-профилю: это объявление таблиц базы
+       приложения, которое платформа применит к его схеме. У static базы нет. */
+    .filter((f: ManifestEntry) =>
+      allowsServerCode(profile) && f.path === "db/schema.sql"
+        ? true
+        : /^(app|components|hooks|lib|utils|types)\/[\w\-/]+\.tsx?$/.test(f.path),
+    )
     .filter((f: ManifestEntry) => !RESERVED_PATHS.has(f.path.toLowerCase()))
     .slice(0, 40)
 
@@ -324,6 +433,35 @@ function fallbackManifest(): ManifestEntry[] {
  *      (`import Hero from` против `export function Hero`), что и дало 18 ошибок
  *      импортов на живом тесте. Контракт выводится кодом из манифеста, без
  *      дополнительных AI-вызовов. */
+/**
+ * Контракт рантайма приложения — единственное место, где промпты узнают, что
+ * профилю можно. Раньше запрет серверного кода был вписан в два промпта
+ * дословно, и снять его без правки текста было невозможно.
+ */
+function renderRuntimeContract(profile: AppProfile): string {
+  if (allowsServerCode(profile)) {
+    return `- Приложение собирается обычным "next build" с серверным рантаймом: API-роуты
+  (app/api/**/route.ts), серверные компоненты, Server Actions и next/headers РАЗРЕШЕНЫ.
+- У приложения ЕСТЬ своя база PostgreSQL. Работай с ней ТОЛЬКО через готовый модуль
+  "@/lib/db" (он создан платформой, не переписывай его):
+    import { query } from "@/lib/db"
+    const rows = await query<{ id: number; title: string }>("SELECT id, title FROM notes ORDER BY id DESC LIMIT 50")
+- Модуль базы работает ТОЛЬКО в серверном коде (API-роуты, серверные компоненты).
+  Из файла с "use client" его импортировать нельзя — пароль базы попал бы в браузер.
+  Клиентский компонент получает данные через fetch к своему же API-роуту.
+- SQL-значения передавай ТОЛЬКО параметрами ($1, $2), никогда не склеивай строками —
+  иначе SQL-инъекция.
+- Строку подключения не вписывай в код: она приходит из process.env.DATABASE_URL,
+  и модуль "@/lib/db" уже это делает.
+- Таблицы, которые нужны приложению, объявляй в файле "db/schema.sql" одним
+  идемпотентным скриптом (CREATE TABLE IF NOT EXISTS ...) — платформа применит его
+  к базе приложения.`
+  }
+  return `- Приложение собирается через "next build" со статическим экспортом (output: "export") —
+  без серверных API-роутов и Server Actions. Обращения к внешним API возможны только
+  клиентски (компонент с "use client" + fetch/useEffect), не через серверные компоненты.`
+}
+
 function buildFilePrompt(
   name: string,
   hint: string | undefined,
@@ -332,6 +470,7 @@ function buildFilePrompt(
   brief: DesignBrief,
   lessons: string,
   contract: ExportContract,
+  profile: AppProfile = DEFAULT_APP_PROFILE,
 ): string {
   const purposeByPath = new Map(manifest.map((f) => [f.path.replace(/^\/+/, ""), f.purpose]))
   return `Ты пишешь исходный код для реального Next.js (App Router, TypeScript, Tailwind CSS) приложения "${name}"${hint ? ` в теме: "${hint}"` : ""}.
@@ -353,9 +492,7 @@ ${lessons}
   задавай значения по умолчанию. Иконку принимай как САМ компонент (\`icon?: LucideIcon\`) и
   рисуй её сам (\`const Icon = icon; <Icon />\`) — не как готовую разметку: тогда сосед
   передаст \`icon={Plus}\`, а не \`icon={<Plus />}\`, и типы совпадут.
-- Приложение собирается через "next build" со статическим экспортом (output: "export") —
-  без серверных API-роутов и Server Actions. Обращения к внешним API возможны только
-  клиентски (компонент с "use client" + fetch/useEffect), не через серверные компоненты.
+${renderRuntimeContract(profile)}
 - Верни ТОЛЬКО код в одном \`\`\`tsx блоке, без пояснений до или после.`
 }
 
@@ -367,8 +504,12 @@ async function generateFileContent(
   brief: DesignBrief,
   lessons: string,
   contract: ExportContract,
+  profile: AppProfile = DEFAULT_APP_PROFILE,
 ): Promise<string | null> {
-  const text = await callAnyProvider(buildFilePrompt(name, hint, manifest, entry, brief, lessons, contract), 8000)
+  const text = await callAnyProvider(
+    buildFilePrompt(name, hint, manifest, entry, brief, lessons, contract, profile),
+    8000,
+  )
   if (!text) return null
   return extractCodeBlock(text)
 }
@@ -385,8 +526,10 @@ function buildRepairPrompt(params: {
   defects: string
   brief: DesignBrief
   siblings: string[]
+  profile?: AppProfile
 }): string {
   const { name, hint, path, purpose, current, defects, brief, siblings } = params
+  const profile = params.profile ?? DEFAULT_APP_PROFILE
   return `Ты чинишь один файл реального Next.js (App Router, TypeScript, Tailwind) приложения "${name}"${hint ? ` в теме: "${hint}"` : ""}.
 
 Файлы приложения (импортировать можно ТОЛЬКО их):
@@ -408,10 +551,9 @@ ${current.slice(0, 12000)}
 - Верни ПОЛНОЕ исправленное содержимое файла, а не патч и не пояснения.
 - Сохрани замысел и вёрстку файла — правь ровно то, что перечислено в дефектах.
 - Импортируй только существующие файлы из списка выше; сторонние пакеты запрещены,
-  кроме next, react, react-dom и lucide-react (иконки).
+  кроме next, react, react-dom, lucide-react (иконки)${allowsServerCode(profile) ? " и клиента Supabase\n  (@supabase/supabase-js, @supabase/ssr)" : ""}.
 - Если нужен хук или обработчик события — первой строкой файла поставь "use client".
-- Приложение собирается со статическим экспортом (output: "export"): без API-роутов,
-  без "use server", без next/headers, без export const dynamic.
+${renderRuntimeContract(profile)}
 - Верни ТОЛЬКО код в одном \`\`\`tsx блоке.`
 }
 
@@ -429,6 +571,7 @@ export async function repairFileWithAi(params: {
   defects: string
   brief: DesignBrief
   siblings: string[]
+  profile?: AppProfile
 }): Promise<string | null> {
   if (!isAiConfigured()) return null
   try {
@@ -470,16 +613,19 @@ export async function generateApp(
     /** Блок «выученные уроки» из корпуса ремесла (lib/craft-corpus): реальная
      *  статистика поломок этой платформы, чтобы генератор не повторял свои ошибки. */
     lessons?: string
+    /** Режим приложения (lib/app-profiles): статический экспорт или fullstack с базой. */
+    profile?: AppProfile
   },
 ): Promise<AppGenerationResult> {
   const baseBrief = options?.brief ?? deriveDesignBrief({ name, hint, theme: options?.theme, keywords: options?.keywords })
   const description = options?.description ?? ""
   const lessons = options?.lessons ?? ""
+  const profile = options?.profile ?? DEFAULT_APP_PROFILE
 
   if (!isAiConfigured()) {
     return {
       files: [
-        ...staticTemplateFiles(name, baseBrief, description),
+        ...staticTemplateFiles(name, baseBrief, description, profile),
         { path: "app/page.tsx", content: renderFallbackPage(baseBrief, name, hint) },
       ],
       source: "fallback",
@@ -490,7 +636,13 @@ export async function generateApp(
   // Кеш: одинаковый промпт → готовый результат без повторной генерации.
   // При bypassCache (глубокая генерация) чтение кеша пропускаем — гарантируем
   // свежий результат с нуля, хотя записать его в кеш всё равно можем.
-  const cacheKey = appCacheKey(name, hint, lessonsFingerprint(lessons))
+  /* В ключе кеша ОБА признака, и оба обязательны:
+     — отпечаток уроков (волна 7): иначе кеш отдаёт код, рождённый под прошлым знанием
+       платформы, и «каждая генерация учится» перестаёт быть правдой;
+     — профиль: наборы файлов для static и fullstack физически разные (next.config.js,
+       package.json, серверные роуты), без него первый же запрос вернул бы кешированную
+       статику там, где просили приложение с базой. */
+  const cacheKey = `${appCacheKey(name, hint, lessonsFingerprint(lessons))}:${profile}`
   if (!options?.bypassCache) {
     const cached = durableCache.get<{ files: GeneratedAppFile[]; brief: DesignBrief }>(cacheKey)
     if (cached && Array.isArray(cached.files) && cached.files.length > 0 && cached.brief) {
@@ -503,9 +655,9 @@ export async function generateApp(
     // все последующие файлы. Результат зажат кодом — см. clampBriefProposal.
     // Готовый бриф (доработка) арт-дирекцию не запускает — облик уже выбран.
     const brief = options?.brief ?? (await directDesign(name, hint, baseBrief))
-    const template = staticTemplateFiles(name, brief, description)
+    const template = staticTemplateFiles(name, brief, description, profile)
 
-    const manifest = (await generateManifest(name, hint, brief)) || fallbackManifest()
+    const manifest = (await generateManifest(name, hint, brief, profile)) || fallbackManifest()
 
     /* ФАЗА 1 — КОНТРАКТ. Только списки экспортов, без тел файлов. Выводится кодом
        из манифеста (deriveExportContract), поэтому НЕ стоит ни одного AI-вызова:
@@ -516,7 +668,7 @@ export async function generateApp(
        пишется поверх ОБЩЕГО контракта и больше не угадывает форму импорта соседа. */
     const generated = await Promise.all(
       manifest.map(async (entry) => {
-        const content = await generateFileContent(name, hint, manifest, entry, brief, lessons, contract)
+        const content = await generateFileContent(name, hint, manifest, entry, brief, lessons, contract, profile)
         return {
           path: entry.path,
           content: content ?? (entry.path === "app/page.tsx" ? renderFallbackPage(brief, name, hint) : null),
@@ -557,7 +709,7 @@ export async function generateApp(
     captureError("[app-generator] generation failed, falling back:", err)
     return {
       files: [
-        ...staticTemplateFiles(name, baseBrief, description),
+        ...staticTemplateFiles(name, baseBrief, description, profile),
         { path: "app/page.tsx", content: renderFallbackPage(baseBrief, name, hint) },
       ],
       source: "fallback",

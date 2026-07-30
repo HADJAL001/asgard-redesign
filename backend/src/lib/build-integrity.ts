@@ -1,5 +1,12 @@
 import { captureError } from "./sentry"
 import { propsContractDefects, repairPropValue } from "./props-contract"
+import {
+  allowsServerCode,
+  DEFAULT_APP_PROFILE,
+  FULLSTACK_DEPENDENCIES,
+  FULLSTACK_DEV_DEPENDENCIES,
+  type AppProfile,
+} from "./app-profiles"
 
 /* ================================================================
    OSGARD · Инженерная целостность сгенерированного приложения
@@ -135,6 +142,16 @@ function packageOf(spec: string): string {
  *  lucide-react входит в каркас: модели тянут иконки практически в каждом
  *  приложении, и без объявления пакета каждый такой импорт был ошибкой сборки. */
 const BUILTIN_PACKAGES = new Set(["next", "react", "react-dom", "typescript", "lucide-react"])
+
+/** Набор каркаса плюс то, что разрешено профилю (для fullstack — драйвер Postgres). */
+function builtinPackages(profile: AppProfile): Set<string> {
+  if (!allowsServerCode(profile)) return BUILTIN_PACKAGES
+  return new Set([
+    ...BUILTIN_PACKAGES,
+    ...Object.keys(FULLSTACK_DEPENDENCIES),
+    ...Object.keys(FULLSTACK_DEV_DEPENDENCIES),
+  ])
+}
 
 const RESOLVE_SUFFIXES = ["", ".tsx", ".ts", "/index.tsx", "/index.ts", ".css", ".json"]
 
@@ -385,8 +402,8 @@ function analyzeFile(ts: typeof import("typescript"), file: SourceFile): FileFac
    ---------------------------------------------------------------- */
 
 /** Зависимости, объявленные в package.json набора (плюс каркасные). */
-function declaredPackages(index: Map<string, SourceFile>): Set<string> {
-  const pkgs = new Set<string>(BUILTIN_PACKAGES)
+function declaredPackages(index: Map<string, SourceFile>, profile: AppProfile): Set<string> {
+  const pkgs = new Set<string>(builtinPackages(profile))
   const pkg = index.get("package.json")
   if (!pkg) return pkgs
   try {
@@ -436,9 +453,14 @@ function syntaxDefects(ts: typeof import("typescript"), files: SourceFile[]): In
 }
 
 /** Граф модулей: каждый импорт обязан во что-то разрешаться. */
-function moduleGraphDefects(files: FileFacts[], index: Map<string, SourceFile>, factsByPath: Map<string, FileFacts>): IntegrityDefect[] {
+function moduleGraphDefects(
+  files: FileFacts[],
+  index: Map<string, SourceFile>,
+  factsByPath: Map<string, FileFacts>,
+  profile: AppProfile,
+): IntegrityDefect[] {
   const defects: IntegrityDefect[] = []
-  const packages = declaredPackages(index)
+  const packages = declaredPackages(index, profile)
 
   for (const facts of files) {
     for (const ref of facts.imports) {
@@ -562,8 +584,16 @@ function clientBoundaryDefects(files: FileFacts[]): IntegrityDefect[] {
   return defects
 }
 
-/** Контракт статического экспорта (next.config: output "export"). */
-function staticExportDefects(files: FileFacts[]): IntegrityDefect[] {
+/**
+ * Контракт статического экспорта (next.config: output "export").
+ *
+ * Для профиля `fullstack` проверка не применяется вовсе: там серверный роут,
+ * Server Action и `next/headers` — не дефект, а смысл приложения. Раньше эти
+ * правила были безусловны, и генератор физически не мог выдать приложение с
+ * бэкендом — механический ремонт удалял api-роут как «несовместимый».
+ */
+function staticExportDefects(files: FileFacts[], profile: AppProfile): IntegrityDefect[] {
+  if (allowsServerCode(profile)) return []
   const defects: IntegrityDefect[] = []
   for (const facts of files) {
     if (/^app\/api\//.test(facts.path)) {
@@ -756,7 +786,10 @@ function toCheck(spec: CheckSpec): IntegrityCheck {
  * разойтись. Никогда не бросает: при отсутствии TypeScript возвращает
  * analyzed:false (честное «не проверено»), а не ложное «всё хорошо».
  */
-export function explainBuildIntegrity(files: SourceFile[]): IntegrityReport {
+export function explainBuildIntegrity(
+  files: SourceFile[],
+  profile: AppProfile = DEFAULT_APP_PROFILE,
+): IntegrityReport {
   const ts = loadTs()
   const codeFiles = files.filter((f) => isCodeFile(f.path))
 
@@ -785,9 +818,9 @@ export function explainBuildIntegrity(files: SourceFile[]): IntegrityReport {
   }
 
   const syntax = syntaxDefects(ts, files)
-  const graph = moduleGraphDefects(factsList, index, factsByPath)
+  const graph = moduleGraphDefects(factsList, index, factsByPath, profile)
   const boundary = clientBoundaryDefects(factsList)
-  const staticExport = staticExportDefects(factsList)
+  const staticExport = staticExportDefects(factsList, profile)
   const routes = routeContractDefects(factsList)
   const hygiene = contentHygieneDefects(files)
   /* Контракт ТИПОВ ПРОПОВ (lib/props-contract). Отдельный модуль со своим разбором:
@@ -809,7 +842,17 @@ export function explainBuildIntegrity(files: SourceFile[]): IntegrityReport {
     toCheck({ key: "syntax", label: "Синтаксис", defects: syntax, okDetail: "каждый файл разбирается компилятором" }),
     toCheck({ key: "graph", label: "Граф модулей", defects: graph, okDetail: "все импорты разрешаются, зависимости объявлены" }),
     toCheck({ key: "boundary", label: "Клиент/сервер", defects: boundary, okDetail: "директивы соответствуют содержимому" }),
-    toCheck({ key: "static", label: "Статический экспорт", defects: staticExport, okDetail: "нет серверных конструкций" }),
+    /* Для fullstack эта проверка НЕ ВЫПОЛНЯЛАСЬ — и подпись обязана это говорить.
+       «нет серверных конструкций» на приложении, смысл которого в серверных
+       конструкциях, — ровно тот вид отчёта, которому нельзя верить. */
+    toCheck({
+      key: "static",
+      label: allowsServerCode(profile) ? "Статический экспорт (не применяется)" : "Статический экспорт",
+      defects: staticExport,
+      okDetail: allowsServerCode(profile)
+        ? "профиль fullstack — серверный код разрешён, ограничения экспорта не проверялись"
+        : "нет серверных конструкций",
+    }),
     toCheck({ key: "routes", label: "Маршруты", defects: routes, okDetail: "каждая страница отдаёт компонент" }),
     toCheck({ key: "hygiene", label: "Чистота исходников", defects: hygiene, okDetail: "нет заглушек и следов ответа модели" }),
     toCheck({ key: "props", label: "Пропы компонентов", defects: props, okDetail: "переданные пропы совпадают с сигнатурами" }),

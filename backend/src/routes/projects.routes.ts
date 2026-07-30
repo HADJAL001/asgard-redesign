@@ -19,6 +19,8 @@ import {
 } from "../lib/project-generation"
 import { rateLimit } from "../middleware/rateLimiter"
 import { GENERATION_DEPTHS, resolveDepth, serializeDepths, type GenerationDepth } from "../lib/generation-depths"
+import { allowsServerCode, normalizeAppProfile } from "../lib/app-profiles"
+import { getAppDatabase, releaseAppDatabase } from "../services/app-database-binding"
 import { estimateAllDepths, loadGenerationSamples, type GenerationPath } from "../lib/generation-estimate"
 import { resolveDailyLimit, quotaRemaining } from "../lib/generation-quota"
 import {
@@ -513,6 +515,9 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
 
   const depth = resolveDepth(req.body?.depth)
   const depthCfg = GENERATION_DEPTHS[depth]
+  /* Режим приложения. Неизвестное значение нормализуется в 'static' — самый
+     безопасный режим, а не ошибка запроса: клиент старой версии профиля не знает. */
+  const profile = normalizeAppProfile(req.body?.profile)
 
   /* --- Бесплатная (quick) генерация: расход дневной квоты тарифа --- */
   if (depthCfg.countsAgainstQuota) {
@@ -552,7 +557,13 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     }
 
     try {
-      const { project, artifacts, projectId } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth })
+      const { project, artifacts, projectId } = createGeneratedProject({
+        userId,
+        name: resolvedName,
+        hint: safeHint,
+        depth,
+        profile,
+      })
       if (makegoodId !== null) attachMakegoodProject(makegoodId, projectId)
       return res.status(202).json({
         project,
@@ -637,7 +648,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
   logAudit(userId, "debit", cost, "project_generation", { depth, name: resolvedName })
 
   try {
-    const { project, artifacts } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth })
+    const { project, artifacts } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth, profile })
     return res
       .status(202)
       .json({ project, artifacts, depth, costCredits: cost, makegoodApplied: false, aiConfigured: isAiConfigured() })
@@ -1197,7 +1208,7 @@ router.post("/:id/deploy-netlify", requireAuth, deployProjectHandler)
    Занимает секунды, поэтому await прямо в запросе (клиент показывает спиннер). */
 router.post("/:id/verify-build", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const id = Number(req.params.id)
-  const project: any = db.prepare(`SELECT id, user_id FROM projects WHERE id = ?`).get(id)
+  const project: any = db.prepare(`SELECT id, user_id, app_profile FROM projects WHERE id = ?`).get(id)
 
   if (!project) return res.status(404).json({ error: "Проект не найден" })
   if (project.user_id !== req.user!.userId) {
@@ -1212,7 +1223,12 @@ router.post("/:id/verify-build", requireAuth, asyncHandler(async (req: AuthReque
     return res.status(400).json({ error: "У проекта нет файлов для проверки" })
   }
 
-  const result = await verifyBuildInSandbox(files, { logLabel: `verify-build-${id}` })
+  /* Профиль проекта: статический экспорт собирается иначе, чем fullstack (и даёт
+     out/, которого у fullstack нет) — сборка не того вида упала бы на пустом месте. */
+  const result = await verifyBuildInSandbox(files, {
+    logLabel: `verify-build-${id}`,
+    profile: normalizeAppProfile(project.app_profile),
+  })
   res.json({
     ok: result.ok,
     skipped: result.skipped,
@@ -1250,21 +1266,76 @@ router.patch("/:id", requireAuth, (req: AuthRequest, res) => {
 })
 
 /* ---------------- DELETE /projects/:id — удалить проект ---------------- */
-router.delete("/:id", requireAuth, (req: AuthRequest, res) => {
-  const id = Number(req.params.id)
-  const project: any = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id)
+router.delete(
+  "/:id",
+  requireAuth,
+  asyncHandler(async (req: AuthRequest, res) => {
+    const id = Number(req.params.id)
+    const project: any = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id)
 
-  if (!project) return res.status(404).json({ error: "Проект не найден" })
-  if (project.user_id !== req.user!.userId) {
-    return res.status(403).json({ error: "Нет доступа к этому проекту" })
-  }
+    if (!project) return res.status(404).json({ error: "Проект не найден" })
+    if (project.user_id !== req.user!.userId) {
+      return res.status(403).json({ error: "Нет доступа к этому проекту" })
+    }
 
-  /* Отвязываем артефакты от проекта (сами артефакты остаются у владельца) */
-  db.prepare(`UPDATE artifacts SET project_id = NULL WHERE project_id = ?`).run(id)
-  db.prepare(`DELETE FROM project_files WHERE project_id = ?`).run(id)
-  db.prepare(`DELETE FROM projects WHERE id = ?`).run(id)
+    /* Базу приложения сносим ПЕРВОЙ и до удаления строки проекта: у app_databases
+       стоит ON DELETE CASCADE, поэтому после DELETE FROM projects платформа уже не
+       знает, какую схему и роль надо убрать из кластера. Отказ кластера не
+       блокирует удаление проекта — пользователь просил удалить свой проект, а не
+       ждать чинки инфраструктуры; о несданной схеме сообщаем предупреждением. */
+    const released = await releaseAppDatabase(id)
 
-  res.json({ ok: true })
-})
+    /* Отвязываем артефакты от проекта (сами артефакты остаются у владельца) */
+    db.prepare(`UPDATE artifacts SET project_id = NULL WHERE project_id = ?`).run(id)
+    db.prepare(`DELETE FROM project_files WHERE project_id = ?`).run(id)
+    db.prepare(`DELETE FROM projects WHERE id = ?`).run(id)
+
+    res.json(released.ok ? { ok: true } : { ok: true, warning: `база приложения не снесена: ${released.error}` })
+  }),
+)
+
+/* ---------------- GET /projects/:id/database — строка подключения к базе ----------------
+   Креды намеренно НЕ лежат в файлах проекта (файлы уезжают в архив скачивания и в
+   деплой), поэтому их надо где-то отдавать — здесь. Только владельцу проекта и
+   только по явному запросу: то же поведение, что у панелей Supabase/Neon. */
+router.get(
+  "/:id/database",
+  requireAuth,
+  (req: AuthRequest, res) => {
+    const id = Number(req.params.id)
+    const project: any = db.prepare(`SELECT id, user_id, app_profile FROM projects WHERE id = ?`).get(id)
+
+    if (!project) return res.status(404).json({ error: "Проект не найден" })
+    if (project.user_id !== req.user!.userId) {
+      return res.status(403).json({ error: "Нет доступа к этому проекту" })
+    }
+
+    const stored = getAppDatabase(id)
+    if (!stored) {
+      return res.json({
+        hasDatabase: false,
+        reason: allowsServerCode(normalizeAppProfile(project.app_profile))
+          ? "база этому приложению ещё не выдана"
+          : "приложение статическое — серверного кода и базы у него нет",
+      })
+    }
+
+    /* Факт выдачи кредов в лог — без самой строки подключения: писать пароль в
+       логи означало бы вынести секрет ровно туда, откуда мы его убирали из файлов.
+       Отдельного журнала событий безопасности в проекте нет, а logAudit — денежный
+       (debit/credit/amount), для этого события он не подходит. */
+    console.log(`[app-database] креды показаны владельцу: project=${id} schema=${stored.schema}`)
+
+    res.json({
+      hasDatabase: true,
+      schema: stored.schema,
+      role: stored.role,
+      connectionString: stored.connectionString,
+      schemaStatus: stored.schemaStatus,
+      schemaError: stored.schemaError,
+      createdAt: stored.createdAt,
+    })
+  },
+)
 
 export default router

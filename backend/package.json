@@ -15,7 +15,9 @@
     "test": "tsx --test \"src/tests/**/*.test.ts\"",
     "test:file": "tsx --test",
     "sandbox:image": "tsx src/scripts/build-sandbox-image.ts",
-    "loadtest": "tsx src/scripts/load-test.ts"
+    "loadtest": "tsx src/scripts/load-test.ts",
+    "gate:app-db": "tsx scripts/verify-app-db-isolation.ts",
+    "gate:fullstack-build": "tsx scripts/verify-fullstack-build.ts"
   },
   "dependencies": {
     "@octokit/rest": "^22.0.1",
@@ -40,6 +42,7 @@
     "joi": "^18.2.3",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
+    "pg": "^8.22.0",
     "qrcode": "^1.5.4",
     "rpc-websockets": "10.0.1",
     "speakeasy": "^2.0.0",
@@ -63,6 +66,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.9",
     "@types/node": "^22.20.1",
+    "@types/pg": "^8.20.0",
     "@types/uuid": "^11.0.0",
     "@types/ws": "^8.18.1",
     "autocannon": "^8.0.0",
