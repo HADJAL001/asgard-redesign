@@ -76,6 +76,17 @@ type TaughtLesson = {
   effect?: "works" | "unclear" | "fails" | "measuring" | "unmeasured"
   /** Сколько раз урок дошёл до модели после начала измерения (волна 8). */
   taughtTimes?: number
+  /* Поля волны 7, п.3. Необязательные намеренно: против бэкенда без знаменателя (журнала
+     генераций нет) их не будет вовсе — и тогда витрина обязана показывать абсолютные
+     числа, как раньше, а не выдумывать частоту. */
+  /** Сколько генераций случилось после начала обучения — знаменатель частоты. */
+  generationsSinceTeaching?: number | null
+  /** Доля генераций, в которых дефект возвращался после урока, 0..1. `null` — мерить нечем. */
+  repeatRate?: number | null
+  /** Сколько генераций прошло с последней встречи дефекта. */
+  generationsSinceLastSeen?: number | null
+  /** Множитель затухания, 0..1. Единица — дефект встречался только что либо мерить нечем. */
+  decay?: number
 }
 type SilentLesson = { rule: string; count: number }
 type AuthoringFailure = { rule: string; reason: string; attempts: number }
@@ -133,6 +144,11 @@ type PlatformMemory = {
     measuring?: number
     unmeasured?: number
     supersededHandwritten?: number
+    /* Поля волны 7, п.3. Тоже необязательные: бэкенд без затухания их не отдаёт, и
+       блока просто нет. `rateJudged: 0` при живом корпусе — это диагноз (журнала
+       генераций нет), поэтому число показывается, а не прячется. */
+    faded?: number
+    rateJudged?: number
   }
   /* Поле волны 7. Необязательное по той же причине: старый бэкенд доли не отдаёт, и
      тогда блока охвата просто нет — выдумывать 100% нельзя, это была бы ровно та ложь,
@@ -227,6 +243,11 @@ export function DevMemoryView() {
   const measuring = data?.effectiveness?.measuring ?? 0
   const unmeasured = data?.effectiveness?.unmeasured ?? 0
   const superseded = data?.effectiveness?.supersededHandwritten ?? 0
+  /* Волна 7, п.3. `undefined` (бэкенд без затухания) и 0 различаются намеренно: ноль
+     затухших уроков — рабочее состояние молодого корпуса, а отсутствие поля значит, что
+     механизма нет вовсе. Показывать в обоих случаях «0» значило бы прятать второе. */
+  const faded = data?.effectiveness?.faded
+  const rateJudged = data?.effectiveness?.rateJudged
 
   return (
     <>
@@ -426,6 +447,37 @@ export function DevMemoryView() {
             </div>
           ) : null}
 
+          {/* Волна 7, п.3. Затухание — единственный механизм памяти, который что-то
+              ОТНИМАЕТ: место в промпте у правила, чей дефект давно не встречался. Механизм,
+              отнимающий молча, невозможно отличить от поломки отбора, поэтому «почему этого
+              урока нет в промпте» обязано иметь ответ числом.
+
+              Вторая цифра отвечает на вопрос, чем платформа судит уроки. Ноль при живом
+              корпусе — не косметика: значит журнала генераций нет, знаменателя нет, и рост
+              трафика снова выглядит как деградация уроков. */}
+          {typeof faded === "number" || typeof rateJudged === "number" ? (
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Stat
+                label="уроков затухло"
+                value={String(faded ?? 0)}
+                hint={
+                  (faded ?? 0) > 0
+                    ? "дефект давно не встречался — правило больше не держит место историей"
+                    : "историей место никто не держит"
+                }
+              />
+              <Stat
+                label="уроков судятся частотой"
+                value={String(rateJudged ?? 0)}
+                hint={
+                  (rateJudged ?? 0) > 0
+                    ? "повторы делятся на число генераций — рост трафика больше не выглядит деградацией"
+                    : "знаменателя нет: вердикты выносятся по абсолютному счётчику, как до волны 7"
+                }
+              />
+            </div>
+          ) : null}
+
           {/* Единственный случай, когда машина переспорила разработчика. Держим отдельной
               строкой: это исключение из приоритета рукописного текста, и оно должно быть
               заметно основателю, а не спрятано в агрегате. */}
@@ -483,6 +535,21 @@ export function DevMemoryView() {
                           Волна 8 добавила третью подпись. Ноль повторов у урока, который
                           модель видела один-два раза, — это ещё не «сработало»: пока
                           зелёная надпись стояла и там, витрина торопилась с выводом. */}
+                      {/* Затухание (волна 7, п.3). Пометка обязательна: у ЗАТУХШЕГО урока,
+                          оставшегося в промпте, место дало не давление дефекта, а доказанная
+                          польза — без подписи это неотличимо от «правило всё ещё частое». */}
+                      {typeof lesson.decay === "number" && lesson.decay < 0.5 ? (
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[11px]"
+                          style={{ border: DASHED, color: MUTED }}
+                          title="Дефект давно не встречался: правило больше не держит место в промпте своей историей"
+                        >
+                          затухло
+                          {typeof lesson.generationsSinceLastSeen === "number"
+                            ? ` · не встречалось ${lesson.generationsSinceLastSeen} генераций`
+                            : ""}
+                        </span>
+                      ) : null}
                       {typeof lesson.repeatedAfterLearning === "number" ? (
                         lesson.effect === "measuring" ? (
                           <span style={{ color: MUTED }}>
@@ -493,7 +560,21 @@ export function DevMemoryView() {
                           <span style={{ color: lesson.repeatedAfterLearning === 0 ? "#34D399" : "#F59E0B" }}>
                             {lesson.repeatedAfterLearning === 0
                               ? "после урока не повторялось"
-                              : `повторилось ${lesson.repeatedAfterLearning} раз(а) после урока — формулировка не работает`}
+                              : /* Волна 7, п.3: повторы со ЗНАМЕНАТЕЛЕМ. Одна и та же двойка —
+                                   провал урока на десяти генерациях и успех на тысяче, поэтому
+                                   абсолютное число без частоты вводило в заблуждение. Частоты
+                                   нет (старый бэкенд) — остаётся прежняя фраза, без выдумок. */
+                                `повторилось ${lesson.repeatedAfterLearning} раз(а)` +
+                                (typeof lesson.generationsSinceTeaching === "number" &&
+                                typeof lesson.repeatRate === "number"
+                                  ? ` за ${lesson.generationsSinceTeaching} генераций — ${Math.round(
+                                      lesson.repeatRate * 100,
+                                    )}%${
+                                      lesson.effect === "fails"
+                                        ? ": формулировка не работает"
+                                        : ": для приговора мало"
+                                    }`
+                                  : " после урока — формулировка не работает")}
                           </span>
                         )
                       ) : null}
