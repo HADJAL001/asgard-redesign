@@ -211,6 +211,11 @@ export type AuthoredLessonRow = {
   diagnosis: string | null
   createdAt: number
   updatedAt: number
+  /** Сколько раз формулировку переписывали после того, как она себя не оправдала (097). */
+  revisions: number
+  /** Формулировки, уже доказавшие бесполезность: принимать их снова нельзя (097). */
+  retiredTexts: string[]
+  lastRevisedAt: number | null
 }
 
 /** Все записи авторства — и принятые уроки, и забракованные попытки (нужно витрине). */
@@ -232,7 +237,27 @@ export function listAuthoredLessons(): AuthoredLessonRow[] {
       diagnosis: row.diagnosis ?? null,
       createdAt: row.created_at ?? 0,
       updatedAt: row.updated_at ?? 0,
+      /* Колонки волны 6. Схема без 097 даёт undefined — читаем как «не переписывали»,
+         чтобы витрина и отбор работали против старой базы без правки кода. */
+      revisions: row.revisions ?? 0,
+      retiredTexts: parseRetiredTexts(row.retired_texts),
+      lastRevisedAt: row.last_revised_at ?? null,
     }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Разбор списка отбракованных формулировок. Битый JSON обязан значить «список пуст», а
+ * не падение: колонка нужна только чтобы НЕ принять повторно плохой текст, и ронять
+ * из-за неё чтение всей памяти платформы нельзя.
+ */
+function parseRetiredTexts(raw: unknown): string[] {
+  if (typeof raw !== "string" || !raw.trim()) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((t): t is string => typeof t === "string") : []
   } catch {
     return []
   }
@@ -249,21 +274,185 @@ export function resolveLessonText(rule: string, authored?: Map<string, string>):
   return handwrittenLessonText(rule) ?? (authored ?? authoredLessonTexts()).get(rule)
 }
 
+/* ----------------------------------------------------------------
+   Польза урока и отбор в промпт (волна 6, миграция 097)
+   ----------------------------------------------------------------
+   Волна 5 научилась МЕРИТЬ пользу урока, но отбор в промпт остался по одной
+   частоте — и вышло два вывернутых наизнанку следствия:
+
+     1. Плохой урок ПОДНИМАЕТСЯ: формулировка не работает → дефект повторяется →
+        `occurrences` растёт → правило лезет в топ. Чем хуже урок, тем крепче он
+        держит место.
+     2. Хороший урок ВЫТЕСНЯЕТСЯ: урок сработал → дефект перестал случаться →
+        частота не растёт → правило уезжает вниз и выпадает из промпта, после чего
+        дефект возвращается. Успех выглядит как ненужность.
+
+   Мест в промпте ровно `limit`, поэтому каждый бесполезный урок стоит одного
+   полезного. Ниже — отбор, который смотрит на РЕЗУЛЬТАТ, а не только на частоту.
+   ---------------------------------------------------------------- */
+
+/**
+ * Сколько повторов после обучения считаем приговором формулировке.
+ *
+ * Один повтор ничего не доказывает: генерация могла уже идти, когда урок только
+ * записался, — осуждать по нему значит переписывать рабочие уроки за деньги.
+ */
+const LESSON_FAIL_THRESHOLD = 2
+
+/**
+ * Какая доля мест в промпте закреплена за уроками с доказанной пользой.
+ *
+ * Половина, и это компромисс по существу: не закрепить ничего — сработавший урок
+ * вытеснится и дефект вернётся; закрепить всё — новое знание никогда не попадёт в
+ * промпт, платформа замрёт на том, что уже выучила.
+ */
+const PROVEN_SLOT_SHARE = 0.5
+
+export type LessonEffect =
+  /** После урока дефект не повторялся ни разу — формулировка работает. */
+  | "works"
+  /** Повторы есть, но их мало для приговора. */
+  | "unclear"
+  /** Дефект повторяется после урока — формулировка не работает. */
+  | "fails"
+  /** Точки отсчёта нет (рукописные уроки): судить не по чему. */
+  | "unmeasured"
+
+/**
+ * Классификация пользы урока по числу повторов после обучения.
+ *
+ * `null` на входе — это «не измеряем», и оно НЕ равно нулю повторов: у рукописных
+ * уроков момента обучения не существует, они появились вместе с кодом. Смешать эти
+ * два случая значило бы объявить рукописные уроки доказанно работающими и закрепить
+ * за ними места в промпте без единого измерения.
+ */
+export function classifyLessonEffect(repeatedAfterLearning: number | null): LessonEffect {
+  if (repeatedAfterLearning === null) return "unmeasured"
+  if (repeatedAfterLearning <= 0) return "works"
+  if (repeatedAfterLearning >= LESSON_FAIL_THRESHOLD) return "fails"
+  return "unclear"
+}
+
+/** Урок с формулировкой и измеренной пользой — то, чем оперируют и промпт, и витрина. */
+export type RankedLesson = Lesson & {
+  text: string
+  origin: "hand" | "self"
+  repeatedAfterLearning: number | null
+  effect: LessonEffect
+  /** Сколько раз формулировку уже переписывали (волна 6). */
+  revisions: number
+}
+
+/**
+ * Все правила с формулировкой (и отдельно — копящиеся впустую), с измеренной пользой.
+ *
+ * Единственный источник и для промпта, и для витрины. Разделять их нельзя: витрина
+ * обязана показывать ровно то, что видит модель, иначе она снова начнёт врать —
+ * ровно этот дефект честности ловили в волне 4.
+ */
+function buildLessonView(): { withText: RankedLesson[]; silent: Lesson[]; authoredRows: AuthoredLessonRow[] } {
+  const all = topLessons(500)
+  const authoredRows = listAuthoredLessons()
+  const authoredText = new Map(authoredRows.filter((r) => r.text).map((r) => [r.rule, r.text as string]))
+  const learnedAt = new Map(authoredRows.filter((r) => r.text).map((r) => [r.rule, r.occurrencesAtAuthoring]))
+  const revisionsOf = new Map(authoredRows.map((r) => [r.rule, r.revisions]))
+
+  const withText: RankedLesson[] = []
+  const silent: Lesson[] = []
+
+  for (const lesson of all) {
+    const hand = handwrittenLessonText(lesson.rule)
+    const text = hand ?? authoredText.get(lesson.rule)
+    if (!text) {
+      silent.push(lesson)
+      continue
+    }
+    const base = hand ? null : learnedAt.get(lesson.rule)
+    const repeated = base === null || base === undefined ? null : Math.max(0, lesson.count - base)
+    withText.push({
+      ...lesson,
+      text,
+      origin: hand ? "hand" : "self",
+      repeatedAfterLearning: repeated,
+      effect: classifyLessonEffect(repeated),
+      revisions: revisionsOf.get(lesson.rule) ?? 0,
+    })
+  }
+
+  return { withText, silent, authoredRows }
+}
+
+/**
+ * Какие уроки реально уйдут в промпт следующей генерации.
+ *
+ * Порядок отбора:
+ *   1. Половина мест закреплена за уроками с ДОКАЗАННОЙ пользой — иначе сработавший
+ *      урок вытесняется собственным успехом и дефект возвращается.
+ *   2. Остальные места — по частоте, но урок с провалившейся формулировкой уходит в
+ *      самый конец: он занимал бы место, ничего не покупая.
+ *   3. Если мест больше, чем кандидатов, добираем чем есть — включая провалившиеся:
+ *      плохая формулировка всё же лучше пустого места.
+ *
+ * Детерминировано при том же входе (сортировки со вторичным ключом по имени правила),
+ * поэтому промпт воспроизводим, а тест не зависит от порядка строк из БД.
+ */
+export function selectPromptLessons(limit = 6): RankedLesson[] {
+  if (limit <= 0) return []
+  const { withText } = buildLessonView()
+  if (withText.length === 0) return []
+
+  const byCount = (a: RankedLesson, b: RankedLesson) => b.count - a.count || a.rule.localeCompare(b.rule)
+
+  const chosen: RankedLesson[] = []
+  const taken = new Set<string>()
+
+  const provenSlots = Math.floor(limit * PROVEN_SLOT_SHARE)
+  for (const lesson of withText.filter((l) => l.effect === "works").sort(byCount)) {
+    if (chosen.length >= provenSlots) break
+    chosen.push(lesson)
+    taken.add(lesson.rule)
+  }
+
+  /* Провалившиеся — в конец очереди, а не вон: правило настоящее, дефект настоящий,
+     и до переписывания формулировки лучше сказать модели хоть что-то. */
+  const rest = withText
+    .filter((l) => !taken.has(l.rule))
+    .sort((a, b) => {
+      const aFails = a.effect === "fails" ? 1 : 0
+      const bFails = b.effect === "fails" ? 1 : 0
+      return aFails - bFails || byCount(a, b)
+    })
+
+  for (const lesson of rest) {
+    if (chosen.length >= limit) break
+    chosen.push(lesson)
+    taken.add(lesson.rule)
+  }
+
+  return chosen
+}
+
+/**
+ * Все уроки с формулировкой и измеренной пользой — целиком, без отбора в промпт.
+ *
+ * Нужен автору уроков (волна 6): переписывать надо и те провалившиеся формулировки,
+ * которые в промпт уже не попали. Иначе урок, вытесненный за бесполезность, остался бы
+ * бесполезным навсегда — выпал из промпта и тем самым выпал из внимания.
+ */
+export function rankedLessons(): RankedLesson[] {
+  return buildLessonView().withText
+}
+
 /**
  * Блок «выученные уроки» для промпта генерации. Строится из РЕАЛЬНОЙ статистики
- * дефектов этой платформы, а не из общих советов: чем чаще генератор ошибался на
- * правиле, тем выше оно в списке. Пустая статистика → пустая строка (промпт не
- * меняется, деградации нет).
+ * дефектов этой платформы, а не из общих советов. Пустая статистика → пустая строка
+ * (промпт не меняется, деградации нет).
+ *
+ * С волны 6 порядок определяется не только частотой, но и доказанной пользой урока —
+ * см. `selectPromptLessons`.
  */
 export function renderLessonsContract(limit = 6): string {
-  /* Собственные формулировки читаем ОДНИМ запросом на всю сборку блока: до волны 5
-     правило без строки в коде отбрасывалось здесь молча, и частый дефект мог годами
-     не доходить до модели. */
-  const authored = authoredLessonTexts()
-  const lessons = topLessons(limit)
-    .map((l) => ({ lesson: l, text: resolveLessonText(l.rule, authored) }))
-    .filter((entry): entry is { lesson: Lesson; text: string } => !!entry.text)
-
+  const lessons = selectPromptLessons(limit)
   if (lessons.length === 0) return ""
 
   return `=== ВЫУЧЕННЫЕ УРОКИ (статистика реальных поломок этой платформы) ===
@@ -272,19 +461,19 @@ ${lessons.map((entry, i) => `${i + 1}. ${entry.text}`).join("\n")}
 === КОНЕЦ УРОКОВ ===`
 }
 
-/** Урок с формулировкой — ровно в том виде, в каком он доходит до модели. */
-export type TaughtLesson = Lesson & {
-  text: string
-  /** Кто автор формулировки: рука разработчика или сама платформа (волна 5). */
-  origin: "hand" | "self"
-  /**
-   * Сколько раз дефект повторился ПОСЛЕ того, как урок начал доходить до модели.
-   * Есть только у своих уроков: для рукописных момент обучения не зафиксирован —
-   * они появились вместе с кодом, точки отсчёта нет. `null` значит «не измеряем»,
-   * а не «нуль повторов»: выдавать одно за другое — врать в отчёте.
-   */
-  repeatedAfterLearning: number | null
-}
+/**
+ * Урок с формулировкой — ровно в том виде, в каком он доходит до модели.
+ *
+ * Поля:
+ *   origin — кто автор формулировки: рука разработчика или сама платформа (волна 5);
+ *   repeatedAfterLearning — сколько раз дефект повторился ПОСЛЕ того, как урок начал
+ *     доходить до модели. Есть только у своих уроков: для рукописных момент обучения
+ *     не зафиксирован, точки отсчёта нет. `null` значит «не измеряем», а не «нуль
+ *     повторов» — выдавать одно за другое было бы ложью в отчёте;
+ *   effect — тот же факт, приведённый к вердикту (волна 6);
+ *   revisions — сколько раз формулировку переписывали, когда она не работала.
+ */
+export type TaughtLesson = RankedLesson
 
 export type LessonsReport = {
   rules: number
@@ -304,6 +493,17 @@ export type LessonsReport = {
    * иначе «платформа ничему не научилась» становится необъяснимым фактом.
    */
   authoringFailures: Array<{ rule: string; reason: string; attempts: number }>
+  /**
+   * Уроки с формулировкой, которые в промпт НЕ попали, и причина. Волна 4 показывала
+   * только «правило без формулировки»; теперь видно и вторую потерю: формулировка есть,
+   * но урок либо доказанно не работает, либо не поднялся по частоте. Без причины
+   * задержка урока здесь неотличима от поломки отбора.
+   */
+  demoted: Array<{ rule: string; count: number; reason: "не работает" | "вне топа"; revisions: number }>
+  /** Сколько уроков с доказанной пользой (после них дефект не повторялся). */
+  working: number
+  /** Сколько уроков доказанно не работают — кандидаты на переписывание. */
+  failing: number
 }
 
 /**
@@ -335,51 +535,45 @@ export function getLessonsReport(limit = 6): LessonsReport {
     promptLimit: limit,
     selfAuthored: 0,
     authoringFailures: [],
+    demoted: [],
+    working: 0,
+    failing: 0,
   }
   try {
     const totals = db
       .prepare(`SELECT COUNT(*) as rules, COALESCE(SUM(occurrences), 0) as occurrences FROM generation_lessons`)
       .get() as { rules: number; occurrences: number }
 
-    /* Полный список нужен, чтобы посчитать «впустую» честно: правило без формулировки
-       может не попасть в топ и тогда осталось бы незамеченным именно там, где важно. */
-    const all = topLessons(500)
-
-    /* Записи авторства читаем один раз: нужны и для текстов, и для точки отсчёта
-       обучения, и для списка отказов. */
-    const authoredRows = listAuthoredLessons()
-    const authoredText = new Map(authoredRows.filter((r) => r.text).map((r) => [r.rule, r.text as string]))
-    const learnedAt = new Map(authoredRows.filter((r) => r.text).map((r) => [r.rule, r.occurrencesAtAuthoring]))
-
-    const taught: TaughtLesson[] = []
-    const silent: Lesson[] = []
-    for (const lesson of all) {
-      const hand = handwrittenLessonText(lesson.rule)
-      const text = hand ?? authoredText.get(lesson.rule)
-      if (!text) {
-        silent.push(lesson)
-        continue
-      }
-      if (taught.length >= limit) continue // в промпт уходит только топ — остальное честно не «выучено»
-      const base = hand ? null : learnedAt.get(lesson.rule)
-      taught.push({
-        ...lesson,
-        text,
-        origin: hand ? "hand" : "self",
-        repeatedAfterLearning: base === null || base === undefined ? null : Math.max(0, lesson.count - base),
-      })
-    }
+    /* Один источник с промптом: `taught` — это буквально то, что уйдёт в следующую
+       генерацию, а не похожий список, посчитанный рядом. Считать дважды означало бы
+       рано или поздно разойтись и показывать основателю не то, что видит модель. */
+    const { withText, silent, authoredRows } = buildLessonView()
+    const taught = selectPromptLessons(limit)
+    const inPrompt = new Set(taught.map((l) => l.rule))
 
     return {
       ...totals,
-      top: all.slice(0, 5),
+      top: [...withText, ...silent].sort((a, b) => b.count - a.count || a.rule.localeCompare(b.rule)).slice(0, 5),
       taught,
       silent,
       promptLimit: limit,
-      selfAuthored: authoredText.size,
+      selfAuthored: authoredRows.filter((r) => r.text).length,
       authoringFailures: authoredRows
         .filter((r) => !r.text && r.lastError)
         .map((r) => ({ rule: r.rule, reason: r.lastError as string, attempts: r.attempts })),
+      demoted: withText
+        .filter((l) => !inPrompt.has(l.rule))
+        .map((l) => ({
+          rule: l.rule,
+          count: l.count,
+          /* Различать причины обязательно: «не работает» — вина формулировки и повод её
+             переписать, «вне топа» — просто редкий дефект. Слить их в одно значило бы
+             послать на переписывание исправные уроки. */
+          reason: l.effect === "fails" ? ("не работает" as const) : ("вне топа" as const),
+          revisions: l.revisions,
+        })),
+      working: withText.filter((l) => l.effect === "works").length,
+      failing: withText.filter((l) => l.effect === "fails").length,
     }
   } catch {
     return empty // схема без 092 — витрина честно пустая, а не выдуманная

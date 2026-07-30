@@ -22,8 +22,21 @@ import { deriveDesignBrief, renderDesignSystemFiles, DESIGN_SYSTEM_PATHS, type D
 import { explainDesignQuality } from "./design-qa"
 import { runEngineeringContour, summarizeVerdict, type EngineeringReport } from "./project-engineering"
 import { deriveExportContract, reconcileWithContract } from "./generation-contract"
-import { craftQuality, getLessonsReport, isWorthLearning, recordLessons, renderLessonsContract } from "./craft-corpus"
-import { authorMissingLessons, pendingAuthoringCandidates, type LessonDefectSample } from "./lesson-author"
+import {
+  craftQuality,
+  getLessonsReport,
+  isWorthLearning,
+  listAuthoredLessons,
+  rankedLessons,
+  recordLessons,
+  renderLessonsContract,
+} from "./craft-corpus"
+import {
+  authorMissingLessons,
+  pendingAuthoringCandidates,
+  reviseFailedLessons,
+  type LessonDefectSample,
+} from "./lesson-author"
 import { resolveProjectTitle } from "./project-title"
 
 /* ================================================================
@@ -72,7 +85,10 @@ function snippetAround(content: string, line?: number): string {
  * выдачу: обучение — улучшение памяти, а не часть результата. Поэтому вызов не
  * ожидается (`void`), а любая ошибка внутри остаётся внутри.
  */
-function authorLessonsInBackground(report: EngineeringReport, files: Array<{ path: string; content: string }>): void {
+function authorMissingLessonsInBackground(
+  report: EngineeringReport,
+  files: Array<{ path: string; content: string }>,
+): void {
   try {
     const silent = getLessonsReport().silent
     if (silent.length === 0) return
@@ -114,6 +130,50 @@ function authorLessonsInBackground(report: EngineeringReport, files: Array<{ pat
   } catch (err) {
     captureError("[craft-corpus] не удалось запустить авторство уроков:", err)
   }
+}
+
+/**
+ * Пересматривает формулировки, которые доказанно не работают (волна 6).
+ *
+ * Зачем отдельно от разбора: разбор закрывает случай «правило есть, урока нет», а здесь
+ * случай хуже — урок ЕСТЬ, доходит до модели и не помогает. До волны 6 такой урок жил в
+ * памяти вечно и занимал место в промпте, вытесняя рабочий: платформа не умела признать
+ * своё знание негодным.
+ *
+ * Не зависит от `silent`: провалившийся урок надо переписать и тогда, когда новых правил
+ * без формулировки нет вовсе — то есть именно в спокойной, «хорошей» генерации.
+ */
+function reviseFailedLessonsInBackground(): void {
+  try {
+    const lessons = rankedLessons()
+    if (lessons.length === 0) return
+
+    void reviseFailedLessons(lessons, listAuthoredLessons())
+      .then((outcome) => {
+        for (const item of outcome.revised) {
+          console.log(`[craft-corpus] урок «${item.rule}» переписан: было «${item.previous}» → стало «${item.text}»`)
+        }
+        for (const fail of outcome.rejected) {
+          console.log(`[craft-corpus] урок «${fail.rule}» переписать не удалось: ${fail.reason}`)
+        }
+      })
+      .catch((err) => captureError("[craft-corpus] переписывание уроков сорвалось:", err))
+  } catch (err) {
+    captureError("[craft-corpus] не удалось запустить переписывание уроков:", err)
+  }
+}
+
+/**
+ * Обе половины самообучения одним входом: сформулировать недостающее и пересмотреть
+ * негодное. Вызывается после выдачи приложения; ни одна из половин не имеет права
+ * повлиять на результат генерации, поэтому обе — «выстрелил и забыл».
+ */
+function learnFromGenerationInBackground(
+  report: EngineeringReport,
+  files: Array<{ path: string; content: string }>,
+): void {
+  authorMissingLessonsInBackground(report, files)
+  reviseFailedLessonsInBackground()
 }
 
 /** Стат [10..39] из provably-fair float'а [0,1) — распределение 1:1 с прежним
@@ -461,9 +521,11 @@ async function runAppGenerationJobInner(
        (2) Память удач: в корпус шаблонов уходит ТОЛЬКО проверенный код —
            и только если он лучше того, что уже лежит по этой теме.
        (3) Формулировки: правило без текста урока разбирается моделью и получает его
-           само — иначе счётчик растёт, а промпт следующей генерации его отбрасывает. */
+           само — иначе счётчик растёт, а промпт следующей генерации его отбрасывает.
+       (4) Пересмотр: формулировка, после которой дефект продолжает повторяться,
+           переписывается — знание, не давшее результата, обязано уступить место. */
     recordLessons(engineering.report.lessons)
-    authorLessonsInBackground(engineering.report, files)
+    learnFromGenerationInBackground(engineering.report, files)
 
     if (source === "ai" && isWorthLearning(engineering.report.verdict)) {
       saveTemplateFromGeneration({
@@ -743,7 +805,7 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
       // генерация: дефекты, найденные здесь, тоже идут в память ошибок платформы —
       // включая формулировку урока для правил, которых нет в рукописном словаре.
       recordLessons(engineering.report.lessons)
-      authorLessonsInBackground(engineering.report, engineering.files)
+      learnFromGenerationInBackground(engineering.report, engineering.files)
       persistDesign(project.id, brief, explainDesignQuality(engineering.files, brief))
 
       emitGenerationStage({
