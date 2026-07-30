@@ -130,7 +130,7 @@ function slugify(name: string): string {
  *  Три файла дизайн-системы (tailwind.config.ts, globals.css, layout.tsx) приходят
  *  из брифа: раньше здесь лежали пустой `theme: { extend: {} }` и голый layout,
  *  из-за чего у приложения не было дизайн-системы вообще. */
-function staticTemplateFiles(name: string, brief: DesignBrief, description: string): GeneratedAppFile[] {
+export function staticTemplateFiles(name: string, brief: DesignBrief, description: string): GeneratedAppFile[] {
   const slug = slugify(name)
 
   return [
