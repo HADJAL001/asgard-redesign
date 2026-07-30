@@ -584,6 +584,10 @@ async function runAppGenerationJobInner(
         verdict: engineering.report.verdict,
         designScore: designReport.score,
         repairs: engineering.report.repairs.length,
+        /* Адрес человеческого сигнала (волна 7, п.2): по этому id корпус позже узнает,
+           задеплоил ли человек результат и просил ли переделать. Без связи с проектом
+           качество шаблона навсегда осталось бы мнением одной машины. */
+        sourceProjectId: projectId,
       })
     }
 

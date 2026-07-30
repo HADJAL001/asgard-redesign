@@ -23,6 +23,7 @@ import { generationEvents, getRecentStages, type GenerationStreamEvent } from ".
 import { guestProjectCapReached } from "../lib/guest-service"
 import { getLessonsReport } from "../lib/craft-corpus"
 import { learningCoverage } from "../lib/learning-coverage"
+import { humanSignalsReport } from "../lib/human-signals"
 import { getTemplateSavingsReport } from "../services/template-store"
 import {
   refinementsRemaining,
@@ -200,6 +201,18 @@ router.get("/platform-memory", requireAuth, (_req: AuthRequest, res) => {
          усредняет «до» и «после» любой правки механизма и молчит месяцами. */
       lastWeek: learningCoverage({ sinceDays: 7 }),
     },
+    /* --- Человеческий сигнал в качестве (волна 7, п.2) ---
+       Всё выше — измерения машины: собралось, сколько ремонтов, какой балл интерфейса.
+       Ни одно поле не отвечало, что с этим кодом сделал ЧЕЛОВЕК: выложил наружу или
+       пошёл просить переделать. Оба факта у платформы были (миграции 029 и 089) и до
+       отбора шаблонов не доходили.
+
+       Показывать обязательно `linked`: механизм работает только по шаблонам с
+       проектом-родителем, и в проде корпус может целиком состоять из старых шаблонов
+       без связи — тогда сигнал честно меняет НОЛЬ решений, и это должно быть видно
+       числом, а не выясняться расследованием. `signalShare === null` значит «корпус
+       пуст» и отличается от нуля намеренно. */
+    humanSignals: humanSignalsReport(),
   })
 })
 
