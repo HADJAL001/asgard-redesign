@@ -26,6 +26,7 @@ import { useOsgardStore, type OsgardArtifact } from "@/lib/store/osgard-store"
 import { COLORS, RARITY, RARITY_CHAIN } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { apiClient } from "@/lib/api-client"
+import { GenerationPreflight, useGenerationPreflight } from "./GenerationPreflight"
 import { UpgradeNudgeModal, useUpgradeNudge } from "./UpgradeNudgeModal"
 import { GenerationStages } from "./GenerationStages"
 import { ProjectArtifactReveal, type RevealRarityMeta } from "./ProjectArtifactReveal"
@@ -137,6 +138,19 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
   /** Мастер занят ритуалом (генерация или раскрытие), включая окно между
    *  автостартом и появлением generatingApp — прячем шаги, прогресс-бар и футер. */
   const busy = generatingApp || !!reveal || (autoStart && (submitting || !autoStarted))
+
+  /* Взгляд платформы на заявку ДО кнопки (волна 7, п.4): что за продукт просят, на что это
+     похоже из прошлых генераций и чем те кончились, чего в заявке не хватает.
+
+     Запрашивается только на шаге описания: раньше заявку нечем наполнить, а при autoStart
+     шага нет вовсе — там человек уже нажал, и разбор перед кнопкой опоздал бы. Ни одного
+     обращения к модели за этим не стоит, поэтому запрос дешёвый (см. GenerationPreflight). */
+  const briefHint = description.trim() || theme?.hint || ""
+  const { preflight, loading: preflightLoading } = useGenerationPreflight({
+    name: name.trim() || undefined,
+    hint: briefHint || undefined,
+    enabled: step === 3 && !autoStart,
+  })
 
   // «Первый клик создаёт проект»: идея уже описана — не спрашиваем имя/тему,
   // запускаем генерацию сразу при открытии мастера.
@@ -417,6 +431,16 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
               <p className="mt-2 text-[12px]" style={{ color: COLORS.label }}>
                 {t("projectWizard.descriptionHint")}
               </p>
+
+              {/* Взгляд платформы на заявку — ВЫШЕ выбора глубины и сметы намеренно: сначала
+                  «что я понял и чего не хватает», потом «сколько это будет стоить». Обратный
+                  порядок предлагал бы человеку платить за замысел, который платформа поняла
+                  не так, и узнавать об этом после списания. */}
+              <GenerationPreflight
+                preflight={preflight}
+                hasBrief={briefHint.length > 0}
+                loading={preflightLoading}
+              />
 
               {depths.length > 0 && (
                 <div className="mt-4">

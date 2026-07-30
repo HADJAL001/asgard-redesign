@@ -59,7 +59,7 @@
    ================================================================ */
 
 import { useCallback, useEffect, useState } from "react"
-import { Brain, Loader2, GraduationCap, EyeOff, Package, RefreshCw, AlertTriangle } from "lucide-react"
+import { Brain, Loader2, GraduationCap, Eye, EyeOff, Package, RefreshCw, AlertTriangle } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 
 type TaughtLesson = {
@@ -118,6 +118,18 @@ type HumanSignalsReport = {
   signalShare: number | null
 }
 
+/** Взгляд наперёд (волна 7, п.4): у скольких проектов выведен класс продукта и по скольким
+ *  классам фактов хватает на вывод. `classifiedShare === null` — проектов нет вовсе, и это
+ *  отличается от «класс не выводится ни у кого». */
+type ForesightReport = {
+  projects: number
+  classified: number
+  unknownClass: number
+  byClass: Array<{ cls: string; total: number; deployed: number; refined: number; broken: number }>
+  classifiedShare: number | null
+  classesWithFacts: number
+}
+
 type PlatformMemory = {
   mistakes: {
     rules: number
@@ -158,6 +170,10 @@ type PlatformMemory = {
      отдаёт, и тогда блока просто нет. Рисовать нули нельзя — «сигнал есть, но он ни на
      что не влияет» и «бэкенд о сигнале не знает» это разные факты. */
   humanSignals?: HumanSignalsReport
+  /* Поле волны 7, пункт 4. Необязательное по той же причине: бэкенд без миграции 101 его
+     не отдаёт, и тогда блока просто нет. Всё остальное на этой витрине — память о прошлом;
+     это единственное поле про будущее. */
+  foresight?: ForesightReport
 }
 
 /* Человеческие имена ветвей получения кода. Ветвь важнее процента: она отвечает на
@@ -174,6 +190,23 @@ const DEPTH_LABELS: Record<string, string> = {
   quick: "быстрая (бесплатная)",
   standard: "стандартная",
   deep: "глубокая",
+}
+
+/* Человеческие имена классов продукта. Ключ остаётся английским в базе, витрине нужен
+   русский — тот же приём, что и с ветвями получения кода выше. Неизвестный ключ
+   показывается как есть: новый класс на бэкенде не имеет права ломать витрину. */
+const PRODUCT_CLASS_LABELS: Record<string, string> = {
+  "catalog-commerce": "каталог с продажей",
+  "content-feed": "лента материалов",
+  "social-community": "сообщество с профилями",
+  "realtime-chat": "живой обмен сообщениями",
+  "dashboard-analytics": "панель с показателями",
+  "booking-schedule": "запись и расписание",
+  "tracker-crud": "учёт записей",
+  "game-loop": "игровой цикл",
+  "showcase-landing": "витрина-страница",
+  "tool-utility": "инструмент",
+  unknown: "функция в заявке не названа",
 }
 
 /** Доля в проценты. `null` (генераций не было) — прочерк, а не «0%». */
@@ -238,6 +271,7 @@ export function DevMemoryView() {
   const coverage = data?.coverage
   /* Волна 7, п.2: человеческий сигнал. Бэкенд без него поля не отдаёт — блока не будет. */
   const humanSignals = data?.humanSignals
+  const foresight = data?.foresight
   /* Поля волны 8. Бэкенд без точки отсчёта их не отдаёт — тогда цифры нулевые, а
      витрина работает как в волне 6. */
   const measuring = data?.effectiveness?.measuring ?? 0
@@ -747,6 +781,76 @@ export function DevMemoryView() {
               </div>
             ) : null}
           </section>
+
+          {/* Взгляд наперёд (волна 7, п.4). Всё выше — память о прошлом: чему платформа
+              научилась на своих ошибках и удачах. Здесь видно, способна ли она сказать
+              что-то ДО генерации: у скольких проектов выведен класс продукта и по скольким
+              классам фактов хватает на вывод.
+
+              Без этих чисел «платформа видит наперёд» — утверждение про код. В проде
+              возможны оба вырожденных случая: миграция 101 не доехала (класс выведен у
+              нуля проектов) или выведена у всех, но заявки не описывают функцию — тогда
+              механизм честно отвечает «фактов нет» на каждую заявку. И то и другое обязано
+              быть видно числом, а не выясняться расследованием. */}
+          {foresight ? (
+            <section className="mt-9">
+              <h2 className="flex items-center gap-2 text-[15px] font-medium">
+                <Eye size={17} strokeWidth={1.75} style={{ color: "#22D3EE" }} aria-hidden="true" />
+                Взгляд наперёд
+              </h2>
+              <p className="mt-2 text-[13px]" style={{ color: MUTED }}>
+                Перед генерацией платформа отвечает на три вопроса: что за продукт просят,
+                на что это похоже из прошлых генераций и чем те кончились, чего в заявке не
+                хватает. Класс продукта — не тема оформления: он выводится из названных
+                возможностей, и именно по нему ищется похожее.
+              </p>
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Stat
+                  label="проектов с выведенным классом"
+                  value={pct(foresight.classifiedShare)}
+                  hint={
+                    foresight.projects === 0
+                      ? "проектов нет — это не ноль"
+                      : `${foresight.classified} из ${foresight.projects}`
+                  }
+                />
+                <Stat
+                  label="классов, по которым есть факты"
+                  value={String(foresight.classesWithFacts)}
+                  hint="меньше трёх похожих генераций — не статистика, вывод не делается"
+                />
+                <Stat
+                  label="заявок без названной функции"
+                  value={String(foresight.unknownClass)}
+                  hint="выдуманный класс хуже отсутствующего: под него нашлось бы «похожее»"
+                />
+              </div>
+              {foresight.byClass.length > 0 ? (
+                <ul className="mt-4 grid list-none grid-cols-1 gap-2 p-0">
+                  {foresight.byClass.map((slice) => (
+                    <li
+                      key={slice.cls}
+                      className="flex flex-wrap items-baseline gap-x-3 rounded-xl px-4 py-3 text-[13px]"
+                      style={{ border: DASHED }}
+                    >
+                      <span>{PRODUCT_CLASS_LABELS[slice.cls] ?? slice.cls}</span>
+                      <span style={{ color: MUTED }}>генераций: {slice.total}</span>
+                      <span style={{ color: "rgb(148 163 184 / 65%)" }}>
+                        выложено наружу: {slice.deployed} · просили переделать: {slice.refined} · с
+                        изъянами: {slice.broken}
+                        {slice.total < 3 ? " · фактов мало для вывода" : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-4 text-[13px]" style={{ color: MUTED }}>
+                  Класс не выведен ни у одного проекта — взгляд наперёд отвечает на вопрос
+                  «что за продукт», но сравнивать пока не с чем.
+                </p>
+              )}
+            </section>
+          ) : null}
 
           <div className="mt-8 flex items-center gap-3">
             <button type="button" onClick={() => void load()} className="dev-btn">
