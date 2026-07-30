@@ -12,6 +12,7 @@ import {
 } from "./build-integrity"
 import { repairFileWithAi } from "../services/app-generator"
 import { verifyBuildInSandbox } from "../services/sandbox.service"
+import { lessonsFromBuildLog } from "./build-log-lessons"
 import { captureError } from "./sentry"
 import type { DesignBrief } from "./design-system"
 import type { GenerationDepth } from "./generation-depths"
@@ -135,6 +136,18 @@ function countRules(defects: IntegrityDefect[]): Array<{ rule: string; count: nu
     .sort((a, b) => b.count - a.count)
 }
 
+/** Добавляет уроки, которые статический разбор не увидел, но увидел компилятор —
+ *  ровно тот сигнал, который волна 7 п.2 перестаёт выбрасывать. Учим на ПЕРВОМ
+ *  провале сборки, до AI-ремонта: после ремонта причина уже могла исчезнуть. */
+function mergeLessons(
+  base: Array<{ rule: string; count: number }>,
+  extra: Array<{ rule: string; count: number }>,
+): Array<{ rule: string; count: number }> {
+  const counts = new Map(base.map((l) => [l.rule, l.count]))
+  for (const l of extra) counts.set(l.rule, (counts.get(l.rule) ?? 0) + l.count)
+  return [...counts.entries()].map(([rule, count]) => ({ rule, count })).sort((a, b) => b.count - a.count)
+}
+
 /** Короткая человеческая сводка вердикта — уезжает в generation_error и в UI. */
 export function summarizeVerdict(report: EngineeringReport): string | null {
   if (report.verdict !== "broken") return null
@@ -209,6 +222,7 @@ export async function runEngineeringContour(
       const verified = await maybeVerifyBuild(files, opts)
       if (verified && !verified.skipped && !verified.ok) {
         // Сборка сказала «нет» там, где статический разбор сказал «да» — доверяем сборке.
+        lessons = mergeLessons(lessons, lessonsFromBuildLog(verified.logTail))
         const afterBuild = await repairFromBuildLog(files, verified, opts, repairs)
         files = afterBuild.files
         attempts += afterBuild.rounds
@@ -283,6 +297,7 @@ export async function runEngineeringContour(
     }
 
     if (verified && !verified.skipped && !verified.ok) {
+      lessons = mergeLessons(lessons, lessonsFromBuildLog(verified.logTail))
       const afterBuild = await repairFromBuildLog(files, verified, opts, repairs)
       files = afterBuild.files
       attempts += afterBuild.rounds
