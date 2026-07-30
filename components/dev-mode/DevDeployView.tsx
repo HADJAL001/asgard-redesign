@@ -29,7 +29,7 @@ type RowBusy = "deploy" | "github" | null
 
 function DeployRow({ project, primary }: { project: OsgardProject; primary: boolean }) {
   const router = useRouter()
-  const { deployProjectToNetlify, pollDeployStatus, publishProjectToGithub, fetchProjects } = useOsgardStore()
+  const { deployProject, pollDeployStatus, publishProjectToGithub, fetchProjects } = useOsgardStore()
 
   const [busy, setBusy] = useState<RowBusy>(null)
   const [error, setError] = useState<string | null>(null)
@@ -47,7 +47,7 @@ function DeployRow({ project, primary }: { project: OsgardProject; primary: bool
   async function handleDeploy() {
     setBusy("deploy")
     setError(null)
-    const res = await deployProjectToNetlify(project.id)
+    const res = await deployProject(project.id)
     if (!res.success) {
       setError(res.error || "Опубликовать не удалось. Попробуйте ещё раз.")
       setBusy(null)

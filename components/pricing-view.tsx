@@ -80,7 +80,7 @@ const ORCHESTRATOR_FEATURES: PlanDef["features"] = [
   { text: "10 OS 5.0 + 10 OS 3.3 + 10 OS 3.0 в месяц",   highlight: true },
   { text: "ДЖАРВИС + ВАЛЛИ + БЛИЗНЕЦ — всё" },
   { text: "Докупка пакетов провайдеров — не сгорают" },
-  { text: "Деплой + GitHub + Netlify" },
+  { text: "Деплой на инфраструктуру OSGARD + GitHub" },
   { text: "Ранний доступ к новым фичам" },
 ]
 
@@ -138,7 +138,7 @@ const PLANS: PlanDef[] = [
       { text: "20 AI-генераций проектов/день", highlight: true },
       { text: "ДЖАРВИС — безлимит" },
       { text: "ВАЛЛИ + БЛИЗНЕЦ — полный доступ" },
-      { text: "Деплой на Netlify" },
+      { text: "Деплой на инфраструктуру OSGARD" },
       { text: "GitHub-публикация проектов" },
       { text: "Приоритетная генерация" },
     ],

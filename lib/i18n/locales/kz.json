@@ -721,7 +721,7 @@
     "connectGithub": "GitHub-ты қосу",
     "githubConnected": "GitHub сәтті қосылды — енді жобаны жариялауға болады",
     "githubConnectFailed": "GitHub-ты қосу сәтсіз аяқталды",
-    "deployNetlify": "Netlify-ге деплой жасау",
+    "deployNetlify": "OSGARD инфрақұрылымына деплой жасау",
     "deploying": "Деплой орындалуда…",
     "deployed": "Жоба деплой жасалды:",
     "deployRequestFailed": "Деплойды бастау мүмкін болмады",

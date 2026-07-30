@@ -81,7 +81,7 @@ export function ProjectDetailView({ projectId }: Props) {
     clearCurrentProject,
     deleteProject,
     publishProjectToGithub,
-    deployProjectToNetlify,
+    deployProject,
     pollDeployStatus,
     tcPrice,
     loading,
@@ -174,7 +174,7 @@ export function ProjectDetailView({ projectId }: Props) {
     setDeploying(true)
     setDeployRequestError(null)
     try {
-      const res = await deployProjectToNetlify(projectId)
+      const res = await deployProject(projectId)
       if (res.success) {
         await pollDeployStatus(projectId)
       } else {
