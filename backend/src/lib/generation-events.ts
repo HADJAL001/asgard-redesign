@@ -66,6 +66,10 @@ export type GenerationStageEvent = {
   tokensEstimated?: number
   /** true на терминале ready, если приложение заработало без единого ремонта. */
   firstTry?: boolean
+  /** true, если платформа признала промах и выдала право на бесплатную перегенерацию
+   *  (lib/generation-makegood). Приходит вместе с самим провалом — иначе человек узнал
+   *  бы о компенсации случайно, при следующем запуске. */
+  makegood?: boolean
   at: number
 }
 

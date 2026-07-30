@@ -104,4 +104,41 @@ Railway (бэкенд) на `02edcd6` — **success**, Vercel Production `567385
 падений «тестовый сервер не поднялся вовремя» (файл, которого PR не касается), повторный
 полный прогон — **0 fail**. Известная ресурсная драка параллельных worktree.
 
+**Итог шага 2:** squash-мёрж в `main` = `d3370e3` (PR #186). CI: `test` — **success**,
+CodeQL, gitleaks, три `npm audit` — success; `e2e-android` висел `in_progress` ~11 минут и
+на решение не влияет: PR трогает только `backend/`, мобильного диффа в нём нет вовсе.
+Прод проверен фактом: Railway (`asgard-backend / production`, деплой `5677354965`) —
+**success** в 15:24 UTC, Vercel Production `5677362930` — **success**, живые пробы
+`https://osgardnewworld.com/` → **200**, `/api/projects/platform-memory` → **401**.
+
+## Шаг 3 — смета генерации до запуска → PR (в работе)
+
+Сверка перед стартом: в `main` файлов сметы нет (`generation-estimate`,
+`generation-makegood`, `GenerationCostEstimate.tsx` отсутствуют), чужого PR по теме нет.
+Отдельно проверил **чужой PR #185** («TimeCoin не списан» при неудаче) — тема соседняя,
+но он правит ключи `artifacts.createdFailed` / `premiumUpgrade.failed`, а я добавляю
+новый блок `generationEstimate`. Пересечения нет.
+
+Ветка `feat/generator-cost-estimate-land` от `d3370e3`, черри-пик `34e9032`.
+
+**Два конфликта, оба разрешены союзом (ничего не выброшено):**
+
+- `backend/src/server.ts` — импорты миграций: рядом встали `098_lesson_teaching_baseline`
+  (пришла с main) и `099_generation_makegood` (моя). Номер **099 свободен** — проверил
+  список миграций в `main` (заняты по 098 включительно), переномеровывать не пришлось.
+- `backend/src/lib/project-generation.ts` — в одну точку метили две независимые вставки:
+  след обучения волны 7 (`recordGenerationLearning`, уже в main) и выдача права на
+  бесплатную перегенерацию (`grantMakegood`). Оставил **обе** в этом порядке; переменные,
+  на которые опирается вторая (`blockingImportErrors`, `engineering.report.verdict`),
+  объявлены выше по функции — проверил по файлу, а не по памяти.
+
+**Гейт:**
+
+| проверка | результат |
+|---|---|
+| `tsc --noEmit` бэкенд | **0 ошибок** |
+| `tsc --noEmit` фронт | **0 ошибок** |
+| `next build` | **успешно** (все маршруты собраны) |
+| backend весь пакет тестов | **631 тест, 629 pass, 0 fail** (+39 к прошлому шагу) |
+
 _(продолжение пишется по мере выполнения)_

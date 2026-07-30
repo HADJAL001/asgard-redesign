@@ -1,4 +1,5 @@
 import { redisClient, ensureRedisConnected } from "./redis"
+import { planLimit } from "./generation-quota"
 import type { PlanKey } from "./stripe"
 
 /* ================================================================
@@ -37,7 +38,10 @@ function msUntilNextUtcMidnight(): number {
 }
 
 export function getServiceBridgeLimit(plan: PlanKey): number | null {
-  return SERVICE_BRIDGE_LIMITS[plan] ?? SERVICE_BRIDGE_LIMITS.free
+  /* Через planLimit, а не `?? SERVICE_BRIDGE_LIMITS.free`: у elite лимит и ЕСТЬ null
+     (безлимит, о чём сказано выше), а `??` подменял его двадцаткой бесплатного тарифа.
+     Подробнее — lib/generation-quota. */
+  return planLimit(SERVICE_BRIDGE_LIMITS, plan)
 }
 
 export async function getServiceBridgeUsage(userId: number): Promise<number> {
@@ -93,9 +97,11 @@ export async function isServiceBridgeLimitExceeded(userId: number, plan: PlanKey
   return usage >= limit
 }
 
+/* unref: уборщик просроченных счётчиков — не причина держать процесс живым. Без него
+   любой импорт этого модуля (например, из теста) не давал процессу завершиться. */
 setInterval(() => {
   const now = Date.now()
   for (const [key, record] of memoryUsage.entries()) {
     if (record.resetAt < now) memoryUsage.delete(key)
   }
-}, 300_000)
+}, 300_000).unref()
