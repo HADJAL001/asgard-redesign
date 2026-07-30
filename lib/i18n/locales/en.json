@@ -1041,5 +1041,29 @@
     "ready": "Done",
     "failed": "Didn't work out",
     "defectsFound": "{{count}} defects found — the platform is repairing them live"
+  },
+  "generationEstimate": {
+    "title": "Cost estimate before you start",
+    "loading": "Estimating from the platform's own history…",
+    "basisProfile": "based on {{count}} identical generations",
+    "basisDepth": "few exact matches — based on {{count}} generations of the same depth",
+    "basisPlatform": "no similar ones — based on {{count}} platform generations",
+    "basisNone": "the platform hasn't measured generations like this yet",
+    "credits": "{{cost}} cr. will be charged",
+    "creditsFree": "no credits charged",
+    "quotaLeft": "quick generations left today: {{left}}",
+    "quotaUnlimited": "quick generations with no daily limit",
+    "aiCalls": "AI calls",
+    "tokens": "Tokens",
+    "duration": "Time",
+    "range": "{{low}} – {{high}}",
+    "hint": "median ~{{value}}",
+    "corridorMeaning": "These bounds are the corridor covering the large majority of past runs of this profile. The median is a typical case, not a price: cost is driven by how complex the idea itself turns out to be, and a single run can land well past the median with no failure involved",
+    "firstTry": "{{percent}}% of such generations built on the first try, with no repairs",
+    "templateFound": "The platform has built something similar (theme “{{theme}}”) — this run is cheaper and faster",
+    "unmeasured": "Some providers don't report usage ({{percent}}%) — those tokens are estimated from text length",
+    "noHistory": "We'll show the real spend as it happens: too few similar generations to promise a number",
+    "makegood": "This run is on the platform: last time {{reason}}",
+    "disclaimer": "This is an expectation from our history, not a guarantee — a particular run may cost more or less"
   }
 }

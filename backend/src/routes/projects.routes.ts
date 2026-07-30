@@ -13,13 +13,24 @@ import { captureError } from "../lib/sentry"
 import {
   PROJECT_SELECT_COLUMNS,
   createGeneratedProject,
+  planGeneration,
   refineGeneratedProject,
   repairGeneratedProject,
 } from "../lib/project-generation"
 import { rateLimit } from "../middleware/rateLimiter"
-import { GENERATION_DEPTHS, resolveDepth, serializeDepths } from "../lib/generation-depths"
+import { GENERATION_DEPTHS, resolveDepth, serializeDepths, type GenerationDepth } from "../lib/generation-depths"
 import { allowsServerCode, normalizeAppProfile } from "../lib/app-profiles"
 import { getAppDatabase, releaseAppDatabase } from "../services/app-database-binding"
+import { estimateAllDepths, loadGenerationSamples, type GenerationPath } from "../lib/generation-estimate"
+import { resolveDailyLimit, quotaRemaining } from "../lib/generation-quota"
+import {
+  attachMakegoodProject,
+  consumeMakegood,
+  findMakegoodFor,
+  openMakegood,
+  releaseMakegood,
+  MAKEGOOD_REASON_TEXT,
+} from "../lib/generation-makegood"
 import { logAudit } from "../lib/audit"
 import { generationEvents, getRecentStages, type GenerationStreamEvent } from "../lib/generation-events"
 import { guestProjectCapReached } from "../lib/guest-service"
@@ -48,14 +59,6 @@ const LIST_CURRENCY_BY_RARITY: Record<string, string> = {
   mythic: "timecoin",
 }
 
-/* Дневные лимиты генераций проектов по тарифу (users.plan). null = без лимита. */
-const DAILY_GENERATION_LIMITS: Record<string, number | null> = {
-  free: 5,
-  architect: 15,
-  master: 40,
-  legend: null,
-}
-
 function getTodayStartMs(): number {
   const now = new Date()
   return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
@@ -75,7 +78,7 @@ const GUEST_CAP_RESPONSE = {
 router.get("/generation-limits", requireAuth, (req: AuthRequest, res) => {
   const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(req.user!.userId)
   const plan = userRow?.plan || "free"
-  const dailyLimit = DAILY_GENERATION_LIMITS[plan] ?? DAILY_GENERATION_LIMITS.free
+  const dailyLimit = resolveDailyLimit(plan)
 
   const todayStart = getTodayStartMs()
   // Квоту тратят только бесплатные (quick) генерации; платные (standard/deep) — нет.
@@ -89,7 +92,7 @@ router.get("/generation-limits", requireAuth, (req: AuthRequest, res) => {
     plan,
     dailyLimit,
     used: count,
-    remaining: dailyLimit === null ? null : Math.max(0, dailyLimit - count),
+    remaining: quotaRemaining(dailyLimit, count),
     depths: serializeDepths(),
   })
 })
@@ -98,6 +101,98 @@ router.get("/generation-limits", requireAuth, (req: AuthRequest, res) => {
 router.get("/generation-depths", requireAuth, (_req: AuthRequest, res) => {
   res.json({ depths: serializeDepths() })
 })
+
+/* ---------------- POST /projects/generation-estimate — смета ДО запуска ----------------
+   Единственная цифра, которую платформа знала точно ДО генерации, — стоимость в
+   кредитах. Всё остальное (сколько обращений к моделям, сколько токенов, сколько
+   ждать) выяснялось постфактум из колонок 095 — то есть когда квота уже потрачена.
+   Ровно это на рынке AI-сборщиков и вызывает главную претензию: цена попытки
+   известна только после попытки.
+
+   Здесь смета считается по СОБСТВЕННОЙ истории платформы (lib/generation-estimate) и
+   отдаётся по всем глубинам сразу: выбор должен быть осознанным до списания, а
+   сравнивать варианты постфактум бессмысленно.
+
+   Путь генерации (шаблон или полная AI-сборка) предсказывается тем же кодом, который
+   его потом и выберет (`planGeneration`) — обещание и факт не могут разойтись по
+   конструкции.
+
+   POST, а не GET: замысел пользователя — произвольный текст до 2000 символов, ему не
+   место в query-строке (логи, длина URL). Тело не меняет состояние; идемпотентно.
+------------------------------------------------------------------------------- */
+router.post(
+  "/generation-estimate",
+  requireAuth,
+  /* Смета читает историю и корпус шаблонов на каждый вызов, а вызывается на каждое
+     изменение выбора в мастере — ограничитель защищает от превращения подсказки в
+     нагрузку. Лимит щедрый: нормальный человек за 5 минут смету пересчитает несколько
+     раз, но не 60. */
+  rateLimit(5 * 60 * 1000, 60, (req) => `gen-estimate:${(req as AuthRequest).user?.userId ?? req.ip}`),
+  (req: AuthRequest, res) => {
+    const userId = req.user!.userId
+    const name = typeof req.body?.name === "string" ? req.body.name.slice(0, 200) : undefined
+    const hint = typeof req.body?.hint === "string" ? req.body.hint.slice(0, 2000) : undefined
+
+    /* Дневная квота тарифа — вторая половина ответа на вопрос «сколько это стоит»:
+       для быстрой генерации цена измеряется не кредитами, а остатком попыток. */
+    const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
+    const plan = userRow?.plan || "free"
+    const dailyLimit = resolveDailyLimit(plan)
+    const { count: usedToday } = db
+      .prepare(
+        `SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND created_at >= ? AND generation_depth = 'quick'`,
+      )
+      .get(userId, getTodayStartMs()) as { count: number }
+    const remainingToday = quotaRemaining(dailyLimit, usedToday)
+
+    /* Путь по каждой глубине — ровно тот, который выберет генерация. Для standard/deep
+       шаблонный shortcut отключён (forceAi), поэтому там всегда полная AI-сборка. */
+    const pathByDepth = {} as Record<GenerationDepth, GenerationPath>
+    let templateTheme: string | null = null
+    for (const depth of Object.keys(GENERATION_DEPTHS) as GenerationDepth[]) {
+      try {
+        const planned = planGeneration({ name, hint, depth })
+        pathByDepth[depth] = planned.path
+        if (depth === "quick") templateTheme = planned.template ? planned.template.theme : null
+      } catch (err) {
+        /* Корпус шаблонов недоступен — считаем по дорогому пути: заниженная смета
+           обманывает, завышенная только настораживает. */
+        captureError("[projects.generation-estimate] план генерации не построен:", err)
+        pathByDepth[depth] = "ai"
+      }
+    }
+
+    const estimates = estimateAllDepths({ samples: loadGenerationSamples(), pathByDepth })
+
+    /* Право на перегенерацию за счёт платформы: если платформа уже промахнулась, человек
+       должен видеть это ДО запуска — иначе он второй раз заплатит за наш промах, просто
+       не зная, что платить не нужно. */
+    const right = openMakegood(userId)
+
+    res.json({
+      plan,
+      quota: { dailyLimit, used: usedToday, remaining: remainingToday },
+      /* Тема, по которой подобрался готовый шаблон (null — шаблона нет). Объясняет,
+         почему быстрая генерация дешевле: платформа уже собирала похожее. */
+      templateTheme,
+      estimates,
+      makegood: right
+        ? {
+            available: true,
+            depth: right.depth,
+            credits: right.credits,
+            projectId: right.projectId,
+            reason: right.reason,
+            reasonText: MAKEGOOD_REASON_TEXT[right.reason],
+          }
+        : { available: false },
+      /* Честная оговорка к точности — не украшение ответа, а его условие:
+         смета основана на прошлом, а не на знании будущего. */
+      disclaimer:
+        "Смета построена на реальном расходе прошлых генераций платформы. Это ожидание, а не гарантия: конкретный запуск может обойтись дороже или дешевле.",
+    })
+  },
+)
 
 /* ---------------- GET /projects/platform-memory — чему платформа научилась ----------------
    Обе памяти корпуса ремесла (lib/craft-corpus) БЫЛИ слепыми: `getLessonsReport` и
@@ -428,7 +523,13 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
   if (depthCfg.countsAgainstQuota) {
     const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
     const plan = userRow?.plan || "free"
-    const dailyLimit = DAILY_GENERATION_LIMITS[plan] ?? DAILY_GENERATION_LIMITS.free
+    const dailyLimit = resolveDailyLimit(plan)
+
+    /* Право на перегенерацию за счёт платформы (lib/generation-makegood) списывается
+       здесь ТОЛЬКО при исчерпанной квоте — то есть ровно тогда, когда без него человек
+       получил бы отказ. Быстрая генерация в пределах квоты и так ничего не стоит:
+       тратить компенсацию на неё значило бы обесценить её молча. */
+    let makegoodId: number | null = null
 
     if (dailyLimit !== null) {
       const todayStart = getTodayStartMs()
@@ -439,25 +540,79 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
         .get(userId, todayStart) as { count: number }
 
       if (count >= dailyLimit) {
-        return res.status(429).json({
-          error: `Дневной лимит быстрых генераций (${dailyLimit}) для тарифа "${plan}" исчерпан. Попробуйте завтра, улучшите тариф или выберите платную глубину.`,
-          plan,
-          dailyLimit,
-          used: count,
-        })
+        const right = findMakegoodFor(userId, depth)
+        /* Списываем ДО создания проекта: право должно быть либо потрачено, либо целым.
+           Если два запуска борются за одно право, consume победит только у одного. */
+        if (right && consumeMakegood(right.id, null)) {
+          makegoodId = right.id
+        } else {
+          return res.status(429).json({
+            error: `Дневной лимит быстрых генераций (${dailyLimit}) для тарифа "${plan}" исчерпан. Попробуйте завтра, улучшите тариф или выберите платную глубину.`,
+            plan,
+            dailyLimit,
+            used: count,
+          })
+        }
       }
     }
 
     try {
-      const { project, artifacts } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth, profile })
-      return res.status(202).json({ project, artifacts, depth, costCredits: 0, aiConfigured: isAiConfigured() })
+      const { project, artifacts, projectId } = createGeneratedProject({
+        userId,
+        name: resolvedName,
+        hint: safeHint,
+        depth,
+        profile,
+      })
+      if (makegoodId !== null) attachMakegoodProject(makegoodId, projectId)
+      return res.status(202).json({
+        project,
+        artifacts,
+        depth,
+        costCredits: 0,
+        /* Клиент обязан сказать человеку, что запуск прошёл за счёт платформы: молчаливая
+           компенсация неотличима от сбоя учёта. */
+        makegoodApplied: makegoodId !== null,
+        aiConfigured: isAiConfigured(),
+      })
     } catch (err) {
+      /* Проект не создан — право возвращаем: иначе платформа промахнулась бы дважды и
+         оба раза за счёт пользователя. */
+      if (makegoodId !== null) releaseMakegood(makegoodId)
       captureError("[projects.generate] error:", err)
       return res.status(500).json({ error: "Не удалось создать проект" })
     }
   }
 
-  /* --- Платная глубина (standard/deep): честное списание кредитов --- */
+  /* --- Платная глубина (standard/deep): честное списание кредитов ---
+     Сначала пробуем закрыть запуск правом на перегенерацию за счёт платформы: если
+     платформа уже испортила генерацию этой же (или большей) глубины, повторная попытка
+     не должна стоить пользователю кредитов. */
+  const paidRight = findMakegoodFor(userId, depth)
+  if (paidRight && consumeMakegood(paidRight.id, null)) {
+    try {
+      const { project, artifacts, projectId } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth })
+      attachMakegoodProject(paidRight.id, projectId)
+      logAudit(userId, "credit", paidRight.credits, "project_generation_makegood", {
+        depth,
+        failedProjectId: paidRight.projectId,
+        reason: paidRight.reason,
+      })
+      return res.status(202).json({
+        project,
+        artifacts,
+        depth,
+        costCredits: 0,
+        makegoodApplied: true,
+        aiConfigured: isAiConfigured(),
+      })
+    } catch (err) {
+      releaseMakegood(paidRight.id)
+      captureError("[projects.generate] error:", err)
+      return res.status(500).json({ error: "Не удалось создать проект" })
+    }
+  }
+
   const cost = depthCfg.credits
   const wallet = db.prepare(`SELECT credits FROM wallets WHERE user_id = ?`).get(userId) as
     | { credits: number }
@@ -494,7 +649,9 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
 
   try {
     const { project, artifacts } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth, profile })
-    return res.status(202).json({ project, artifacts, depth, costCredits: cost, aiConfigured: isAiConfigured() })
+    return res
+      .status(202)
+      .json({ project, artifacts, depth, costCredits: cost, makegoodApplied: false, aiConfigured: isAiConfigured() })
   } catch (err) {
     /* Синхронный сбой создания — честно возвращаем кредиты. */
     db.exec("BEGIN IMMEDIATE")
