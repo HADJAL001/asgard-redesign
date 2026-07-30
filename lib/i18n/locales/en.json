@@ -721,7 +721,7 @@
     "connectGithub": "Connect GitHub",
     "githubConnected": "GitHub connected — you can now publish the project",
     "githubConnectFailed": "Failed to connect GitHub",
-    "deployNetlify": "Deploy to Netlify",
+    "deployNetlify": "Deploy to OSGARD infrastructure",
     "deploying": "Deploying…",
     "deployed": "Project deployed:",
     "deployRequestFailed": "Failed to start deployment",

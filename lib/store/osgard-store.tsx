@@ -501,7 +501,7 @@ export interface OsgardProject {
   /** Источник генерации файлов приложения: "ai"/"template-ai" (сгенерировано провайдером,
       напрямую или через сохранённый шаблон) или "fallback"/"template-local" (без AI). */
   aiSource?: "ai" | "fallback" | "template-ai" | "template-local" | null
-  /** Статус деплоя на Netlify (независим от status — проект можно передеплоить много раз). */
+  /** Статус деплоя (независим от status — проект можно передеплоить много раз). */
   deployStatus?: "deploying" | "deployed" | "failed" | null
   deployError?: string | null
   liveUrl?: string | null
@@ -646,8 +646,8 @@ export interface SaveFileActionResult {
   error?: string
 }
 
-/** Результат deployProjectToNetlify (см. POST /projects/:id/deploy-netlify). */
-export interface NetlifyDeployActionResult {
+/** Результат deployProject (см. POST /projects/:id/deploy). */
+export interface DeployActionResult {
   success: boolean
   project?: OsgardProject
   error?: string
@@ -821,8 +821,10 @@ export interface OsgardStoreState {
   publishProjectToGithub: (id: number, opts?: { repoName?: string; private?: boolean }) => Promise<GithubPublishActionResult>
   /** PUT /projects/:id/files/* — сохраняет содержимое одного файла (Monaco-редактор). */
   saveProjectFile: (id: number, path: string, content: string) => Promise<SaveFileActionResult>
-  /** POST /projects/:id/deploy-netlify — запускает асинхронный деплой на Netlify (deploy_status='deploying'). */
-  deployProjectToNetlify: (id: number) => Promise<NetlifyDeployActionResult>
+  /** POST /projects/:id/deploy — запускает асинхронный деплой на нашу инфраструктуру
+   *  (deploy_status='deploying'). Площадку выбирает бэкенд: своя инфра, Netlify — только
+   *  аварийный запас (backend/src/services/deploy-target.ts). */
+  deployProject: (id: number) => Promise<DeployActionResult>
   /** Опрашивает GET /projects/:id, пока project.deployStatus не выйдет из 'deploying' (или не истечёт таймаут). */
   pollDeployStatus: (id: number, opts?: { intervalMs?: number; timeoutMs?: number }) => Promise<OsgardProject | null>
   /** PATCH /projects/:id — обновить название/описание/бейдж проекта. */
@@ -1781,11 +1783,11 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     }
   },
 
-  /* ---- проекты: POST /projects/:id/deploy-netlify — запуск асинхронного деплоя ---- */
-  deployProjectToNetlify: async (id) => {
+  /* ---- проекты: POST /projects/:id/deploy — запуск асинхронного деплоя ---- */
+  deployProject: async (id) => {
     set({ loading: true, error: null })
     try {
-      const res = await apiClient.post<{ project: OsgardProject }>(`/projects/${id}/deploy-netlify`)
+      const res = await apiClient.post<{ project: OsgardProject }>(`/projects/${id}/deploy`)
       set((s) => ({
         loading: false,
         error: null,
@@ -1794,7 +1796,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       }))
       return { success: true, project: res.project }
     } catch (err) {
-      const message = extractErrorMessage(err, "Не удалось запустить деплой на Netlify")
+      const message = extractErrorMessage(err, "Не удалось запустить деплой")
       set({ loading: false, error: message })
       return { success: false, error: message }
     }

@@ -5,7 +5,7 @@ import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { isAiConfigured } from "../services/ai-generator"
 import { validateGeneratedFiles, GeneratedAppFile } from "../services/app-generator"
-import { runNetlifyDeployJob, isNetlifyConfigured } from "../services/netlify-deploy"
+import { resolveDeployTarget, runDeployJob } from "../services/deploy-target"
 import { verifyBuildInSandbox } from "../services/sandbox.service"
 import { decrypt } from "../utils/encryption"
 import { asyncHandler } from "../utils/async-handler"
@@ -955,13 +955,24 @@ router.post("/:id/publish-github", requireAuth, asyncHandler(async (req: AuthReq
   }
 }))
 
-/* ---------------- POST /projects/:id/deploy-netlify — задеплоить проект на Netlify ----------------
-   Серверный NETLIFY_AUTH_TOKEN (единый платформенный аккаунт), не пер-пользовательский OAuth.
-   Тот же fire-and-forget паттерн, что и генерация приложения: отвечаем сразу
-   (deploy_status='deploying'), реальная сборка (npm install + next build) и загрузка
-   запускаются в фоне, фронтенд опрашивает GET /projects/:id.
+/* ---------------- Публикация проекта ----------------
+   Площадку выбирает resolveDeployTarget (services/deploy-target.ts): основная —
+   НАША инфраструктура (*.osgard.cloud, тот же control-plane, что везёт боевой
+   SUPER DAY), Netlify — только аварийный запас и только при явном
+   DEPLOY_ALLOW_NETLIFY_FALLBACK=true. Мы продаём аренду своей инфраструктуры,
+   поэтому публикация клиентских приложений к конкуренту — не деталь реализации,
+   а подрыв самого продукта.
+
+   Путь остаётся fire-and-forget: отвечаем сразу (deploy_status='deploying'),
+   сборка и выкладка идут в фоне, фронтенд опрашивает GET /projects/:id.
+
+   Два адреса ручки — один обработчик:
+     POST /projects/:id/deploy          — правильное, площадко-независимое имя;
+     POST /projects/:id/deploy-netlify  — прежнее имя, сохранено ради уже
+                                          задеплоенных клиентов (мобилка и веб
+                                          зовут его), но НЕ означает Netlify.
 ------------------------------------------------------------------------------- */
-router.post("/:id/deploy-netlify", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+const deployProjectHandler = asyncHandler(async (req: AuthRequest, res) => {
   const id = Number(req.params.id)
   const project: any = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id)
 
@@ -972,9 +983,12 @@ router.post("/:id/deploy-netlify", requireAuth, asyncHandler(async (req: AuthReq
   if (project.status !== "ready") {
     return res.status(400).json({ error: "Проект ещё не готов к деплою" })
   }
-  if (!isNetlifyConfigured()) {
-    return res.status(400).json({ error: "Деплой не сконфигурирован на сервере (NETLIFY_AUTH_TOKEN)" })
+
+  const decision = resolveDeployTarget()
+  if (decision.target === "none") {
+    return res.status(400).json({ error: `Деплой невозможен: ${decision.reason}` })
   }
+
   if (project.deploy_status === "deploying") {
     return res.status(400).json({ error: "Деплой уже выполняется" })
   }
@@ -982,10 +996,15 @@ router.post("/:id/deploy-netlify", requireAuth, asyncHandler(async (req: AuthReq
   db.prepare(`UPDATE projects SET deploy_status = 'deploying', deploy_error = NULL WHERE id = ?`).run(id)
   const updated = db.prepare(`SELECT ${PROJECT_SELECT_COLUMNS} FROM projects WHERE id = ?`).get(id)
 
-  res.status(202).json({ project: updated })
+  // Площадку отдаём клиенту явно: пользователь должен видеть, куда именно
+  // уезжает его приложение, а не догадываться по домену в ссылке.
+  res.status(202).json({ project: updated, deployTarget: decision.target, deployTargetLabel: decision.label })
 
-  void runNetlifyDeployJob(id)
-}))
+  runDeployJob(id, decision.target)
+})
+
+router.post("/:id/deploy", requireAuth, deployProjectHandler)
+router.post("/:id/deploy-netlify", requireAuth, deployProjectHandler)
 
 /* ---------------- POST /projects/:id/verify-build — реальная проверка сборки в Docker-песочнице ----------------
    В отличие от инлайн-валидации при сохранении файла (ts.transpileModule — только

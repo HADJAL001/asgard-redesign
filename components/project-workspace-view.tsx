@@ -118,7 +118,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     saveProjectFile,
     refineProject,
     clearCurrentProject,
-    deployProjectToNetlify,
+    deployProject,
     fetchProjectEngineering,
     repairProject,
     pollProjectStatus,
@@ -362,7 +362,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     setDeploying(true)
     setDeployError(null)
     try {
-      const res = await deployProjectToNetlify(projectId)
+      const res = await deployProject(projectId)
       if (res.success) await pollDeployStatus(projectId)
       else setDeployError(res.error || t("workspace.deployFailed"))
     } finally {

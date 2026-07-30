@@ -734,7 +734,7 @@
     "connectGithub": "Подключить GitHub",
     "githubConnected": "GitHub успешно подключён — теперь можно опубликовать проект",
     "githubConnectFailed": "Не удалось подключить GitHub",
-    "deployNetlify": "Задеплоить на Netlify",
+    "deployNetlify": "Задеплоить на инфраструктуру OSGARD",
     "deploying": "Деплой выполняется…",
     "deployed": "Проект задеплоен:",
     "deployRequestFailed": "Не удалось запустить деплой",
