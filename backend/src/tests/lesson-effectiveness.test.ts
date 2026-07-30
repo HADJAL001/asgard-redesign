@@ -58,6 +58,7 @@ before(async () => {
   await import('../migrations/092_craft_corpus');
   await import('../migrations/093_lesson_authoring');
   await import('../migrations/097_lesson_effectiveness');
+  await import('../migrations/098_lesson_teaching_baseline');
   corpus = await import('../lib/craft-corpus');
   author = await import('../lib/lesson-author');
 });
@@ -68,12 +69,38 @@ beforeEach(() => {
   delete process.env.LESSON_AUTHORING;
 });
 
+/**
+ * Сколько раз урок должен дойти до модели, чтобы ноль повторов стал доказательством
+ * (волна 8). Держим числом здесь, а не импортом: тест обязан краснеть, если порог
+ * молча изменят в коде.
+ */
+const PROOF_TEACHINGS = 3;
+
+/**
+ * Эмулирует то, что делает генерация: урок ушёл в промпт `times` раз.
+ *
+ * С волны 8 точка отсчёта пользы ставится ИМЕННО здесь — в момент, когда урок реально
+ * доходит до модели, а не в момент авторства. Поэтому фикстуре недостаточно записать
+ * текст: без отправки в промпт урок остаётся неизмеряемым, как и в проде.
+ */
+function teach(rule: string, times = PROOF_TEACHINGS) {
+  for (let i = 0; i < times; i++) corpus.markLessonsTaught([rule]);
+}
+
 /** Свой (машинный) урок с заданной судьбой: сформулирован на `at`, дефект повторился `repeats` раз. */
 async function selfLesson(rule: string, at: number, repeats: number, text = FIRST_TEXT) {
   corpus.recordLessons([{ rule, count: at }]);
   await author.authorMissingLessons([{ ...SAMPLE, rule }], new Map([[rule, at]]), {
     call: reply({ lesson: text, confidence: 0.9 }),
   });
+  teach(rule); // урок начал доходить до модели — с этого мгновения он и измеряется
+  if (repeats > 0) corpus.recordLessons([{ rule, count: repeats }]);
+}
+
+/** Рукописный урок, который уже уходит в промпт: `at` поломок до обучения, `repeats` после. */
+function handLesson(rule: string, at: number, repeats: number, times = PROOF_TEACHINGS) {
+  corpus.recordLessons([{ rule, count: at }]);
+  teach(rule, times);
   if (repeats > 0) corpus.recordLessons([{ rule, count: repeats }]);
 }
 
@@ -197,8 +224,15 @@ test('новую формулировку судят с нуля, а не по �
 
   const after = corpus.rankedLessons().find((l) => l.rule === 'nullable-access')!;
   assert.equal(after.repeatedAfterLearning, 0, 'точка отсчёта сдвинута на момент ревизии');
-  assert.equal(after.effect, 'works');
   assert.equal(after.revisions, 1);
+  /* Волна 8: сразу после ревизии вердикт — «идёт измерение», а не «работает». Модель
+     новый текст ещё не видела ни разу, и зачесть ему показы прежнего значило бы объявить
+     переписывание успешным по факту переписывания. */
+  assert.equal(after.effect, 'measuring');
+
+  teach('nullable-access');
+  const proven = corpus.rankedLessons().find((l) => l.rule === 'nullable-access')!;
+  assert.equal(proven.effect, 'works', 'дефект не вернулся за три отправки в промпт — вот это уже доказательство');
 });
 
 test('возврат той же формулировки отклоняется отдельной причиной, текст не меняется', async () => {
@@ -257,9 +291,20 @@ test('сработавший урок не переписывается', async 
   assert.deepEqual(author.pendingRevisionCandidates(corpus.rankedLessons(), corpus.listAuthoredLessons()), []);
 });
 
-test('рукописный урок не переписывается: у него нет ни точки отсчёта, ни приоритета ниже машинного', () => {
-  corpus.recordLessons([{ rule: 'empty-file', count: 40 }]);
+test('рукописный урок без точки отсчёта не переписывается: вердикта «не работает» у него нет', () => {
+  corpus.recordLessons([{ rule: 'empty-file', count: 40 }]); // в промпт ещё не уходил
   assert.deepEqual(author.pendingRevisionCandidates(corpus.rankedLessons(), corpus.listAuthoredLessons()), []);
+});
+
+test('рукописный урок, который работает, не переписывается никогда', () => {
+  handLesson('empty-file', 40, 0);
+  const hand = corpus.rankedLessons().find((l) => l.rule === 'empty-file')!;
+  assert.equal(hand.effect, 'works', 'дефект прекратился после того, как урок дошёл до модели');
+  assert.deepEqual(
+    author.pendingRevisionCandidates(corpus.rankedLessons(), corpus.listAuthoredLessons()),
+    [],
+    'иначе платформа спорила бы с разработчиком без всякого повода',
+  );
 });
 
 test('правило без формулировки не идёт на переписывание — это работа первичного разбора', () => {

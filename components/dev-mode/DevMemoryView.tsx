@@ -63,6 +63,10 @@ type TaughtLesson = {
   repeatedAfterLearning?: number | null
   /** Сколько раз формулировку переписывали, когда она не работала (волна 6). */
   revisions?: number
+  /** Вердикт о пользе урока (волна 8: добавились `measuring` и `unmeasured`). */
+  effect?: "works" | "unclear" | "fails" | "measuring" | "unmeasured"
+  /** Сколько раз урок дошёл до модели после начала измерения (волна 8). */
+  taughtTimes?: number
 }
 type SilentLesson = { rule: string; count: number }
 type AuthoringFailure = { rule: string; reason: string; attempts: number }
@@ -86,7 +90,16 @@ type PlatformMemory = {
   authoring?: { selfAuthored: number; failures: AuthoringFailure[] }
   /* Поля волны 6 — так же необязательные: против бэкенда без отбора по пользе витрина
      обязана остаться рабочей, просто без вердиктов. */
-  effectiveness?: { working: number; failing: number; demoted: DemotedLesson[] }
+  effectiveness?: {
+    working: number
+    failing: number
+    demoted: DemotedLesson[]
+    /* Поля волны 8, тоже необязательные: против бэкенда без точки отсчёта витрина
+       остаётся рабочей и просто не показывает «идёт измерение». */
+    measuring?: number
+    unmeasured?: number
+    supersededHandwritten?: number
+  }
 }
 
 const MUTED = "rgb(148 163 184 / 90%)"
@@ -143,6 +156,11 @@ export function DevMemoryView() {
   const failures = data?.authoring?.failures ?? []
   const selfAuthored = data?.authoring?.selfAuthored ?? 0
   const demoted = data?.effectiveness?.demoted ?? []
+  /* Поля волны 8. Бэкенд без точки отсчёта их не отдаёт — тогда цифры нулевые, а
+     витрина работает как в волне 6. */
+  const measuring = data?.effectiveness?.measuring ?? 0
+  const unmeasured = data?.effectiveness?.unmeasured ?? 0
+  const superseded = data?.effectiveness?.supersededHandwritten ?? 0
 
   return (
     <>
@@ -220,7 +238,7 @@ export function DevMemoryView() {
           {/* Главный вывод волны 6: не «сколько уроков», а сколько из них ПОМОГЛО.
               Без этой пары цифр рост числа уроков выглядел бы успехом сам по себе. */}
           {data.effectiveness ? (
-            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Stat
                 label="уроков доказанно работают"
                 value={String(data.effectiveness.working)}
@@ -238,6 +256,34 @@ export function DevMemoryView() {
                     ? "дефект повторяется — формулировка уступает место и переписывается"
                     : "негодных формулировок нет"
                 }
+              />
+              {/* Волна 8. Третья цифра появилась потому, что первые две были обречены на
+                  ноль: у рукописных уроков не существовало момента, с которого считать
+                  повторы. Теперь он есть — и пока пробега мало, честный ответ не
+                  «работает» и не «не работает», а «измеряем». */}
+              <Stat
+                label="уроков в измерении"
+                value={String(measuring)}
+                hint={
+                  measuring > 0
+                    ? "отсчёт начат, но модель видела их слишком мало раз для вывода"
+                    : unmeasured > 0
+                      ? `${unmeasured} урок(а) не измеряются: в промпт ещё не уходили`
+                      : "все уроки с формулировкой уже под измерением"
+                }
+              />
+            </div>
+          ) : null}
+
+          {/* Единственный случай, когда машина переспорила разработчика. Держим отдельной
+              строкой: это исключение из приоритета рукописного текста, и оно должно быть
+              заметно основателю, а не спрятано в агрегате. */}
+          {superseded > 0 ? (
+            <div className="mt-3">
+              <Stat
+                label="рукописных формулировок платформа заменила своими"
+                value={String(superseded)}
+                hint="рукописный текст измеренно не работал — дефект повторялся после него"
               />
             </div>
           ) : null}
@@ -280,14 +326,25 @@ export function DevMemoryView() {
                           переписан {lesson.revisions} раз(а)
                         </span>
                       ) : null}
-                      {/* Работает ли урок. Показываем ТОЛЬКО когда измеряем: у рукописных
-                          точки отсчёта нет, и подставлять ноль было бы ложью. */}
+                      {/* Работает ли урок. Показываем ТОЛЬКО когда измеряем: у урока без
+                          точки отсчёта её нет, и подставлять ноль было бы ложью.
+
+                          Волна 8 добавила третью подпись. Ноль повторов у урока, который
+                          модель видела один-два раза, — это ещё не «сработало»: пока
+                          зелёная надпись стояла и там, витрина торопилась с выводом. */}
                       {typeof lesson.repeatedAfterLearning === "number" ? (
-                        <span style={{ color: lesson.repeatedAfterLearning === 0 ? "#34D399" : "#F59E0B" }}>
-                          {lesson.repeatedAfterLearning === 0
-                            ? "после урока не повторялось"
-                            : `повторилось ${lesson.repeatedAfterLearning} раз(а) после урока — формулировка не работает`}
-                        </span>
+                        lesson.effect === "measuring" ? (
+                          <span style={{ color: MUTED }}>
+                            идёт измерение
+                            {typeof lesson.taughtTimes === "number" ? ` · модель видела ${lesson.taughtTimes} раз(а)` : ""}
+                          </span>
+                        ) : (
+                          <span style={{ color: lesson.repeatedAfterLearning === 0 ? "#34D399" : "#F59E0B" }}>
+                            {lesson.repeatedAfterLearning === 0
+                              ? "после урока не повторялось"
+                              : `повторилось ${lesson.repeatedAfterLearning} раз(а) после урока — формулировка не работает`}
+                          </span>
+                        )
                       ) : null}
                     </div>
                   </li>

@@ -343,6 +343,7 @@ import "./migrations/093_lesson_authoring"
 import "./migrations/095_generation_meter"
 import "./migrations/096_own_cluster_deploy"
 import "./migrations/097_lesson_effectiveness"
+import "./migrations/098_lesson_teaching_baseline"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
