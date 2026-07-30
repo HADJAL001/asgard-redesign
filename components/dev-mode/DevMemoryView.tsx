@@ -33,6 +33,18 @@
    повторялся ли дефект ПОСЛЕ обучения. Урок, который не помог, здесь
    виден числом; без этого «платформа умнеет» осталось бы верой.
 
+   Волна 6 добавила ВЫВОД из этого измерения. Раньше витрина показывала
+   число повторов и молчала о последствиях, потому что последствий не
+   было: место в промпте давалось по одной частоте. Теперь урок, который
+   не работает, место уступает — и раздел обязан показывать это так же
+   прямо, как успех. Отсюда два новых блока: сколько уроков доказанно
+   работают против доказанно негодных, и список уроков, у которых
+   формулировка ЕСТЬ, а в промпт они не идут — с причиной. Причину
+   нельзя сливать в одно: «не работает» — вина формулировки и повод её
+   переписать, «вне топа» — редкий дефект и никакой вины. У переписанного
+   урока видна пометка о ревизии, иначе «платформа исправила свой урок»
+   было бы неотличимо от «урок такой и был».
+
    Тексты русские прямо здесь — принятый в dev-зоне паттерн
    (см. DevAgentsView/DevDeployView, i18n сюда не заведён).
    ================================================================ */
@@ -49,9 +61,13 @@ type TaughtLesson = {
   origin?: "hand" | "self"
   /** Повторы дефекта после начала обучения. `null` — не измеряется (у рукописных). */
   repeatedAfterLearning?: number | null
+  /** Сколько раз формулировку переписывали, когда она не работала (волна 6). */
+  revisions?: number
 }
 type SilentLesson = { rule: string; count: number }
 type AuthoringFailure = { rule: string; reason: string; attempts: number }
+/** Урок с формулировкой, который в промпт не попал, и почему именно (волна 6). */
+type DemotedLesson = { rule: string; count: number; reason: string; revisions: number }
 
 type PlatformMemory = {
   mistakes: {
@@ -68,6 +84,9 @@ type PlatformMemory = {
      бэкенда без авторства (частичный выкат) — иначе диагностика падает там, где
      нужна больше всего. */
   authoring?: { selfAuthored: number; failures: AuthoringFailure[] }
+  /* Поля волны 6 — так же необязательные: против бэкенда без отбора по пользе витрина
+     обязана остаться рабочей, просто без вердиктов. */
+  effectiveness?: { working: number; failing: number; demoted: DemotedLesson[] }
 }
 
 const MUTED = "rgb(148 163 184 / 90%)"
@@ -123,6 +142,7 @@ export function DevMemoryView() {
      а остальная витрина работает как раньше. */
   const failures = data?.authoring?.failures ?? []
   const selfAuthored = data?.authoring?.selfAuthored ?? 0
+  const demoted = data?.effectiveness?.demoted ?? []
 
   return (
     <>
@@ -197,6 +217,31 @@ export function DevMemoryView() {
             </div>
           ) : null}
 
+          {/* Главный вывод волны 6: не «сколько уроков», а сколько из них ПОМОГЛО.
+              Без этой пары цифр рост числа уроков выглядел бы успехом сам по себе. */}
+          {data.effectiveness ? (
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Stat
+                label="уроков доказанно работают"
+                value={String(data.effectiveness.working)}
+                hint={
+                  data.effectiveness.working > 0
+                    ? "после них дефект не повторялся — место в промпте закреплено"
+                    : "пока ни один урок не подтверждён измерением"
+                }
+              />
+              <Stat
+                label="уроков не работают"
+                value={String(data.effectiveness.failing)}
+                hint={
+                  data.effectiveness.failing > 0
+                    ? "дефект повторяется — формулировка уступает место и переписывается"
+                    : "негодных формулировок нет"
+                }
+              />
+            </div>
+          ) : null}
+
           {/* Выученное — то, что реально доходит до модели. */}
           <section className="mt-8">
             <h2 className="flex items-center gap-2 text-[15px] font-medium">
@@ -222,6 +267,17 @@ export function DevMemoryView() {
                           title="Формулировку платформа написала сама, разобрав реальный дефект"
                         >
                           сформулировала сама
+                        </span>
+                      ) : null}
+                      {/* Ревизия. Без пометки «платформа исправила свою формулировку»
+                          неотличимо от «формулировка такой и была». */}
+                      {lesson.revisions ? (
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[11px]"
+                          style={{ border: DASHED, color: MUTED }}
+                          title="Прежняя формулировка не работала, платформа написала новую"
+                        >
+                          переписан {lesson.revisions} раз(а)
                         </span>
                       ) : null}
                       {/* Работает ли урок. Показываем ТОЛЬКО когда измеряем: у рукописных
@@ -271,7 +327,43 @@ export function DevMemoryView() {
             </section>
           ) : null}
 
-          {waiting > 0 ? (
+          {/* Вторая потеря обучения, которую волна 4 не различала: формулировка ЕСТЬ, а
+              до модели не доходит. Раньше здесь стояла одна фраза «ждут очереди» — она
+              валила в кучу редкий дефект и негодную формулировку, то есть скрывала ровно
+              то, что надо чинить. Теперь у каждого урока названа причина. */}
+          {demoted.length > 0 ? (
+            <section className="mt-8">
+              <h2 className="flex items-center gap-2 text-[15px] font-medium">
+                <EyeOff size={17} strokeWidth={1.75} style={{ color: "#F59E0B" }} aria-hidden="true" />
+                Урок есть, но в промпт не идёт
+              </h2>
+              <p className="mt-2 text-[13px]" style={{ color: MUTED }}>
+                Мест в промпте ровно {m.promptLimit}, поэтому каждый бесполезный урок стоит одного
+                полезного. «Не работает» значит, что дефект повторялся после урока — такую
+                формулировку платформа переписывает сама. «Вне топа» вины формулировки не значит:
+                дефект просто слишком редкий, чтобы занять место.
+              </p>
+              <ul className="mt-4 grid list-none grid-cols-1 gap-2 p-0">
+                {demoted.map((lesson) => (
+                  <li
+                    key={lesson.rule}
+                    className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl px-4 py-3 text-[13px]"
+                    style={{ border: DASHED }}
+                  >
+                    <span>{lesson.rule}</span>
+                    <span style={{ color: lesson.reason === "не работает" ? "#F59E0B" : "rgb(148 163 184 / 65%)" }}>
+                      {lesson.reason}
+                    </span>
+                    <span className="ml-auto" style={{ color: "rgb(148 163 184 / 65%)" }}>
+                      {lesson.count} поломок{lesson.revisions ? ` · переписан ${lesson.revisions} раз(а)` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : waiting > 0 ? (
+            /* Бэкенд без волны 6 причин не отдаёт — тогда честнее старая общая фраза,
+               чем выдуманный вердикт. */
             <p className="mt-6 text-[13px]" style={{ color: MUTED }}>
               Ещё {waiting} правил(о) с формулировкой ждут очереди: в промпт уходит только топ по
               частоте, поэтому редкий дефект до модели пока не доходит.
