@@ -12,6 +12,7 @@ import {
 import { adaptTemplate } from "../services/template-adapter"
 import { captureError } from "./sentry"
 import { GENERATION_DEPTHS, type GenerationDepth } from "./generation-depths"
+import { allowsServerCode, DEFAULT_APP_PROFILE, normalizeAppProfile, type AppProfile } from "./app-profiles"
 import { createNotification } from "./notifications"
 import { emitGenerationStage, emitGenerationMeter } from "./generation-events"
 import { withGenerationTelemetry, currentTelemetry, type TelemetrySnapshot } from "./generation-telemetry"
@@ -54,7 +55,8 @@ import { resolveProjectTitle } from "./project-title"
 
 export const PROJECT_SELECT_COLUMNS = `id, name, description, badge, artifact_count as artifactCount, sold, income,
        status, generation_error as generationError, ai_source as aiSource, created_at as createdAt,
-       deploy_status as deployStatus, deploy_error as deployError, live_url as liveUrl`
+       deploy_status as deployStatus, deploy_error as deployError, live_url as liveUrl,
+       app_profile as appProfile`
 
 export const ARTIFACT_SELECT_COLUMNS = `id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
        status, views_24h as views24h, supply, price, list_currency as listCurrency, created_at as createdAt`
@@ -396,6 +398,7 @@ async function runAppGenerationJobInner(
   bypassCache: boolean,
   depth: GenerationDepth,
   design?: { theme?: string; keywords?: string[] },
+  profile: AppProfile = DEFAULT_APP_PROFILE,
 ) {
   try {
     let files: GeneratedAppFile[]
@@ -471,7 +474,12 @@ async function runAppGenerationJobInner(
         // Платформа учится на себе: в промпт каждого файла подмешивается реальная
         // статистика собственных поломок (lib/craft-corpus). Пустая статистика —
         // пустая строка, поведение как раньше.
+<<<<<<< HEAD
         lessons,
+=======
+        lessons: renderLessonsContract(6, profile),
+        profile,
+>>>>>>> 48183e8 (feat(generator): профиль fullstack — приложение может иметь серверный код и базу)
       })
       files = result.files
       source = result.source
@@ -536,6 +544,7 @@ async function runAppGenerationJobInner(
       hint,
       brief,
       depth,
+      profile,
       logLabel: `contour-${projectId}`,
       onProgress: (p) =>
         emitGenerationStage({
@@ -567,7 +576,11 @@ async function runAppGenerationJobInner(
     lessonsLearned += engineering.report.lessons.length
     learnFromGenerationInBackground(engineering.report, files)
 
-    if (source === "ai" && isWorthLearning(engineering.report.verdict)) {
+    /* Корпус шаблонов — статический: адаптация (`adaptTemplate`) не знает профиля и
+       отдаёт набор как есть. Положить туда fullstack-приложение значило бы, что
+       следующий статический проект получит из корпуса серверные роуты и не
+       соберётся — поэтому fullstack учит платформу уроками, но шаблон не пишет. */
+    if (source === "ai" && !allowsServerCode(profile) && isWorthLearning(engineering.report.verdict)) {
       saveTemplateFromGeneration({
         name,
         hint,
@@ -737,16 +750,23 @@ export function createGeneratedProject(params: {
   name?: string | null
   hint?: string
   depth?: GenerationDepth
+  /** Режим приложения (lib/app-profiles). По умолчанию — статический, как было всегда. */
+  profile?: AppProfile
 }): { project: any; artifacts: any[]; projectId: number } {
   const safeHint = typeof params.hint === "string" && params.hint.trim() ? params.hint.trim() : undefined
   const trimmedName = resolveProjectTitle(params.name, safeHint)
 
   const depth = params.depth ?? "quick"
   const depthCfg = GENERATION_DEPTHS[depth]
+  const profile = normalizeAppProfile(params.profile)
 
   const { theme, keywords } = detectTheme(trimmedName, safeHint)
   // forceAi (standard/deep) намеренно пропускает шаблонный shortcut → полная AI-генерация.
-  const template = depthCfg.forceAi ? null : findBestTemplate(theme, keywords)
+  /* Шаблон из корпуса берём только для статического профиля: весь корпус собран из
+     статических приложений (`output: "export"`, без серверных роутов), и адаптация
+     такого шаблона под fullstack дала бы приложение без базы под видом приложения с
+     базой. Профиль fullstack всегда идёт полной генерацией. */
+  const template = depthCfg.forceAi || allowsServerCode(profile) ? null : findBestTemplate(theme, keywords)
 
   const quick: { description: string; badge: string; artifacts: AiArtifactSuggestion[] } = template
     ? {
@@ -760,10 +780,10 @@ export function createGeneratedProject(params: {
 
   const projectInfo = db
     .prepare(
-      `INSERT INTO projects (user_id, name, description, badge, artifact_count, sold, income, status, template_id, generation_depth, created_at)
-       VALUES (?, ?, ?, ?, 0, 0, 0, 'generating', ?, ?, ?)`,
+      `INSERT INTO projects (user_id, name, description, badge, artifact_count, sold, income, status, template_id, generation_depth, app_profile, created_at)
+       VALUES (?, ?, ?, ?, 0, 0, 0, 'generating', ?, ?, ?, ?)`,
     )
-    .run(params.userId, trimmedName, quick.description, quick.badge, template?.id ?? null, depth, now)
+    .run(params.userId, trimmedName, quick.description, quick.badge, template?.id ?? null, depth, profile, now)
 
   const projectId = Number(projectInfo.lastInsertRowid)
   insertStarterArtifacts(params.userId, projectId, quick.artifacts, now)
@@ -775,10 +795,18 @@ export function createGeneratedProject(params: {
     .prepare(`SELECT ${ARTIFACT_SELECT_COLUMNS} FROM artifacts WHERE project_id = ? ORDER BY created_at DESC`)
     .all(projectId)
 
-  void runAppGenerationJob(params.userId, projectId, trimmedName, safeHint, quick, template, depthCfg.bypassCache, depth, {
-    theme,
-    keywords,
-  })
+  void runAppGenerationJob(
+    params.userId,
+    projectId,
+    trimmedName,
+    safeHint,
+    quick,
+    template,
+    depthCfg.bypassCache,
+    depth,
+    { theme, keywords },
+    profile,
+  )
 
   return { project, artifacts, projectId }
 }
@@ -795,11 +823,17 @@ export function createGeneratedProject(params: {
  */
 export function repairGeneratedProject(params: { userId: number; projectId: number }): boolean {
   const project = db
-    .prepare(`SELECT id, name, description, status FROM projects WHERE id = ? AND user_id = ?`)
+    .prepare(`SELECT id, name, description, status, app_profile FROM projects WHERE id = ? AND user_id = ?`)
     .get(params.projectId, params.userId) as
-    | { id: number; name: string; description: string | null; status: string }
+    | { id: number; name: string; description: string | null; status: string; app_profile?: string | null }
     | undefined
   if (!project) return false
+
+  /* Профиль обязателен здесь, а не «желателен»: без него повторный ремонт
+     fullstack-приложения зашёл бы со статическим контрактом и УДАЛИЛ его
+     серверные роуты как несовместимые — то есть кнопка «починить» сломала бы
+     работающее приложение. */
+  const profile = normalizeAppProfile(project.app_profile)
 
   const rows = db
     .prepare(`SELECT path, content FROM project_files WHERE project_id = ?`)
@@ -826,6 +860,7 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
         hint: project.description ?? undefined,
         brief,
         depth: "standard",
+        profile,
         logLabel: `repair-${project.id}`,
         onProgress: (p) =>
           emitGenerationStage({
@@ -919,9 +954,15 @@ export function refineGeneratedProject(params: {
   onDone?: (ok: boolean) => void
 }): boolean {
   const project = db
-    .prepare(`SELECT id, name, description FROM projects WHERE id = ? AND user_id = ?`)
-    .get(params.projectId, params.userId) as { id: number; name: string; description: string | null } | undefined
+    .prepare(`SELECT id, name, description, app_profile FROM projects WHERE id = ? AND user_id = ?`)
+    .get(params.projectId, params.userId) as
+    | { id: number; name: string; description: string | null; app_profile?: string | null }
+    | undefined
   if (!project) return false
+
+  /* Доработка идёт в том же режиме, в котором приложение создано — иначе
+     fullstack-проект после «доработать словами» вернулся бы статикой без базы. */
+  const profile = normalizeAppProfile(project.app_profile)
 
   const refine = params.prompt.trim()
   // Контекст доработки: имя + текущее описание + задача → AI сохраняет замысел
@@ -942,7 +983,18 @@ export function refineGeneratedProject(params: {
   // onDone вызываем после завершения (успех/ошибка) для отметки в леджере.
   // Доработка идёт по стандартной глубине: полная AI-генерация по промпту и
   // такой же инженерный контур, как у обычной генерации.
-  void runAppGenerationJob(params.userId, project.id, project.name, mergedHint, quick, null, true, "standard")
+  void runAppGenerationJob(
+    params.userId,
+    project.id,
+    project.name,
+    mergedHint,
+    quick,
+    null,
+    true,
+    "standard",
+    undefined,
+    profile,
+  )
     .then(() => {
       const row = db.prepare(`SELECT status FROM projects WHERE id = ?`).get(project.id) as
         | { status: string }

@@ -1,6 +1,7 @@
 import db from "./db"
 import { captureError } from "./sentry"
 import type { EngineeringVerdict } from "./project-engineering"
+import { allowsServerCode, DEFAULT_APP_PROFILE, type AppProfile } from "./app-profiles"
 
 /* ================================================================
    OSGARD · Корпус ремесла — платформа, которая учится на себе
@@ -680,6 +681,45 @@ export function rankedLessons(): RankedLesson[] {
   return buildLessonView().withText
 }
 
+/* ----------------------------------------------------------------
+   Уроки и профиль приложения
+   ----------------------------------------------------------------
+   Часть уроков описывает не ошибку ремесла, а ограничение СТАТИЧЕСКОГО
+   экспорта. Для приложения с базой они не просто бесполезны — они
+   противоречат заданию: «не создавай app/api» в промпте генерации
+   приложения, смысл которого в серверных роутах, гарантированно даёт
+   битую выдачу. Профиль отбирает уроки, но НЕ влияет на учёт частот:
+   статистика поломок платформы одна на все профили.
+   ---------------------------------------------------------------- */
+
+/** Уроки, действительные только для статического экспорта. */
+const STATIC_ONLY_RULES = new Set([
+  "api-route-unsupported",
+  "server-action-unsupported",
+  "server-only-api",
+  "dynamic-flag-unsupported",
+  "dynamic-route-unexportable",
+])
+
+/** Формулировки, которые звучат иначе, когда серверный код разрешён. */
+const FULLSTACK_LESSON_TEXT: Record<string, string> = {
+  "dependency-missing":
+    "сторонние npm-пакеты запрещены: доступны только next, react, react-dom, lucide-react и клиент Supabase (@supabase/supabase-js, @supabase/ssr)",
+}
+
+function appliesToProfile(rule: string, profile: AppProfile): boolean {
+  return allowsServerCode(profile) ? !STATIC_ONLY_RULES.has(rule) : true
+}
+
+function lessonTextForProfile(
+  rule: string,
+  profile: AppProfile,
+  authored?: Map<string, string>,
+): string | undefined {
+  if (allowsServerCode(profile) && FULLSTACK_LESSON_TEXT[rule]) return FULLSTACK_LESSON_TEXT[rule]
+  return resolveLessonText(rule, authored)
+}
+
 /**
  * Блок «выученные уроки» для промпта генерации. Строится из РЕАЛЬНОЙ статистики
  * дефектов этой платформы, а не из общих советов. Пустая статистика → пустая строка
@@ -688,8 +728,27 @@ export function rankedLessons(): RankedLesson[] {
  * С волны 6 порядок определяется не только частотой, но и доказанной пользой урока —
  * см. `selectPromptLessons`.
  */
+<<<<<<< HEAD
 export function renderLessonsContract(limit = 6): string {
   const lessons = selectPromptLessons(limit)
+=======
+export function renderLessonsContract(limit = 6, profile: AppProfile = DEFAULT_APP_PROFILE): string {
+  /* Собственные формулировки читаем ОДНИМ запросом на всю сборку блока: до волны 5
+     правило без строки в коде отбрасывалось здесь молча, и частый дефект мог годами
+     не доходить до модели. */
+  const authored = authoredLessonTexts()
+
+  /* Берём с запасом ровно на число правил, которые профиль может отбросить: иначе
+     fullstack-генерация получала бы меньше уроков, чем static, — не потому что их
+     нет, а потому что запретные заняли места в топе. */
+  const pool = allowsServerCode(profile) ? limit + STATIC_ONLY_RULES.size : limit
+  const lessons = topLessons(pool)
+    .filter((l) => appliesToProfile(l.rule, profile))
+    .map((l) => ({ lesson: l, text: lessonTextForProfile(l.rule, profile, authored) }))
+    .filter((entry): entry is { lesson: Lesson; text: string } => !!entry.text)
+    .slice(0, limit)
+
+>>>>>>> 48183e8 (feat(generator): профиль fullstack — приложение может иметь серверный код и базу)
   if (lessons.length === 0) return ""
 
   /* Единственное место, где урок ДЕЙСТВИТЕЛЬНО доходит до модели, — здесь и только

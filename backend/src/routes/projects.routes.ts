@@ -18,6 +18,7 @@ import {
 } from "../lib/project-generation"
 import { rateLimit } from "../middleware/rateLimiter"
 import { GENERATION_DEPTHS, resolveDepth, serializeDepths } from "../lib/generation-depths"
+import { normalizeAppProfile } from "../lib/app-profiles"
 import { logAudit } from "../lib/audit"
 import { generationEvents, getRecentStages, type GenerationStreamEvent } from "../lib/generation-events"
 import { guestProjectCapReached } from "../lib/guest-service"
@@ -418,6 +419,9 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
 
   const depth = resolveDepth(req.body?.depth)
   const depthCfg = GENERATION_DEPTHS[depth]
+  /* Режим приложения. Неизвестное значение нормализуется в 'static' — самый
+     безопасный режим, а не ошибка запроса: клиент старой версии профиля не знает. */
+  const profile = normalizeAppProfile(req.body?.profile)
 
   /* --- Бесплатная (quick) генерация: расход дневной квоты тарифа --- */
   if (depthCfg.countsAgainstQuota) {
@@ -444,7 +448,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     }
 
     try {
-      const { project, artifacts } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth })
+      const { project, artifacts } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth, profile })
       return res.status(202).json({ project, artifacts, depth, costCredits: 0, aiConfigured: isAiConfigured() })
     } catch (err) {
       captureError("[projects.generate] error:", err)
@@ -488,7 +492,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
   logAudit(userId, "debit", cost, "project_generation", { depth, name: resolvedName })
 
   try {
-    const { project, artifacts } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth })
+    const { project, artifacts } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth, profile })
     return res.status(202).json({ project, artifacts, depth, costCredits: cost, aiConfigured: isAiConfigured() })
   } catch (err) {
     /* Синхронный сбой создания — честно возвращаем кредиты. */
@@ -1046,7 +1050,7 @@ router.post("/:id/deploy-netlify", requireAuth, deployProjectHandler)
    Занимает секунды, поэтому await прямо в запросе (клиент показывает спиннер). */
 router.post("/:id/verify-build", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const id = Number(req.params.id)
-  const project: any = db.prepare(`SELECT id, user_id FROM projects WHERE id = ?`).get(id)
+  const project: any = db.prepare(`SELECT id, user_id, app_profile FROM projects WHERE id = ?`).get(id)
 
   if (!project) return res.status(404).json({ error: "Проект не найден" })
   if (project.user_id !== req.user!.userId) {
@@ -1061,7 +1065,12 @@ router.post("/:id/verify-build", requireAuth, asyncHandler(async (req: AuthReque
     return res.status(400).json({ error: "У проекта нет файлов для проверки" })
   }
 
-  const result = await verifyBuildInSandbox(files, { logLabel: `verify-build-${id}` })
+  /* Профиль проекта: статический экспорт собирается иначе, чем fullstack (и даёт
+     out/, которого у fullstack нет) — сборка не того вида упала бы на пустом месте. */
+  const result = await verifyBuildInSandbox(files, {
+    logLabel: `verify-build-${id}`,
+    profile: normalizeAppProfile(project.app_profile),
+  })
   res.json({
     ok: result.ok,
     skipped: result.skipped,
