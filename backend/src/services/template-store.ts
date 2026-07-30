@@ -1,5 +1,6 @@
 import crypto from "node:crypto"
 import db from "../lib/db"
+import { effectiveQualitySql, humanDeltaSql } from "../lib/human-signals"
 import type { GeneratedAppFile, ManifestEntry } from "./app-generator"
 import type { AiArtifactSuggestion } from "./ai-generator"
 
@@ -70,6 +71,8 @@ type TemplateRow = {
   artifact_types: string
   usage_count: number
   tokens_saved_estimate: number
+  /** Проект-родитель (миграция 100). NULL/отсутствует — человеческого сигнала нет. */
+  source_project_id?: number | null
 }
 
 export type MatchedTemplate = {
@@ -103,7 +106,15 @@ function rowToMatch(row: TemplateRow): MatchedTemplate {
  *  Раньше сортировка шла только по `usage_count`: часто используемый слабый шаблон
  *  вытеснял редкий сильный, и корпус деградировал от популярности. Качество (миграция
  *  092) производно от инженерного вердикта и балла интерфейса — отбор идёт по нему.
- *  Схема без 092 → мягкий откат на прежний порядок, поведение 1:1 как было. */
+ *
+ *  Волна 7: к машинному баллу добавляется ЧЕЛОВЕЧЕСКАЯ дельта (lib/human-signals) —
+ *  «задеплоил» в плюс, «попросил переделать» в минус. Считать её в JS нельзя: отбор
+ *  идёт по всей таблице темы, а не по уже выбранному топ-1, поэтому арифметика
+ *  подставляется прямо в ORDER BY.
+ *
+ *  Три уровня отката, от богатого к бедному: со человеческим сигналом (100) → только
+ *  машинное качество (092) → популярность (историческое поведение). Схема без миграции
+ *  никогда не роняет генерацию, а только обедняет отбор. */
 export function findBestTemplate(theme: string, keywords: string[]): MatchedTemplate | null {
   if (theme === "general") return null
 
@@ -111,20 +122,23 @@ export function findBestTemplate(theme: string, keywords: string[]): MatchedTemp
   const exact = db.prepare(`SELECT * FROM project_templates WHERE hash = ?`).get(hash) as TemplateRow | undefined
   if (exact) return rowToMatch(exact)
 
-  let byTheme: TemplateRow | undefined
-  try {
-    byTheme = db
-      .prepare(
-        `SELECT * FROM project_templates WHERE theme = ?
-         ORDER BY COALESCE(quality_score, 0) DESC, usage_count DESC LIMIT 1`,
-      )
-      .get(theme) as TemplateRow | undefined
-  } catch {
-    byTheme = db
-      .prepare(`SELECT * FROM project_templates WHERE theme = ? ORDER BY usage_count DESC LIMIT 1`)
-      .get(theme) as TemplateRow | undefined
+  const queries = [
+    `SELECT t.* FROM project_templates t WHERE t.theme = ?
+     ORDER BY ${effectiveQualitySql("t")} DESC, t.usage_count DESC LIMIT 1`,
+    `SELECT * FROM project_templates WHERE theme = ?
+     ORDER BY COALESCE(quality_score, 0) DESC, usage_count DESC LIMIT 1`,
+    `SELECT * FROM project_templates WHERE theme = ? ORDER BY usage_count DESC LIMIT 1`,
+  ]
+
+  for (const sql of queries) {
+    try {
+      const row = db.prepare(sql).get(theme) as TemplateRow | undefined
+      return row ? rowToMatch(row) : null
+    } catch {
+      /* Колонки этого уровня в схеме нет — пробуем более бедный запрос. */
+    }
   }
-  return byTheme ? rowToMatch(byTheme) : null
+  return null
 }
 
 /** Сохраняет ПРОВЕРЕННУЮ генерацию в корпус ремесла.
@@ -141,8 +155,14 @@ export function findBestTemplate(theme: string, keywords: string[]): MatchedTemp
  *     (usage_count/tokens_saved_estimate) при замене сохраняется — она про тему, а не
  *     про конкретный слепок кода.
  *
+ *  Волна 7 добавляет третье: у шаблона появляется ПРОЕКТ-РОДИТЕЛЬ (`source_project_id`,
+ *  миграция 100). Только через него до корпуса доходит человеческий сигнал — деплой и
+ *  просьбы переделать. Без этой связи «человеческое качество» применять было некуда.
+ *  Хранится один числовой id: содержимое шаблона по-прежнему только выход генератора.
+ *
  *  Персистит только выход генератора, никогда данные живого проекта/пользователя.
- *  Схема без миграции 092 → мягкий откат на прежнюю вставку без качества. */
+ *  Схема без миграции 100 → откат на вставку с качеством, без 092 → на прежнюю
+ *  вставку без качества. */
 export function saveTemplateFromGeneration(params: {
   name: string
   hint?: string
@@ -156,6 +176,8 @@ export function saveTemplateFromGeneration(params: {
   verdict?: string
   designScore?: number
   repairs?: number
+  /** Проект, из генерации которого сохраняется шаблон — адрес человеческого сигнала. */
+  sourceProjectId?: number
 }) {
   const { theme, keywords } = detectTheme(params.name, params.hint)
   if (theme === "general") return // тема не распознана — нечего кэшировать по теме
@@ -176,6 +198,41 @@ export function saveTemplateFromGeneration(params: {
     now,
   ]
 
+  const quality = [params.quality ?? 0, params.verdict ?? null, params.designScore ?? null, params.repairs ?? 0]
+
+  try {
+    /* Вытеснение сравнивается с ИТОГОВЫМ качеством занимающего место шаблона: если его
+       код человек уже задеплоил, свежая генерация с баллом на пару пунктов выше не
+       имеет права его выбросить. Обратное тоже верно — шаблон, который просили
+       переделать, вытесняется легче. Новый претендент своей дельты не имеет: его
+       проект ещё не пережил ни деплоя, ни доработок. */
+    db.prepare(
+      `INSERT INTO project_templates
+         (hash, theme, keywords, name_sample, description_sample, badge, manifest, files, artifact_types,
+          usage_count, tokens_saved_estimate, created_at, updated_at, quality_score, verdict, design_score, repairs,
+          source_project_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(hash) DO UPDATE SET
+         name_sample = excluded.name_sample,
+         description_sample = excluded.description_sample,
+         badge = excluded.badge,
+         manifest = excluded.manifest,
+         files = excluded.files,
+         artifact_types = excluded.artifact_types,
+         updated_at = excluded.updated_at,
+         quality_score = excluded.quality_score,
+         verdict = excluded.verdict,
+         design_score = excluded.design_score,
+         repairs = excluded.repairs,
+         source_project_id = excluded.source_project_id
+       WHERE excluded.quality_score >
+             COALESCE(project_templates.quality_score, -1) + ${humanDeltaSql("project_templates")}`,
+    ).run(...values, ...quality, params.sourceProjectId ?? null)
+    return
+  } catch {
+    /* Схемы без миграции 100 (или без 029/089, на которые опирается дельта) — ниже. */
+  }
+
   try {
     db.prepare(
       `INSERT INTO project_templates
@@ -195,13 +252,7 @@ export function saveTemplateFromGeneration(params: {
          design_score = excluded.design_score,
          repairs = excluded.repairs
        WHERE excluded.quality_score > COALESCE(project_templates.quality_score, -1)`,
-    ).run(
-      ...values,
-      params.quality ?? 0,
-      params.verdict ?? null,
-      params.designScore ?? null,
-      params.repairs ?? 0,
-    )
+    ).run(...values, ...quality)
   } catch {
     // Схема без 092 — сохраняем как раньше, без качества (деградация, а не отказ).
     db.prepare(

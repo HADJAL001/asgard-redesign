@@ -95,6 +95,18 @@ type LearningCoverage = {
   byDepth: CoverageSlice[]
 }
 
+/** Человеческий сигнал в качестве корпуса (волна 7, п.2). `signalShare === null` —
+ *  корпус пуст, это отличается от «сигнал не доходит ни до чего». */
+type HumanSignalsReport = {
+  templates: number
+  linked: number
+  deployed: number
+  refined: number
+  lifted: number
+  penalized: number
+  signalShare: number | null
+}
+
 type PlatformMemory = {
   mistakes: {
     rules: number
@@ -126,6 +138,10 @@ type PlatformMemory = {
      тогда блока охвата просто нет — выдумывать 100% нельзя, это была бы ровно та ложь,
      которую волна 7 и снимает. */
   coverage?: { allTime: LearningCoverage; lastWeek: LearningCoverage }
+  /* Поле волны 7, пункт 2. Необязательное: старый бэкенд человеческого сигнала не
+     отдаёт, и тогда блока просто нет. Рисовать нули нельзя — «сигнал есть, но он ни на
+     что не влияет» и «бэкенд о сигнале не знает» это разные факты. */
+  humanSignals?: HumanSignalsReport
 }
 
 /* Человеческие имена ветвей получения кода. Ветвь важнее процента: она отвечает на
@@ -204,6 +220,8 @@ export function DevMemoryView() {
   const selfAuthored = data?.authoring?.selfAuthored ?? 0
   const demoted = data?.effectiveness?.demoted ?? []
   const coverage = data?.coverage
+  /* Волна 7, п.2: человеческий сигнал. Бэкенд без него поля не отдаёт — блока не будет. */
+  const humanSignals = data?.humanSignals
   /* Поля волны 8. Бэкенд без точки отсчёта их не отдаёт — тогда цифры нулевые, а
      витрина работает как в волне 6. */
   const measuring = data?.effectiveness?.measuring ?? 0
@@ -606,6 +624,47 @@ export function DevMemoryView() {
                 hint="оценка, а не счёт провайдера"
               />
             </div>
+
+            {/* Человеческий сигнал (волна 7, п.2). Всё выше — измерения машины: собралось,
+                сколько ремонтов, какой балл интерфейса. Здесь видно, что с кодом сделал
+                ЧЕЛОВЕК: выложил наружу или пошёл просить переделать.
+
+                Первой стоит доля, до которой сигнал ДОХОДИТ, а не сами сигналы. Механизм
+                работает только по шаблонам с проектом-родителем, и корпус, накопленный до
+                миграции 100, такой связи не имеет — «сигнал включён» при нулевой доле
+                означает ноль изменённых решений, и это обязано быть видно числом. */}
+            {humanSignals ? (
+              <div className="mt-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <Stat
+                    label="шаблонов под человеческим сигналом"
+                    value={pct(humanSignals.signalShare)}
+                    hint={
+                      humanSignals.templates === 0
+                        ? "корпус пуст — это не ноль"
+                        : `${humanSignals.lifted + humanSignals.penalized} из ${humanSignals.templates}: у остальных нет проекта-родителя`
+                    }
+                  />
+                  <Stat
+                    label="человек выложил наружу"
+                    value={String(humanSignals.deployed)}
+                    hint="деплой — сильнейшее «годится», какое платформа видит"
+                  />
+                  <Stat
+                    label="человек просил переделать"
+                    value={String(humanSignals.refined)}
+                    hint="доработка — признание, что результат не подошёл"
+                  />
+                </div>
+                <p className="mt-3 text-[13px]" style={{ color: MUTED }}>
+                  Отбор поднял {humanSignals.lifted}{" "}
+                  {humanSignals.lifted === 1 ? "шаблон" : "шаблонов"} и опустил{" "}
+                  {humanSignals.penalized}. Связь с проектом есть у {humanSignals.linked} из{" "}
+                  {humanSignals.templates}: отсутствие сигнала не штраф — такой шаблон судится
+                  только машинным баллом, как и раньше.
+                </p>
+              </div>
+            ) : null}
           </section>
 
           <div className="mt-8 flex items-center gap-3">
