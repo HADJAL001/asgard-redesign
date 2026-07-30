@@ -30,7 +30,17 @@ export class AuthService {
     );
   }
 
-  // Генерация Refresh Token (7 дней)
+  /**
+   * @deprecated НЕ ИСПОЛЬЗОВАТЬ для выдачи сессии. Это stateless JWT: он не попадает
+   * в таблицу `refresh_tokens`, а `POST /auth/refresh` ищет предъявленный токен по
+   * `token_hash` и без строки отвечает `invalid` — сессия умирает через 15 минут
+   * (когда истекает access-токен). Именно так соц-вход (Google/GitHub) выбрасывало
+   * на /login, пока вход по паролю жил нормально.
+   * Единственный правильный способ выдать refresh — `RefreshTokenService.issue(userId)`
+   * (см. lib/refresh-tokens: ротация, детекция кражи, отзыв семьи).
+   * Оставлен только для обратной совместимости; контракт защищён тестом
+   * src/tests/session-issuance-contract.test.ts.
+   */
   static generateRefreshToken(userId: number): string {
     return jwt.sign(
       { userId }, 
