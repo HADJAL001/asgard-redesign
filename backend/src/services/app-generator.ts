@@ -10,6 +10,7 @@ import {
   type ExportContract,
 } from "../lib/generation-contract"
 import { SCAFFOLD_DEPENDENCIES, SCAFFOLD_DEV_DEPENDENCIES } from "../lib/app-scaffold-deps"
+import { lessonsFingerprint } from "../lib/lessons-fingerprint"
 import {
   ARCHETYPE_MENU,
   DESIGN_BRIEF_VERSION,
@@ -30,10 +31,20 @@ import {
    Кешируем ТОЛЬКО успешные ai-результаты, не fallback. TTL 24ч.
 
    В ключ входит версия дизайн-системы: после её изменения кеш обязан промахнуться,
-   иначе проекты продолжили бы получать облик прошлого поколения. */
+   иначе проекты продолжили бы получать облик прошлого поколения.
+
+   И по той же причине — отпечаток НАБОРА УРОКОВ (волна 7). До него кэш работал
+   против обучения: платформа выучивала урок, а следующие сутки отдавала по этому
+   промпту код, рождённый ДО урока. Причём чем популярнее замысел, тем надёжнее он
+   застревал в прошлом знании. Отпечаток считается от того же текста, который уходит
+   в промпт (lib/craft-corpus.lessonsFingerprint), поэтому «уроки изменились» и
+   «кэш промахнулся» — это буквально одно событие, а не два похожих.
+
+   Пустая память уроков даёт отпечаток "none" — то есть у платформы без единого урока
+   ключ прежней формы по смыслу, и поведение как до волны 7. */
 const APP_CACHE_TTL_SECONDS = 24 * 60 * 60
-function appCacheKey(name: string, hint?: string): string {
-  return `app-generator:v${DESIGN_BRIEF_VERSION}:${createHash("sha256").update(JSON.stringify({ name, hint: hint ?? "" })).digest("hex")}`
+export function appCacheKey(name: string, hint?: string, lessonsFingerprint = "none"): string {
+  return `app-generator:v${DESIGN_BRIEF_VERSION}:l${lessonsFingerprint}:${createHash("sha256").update(JSON.stringify({ name, hint: hint ?? "" })).digest("hex")}`
 }
 
 /* ================================================================
@@ -66,6 +77,16 @@ export type AppGenerationResult = {
    * Пусто, если досборке нечего было чинить или файлы пришли из кэша.
    */
   lessons?: Array<{ rule: string; count: number }>
+  /**
+   * Результат отдан из кэша, а не сгенерирован сейчас (волна 7).
+   *
+   * Наружу выведено потому, что от этого зависит честность измерения обучения: при
+   * попадании в кэш в ЭТОЙ генерации ни один промпт модели не собирался. Код при этом
+   * рождён под тем же набором уроков (отпечаток входит в ключ), поэтому «уроки на него
+   * повлияли» — правда, а «уроки дошли до модели сейчас» — нет. Считать эти два случая
+   * одним значило бы завышать долю обучающихся генераций собственным кэшем.
+   */
+  cached?: boolean
 }
 
 export type ManifestEntry = {
@@ -469,11 +490,11 @@ export async function generateApp(
   // Кеш: одинаковый промпт → готовый результат без повторной генерации.
   // При bypassCache (глубокая генерация) чтение кеша пропускаем — гарантируем
   // свежий результат с нуля, хотя записать его в кеш всё равно можем.
-  const cacheKey = appCacheKey(name, hint)
+  const cacheKey = appCacheKey(name, hint, lessonsFingerprint(lessons))
   if (!options?.bypassCache) {
     const cached = durableCache.get<{ files: GeneratedAppFile[]; brief: DesignBrief }>(cacheKey)
     if (cached && Array.isArray(cached.files) && cached.files.length > 0 && cached.brief) {
-      return { files: cached.files, source: "ai", brief: cached.brief }
+      return { files: cached.files, source: "ai", brief: cached.brief, cached: true }
     }
   }
 
@@ -531,7 +552,7 @@ export async function generateApp(
     const allFiles = [...template, ...files]
     // Кешируем только реальный ai-результат, чтобы не «залипал» fallback.
     if (source === "ai") durableCache.set(cacheKey, { files: allFiles, brief }, APP_CACHE_TTL_SECONDS)
-    return { files: allFiles, source, brief, lessons: reconciled.lessons }
+    return { files: allFiles, source, brief, lessons: reconciled.lessons, cached: false }
   } catch (err) {
     captureError("[app-generator] generation failed, falling back:", err)
     return {

@@ -22,6 +22,7 @@ import { logAudit } from "../lib/audit"
 import { generationEvents, getRecentStages, type GenerationStreamEvent } from "../lib/generation-events"
 import { guestProjectCapReached } from "../lib/guest-service"
 import { getLessonsReport } from "../lib/craft-corpus"
+import { learningCoverage } from "../lib/learning-coverage"
 import { getTemplateSavingsReport } from "../services/template-store"
 import {
   refinementsRemaining,
@@ -183,6 +184,21 @@ router.get("/platform-memory", requireAuth, (_req: AuthRequest, res) => {
          измеренно не работала. Единственное исключение из приоритета рукописного
          текста, поэтому оно обязано быть видно числом, а не только в логах. */
       supersededHandwritten: lessons.supersededHandwritten,
+    },
+    /* --- Охват обучения (волна 7) ---
+       Всё выше отвечает на вопрос «что платформа знает». Ни одно поле не отвечало на
+       вопрос «в какой доле генераций это знание участвует» — а именно там и сидел
+       главный дефект: основной, бесплатный путь (адаптация шаблона) собирал промпт
+       без уроков вовсе, и витрина при этом честно светила «learning: true».
+
+       Поэтому доля обязана быть видна с разрезом по ветвям: одна общая цифра снова
+       спрячет неучащийся путь внутри среднего. `taughtShare === null` значит
+       «генераций в окне не было» и отличается от нуля намеренно. */
+    coverage: {
+      allTime: learningCoverage(),
+      /* Окно в неделю — то, по чему замечают регресс: история за всё время
+         усредняет «до» и «после» любой правки механизма и молчит месяцами. */
+      lastWeek: learningCoverage({ sinceDays: 7 }),
     },
   })
 })
