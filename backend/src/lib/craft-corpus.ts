@@ -1,6 +1,14 @@
 import db from "./db"
 import { captureError } from "./sentry"
 import type { EngineeringVerdict } from "./project-engineering"
+import { generationsSince } from "./learning-coverage"
+import {
+  REPEAT_FAIL_RATE,
+  RATE_VERDICT_MIN_GENERATIONS,
+  decayFactor,
+  lessonPressure,
+  repeatRate,
+} from "./lesson-decay"
 
 /* ================================================================
    OSGARD · Корпус ремесла — платформа, которая учится на себе
@@ -116,6 +124,12 @@ export function topLessons(limit = 6): Lesson[] {
 
 /** Правило со счётчиком и точкой отсчёта: всё, что нужно, чтобы судить о пользе урока. */
 export type LessonBaseline = Lesson & {
+  /**
+   * Когда дефект встречался последний раз (ms). Пишется с волны 2 и до волны 7
+   * НИКОГДА не читался при отборе — из-за этого топ промпта был заморожен историей.
+   * `null` — старая схема или строка без отметки.
+   */
+  lastSeen: number | null
   /** Когда урок впервые ушёл в промпт (ms). `null` = ещё не уходил. */
   taughtFrom: number | null
   /** Счётчик повторов на момент начала обучения. `null` = точки отсчёта нет. */
@@ -143,12 +157,13 @@ export function lessonBaselines(limit = 500): LessonBaseline[] {
   try {
     const rows = db
       .prepare(
-        `SELECT rule, occurrences as count, taught_from, occurrences_at_teaching, taught_times
+        `SELECT rule, occurrences as count, last_seen, taught_from, occurrences_at_teaching, taught_times
            FROM generation_lessons ORDER BY occurrences DESC, rule ASC LIMIT ?`,
       )
       .all(limit) as Array<{
       rule: string
       count: number
+      last_seen: number | null
       taught_from: number | null
       occurrences_at_teaching: number | null
       taught_times: number | null
@@ -156,6 +171,7 @@ export function lessonBaselines(limit = 500): LessonBaseline[] {
     return rows.map((row) => ({
       rule: row.rule,
       count: row.count,
+      lastSeen: row.last_seen ?? null,
       taughtFrom: row.taught_from ?? null,
       occurrencesAtTeaching: row.occurrences_at_teaching ?? null,
       taughtTimes: row.taught_times ?? 0,
@@ -167,6 +183,10 @@ export function lessonBaselines(limit = 500): LessonBaseline[] {
        это значит «мерить по-старому», а не «мерить нечем». */
     return topLessons(limit).map((lesson) => ({
       ...lesson,
+      /* Отметки свежести здесь нет намеренно: на старой схеме отбор обязан вести себя
+         ровно как до волны 7 — по абсолютным счётчикам, без затухания. Затухание без
+         знаменателя было бы догадкой, а догадка в отборе уроков хуже слепоты. */
+      lastSeen: null,
       taughtFrom: null,
       occurrencesAtTeaching: null,
       /* Пробега старая схема не хранит. Считаем его неограниченным намеренно: понизить
@@ -542,10 +562,45 @@ export type LessonEffect =
  * урок дошёл до модели, формулировка уже не сработала — сколько бы раз её ни
  * показывали дальше, это факт против неё. Доказательство пользы дороже доказательства
  * провала, и такая асимметрия здесь намеренная.
+ *
+ * ВОЛНА 7, ПУНКТ 3: у приговора появился ЗНАМЕНАТЕЛЬ. `generationsSinceTeaching` —
+ * сколько генераций случилось после начала обучения. Пока его не было, «два повтора»
+ * означали провал и при четырёх генерациях, и при тысяче: при растущем трафике
+ * улучшение было неотличимо от деградации. Теперь провал — это ЧАСТОТА
+ * (`REPEAT_FAIL_RATE`), а не число, и она требует минимальной зрелости в генерациях,
+ * иначе первый же повтор давал бы частоту 100%.
+ *
+ * `generationsSinceTeaching === null` значит «журнала генераций нет» (схема без 094
+ * или пустой журнал) — и тогда работает СТАРОЕ абсолютное правило. Это не забытая
+ * ветка, а обязательство: накат кода без миграции не имеет права менять вердикты,
+ * которые платформа выносила с волны 6.
  */
-export function classifyLessonEffect(repeatedAfterLearning: number | null, taughtTimes = Number.MAX_SAFE_INTEGER): LessonEffect {
+export function classifyLessonEffect(
+  repeatedAfterLearning: number | null,
+  taughtTimes = Number.MAX_SAFE_INTEGER,
+  generationsSinceTeaching: number | null = null,
+): LessonEffect {
   if (repeatedAfterLearning === null) return "unmeasured"
-  if (repeatedAfterLearning >= LESSON_FAIL_THRESHOLD) return "fails"
+
+  if (generationsSinceTeaching === null) {
+    /* Знаменателя нет — судим как волна 6: по абсолютному числу повторов. */
+    if (repeatedAfterLearning >= LESSON_FAIL_THRESHOLD) return "fails"
+  } else {
+    const rate = repeatRate(repeatedAfterLearning, generationsSinceTeaching)
+    if (
+      rate !== null &&
+      generationsSinceTeaching >= RATE_VERDICT_MIN_GENERATIONS &&
+      rate >= REPEAT_FAIL_RATE &&
+      repeatedAfterLearning >= LESSON_FAIL_THRESHOLD
+    ) {
+      /* Оба условия вместе: частота отвечает «часто ли», абсолютный минимум — «точно ли
+         это закономерность». Один повтор из пяти генераций даёт 20%, но одна поломка
+         формулировку ещё не опровергает: так вердикт «не работает» не выносится по
+         единичному совпадению на молодом трафике. */
+      return "fails"
+    }
+  }
+
   if (repeatedAfterLearning > 0) return "unclear"
   return taughtTimes >= LESSON_PROOF_MIN_TEACHINGS ? "works" : "measuring"
 }
@@ -562,6 +617,25 @@ export type RankedLesson = Lesson & {
   taughtFrom: number | null
   /** Сколько раз урок дошёл до модели после этого момента (волна 8). */
   taughtTimes: number
+  /**
+   * Сколько генераций случилось после начала обучения — знаменатель частоты (волна 7,
+   * п.3). `null` = журнала генераций нет, частота не считается.
+   */
+  generationsSinceTeaching: number | null
+  /**
+   * Доля генераций, в которых дефект возвращался после обучения, 0..1 (волна 7, п.3).
+   * `null` — мерить нечем, и это НЕ ноль повторов.
+   */
+  repeatRate: number | null
+  /** Сколько генераций прошло с последней встречи дефекта. `null` = знаменателя нет. */
+  generationsSinceLastSeen: number | null
+  /**
+   * Давление дефекта — повторы, взвешенные свежестью (волна 7, п.3). Именно им правила
+   * соревнуются за шесть мест в промпте вместо абсолютного счётчика.
+   */
+  pressure: number
+  /** Множитель затухания, 0..1. Единица = дефект встречался только что либо мерить нечем. */
+  decay: number
 }
 
 /**
@@ -603,16 +677,30 @@ function buildLessonView(): { withText: RankedLesson[]; silent: Lesson[]; author
            Рукописные там неизмеримы, ровно как и было. */
         (self?.occurrencesAtAuthoring ?? null)
     const repeated = base === null ? null : Math.max(0, lesson.count - base)
+    /* Знаменатели волны 7, п.3. Считаются по журналу генераций (миграция 094), и
+       обязаны быть `null`, когда журнала нет: без знаменателя частота и затухание
+       выключаются, и отбор ведёт себя как до этой волны. */
+    const sinceTeaching = lesson.taughtFrom === null ? null : generationsSince(lesson.taughtFrom)
+    /* Счёт включает и ту генерацию, в которой дефект встретился: журнал пишется в тот же
+       момент. Это ровно одна генерация запаса при полураспаде в сорок — ни одного
+       решения она не меняет, а вычитать её вслепую значило бы врать в другую сторону на
+       той же величине. */
+    const sinceLastSeen = lesson.lastSeen === null ? null : generationsSince(lesson.lastSeen)
     withText.push({
       rule: lesson.rule,
       count: lesson.count,
       text,
       origin: self?.supersedesHandwritten || (!hand && self) ? "self" : "hand",
       repeatedAfterLearning: repeated,
-      effect: classifyLessonEffect(repeated, lesson.taughtTimes),
+      effect: classifyLessonEffect(repeated, lesson.taughtTimes, sinceTeaching),
       revisions: revisionsOf.get(lesson.rule) ?? 0,
       taughtFrom: lesson.taughtFrom,
       taughtTimes: lesson.taughtTimes,
+      generationsSinceTeaching: sinceTeaching,
+      repeatRate: repeatRate(repeated, sinceTeaching),
+      generationsSinceLastSeen: sinceLastSeen,
+      pressure: lessonPressure(lesson.count, sinceLastSeen),
+      decay: decayFactor(sinceLastSeen),
     })
   }
 
@@ -625,10 +713,24 @@ function buildLessonView(): { withText: RankedLesson[]; silent: Lesson[]; author
  * Порядок отбора:
  *   1. Половина мест закреплена за уроками с ДОКАЗАННОЙ пользой — иначе сработавший
  *      урок вытесняется собственным успехом и дефект возвращается.
- *   2. Остальные места — по частоте, но урок с провалившейся формулировкой уходит в
- *      самый конец: он занимал бы место, ничего не покупая.
+ *   2. Остальные места — по ДАВЛЕНИЮ дефекта (волна 7, п.3): повторы, взвешенные
+ *      свежестью, вместо абсолютного счётчика. Урок с провалившейся формулировкой
+ *      уходит в самый конец: он занимал бы место, ничего не покупая.
  *   3. Если мест больше, чем кандидатов, добираем чем есть — включая провалившиеся:
  *      плохая формулировка всё же лучше пустого места.
+ *
+ * ЧТО ИМЕННО ПОМЕНЯЛА ВОЛНА 7, П.3. Раньше очередь решалась абсолютным счётчиком, и
+ * шесть мест в промпте были заморожены историей: дефект, побеждённый сто генераций
+ * назад, держал место навсегда, а новый класс дефекта не пробивался вовсе — его
+ * счётчик мал по определению, он ведь только начался. Теперь старое давление затухает
+ * (`lib/lesson-decay`), и свежий дефект попадает к модели, пока он актуален.
+ *
+ * ЗАТУХАНИЕ НЕ КАСАЕТСЯ ДОКАЗАННО ПОЛЕЗНЫХ УРОКОВ, и это не оговорка, а несущая часть
+ * механизма. Урок, который сработал, ПО ОПРЕДЕЛЕНИЮ перестаёт встречаться: его
+ * `last_seen` замирает, давление падает — и затухание вычистило бы из промпта именно
+ * то, что работает, вернув дефект. Ровно этот перевёрнутый стимул волна 6 закрывала
+ * закреплёнными местами; здесь он же закрыт вторично, отдельным правилом сортировки
+ * внутри закреплённой половины.
  *
  * Детерминировано при том же входе (сортировки со вторичным ключом по имени правила),
  * поэтому промпт воспроизводим, а тест не зависит от порядка строк из БД.
@@ -638,6 +740,14 @@ export function selectPromptLessons(limit = 6): RankedLesson[] {
   const { withText } = buildLessonView()
   if (withText.length === 0) return []
 
+  /* Очередь за незакреплённые места: давление, а не счётчик. Вторичный ключ — сам
+     счётчик (при равном давлении важнее тот, что ломал чаще), третий — имя правила,
+     чтобы промпт был воспроизводим. */
+  const byPressure = (a: RankedLesson, b: RankedLesson) =>
+    b.pressure - a.pressure || b.count - a.count || a.rule.localeCompare(b.rule)
+  /* Очередь внутри закреплённой половины: ТОЛЬКО счётчик. Взвешивать свежестью здесь
+     нельзя — у доказанно работающего урока дефект прекратился, и «свежесть» наказала бы
+     его за успех. */
   const byCount = (a: RankedLesson, b: RankedLesson) => b.count - a.count || a.rule.localeCompare(b.rule)
 
   const chosen: RankedLesson[] = []
@@ -657,7 +767,7 @@ export function selectPromptLessons(limit = 6): RankedLesson[] {
     .sort((a, b) => {
       const aFails = a.effect === "fails" ? 1 : 0
       const bFails = b.effect === "fails" ? 1 : 0
-      return aFails - bFails || byCount(a, b)
+      return aFails - bFails || byPressure(a, b)
     })
 
   for (const lesson of rest) {
@@ -764,6 +874,23 @@ export type LessonsReport = {
   unmeasured: number
   /** Сколько раз машинная формулировка заменила провалившуюся рукописную (волна 8). */
   supersededHandwritten: number
+  /**
+   * Сколько уроков ЗАТУХЛИ: дефект давно не встречался, и правило больше не держит
+   * место в промпте своей историей (волна 7, п.3).
+   *
+   * Показывается наружу потому, что затухание — единственный механизм этой волны,
+   * который что-то ОТНИМАЕТ. Механизм, отнимающий место молча, невозможно отличить от
+   * поломки отбора: «почему этого урока нет в промпте» должно иметь ответ числом.
+   */
+  faded: number
+  /**
+   * Сколько уроков судятся ЧАСТОТОЙ, а не абсолютным счётчиком (волна 7, п.3).
+   *
+   * Ноль при живом корпусе — не косметика, а диагноз: значит журнала генераций нет
+   * (миграция 094 не прошла) и вердикты выносятся по старому правилу, при котором
+   * рост трафика выглядит как деградация уроков.
+   */
+  rateJudged: number
 }
 
 /**
@@ -801,6 +928,8 @@ export function getLessonsReport(limit = 6): LessonsReport {
     measuring: 0,
     unmeasured: 0,
     supersededHandwritten: 0,
+    faded: 0,
+    rateJudged: 0,
   }
   try {
     const totals = db
@@ -840,6 +969,10 @@ export function getLessonsReport(limit = 6): LessonsReport {
       measuring: withText.filter((l) => l.effect === "measuring").length,
       unmeasured: withText.filter((l) => l.effect === "unmeasured").length,
       supersededHandwritten: authoredRows.filter((r) => r.text && r.supersedesHandwritten).length,
+      /* Половина — не произвольная граница: это ровно один период полураспада, то есть
+         «дефект не встречался столько генераций, что его вес честно уменьшился вдвое». */
+      faded: withText.filter((l) => l.decay < 0.5).length,
+      rateJudged: withText.filter((l) => l.repeatRate !== null).length,
     }
   } catch {
     return empty // схема без 092 — витрина честно пустая, а не выдуманная
