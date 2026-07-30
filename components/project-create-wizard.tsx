@@ -29,6 +29,7 @@ import { apiClient } from "@/lib/api-client"
 import { UpgradeNudgeModal, useUpgradeNudge } from "./UpgradeNudgeModal"
 import { GenerationStages } from "./GenerationStages"
 import { ProjectArtifactReveal, type RevealRarityMeta } from "./ProjectArtifactReveal"
+import { GenerationCostEstimate, depthCostBadge, useGenerationEstimate } from "./GenerationCostEstimate"
 
 /** rarityMeta для reveal строится из реальной экономики — знание таксономии
  *  (mythic=фольга, legendary=сияние) живёт здесь, а не в переиспользуемом компоненте. */
@@ -130,7 +131,24 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
 
   const selectedDepth = depths.find((d) => d.id === depthId) ?? null
   const depthCost = selectedDepth?.credits ?? 0
-  const insufficientCredits = depthCost > 0 && wallet.credits < depthCost
+
+  /* Смета ДО запуска (POST /projects/generation-estimate). Считается по замыслу, поэтому
+     запрашивается только на шаге описания: раньше её просто нечем наполнить, а при
+     autoStart шага нет вовсе — там глубина бесплатная (quick), и запуск не может стоить
+     человеку кредитов. */
+  const { estimate, loading: estimateLoading } = useGenerationEstimate({
+    name: name.trim() || undefined,
+    hint: description.trim() || theme?.hint,
+    enabled: step === 3 && !autoStart,
+  })
+
+  /* Право на перегенерацию за счёт платформы делает запуск бесплатным независимо от
+     баланса — блокировать кнопку по кредитам в этом случае было бы ложным отказом.
+     Условие покрытия здесь то же, что на сервере (findMakegoodFor): право оплачивает
+     глубину не дороже той, что провалилась. */
+  const makegoodRight = estimate?.makegood.available ? estimate.makegood : null
+  const makegoodApplies = !!makegoodRight && depthCost <= makegoodRight.credits
+  const insufficientCredits = depthCost > 0 && wallet.credits < depthCost && !makegoodApplies
 
   const totalSteps = 3
   const progress = (step / totalSteps) * 100
@@ -432,7 +450,10 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                   <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
                     {depths.map((d) => {
                       const active = depthId === d.id
-                      const tooExpensive = d.credits > 0 && wallet.credits < d.credits
+                      const tooExpensive = d.credits > 0 && wallet.credits < d.credits && !makegoodApplies
+                      /* Ожидаемый расход прямо на карточке: сравнение вариантов должно
+                         быть возможно ДО выбора, а не после списания. */
+                      const costBadge = depthCostBadge(estimate?.estimates?.[d.id])
                       return (
                         <button
                           key={d.id}
@@ -464,6 +485,11 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                               t("projectWizard.depthFree")
                             )}
                           </span>
+                          {costBadge && (
+                            <span className="text-[10px]" style={{ color: COLORS.label }}>
+                              {costBadge}
+                            </span>
+                          )}
                         </button>
                       )
                     })}
@@ -475,6 +501,10 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                   )}
                 </div>
               )}
+
+              {/* Смета ДО запуска: расход, время, шанс собраться с первого раза и право на
+                  перегенерацию за счёт платформы — всё до нажатия кнопки, а не после. */}
+              <GenerationCostEstimate estimate={estimate} depthId={depthId} loading={estimateLoading} />
 
               <p className="mt-4 flex items-center gap-2 text-[12px]" style={{ color: COLORS.label }}>
                 <Wand2 size={14} strokeWidth={1.75} />

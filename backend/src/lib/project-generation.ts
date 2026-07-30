@@ -40,6 +40,7 @@ import {
   type LessonDefectSample,
 } from "./lesson-author"
 import { resolveProjectTitle } from "./project-title"
+import { grantMakegood, type MakegoodReason } from "./generation-makegood"
 
 /* ================================================================
    OSGARD · Общий сервис генерации проектов
@@ -669,6 +670,20 @@ async function runAppGenerationJobInner(
       fingerprint: lessonsTaught > 0 ? fingerprint : null,
     })
 
+    /* ПЕРЕГЕНЕРАЦИЯ ЗА СЧЁТ ПЛАТФОРМЫ. Если выдача неработоспособна — приложение не
+       собирается или контур признал вердикт `broken` — виноват генератор, а не человек.
+       До этого он платил за наш промах тем же, чем за удачу: кредитами или дневной
+       квотой, и «попробуйте снова» шло за его счёт. Теперь провал сразу выдаёт право на
+       одну бесплатную перегенерацию (lib/generation-makegood).
+
+       Вердикт `repaired` права НЕ даёт намеренно: платформа нашла и исправила дефект
+       сама, пользователь получил работающее приложение — компенсировать нечего. */
+    const platformFault: MakegoodReason | null =
+      blockingImportErrors.length > 0 ? "unbuildable" : engineering.report.verdict === "broken" ? "broken" : null
+    const makegoodGranted = platformFault
+      ? grantMakegood({ userId, projectId, depth, reason: platformFault })
+      : false
+
     if (artifactNames) {
       const rows = db
         .prepare(`SELECT id FROM artifacts WHERE project_id = ? ORDER BY id ASC`)
@@ -695,6 +710,9 @@ async function runAppGenerationJobInner(
       verdict: engineering.report.verdict,
       defects: engineering.report.defects.filter((d) => d.severity === "error").length,
       firstTry,
+      /* Компенсация видна в том же событии, что и провал: человек узнаёт про право
+         сразу, а не находит его случайно при следующем запуске. */
+      makegood: makegoodGranted,
     })
 
     // Реальное асинхронное событие завершения: мгновенно пушим уведомление через SSE.
@@ -703,7 +721,9 @@ async function runAppGenerationJobInner(
       type: "generation_ready",
       entityType: "project",
       entityId: projectId,
-      text: `Проект «${name}» готов — приложение сгенерировано.`,
+      text: makegoodGranted
+        ? `Проект «${name}» готов, но проверка нашла дефекты — это наш промах. Следующая генерация за счёт платформы.`
+        : `Проект «${name}» готов — приложение сгенерировано.`,
     })
   } catch (err: any) {
     captureError("[projects.generate] app generation job failed:", err)
@@ -712,15 +732,58 @@ async function runAppGenerationJobInner(
       message,
       projectId,
     )
+    /* Джоб упал — человек не получил вообще ничего, и это целиком наша сторона:
+       компенсация здесь тем обязательнее, чем полнее провал. */
+    const makegoodGranted = grantMakegood({ userId, projectId, depth, reason: "crashed" })
     // Терминальная стадия failed: клиент показывает ошибку и кнопку «попробовать снова».
-    emitGenerationStage({ projectId, stage: "failed", label: "Ошибка генерации", progress: 1, error: message })
+    emitGenerationStage({
+      projectId,
+      stage: "failed",
+      label: "Ошибка генерации",
+      progress: 1,
+      error: message,
+      makegood: makegoodGranted,
+    })
     createNotification({
       userId,
       type: "generation_failed",
       entityType: "project",
       entityId: projectId,
-      text: `Не удалось сгенерировать проект «${name}». Можно попробовать снова.`,
+      text: makegoodGranted
+        ? `Не удалось сгенерировать проект «${name}» — ошибка на нашей стороне. Повторная генерация за счёт платформы.`
+        : `Не удалось сгенерировать проект «${name}». Можно попробовать снова.`,
     })
+  }
+}
+
+/**
+ * Разбирает замысел ДО первого обращения к модели: имя, тема, ключевые слова и —
+ * главное — подберётся ли готовый шаблон. Всё это детерминированный код, ни одного
+ * AI-вызова.
+ *
+ * Существует отдельной функцией ради сметы (lib/generation-estimate): пользователю
+ * показывают путь и ожидаемый расход ДО списания, и обещание обязано совпасть с тем,
+ * что произойдёт. Если бы маршрут сметы повторял эту цепочку своей копией, любое
+ * расхождение делало бы смету ложной — а смета, которая врёт, хуже отсутствующей.
+ * Поэтому и предсказание, и реальная генерация ходят через ОДНУ функцию.
+ */
+export function planGeneration(params: { name?: string | null; hint?: string; depth: GenerationDepth }) {
+  const safeHint = typeof params.hint === "string" && params.hint.trim() ? params.hint.trim() : undefined
+  const trimmedName = resolveProjectTitle(params.name, safeHint)
+  const depthCfg = GENERATION_DEPTHS[params.depth]
+
+  const { theme, keywords } = detectTheme(trimmedName, safeHint)
+  // forceAi (standard/deep) намеренно пропускает шаблонный shortcut → полная AI-генерация.
+  const template = depthCfg.forceAi ? null : findBestTemplate(theme, keywords)
+
+  return {
+    safeHint,
+    trimmedName,
+    theme,
+    keywords,
+    template,
+    /** Путь, который реально выберет генерация: адаптация шаблона или полная AI-сборка. */
+    path: (template ? "template" : "ai") as "template" | "ai",
   }
 }
 
@@ -738,15 +801,12 @@ export function createGeneratedProject(params: {
   hint?: string
   depth?: GenerationDepth
 }): { project: any; artifacts: any[]; projectId: number } {
-  const safeHint = typeof params.hint === "string" && params.hint.trim() ? params.hint.trim() : undefined
-  const trimmedName = resolveProjectTitle(params.name, safeHint)
-
   const depth = params.depth ?? "quick"
-  const depthCfg = GENERATION_DEPTHS[depth]
-
-  const { theme, keywords } = detectTheme(trimmedName, safeHint)
-  // forceAi (standard/deep) намеренно пропускает шаблонный shortcut → полная AI-генерация.
-  const template = depthCfg.forceAi ? null : findBestTemplate(theme, keywords)
+  const { safeHint, trimmedName, theme, keywords, template } = planGeneration({
+    name: params.name,
+    hint: params.hint,
+    depth,
+  })
 
   const quick: { description: string; badge: string; artifacts: AiArtifactSuggestion[] } = template
     ? {
@@ -775,7 +835,7 @@ export function createGeneratedProject(params: {
     .prepare(`SELECT ${ARTIFACT_SELECT_COLUMNS} FROM artifacts WHERE project_id = ? ORDER BY created_at DESC`)
     .all(projectId)
 
-  void runAppGenerationJob(params.userId, projectId, trimmedName, safeHint, quick, template, depthCfg.bypassCache, depth, {
+  void runAppGenerationJob(params.userId, projectId, trimmedName, safeHint, quick, template, GENERATION_DEPTHS[depth].bypassCache, depth, {
     theme,
     keywords,
   })
