@@ -14,7 +14,7 @@
    confirmLabel — само действие ("Потратить 50 TimeCoin"), не "ОК".
    ================================================================ */
 
-import { Loader2, X } from "lucide-react"
+import { AlertTriangle, Coins, Loader2, X } from "lucide-react"
 import { COLORS } from "@/lib/economy"
 
 export function ConfirmModal({
@@ -53,15 +53,27 @@ export function ConfirmModal({
         className="w-full max-w-md rounded-2xl p-6"
         style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 id="confirm-modal-title" className="text-[17px] font-semibold">
-            {title}
-          </h2>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex size-8 shrink-0 items-center justify-center rounded-full border"
+              style={{ borderColor: danger ? COLORS.red : COLORS.amber }}
+            >
+              {danger ? (
+                <AlertTriangle size={16} color={COLORS.red} strokeWidth={1.75} />
+              ) : (
+                <Coins size={16} color={COLORS.amber} strokeWidth={1.75} />
+              )}
+            </div>
+            <h2 id="confirm-modal-title" className="text-[17px] font-semibold">
+              {title}
+            </h2>
+          </div>
           <button
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-white/10"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/10"
             style={{ color: COLORS.label }}
             aria-label={cancelLabel}
           >

@@ -299,7 +299,7 @@
     },
     "confirmForge": {
       "title": "Start forging?",
-      "message": "Will charge {{amount}} TimeCoin from your balance. Guarantee: the charge only happens together with creating the artifact — paying with no result is impossible. The currency isn't refunded if you just don't like the rarity.",
+      "message": "Will charge {{amount}} TimeCoin from your balance. Guarantee: the charge only happens together with creating the artifact — paying with no result is impossible. The currency isn't refunded if you don't like the result.",
       "confirmLabel": "Spend {{amount}} TimeCoin",
       "cancelLabel": "Cancel"
     },
@@ -538,6 +538,8 @@
     "subtitle": "Manage OSGARD universes and artifact collections",
     "createBtn": "Create Project",
     "createAiBtn": "Create with AI",
+    "ideaPlaceholder": "Describe your idea in one phrase — AI will build it right away",
+    "ideaSubmit": "Create",
     "totalProjects": "Projects",
     "totalArtifacts": "Artifacts",
     "totalSold": "Sold",
@@ -655,6 +657,7 @@
     "generate": "Generate",
     "generating": "Generating…",
     "generatingApp": "AI is generating a full application… this can take a couple of minutes",
+    "startingGeneration": "Starting generation from your idea…",
     "generationFailed": "Failed to generate application files",
     "errorGenerate": "Failed to generate project"
   },
@@ -718,7 +721,7 @@
     "connectGithub": "Connect GitHub",
     "githubConnected": "GitHub connected — you can now publish the project",
     "githubConnectFailed": "Failed to connect GitHub",
-    "deployNetlify": "Deploy to Netlify",
+    "deployNetlify": "Deploy to OSGARD infrastructure",
     "deploying": "Deploying…",
     "deployed": "Project deployed:",
     "deployRequestFailed": "Failed to start deployment",
@@ -980,6 +983,8 @@
     "stepDeployIdle": "not published yet",
     "paneCode": "Code",
     "panePreview": "App",
+    "showCode": "Show code",
+    "hideCode": "Hide code",
     "filesTitle": "Files · {{count}}",
     "filesEmpty": "No files yet",
     "filesGenerating": "Claude is writing the app files…",

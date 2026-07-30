@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import db from '../db/database';
 import { UserModel } from '../models/user.model';
 import { AuthService } from '../services/auth.service';
+import { RefreshTokenService } from '../lib/refresh-tokens';
 import { requireAuth } from '../middleware/authMiddleware';
 import { encrypt } from '../utils/encryption';
 import {
@@ -259,7 +260,13 @@ router.get('/:provider/callback', async (req: Request, res: Response) => {
     UserModel.updateLastLogin(user.id);
 
     const token = AuthService.generateAccessToken(user.id);
-    const refreshToken = AuthService.generateRefreshToken(user.id);
+    // Stateful refresh-токен с ротацией/отзывом — ровно как при входе по паролю
+    // (auth.controller). Раньше здесь выдавался JWT через
+    // AuthService.generateRefreshToken(), который НЕ попадал в таблицу
+    // refresh_tokens: POST /auth/refresh ищет предъявленный токен по token_hash и
+    // без строки отвечает "invalid", поэтому соц-сессию выбрасывало на /login через
+    // 15 минут (когда истекал access-токен), а вход по паролю жил нормально.
+    const refreshToken = RefreshTokenService.issue(user.id);
 
     if (isMobile) {
       return res.redirect(

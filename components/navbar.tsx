@@ -33,6 +33,7 @@ import {
   Gem,
   GraduationCap,
   BadgeCheck,
+  Terminal,
   X,
   type LucideIcon,
 } from "lucide-react"
@@ -43,6 +44,8 @@ import { useAuth } from "@/lib/auth-store"
 import { CURRENCIES, CURRENCY_ORDER, formatCurrencyAmount } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { LOCALES, LOCALE_SHORT, LOCALE_LABELS, type Locale } from "@/lib/i18n"
+import { useAdaptiveLabel } from "@/lib/use-adaptive-label"
+import { useDevMode } from "@/lib/dev-mode"
 import { useState, useRef, useEffect } from "react"
 import { Globe } from "lucide-react"
 
@@ -89,6 +92,32 @@ export const NAV: NavItem[] = [
  *  меню: оттуда они по-прежнему в один клик, но не спорят за первое место с
  *  главным сценарием платформы. Порядок берётся из NAV (см. фильтр ниже). */
 const CORE_NAV_KEYS = ["nav.home", "nav.projects", "nav.refinements", "nav.orchestrator"]
+
+/** Вход в режим разработчика — минималистичную студию без экономики.
+ *  Namespace NAV намеренно не трогаем: Dev Mode устроен как отдельный
+ *  слой поверх (роут /dev + своя оболочка), а не как фильтр по 24
+ *  пунктам навигации. Поэтому обычный режим тут ничего не теряет. */
+function DevModeSwitch() {
+  const { switchMode, transitioning } = useDevMode()
+
+  return (
+    <button
+      type="button"
+      onClick={() => switchMode("dev")}
+      disabled={transitioning}
+      aria-label="Перейти в режим разработчика — студия без артефактов, биржи и рейтингов"
+      title="Режим разработчика"
+      className="dev-mode-nav-btn"
+    >
+      <Terminal size={15} strokeWidth={2} aria-hidden="true" />
+      {/* Полное название, а не «Dev»: аббревиатура ничего не говорит тому,
+          кто ещё не знает про режим — а именно он и должен его найти.
+          На узких экранах остаётся только иконка (место в шапке конечно),
+          но подпись держим до `md`, а не до `lg`. */}
+      <span className="hidden md:inline">Режим разработчика</span>
+    </button>
+  )
+}
 
 /** Переключатель языка · выпадающий список RU / EN / KZ */
 function LanguageSwitcher() {
@@ -185,7 +214,7 @@ function ProfileMenu({
           className="size-8 rounded-full object-cover"
           style={{ border: "1px solid #2A2A3E" }}
         />
-        <span className="hidden text-[14px] sm:block" style={{ color: "rgba(255,255,255,0.8)" }}>
+        <span className="hidden text-[14px] xl:block" style={{ color: "rgba(255,255,255,0.8)" }}>
           {t("nav.guest")}
         </span>
       </Link>
@@ -210,7 +239,7 @@ function ProfileMenu({
           style={{ border: `1px solid ${isProfileActive || open ? "var(--color-gold)" : "#2A2A3E"}` }}
         />
         <span
-          className="hidden text-[14px] sm:block"
+          className="hidden text-[14px] xl:block"
           style={{ color: isProfileActive || open ? "var(--color-gold)" : "rgba(255,255,255,0.8)" }}
         >
           {displayName}
@@ -357,6 +386,8 @@ export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth()
   const { unreadCount, fetchUnreadCount } = useNotificationsStore()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const showNotificationsLabel = useAdaptiveLabel("nav-notifications")
+  const showMessagesLabel = useAdaptiveLabel("nav-messages")
 
   // Real-time push уведомлений (SSE). Опрос ниже остаётся резервом на случай обрыва потока.
   useNotificationStream(isAuthenticated)
@@ -414,30 +445,44 @@ export function Navbar() {
           (core nav уже видна по md:, а правый кластер ещё не сжал себя валютами
           под lg:). Сам underline-индикатор активного пункта остаётся видимым —
           overflow здесь не трогаем. */}
-      <nav className="ml-10 hidden min-w-0 items-center gap-7 md:flex" aria-label={t("nav.mainNav")}>
+      <nav
+        className="ml-10 hidden min-w-0 items-center gap-7 overflow-x-auto overflow-y-hidden md:flex [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        aria-label={t("nav.mainNav")}
+      >
         {coreItems.map(({ key, href, Icon }) => {
           const active = isActive(href)
           return (
             <Link
               key={key}
               href={href}
+              aria-label={t(key)}
               aria-current={active ? "page" : undefined}
-              className="group relative flex items-center py-1 text-[14px] font-normal transition-all duration-150 hover:-translate-y-px"
+              className="group relative flex shrink-0 items-center whitespace-nowrap pb-4 pt-1 text-[14px] font-normal transition-all duration-150 hover:-translate-y-px"
               style={{ color: active ? "var(--color-gold)" : "rgba(255,255,255,0.6)" }}
             >
               <Icon
                 size={16}
                 strokeWidth={1.5}
-                className="mr-2 transition-colors group-hover:opacity-100"
+                className="transition-colors group-hover:opacity-100 xl:mr-2"
                 style={{ color: active ? "var(--color-gold)" : "#6A6A8A" }}
                 aria-hidden="true"
               />
-              <span className="group-hover:opacity-100" style={{ opacity: active ? 1 : undefined }}>
+              {/* Текст пункта появляется только с xl (1280px). На lg (1024px)
+                  текст + имя профиля появляются ОДНОВРЕМЕННО (оба завязаны на
+                  один и тот же брейкпоинт), и суммарная ширина в моменте
+                  превышает доступное место — измерено: nav.scrollWidth=461px
+                  при clientWidth=369px на 1024px (скрытый скроллбар молча
+                  обрезал "Оркестратор" без видимого наложения). На md–lg
+                  остаются только иконки (имя доступно через aria-label). */}
+              <span className="hidden group-hover:opacity-100 xl:inline" style={{ opacity: active ? 1 : undefined }}>
                 {t(key)}
               </span>
-              {/* underline = width of the item content */}
+              {/* underline = width of the item content. bottom-0 (not a negative
+                  offset) keeps it inside the link's own box so nav's
+                  overflow-x-auto safety net (which forces overflow-y to clip
+                  too) never cuts it off. */}
               <span
-                className="absolute -bottom-[21px] left-0 h-0.5 w-full transition-opacity"
+                className="absolute bottom-0 left-0 h-0.5 w-full transition-opacity"
                 style={{ backgroundColor: "var(--color-gold)", opacity: active ? 1 : 0 }}
                 aria-hidden="true"
               />
@@ -462,10 +507,14 @@ export function Navbar() {
           style={{ color: "#6A6A8A", border: "1px solid #2A2A3E" }}
         >
           <Menu size={16} strokeWidth={1.75} aria-hidden="true" />
-          {/* Подпись появляется только вместе с валютными балансами (lg:) — на
-              768–1023px core nav уже занимает место, и текст здесь был лишним
-              грузом, из-за которого «Ещё»/«Справка» теснились друг к другу. */}
-          <span className="hidden lg:inline">{t("nav.more")}</span>
+          {/* Текст и валютные балансы вместе физически не влезают рядом с
+              полным core-nav (4 пункта) на самой границе 2xl (1536px) — измерено:
+              nav.scrollWidth=461px против clientWidth=430px ровно на 1536px
+              ("Оркестратор" молча обрезался до "Оркестр" скрытым скроллбаром).
+              На 1920px запас уже есть (461==461), поэтому вместо 2xl используем
+              кастомный порог с запасом в ~64px. На md–1600 остаётся иконка +
+              aria-label. */}
+          <span className="hidden min-[1600px]:inline">{t("nav.more")}</span>
         </button>
         {/* Справка — что за платформа, кому нужна, инвестиции (заметный акцент) */}
         <Link
@@ -476,10 +525,10 @@ export function Navbar() {
           style={{ color: "var(--color-gold)", border: "1px solid var(--color-gold)" }}
         >
           <HelpCircle size={16} strokeWidth={1.9} aria-hidden="true" />
-          <span className="hidden lg:inline">{t("nav.about")}</span>
+          <span className="hidden min-[1600px]:inline">{t("nav.about")}</span>
         </Link>
         <div
-          className="hidden items-center gap-1 rounded-full p-1 lg:flex"
+          className="hidden items-center gap-1 rounded-full p-1 min-[1600px]:flex"
           style={{ border: `1px solid ${isActive("/wallet") ? "var(--color-gold)" : "#2A2A3E"}` }}
           role="group"
           aria-label={t("nav.currencyBalances")}
@@ -507,26 +556,37 @@ export function Navbar() {
             )
           })}
         </div>
+        <DevModeSwitch />
         <LanguageSwitcher />
         <Link
           href="/notifications"
           aria-label={t("nav.notifications")}
           aria-current={isActive("/notifications") ? "page" : undefined}
-          className="relative transition-colors hover:text-white"
+          className="relative flex items-center gap-1.5 transition-colors hover:text-white"
           style={{ color: isActive("/notifications") ? "var(--color-gold)" : "#6A6A8A" }}
         >
           <Bell size={18} strokeWidth={1.5} aria-hidden="true" />
           <Badge count={isAuthenticated ? unreadCount : 0} />
+          {showNotificationsLabel && (
+            <span className="text-[12px] transition-opacity" aria-hidden="true">
+              {t("nav.notifications")}
+            </span>
+          )}
         </Link>
         <Link
           href="/messages"
           aria-label={t("nav.messages")}
           aria-current={isActive("/messages") ? "page" : undefined}
-          className="relative transition-colors hover:text-white"
+          className="relative flex items-center gap-1.5 transition-colors hover:text-white"
           style={{ color: isActive("/messages") ? "var(--color-gold)" : "#6A6A8A" }}
         >
           <Mail size={18} strokeWidth={1.5} aria-hidden="true" />
           <Badge count={0} />
+          {showMessagesLabel && (
+            <span className="text-[12px] transition-opacity" aria-hidden="true">
+              {t("nav.messages")}
+            </span>
+          )}
         </Link>
 
         <ProfileMenu

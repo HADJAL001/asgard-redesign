@@ -5,6 +5,7 @@ import path from "node:path"
 import os from "node:os"
 import crypto from "node:crypto"
 import { captureError } from "../lib/sentry"
+import { SCAFFOLD_FINGERPRINT_LABEL, scaffoldDepsFingerprint } from "../lib/app-scaffold-deps"
 
 /* ================================================================
    OSGARD · Sandbox Service (Docker)
@@ -252,17 +253,42 @@ export interface NextBuildResult {
 
 export const PREBAKED_NEXT_IMAGE = "osgard-sandbox-next:latest"
 
-/** Есть ли локально преднастроенный образ с node_modules (кешируется на 30с). */
+/**
+ * Есть ли локально преднастроенный образ с node_modules И совпадает ли он с
+ * ТЕКУЩИМ набором зависимостей каркаса (кешируется на 30с).
+ *
+ * Сверка отпечатка — не формальность: набор каркаса живёт в
+ * `lib/app-scaffold-deps`, а образ собирается отдельно. Стоило добавить в каркас
+ * `lucide-react` (а он есть почти в каждом сгенерированном приложении), как
+ * старый образ стал бесполезен — каждая сборка честно шла быстрым путём, падала
+ * «module not found», и только потом уходила на медленный `npm install`. То есть
+ * платформа платила лишние минуты за кэш, которого фактически не было.
+ * Устаревший образ отбрасываем СРАЗУ и говорим в лог, что нужна пересборка.
+ */
 let prebakedCache: { value: boolean; at: number } | null = null
 export async function isPrebakedImageAvailable(): Promise<boolean> {
   const now = Date.now()
   if (prebakedCache && now - prebakedCache.at < 30_000) return prebakedCache.value
   let value = false
   try {
-    const { stdout } = await execFileAsync("docker", ["images", "-q", PREBAKED_NEXT_IMAGE], { timeout: 10_000 })
-    value = stdout.trim().length > 0
+    const { stdout } = await execFileAsync(
+      "docker",
+      ["image", "inspect", PREBAKED_NEXT_IMAGE, "--format", `{{ index .Config.Labels "${SCAFFOLD_FINGERPRINT_LABEL}" }}`],
+      { timeout: 10_000 },
+    )
+    const stamped = stdout.trim()
+    const expected = scaffoldDepsFingerprint()
+    value = stamped === expected
+    if (!value) {
+      /* Образ есть, но собран под другой набор (или собран до появления метки).
+         Это не ошибка окружения — это просьба пересобрать: `npm run sandbox:image`. */
+      console.warn(
+        `[sandbox] образ ${PREBAKED_NEXT_IMAGE} устарел (метка "${stamped || "нет"}" ≠ набор "${expected}") — ` +
+          `быстрый путь отключён, пересобери: npm run sandbox:image`,
+      )
+    }
   } catch {
-    value = false
+    value = false // образа нет вовсе — обычная ситуация, тихо идём медленным путём
   }
   prebakedCache = { value, at: now }
   return value

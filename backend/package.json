@@ -13,6 +13,8 @@
     "migrate:premium-upgrade": "tsx src/migrations/003_premium_upgrade.ts",
     "migrate:subscriptions": "tsx src/migrations/004_subscriptions.ts",
     "test": "tsx --test \"src/tests/**/*.test.ts\"",
+    "test:file": "tsx --test",
+    "sandbox:image": "tsx src/scripts/build-sandbox-image.ts",
     "loadtest": "tsx src/scripts/load-test.ts"
   },
   "dependencies": {

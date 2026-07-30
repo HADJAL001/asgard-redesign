@@ -76,9 +76,20 @@ const THEMES: Theme[] = [
 type Props = {
   onClose: () => void
   onCreated: (projectId: number) => void
+  /** Предзаполненное описание идеи. Нужен режиму разработчика (/dev), где
+   *  человек уже описал приложение словом или голосом до открытия мастера —
+   *  без этого текст пришлось бы вводить повторно. Необязателен: обычный
+   *  режим вызывает мастер без него и работает ровно как раньше. */
+  initialDescription?: string
+  /** Идея уже полностью описана — шаги 1-2 (имя, тема) пропускаются, генерация
+   *  запускается сразу при открытии мастера. Имя выводит бэкенд из описания
+   *  (lib/project-title.ts), спрашивать его отдельно незачем: «первый клик
+   *  создаёт проект». При ошибке мастер откатывается на обычные шаги, чтобы
+   *  человек мог продолжить вручную, а не упереться в тупик. */
+  autoStart?: boolean
 }
 
-export function ProjectCreateWizard({ onClose, onCreated }: Props) {
+export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "", autoStart = false }: Props) {
   const { t } = useTranslation()
   const { generateProject, pollProjectStatus } = useOsgardStore()
   const wallet = useOsgardStore((s) => s.wallet)
@@ -88,7 +99,7 @@ export function ProjectCreateWizard({ onClose, onCreated }: Props) {
   const [name, setName] = useState("")
   const [theme, setTheme] = useState<Theme | null>(null)
   const [customThemeText, setCustomThemeText] = useState("")
-  const [description, setDescription] = useState("")
+  const [description, setDescription] = useState(initialDescription)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   /** true, пока идёт фоновая генерация файлов реального приложения (после создания проекта). */
@@ -98,6 +109,8 @@ export function ProjectCreateWizard({ onClose, onCreated }: Props) {
   /** Каталог глубин генерации + выбранная глубина (по умолчанию бесплатная quick). */
   const [depths, setDepths] = useState<DepthOption[]>([])
   const [depthId, setDepthId] = useState<DepthOption["id"]>("quick")
+  /** autoStart уже запущен (эффект стартует ровно один раз, включая React strict-mode). */
+  const [autoStarted, setAutoStarted] = useState(false)
 
   // Каталог глубин — реальные тарифы из бэкенда (не хардкод), подтягиваем один раз при монтировании.
   useEffect(() => {
@@ -121,8 +134,19 @@ export function ProjectCreateWizard({ onClose, onCreated }: Props) {
 
   const totalSteps = 3
   const progress = (step / totalSteps) * 100
-  /** Мастер занят ритуалом (генерация или раскрытие) — прячем шаги, прогресс-бар и футер. */
-  const busy = generatingApp || !!reveal
+  /** Мастер занят ритуалом (генерация или раскрытие), включая окно между
+   *  автостартом и появлением generatingApp — прячем шаги, прогресс-бар и футер. */
+  const busy = generatingApp || !!reveal || (autoStart && (submitting || !autoStarted))
+
+  // «Первый клик создаёт проект»: идея уже описана — не спрашиваем имя/тему,
+  // запускаем генерацию сразу при открытии мастера.
+  useEffect(() => {
+    if (autoStart && !autoStarted) {
+      setAutoStarted(true)
+      void handleSubmit()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function goNext() {
     setError(null)
@@ -155,7 +179,7 @@ export function ProjectCreateWizard({ onClose, onCreated }: Props) {
       // Собственное описание пользователя (если есть) важнее темы — это его реальный
       // бриф для генерации, тема лишь fallback-подсказка.
       const hint = description.trim() || theme?.hint
-      const res = await generateProject(name.trim(), hint, depthId)
+      const res = await generateProject(name.trim() || undefined, hint, depthId)
       if (res.success && res.project) {
         setGeneratingApp(true)
         const finalProject = await pollProjectStatus(res.project.id)
@@ -267,6 +291,13 @@ export function ProjectCreateWizard({ onClose, onCreated }: Props) {
                 })}
               </p>
               <GenerationStages done={false} />
+            </div>
+          ) : autoStart && (submitting || !autoStarted) ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+              <Loader2 size={22} className="animate-spin" style={{ color: COLORS.accent }} />
+              <p className="text-[13px]" style={{ color: COLORS.label }}>
+                {t("projectWizard.startingGeneration")}
+              </p>
             </div>
           ) : (
           <>

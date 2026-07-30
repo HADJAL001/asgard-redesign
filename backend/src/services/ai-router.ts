@@ -1,5 +1,6 @@
 import dotenv from "dotenv"
 import { captureError } from "../lib/sentry"
+import { recordAiCall, estimateTokens } from "../lib/generation-telemetry"
 
 dotenv.config()
 
@@ -79,6 +80,11 @@ export async function callOpenAiCompatible<T>(
 ): Promise<T | null> {
   if (!apiKey) return null
 
+  /* Замер начинается ДО сетевого вызова и закрывается на каждом пути выхода
+     (успех, HTTP-ошибка, исключение) — упавший вызов тоже стоил пользователю
+     времени, и прятать его из счётчика было бы нечестно. */
+  const startedAt = Date.now()
+
   try {
     const messages = systemPrompt
       ? [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }]
@@ -100,16 +106,78 @@ export async function callOpenAiCompatible<T>(
 
     if (!res.ok) {
       console.error(`[ai-router] ${logLabel} API error: ${res.status} ${res.statusText}`)
+      recordAiCall({
+        provider: logLabel,
+        model,
+        inputTokens: estimateTokens(prompt),
+        outputTokens: 0,
+        ms: Date.now() - startedAt,
+        estimated: true,
+        ok: false,
+      })
       return null
     }
 
     const data: any = await res.json()
     const text: string = data?.choices?.[0]?.message?.content || ""
+    /* OpenAI-совместимые провайдеры отдают usage.prompt_tokens/completion_tokens.
+       Если поля нет — считаем оценкой по длине и помечаем estimated. */
+    const usage = data?.usage
+    const measured = typeof usage?.prompt_tokens === "number" && typeof usage?.completion_tokens === "number"
+    recordAiCall({
+      provider: logLabel,
+      model,
+      inputTokens: measured ? usage.prompt_tokens : estimateTokens(prompt),
+      outputTokens: measured ? usage.completion_tokens : estimateTokens(text),
+      ms: Date.now() - startedAt,
+      estimated: !measured,
+      ok: true,
+    })
     return parser(text)
   } catch (err) {
     captureError(`[ai-router] ${logLabel} API call failed:`, err)
+    recordAiCall({
+      provider: logLabel,
+      model,
+      inputTokens: estimateTokens(prompt),
+      outputTokens: 0,
+      ms: Date.now() - startedAt,
+      estimated: true,
+      ok: false,
+    })
     return null
   }
+}
+
+/**
+ * Модель для задач, где цена ошибки выше цены вызова. Такая задача в проекте одна —
+ * авторство уроков платформы (lib/lesson-author): сформулированный урок уходит в промпт
+ * КАЖДОЙ последующей генерации, поэтому неудачная формулировка вредит не одному
+ * приложению, а всем следующим. Экономия на модели здесь обходится дороже вызова.
+ *
+ * Отдельная переменная, а не общий ANTHROPIC_MODEL: обычная генерация кода и разбор
+ * дефектов — разные задачи с разным профилем, и менять модель одной, задевая другую,
+ * нельзя. Имя модели ОБЯЗАНО задаваться конфигом: прод ходит к Claude через шлюз
+ * (CLAUDE_API_URL), а тот знает свой список имён и на незнакомое отдаёт 404.
+ */
+const CLAUDE_REASONING_MODEL = process.env.ANTHROPIC_REASONING_MODEL || "claude-opus-4.7"
+
+/** true, если ключ Claude задан — вызов имеет смысл (валидность ключа этим не проверяется). */
+export function isClaudeConfigured(): boolean {
+  return !!CLAUDE_API_KEY
+}
+
+/** Какая модель отвечает за рассуждение — для витрин и отчётов (значение неизменяемо снаружи). */
+export function reasoningModelName(): string {
+  return CLAUDE_REASONING_MODEL
+}
+
+export type ClaudeCallOptions = {
+  /** Явное имя модели. По умолчанию — CLAUDE_MODEL (обычная рабочая модель). */
+  model?: string
+  /** Причина отказа наружу: HTTP-статус или текст ошибки. Нужна витринам, которые
+   *  обязаны показывать ПРОВАЛ анализа, а не молчать о нём. */
+  onFailure?: (reason: string) => void
 }
 
 /** Общий вызов Claude API (Anthropic messages endpoint), возвращает сырой текст ответа. */
@@ -118,8 +186,18 @@ export async function callClaudeApi(
   maxTokens: number = 1024,
   systemPrompt?: string,
   temperature?: number,
+  options?: ClaudeCallOptions,
 ): Promise<string | null> {
-  if (!CLAUDE_API_KEY) return null
+  if (!CLAUDE_API_KEY) {
+    options?.onFailure?.("ключ Claude не задан")
+    return null
+  }
+
+  const startedAt = Date.now()
+  /* Фактическая модель вызова. Считать расход всегда по CLAUDE_MODEL нельзя: разбор
+     дефектов ходит к более дорогой модели, и счётчик приписал бы её токены обычной —
+     витрина расхода показывала бы неправду ровно там, где цена выше. */
+  const model = options?.model || CLAUDE_MODEL
 
   try {
     const res = await fetch(CLAUDE_API_URL, {
@@ -130,7 +208,7 @@ export async function callClaudeApi(
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: CLAUDE_MODEL,
+        model,
         max_tokens: maxTokens,
         ...(systemPrompt ? { system: systemPrompt } : {}),
         ...(temperature !== undefined ? { temperature } : {}),
@@ -140,15 +218,66 @@ export async function callClaudeApi(
 
     if (!res.ok) {
       console.error(`[ai-router] Claude API error: ${res.status} ${res.statusText}`)
+      options?.onFailure?.(`HTTP ${res.status} ${res.statusText}`)
+      recordAiCall({
+        provider: "claude",
+        model,
+        inputTokens: estimateTokens(prompt),
+        outputTokens: 0,
+        ms: Date.now() - startedAt,
+        estimated: true,
+        ok: false,
+      })
       return null
     }
 
     const data: any = await res.json()
-    return data?.content?.[0]?.text || ""
+    const text: string = data?.content?.[0]?.text || ""
+    /* Anthropic-формат: usage.input_tokens/output_tokens (иначе, чем у OpenAI). */
+    const usage = data?.usage
+    const measured = typeof usage?.input_tokens === "number" && typeof usage?.output_tokens === "number"
+    recordAiCall({
+      provider: "claude",
+      model,
+      inputTokens: measured ? usage.input_tokens : estimateTokens(prompt),
+      outputTokens: measured ? usage.output_tokens : estimateTokens(text),
+      ms: Date.now() - startedAt,
+      estimated: !measured,
+      ok: true,
+    })
+    return text
   } catch (err) {
     captureError("[ai-router] Claude API call failed:", err)
+    options?.onFailure?.(err instanceof Error ? err.message : "вызов не удался")
+    recordAiCall({
+      provider: "claude",
+      model,
+      inputTokens: estimateTokens(prompt),
+      outputTokens: 0,
+      ms: Date.now() - startedAt,
+      estimated: true,
+      ok: false,
+    })
     return null
   }
+}
+
+/**
+ * Вызов сильной модели для задач разбора. Фолбэка на более слабую модель здесь НЕТ
+ * намеренно: для авторства уроков честнее не записать урок вовсе, чем записать
+ * сомнительный — он попадёт в промпт всех будущих генераций. Провал виден вызывающему
+ * через `onFailure` и доходит до витрины.
+ */
+export async function callClaudeReasoning(
+  prompt: string,
+  maxTokens: number,
+  systemPrompt?: string,
+  onFailure?: (reason: string) => void,
+): Promise<string | null> {
+  return callClaudeApi(prompt, maxTokens, systemPrompt, 0, {
+    model: CLAUDE_REASONING_MODEL,
+    onFailure,
+  })
 }
 
 /** Сырые (без JSON-парсинга) вызовы провайдеров — для генератора реальных приложений

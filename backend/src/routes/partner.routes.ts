@@ -4,6 +4,7 @@ import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { asyncHandler } from "../utils/async-handler"
 import { logAudit } from "../lib/audit"
 import { createGeneratedProject, PROJECT_SELECT_COLUMNS } from "../lib/project-generation"
+import { resolveProjectTitle } from "../lib/project-title"
 import {
   generateApiKey,
   resolveApiKey,
@@ -161,11 +162,16 @@ partnerPublicRouter.get("/me", apiKeyAuth, (_req: Request, res: Response) => {
 partnerPublicRouter.post("/generate", apiKeyAuth, asyncHandler(async (_req: Request, res: Response) => {
   const key = res.locals.apiKey as ApiKeyRow
   const body = _req.body || {}
-  const name = typeof body.name === "string" ? body.name.trim() : ""
+  const rawName = typeof body.name === "string" ? body.name.trim() : ""
   const hint = typeof body.hint === "string" ? body.hint : undefined
   const now = Date.now()
 
-  if (!name) return res.status(400).json({ error: "Укажите name проекта", code: "NAME_REQUIRED" })
+  /* name необязателен: если задан hint, название выводится из него же кодом
+     (lib/project-title.ts) — как и у веб-клиента. Нужна хоть какая-то суть. */
+  if (!rawName && !hint?.trim()) {
+    return res.status(400).json({ error: "Укажите name или hint проекта", code: "NAME_OR_HINT_REQUIRED" })
+  }
+  const name = resolveProjectTitle(rawName, hint)
 
   /* Реальное списание кредитов владельца в транзакции. */
   const wallet = db.prepare(`SELECT credits FROM wallets WHERE user_id = ?`).get(key.user_id) as

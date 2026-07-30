@@ -129,7 +129,7 @@ export function EternityLanding() {
             router.push(`/projects/${guest.projectId}`)
             return
           }
-          const res = await useOsgardStore.getState().generateProject(query)
+          const res = await useOsgardStore.getState().generateProject(undefined, query)
           if (res.success && res.project) {
             el.value = ""
             router.push(`/projects/${res.project.id}`)
@@ -140,7 +140,8 @@ export function EternityLanding() {
         /* падаем в fallback ниже */
       }
       // Fallback: гостевую генерацию поднять не вышло — прежний конверсионный путь.
-      savePendingGeneration({ name: query })
+      // Идея — бриф (hint), не имя: имя выведет бэкенд из неё же (lib/project-title.ts).
+      savePendingGeneration({ hint: query })
       el.value = ""
       setSubmitting(false)
       router.push("/register")
@@ -149,7 +150,7 @@ export function EternityLanding() {
 
     setSubmitting(true)
     try {
-      const res = await useOsgardStore.getState().generateProject(query)
+      const res = await useOsgardStore.getState().generateProject(undefined, query)
       if (res.success && res.project) {
         el.value = ""
         // Глубина по умолчанию — quick (бесплатно). Страница проекта покажет ход генерации.

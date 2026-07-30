@@ -5,7 +5,7 @@ import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { isAiConfigured } from "../services/ai-generator"
 import { validateGeneratedFiles, GeneratedAppFile } from "../services/app-generator"
-import { runNetlifyDeployJob, isNetlifyConfigured } from "../services/netlify-deploy"
+import { resolveDeployTarget, runDeployJob } from "../services/deploy-target"
 import { verifyBuildInSandbox } from "../services/sandbox.service"
 import { decrypt } from "../utils/encryption"
 import { asyncHandler } from "../utils/async-handler"
@@ -19,8 +19,10 @@ import {
 import { rateLimit } from "../middleware/rateLimiter"
 import { GENERATION_DEPTHS, resolveDepth, serializeDepths } from "../lib/generation-depths"
 import { logAudit } from "../lib/audit"
-import { generationEvents, getRecentStages, type GenerationStageEvent } from "../lib/generation-events"
+import { generationEvents, getRecentStages, type GenerationStreamEvent } from "../lib/generation-events"
 import { guestProjectCapReached } from "../lib/guest-service"
+import { getLessonsReport } from "../lib/craft-corpus"
+import { getTemplateSavingsReport } from "../services/template-store"
 import {
   refinementsRemaining,
   recordRefinement,
@@ -28,6 +30,7 @@ import {
   listProjectRefinements,
   REFINEMENT_CREDIT_COST,
 } from "../lib/refinements"
+import { resolveProjectTitle } from "../lib/project-title"
 
 const router = Router()
 
@@ -91,6 +94,97 @@ router.get("/generation-limits", requireAuth, (req: AuthRequest, res) => {
 /* ---------------- GET /projects/generation-depths — каталог уровней глубины ---------------- */
 router.get("/generation-depths", requireAuth, (_req: AuthRequest, res) => {
   res.json({ depths: serializeDepths() })
+})
+
+/* ---------------- GET /projects/platform-memory — чему платформа научилась ----------------
+   Обе памяти корпуса ремесла (lib/craft-corpus) БЫЛИ слепыми: `getLessonsReport` и
+   `getTemplateSavingsReport` существовали, но не были подключены ни к одному роуту —
+   ни из UI, ни из API нельзя было увидеть, учится ли платформа на самом деле. А шелла
+   в прод-контейнер нет, значит проверить было нечем в принципе: «платформа учится»
+   оставалось утверждением про код, а не наблюдаемым фактом.
+
+   Отдельно показываем `silent` — правила, которые копятся в базе, но в промпт не
+   попадают из-за отсутствующей формулировки. Это тихий регресс: счётчик растёт,
+   обучения нет. Ровно он и случился до волны 2 с правилами досборки контракта.
+
+   Данные не приватные (имена правил, счётчики, агрегаты по шаблонам) и не привязаны к
+   пользователю, поэтому доступ — любому авторизованному: честность платформы адресована
+   тому, кто ей платит за генерацию. Ленивый доступ к БД внутри хендлера — как и в
+   остальных роутах после инцидента #59. */
+router.get("/platform-memory", requireAuth, (_req: AuthRequest, res) => {
+  const lessons = getLessonsReport()
+
+  let savings: { templates: number; reuses: number; tokensSaved: number } = {
+    templates: 0,
+    reuses: 0,
+    tokensSaved: 0,
+  }
+  try {
+    savings = getTemplateSavingsReport()
+  } catch {
+    /* Схема без миграции корпуса — витрина остаётся честно нулевой. Витрина памяти
+       не имеет права ронять ответ: она диагностическая, а не критичная. */
+  }
+
+  res.json({
+    /* Память ошибок: на чём генератор ломается и что из этого реально уходит в промпт. */
+    mistakes: {
+      rules: lessons.rules,
+      occurrences: lessons.occurrences,
+      promptLimit: lessons.promptLimit,
+      taught: lessons.taught,
+      silent: lessons.silent,
+      /* Прямая метрика бесполезной учёбы: правила есть, обучения нет. */
+      silentRules: lessons.silent.length,
+    },
+    /* Память удач: корпус шаблонов, отобранных по измеримому качеству. */
+    successes: savings,
+    /* Учится ли платформа хоть чему-нибудь прямо сейчас — одним булевым полем, чтобы
+       витрина не заставляла считать это глазами. */
+    learning: lessons.taught.length > 0,
+    /* --- Авторство уроков (волна 5) ---
+       Рукописный словарь формулировок был пределом обучения: правило без строки в
+       КОДЕ промпт отбрасывал навсегда. Теперь платформа формулирует урок сама, и
+       витрина обязана показывать это отдельно от рукописного — вместе с ОТКАЗАМИ
+       разбора. Иначе «платформа не научилась» снова становится необъяснимым фактом:
+       непонятно, дефектов не было или модель не смогла сформулировать урок. */
+    authoring: {
+      selfAuthored: lessons.selfAuthored,
+      failures: lessons.authoringFailures,
+    },
+    /* --- Польза уроков (волна 6) ---
+       Волна 5 научилась мерить пользу урока, но наружу уходило только сырое число
+       повторов у каждого урока — вывода из измерения витрина не делала. Здесь виден
+       сам вывод: сколько уроков доказанно работают, сколько доказанно нет, и какие
+       уроки в промпт НЕ попали с указанием причины.
+
+       Причина обязательна: «не работает» — вина формулировки и повод её переписать,
+       «вне топа» — просто редкий дефект и никакой вины. Без этого различия
+       отсутствие урока в промпте выглядит как поломка отбора. */
+    effectiveness: {
+      working: lessons.working,
+      failing: lessons.failing,
+      demoted: lessons.demoted,
+      /* --- Точка отсчёта у каждого урока (волна 8) ---
+         Прод показал, что `working`/`failing` были обречены на ноль: у всех боевых
+         правил формулировка рукописная, а у рукописного урока не было момента, с
+         которого можно считать повторы. Волна 8 такой момент завела — и вместе с ним
+         третье, ЧЕСТНОЕ состояние: измерение началось, но доказательства пока нет.
+
+         Показывать его отдельно обязательно. Иначе на следующий день после миграции
+         витрина отрапортовала бы «13 уроков доказанно работают», не измерив ничего:
+         ноль повторов у урока, который модель видела один раз, — это отсутствие
+         данных, а не доказательство пользы. */
+      measuring: lessons.measuring,
+      /* Уроки с формулировкой, которые в промпт ещё не уходили ни разу (редкий дефект
+         вне топа) — их не измеряет никто, и это не то же самое, что «идёт измерение». */
+      unmeasured: lessons.unmeasured,
+      /* Сколько раз машинная формулировка вытеснила рукописную, потому что та
+         измеренно не работала. Единственное исключение из приоритета рукописного
+         текста, поэтому оно обязано быть видно числом, а не только в логах. */
+      supersededHandwritten: lessons.supersededHandwritten,
+    },
+  })
 })
 
 /* ---------------- GET /projects/mine — список проектов пользователя ---------------- */
@@ -289,10 +383,17 @@ router.post("/", requireAuth, (req: AuthRequest, res) => {
 router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const { name, hint } = req.body || {}
   const userId = req.user!.userId
+  const safeHint = typeof hint === "string" ? hint : undefined
 
-  if (!name || typeof name !== "string" || !name.trim()) {
-    return res.status(400).json({ error: "Укажите название проекта" })
+  /* Имя не обязательно: если человек уже описал идею (hint), название
+     выводится из неё же кодом — см. lib/project-title.ts. Обязательна
+     хоть какая-то суть запроса (имя ИЛИ идея), иначе генерировать нечего. */
+  const hasName = typeof name === "string" && name.trim()
+  const hasHint = !!safeHint?.trim()
+  if (!hasName && !hasHint) {
+    return res.status(400).json({ error: "Опишите идею или укажите название проекта" })
   }
+  const resolvedName = resolveProjectTitle(name, safeHint)
 
   /* Хард-кап гостя: второй проект гостя отклоняется ДО квот/списаний. */
   if (guestProjectCapReached(userId)) {
@@ -301,7 +402,6 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
 
   const depth = resolveDepth(req.body?.depth)
   const depthCfg = GENERATION_DEPTHS[depth]
-  const safeHint = typeof hint === "string" ? hint : undefined
 
   /* --- Бесплатная (quick) генерация: расход дневной квоты тарифа --- */
   if (depthCfg.countsAgainstQuota) {
@@ -328,7 +428,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     }
 
     try {
-      const { project, artifacts } = createGeneratedProject({ userId, name, hint: safeHint, depth })
+      const { project, artifacts } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth })
       return res.status(202).json({ project, artifacts, depth, costCredits: 0, aiConfigured: isAiConfigured() })
     } catch (err) {
       captureError("[projects.generate] error:", err)
@@ -363,16 +463,16 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     db.prepare(
       `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
        VALUES (?, 'project_generation', ?, 'OSGARD', ?, 'credits', 'done')`,
-    ).run(userId, `Генерация (${depthCfg.label}): ${name.trim()}`, cost)
+    ).run(userId, `Генерация (${depthCfg.label}): ${resolvedName}`, cost)
     db.exec("COMMIT")
   } catch (err) {
     db.exec("ROLLBACK")
     throw err
   }
-  logAudit(userId, "debit", cost, "project_generation", { depth, name: name.trim() })
+  logAudit(userId, "debit", cost, "project_generation", { depth, name: resolvedName })
 
   try {
-    const { project, artifacts } = createGeneratedProject({ userId, name, hint: safeHint, depth })
+    const { project, artifacts } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth })
     return res.status(202).json({ project, artifacts, depth, costCredits: cost, aiConfigured: isAiConfigured() })
   } catch (err) {
     /* Синхронный сбой создания — честно возвращаем кредиты. */
@@ -600,11 +700,63 @@ router.get("/:id/engineering", requireAuth, (req: AuthRequest, res) => {
     }
   }
 
+  /* Счётчик расхода (колонки 095) — отдельным запросом и в собственном try/catch
+     по той же причине, что и сам вердикт выше: на БД без миграции 095 отсутствие
+     счётчика не имеет права спрятать уже посчитанный инженерный вердикт. */
+  let meter: {
+    aiCalls: number | null
+    tokensIn: number | null
+    tokensOut: number | null
+    durationMs: number | null
+    firstTry: boolean | null
+    detail: unknown
+  } | null = null
+  try {
+    const m = db
+      .prepare(
+        `SELECT gen_ai_calls as aiCalls, gen_tokens_in as tokensIn, gen_tokens_out as tokensOut,
+                gen_duration_ms as durationMs, gen_first_try as firstTry, gen_meter as detail
+         FROM projects WHERE id = ? AND user_id = ?`,
+      )
+      .get(projectId, req.user!.userId) as
+      | {
+          aiCalls: number | null
+          tokensIn: number | null
+          tokensOut: number | null
+          durationMs: number | null
+          firstTry: number | null
+          detail: string | null
+        }
+      | undefined
+    // measured:false у старых проектов — расход не измерялся, это не «ноль потрачено».
+    if (m && m.durationMs !== null) {
+      let detail: unknown = null
+      if (m.detail) {
+        try {
+          detail = JSON.parse(m.detail)
+        } catch {
+          detail = null
+        }
+      }
+      meter = {
+        aiCalls: m.aiCalls,
+        tokensIn: m.tokensIn,
+        tokensOut: m.tokensOut,
+        durationMs: m.durationMs,
+        firstTry: m.firstTry === null ? null : m.firstTry === 1,
+        detail,
+      }
+    }
+  } catch {
+    meter = null
+  }
+
   return res.json({
     verified: !!row.buildStatus,
     verdict: row.buildStatus,
     report,
     verifiedAt: row.verifiedAt ?? null,
+    meter,
   })
 })
 
@@ -706,9 +858,11 @@ router.get("/:id/stream", requireAuth, (req: AuthRequest, res) => {
   if (bufferedTerminal) return res.end()
 
   const channel = `gen:${id}`
-  const onStage = (evt: GenerationStageEvent) => {
+  /* Канал несёт и стадии, и тики живого счётчика расхода (type:"meter").
+     Тик стадию не меняет и поток не закрывает — закрываемся только на терминале. */
+  const onStage = (evt: GenerationStreamEvent) => {
     send(evt)
-    if (evt.stage === "ready" || evt.stage === "failed") {
+    if (evt.type === "stage" && (evt.stage === "ready" || evt.stage === "failed")) {
       cleanup()
       res.end()
     }
@@ -819,13 +973,24 @@ router.post("/:id/publish-github", requireAuth, asyncHandler(async (req: AuthReq
   }
 }))
 
-/* ---------------- POST /projects/:id/deploy-netlify — задеплоить проект на Netlify ----------------
-   Серверный NETLIFY_AUTH_TOKEN (единый платформенный аккаунт), не пер-пользовательский OAuth.
-   Тот же fire-and-forget паттерн, что и генерация приложения: отвечаем сразу
-   (deploy_status='deploying'), реальная сборка (npm install + next build) и загрузка
-   запускаются в фоне, фронтенд опрашивает GET /projects/:id.
+/* ---------------- Публикация проекта ----------------
+   Площадку выбирает resolveDeployTarget (services/deploy-target.ts): основная —
+   НАША инфраструктура (*.osgard.cloud, тот же control-plane, что везёт боевой
+   SUPER DAY), Netlify — только аварийный запас и только при явном
+   DEPLOY_ALLOW_NETLIFY_FALLBACK=true. Мы продаём аренду своей инфраструктуры,
+   поэтому публикация клиентских приложений к конкуренту — не деталь реализации,
+   а подрыв самого продукта.
+
+   Путь остаётся fire-and-forget: отвечаем сразу (deploy_status='deploying'),
+   сборка и выкладка идут в фоне, фронтенд опрашивает GET /projects/:id.
+
+   Два адреса ручки — один обработчик:
+     POST /projects/:id/deploy          — правильное, площадко-независимое имя;
+     POST /projects/:id/deploy-netlify  — прежнее имя, сохранено ради уже
+                                          задеплоенных клиентов (мобилка и веб
+                                          зовут его), но НЕ означает Netlify.
 ------------------------------------------------------------------------------- */
-router.post("/:id/deploy-netlify", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+const deployProjectHandler = asyncHandler(async (req: AuthRequest, res) => {
   const id = Number(req.params.id)
   const project: any = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id)
 
@@ -836,9 +1001,12 @@ router.post("/:id/deploy-netlify", requireAuth, asyncHandler(async (req: AuthReq
   if (project.status !== "ready") {
     return res.status(400).json({ error: "Проект ещё не готов к деплою" })
   }
-  if (!isNetlifyConfigured()) {
-    return res.status(400).json({ error: "Деплой не сконфигурирован на сервере (NETLIFY_AUTH_TOKEN)" })
+
+  const decision = resolveDeployTarget()
+  if (decision.target === "none") {
+    return res.status(400).json({ error: `Деплой невозможен: ${decision.reason}` })
   }
+
   if (project.deploy_status === "deploying") {
     return res.status(400).json({ error: "Деплой уже выполняется" })
   }
@@ -846,10 +1014,15 @@ router.post("/:id/deploy-netlify", requireAuth, asyncHandler(async (req: AuthReq
   db.prepare(`UPDATE projects SET deploy_status = 'deploying', deploy_error = NULL WHERE id = ?`).run(id)
   const updated = db.prepare(`SELECT ${PROJECT_SELECT_COLUMNS} FROM projects WHERE id = ?`).get(id)
 
-  res.status(202).json({ project: updated })
+  // Площадку отдаём клиенту явно: пользователь должен видеть, куда именно
+  // уезжает его приложение, а не догадываться по домену в ссылке.
+  res.status(202).json({ project: updated, deployTarget: decision.target, deployTargetLabel: decision.label })
 
-  void runNetlifyDeployJob(id)
-}))
+  runDeployJob(id, decision.target)
+})
+
+router.post("/:id/deploy", requireAuth, deployProjectHandler)
+router.post("/:id/deploy-netlify", requireAuth, deployProjectHandler)
 
 /* ---------------- POST /projects/:id/verify-build — реальная проверка сборки в Docker-песочнице ----------------
    В отличие от инлайн-валидации при сохранении файла (ts.transpileModule — только

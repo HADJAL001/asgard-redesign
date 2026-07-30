@@ -866,6 +866,44 @@ svg { width: 1rem; height: 1rem; flex: none; }
   .ambient-aurora, .ambient-stars { animation: none; }
 }
 
+/* ================================================================
+   WorkshopBackdrop — фон «мастерская ИИ» на Оркестраторе и в Мастерской
+   проекта (см. components/workshop-backdrop.tsx). Локальный слой внутри
+   `.eg-page` (position: relative), под <main class="relative z-10">.
+   ================================================================ */
+.workshop-backdrop {
+  position: absolute; inset: 0; z-index: 0; overflow: hidden;
+  pointer-events: none; background: #05060a;
+}
+.workshop-backdrop-image {
+  position: absolute; inset: -3%;
+  background-image: url("/backgrounds/workshop.webp");
+  background-size: cover; background-position: center;
+  filter: saturate(1.05) brightness(0.9);
+  animation: workshop-ken-burns 75s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.workshop-backdrop-grain {
+  position: absolute; inset: 0;
+  background-image: var(--grain); background-size: 120px 120px;
+  opacity: 0.05; mix-blend-mode: overlay;
+}
+.workshop-backdrop-vignette {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, transparent 34%, rgb(3 3 8 / 0.42) 76%, rgb(3 3 8 / 0.78) 100%);
+}
+.workshop-backdrop-fade {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgb(4 5 9 / 0.55) 0%, transparent 22%, transparent 62%, rgb(4 5 9 / 0.88) 100%);
+}
+@keyframes workshop-ken-burns {
+  0%   { transform: scale(1) translate3d(0, 0, 0); }
+  100% { transform: scale(1.08) translate3d(-1.2%, -1%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workshop-backdrop-image { animation: none; }
+}
+
 /* ===== Premium surface utilities (Claude A) ========================
    Переиспользуемый «словарь дороговизны» для конверсионных экранов
    (вход/регистрация) и панелей. Строятся на существующих токенах
@@ -1104,13 +1142,35 @@ svg { width: 1rem; height: 1rem; flex: none; }
    только transform/opacity; `prefers-reduced-motion` гасит блик. Все токены
    существующие (--color-gold-rgb / --eg-* / --ease-premium / --grain / --dur-hover). */
 
-/* --- Сцена: один тёплый ореол вместо золото-бирюзовой пары клякс ----------- */
+/* --- Сцена: космический кадр (SD1.5, work/ai-media) + тёплый ореол ---------
+   Кинематография поверх фото — тот же язык, что у .workshop-backdrop:
+   Ken Burns (медленный zoom), зерно --grain, затемнение под форму входа.
+   `.auth-vault` (непрозрачность 0.88-0.94) и так почти скрывает фон под
+   собой — по краям сцены остаётся видимым роскошный космос. */
 .auth-stage { position: relative; }
 .auth-stage::before {
+  content: ""; position: absolute; inset: -3%; pointer-events: none; z-index: 0;
+  background-image:
+    radial-gradient(46% 34% at 50% 30%, rgb(var(--color-gold-rgb) / 0.10), transparent 68%),
+    radial-gradient(70% 50% at 50% 120%, rgb(8 10 18 / 0.75), transparent 70%),
+    url("/backgrounds/cosmic-login.webp");
+  background-size: auto, auto, cover;
+  background-position: center;
+  filter: saturate(1.1) brightness(0.85);
+  animation: auth-stage-ken-burns 80s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.auth-stage::after {
   content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  background:
-    radial-gradient(46% 34% at 50% 30%, rgb(var(--color-gold-rgb) / 0.075), transparent 68%),
-    radial-gradient(70% 50% at 50% 120%, rgb(8 10 18 / 0.75), transparent 70%);
+  background-image: var(--grain); background-size: 120px 120px;
+  opacity: 0.045; mix-blend-mode: overlay;
+}
+@keyframes auth-stage-ken-burns {
+  0%   { transform: scale(1) translate3d(0, 0, 0); }
+  100% { transform: scale(1.07) translate3d(-1%, -0.8%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-stage::before { animation: none; }
 }
 
 /* --- Оправа: сам контейнер ------------------------------------------------- */
@@ -1331,4 +1391,544 @@ svg { width: 1rem; height: 1rem; flex: none; }
 @media (prefers-reduced-motion: reduce) {
   .osgard-loader-halo,
   .osgard-loader-decor { animation: none !important; }
+}
+
+/* ================================================================
+   OSGARD · DEV MODE — «Космическая студия разработчика»
+   ----------------------------------------------------------------
+   Второй режим платформы: тёмно-синее звёздное небо + премиальное
+   серебро. Золото остаётся ТОЛЬКО на главном действии — так на экране
+   всегда ровно одна точка притяжения взгляда (см. lib/dev-mode.tsx).
+
+   Дисциплина этого блока — он ДОБАВЛЯЕТ, но ничего не переопределяет
+   глобально: всё живёт под классом `.dev-mode` на <html>. Обычный
+   режим OSGARD физически не может измениться из-за этих правил.
+   Блок намеренно дописан в самый конец файла: globals.css — горячий
+   файл (его правят параллельные ветки), так конфликты тривиальны.
+   ================================================================ */
+
+/* ── Небо студии: холодная сине-серебряная гамма поверх готового
+      AmbientBackdrop. Переиспользуем существующий слой .ambient-*,
+      а не рисуем второй фон (components/ambient-backdrop.tsx). ── */
+/* Звёздный слой лежит на z-index:-1, то есть ПОД <body>. Пока у body свой
+   непрозрачный фон (тема задаёт bg-background), небо не видно вообще —
+   именно это и обнаружилось на живом стенде: слои рисовались, но были
+   закрыты заливкой. Отдаём цвет самому backdrop'у, а body делаем
+   прозрачным. Только внутри .dev-mode — тема мира не меняется. */
+.dev-mode,
+.dev-mode body {
+  background-color: transparent !important;
+}
+.dev-mode .ambient-backdrop { background: #070A14; }
+.dev-mode .ambient-base {
+  background: radial-gradient(ellipse 130% 100% at 50% -10%, #0B0E1A 0%, #0F172A 55%, #060910 100%);
+}
+.dev-mode .ambient-aurora--teal {
+  background: radial-gradient(circle, rgb(125 211 252 / 20%), rgb(30 64 110 / 6%) 60%, transparent 72%);
+}
+.dev-mode .ambient-aurora--royal {
+  background: radial-gradient(circle, rgb(148 163 184 / 22%), rgb(51 65 85 / 6%) 58%, transparent 72%);
+}
+/* Золотое пятно в студии почти гасим — золото приберегаем для кнопки. */
+.dev-mode .ambient-aurora--gold {
+  background: radial-gradient(circle, rgb(226 232 240 / 10%), rgb(148 163 184 / 4%) 55%, transparent 70%);
+}
+
+/* ── Звёздное небо студии ──
+      Базовый .ambient-stars мира — пять точек: для «космической студии»
+      этого мало, небо читается как плоская заливка. В Dev Mode рисуем
+      три звёздных плана, которые дрейфуют с РАЗНОЙ скоростью — так
+      появляется параллакс и ощущение глубины, без канваса и WebGL
+      (решение основателя: только CSS, без новых зависимостей).
+
+      Слои — псевдоэлементы уже смонтированного .ambient-stars: лишних
+      узлов в DOM не добавляем, обычный режим не трогаем. */
+.dev-mode .ambient-stars {
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 22%, rgb(255 255 255 / 90%), transparent),
+    radial-gradient(1.6px 1.6px at 78% 34%, rgb(226 232 240 / 85%), transparent),
+    radial-gradient(1.4px 1.4px at 44% 68%, rgb(255 255 255 / 80%), transparent),
+    radial-gradient(1.7px 1.7px at 88% 78%, rgb(200 220 255 / 80%), transparent),
+    radial-gradient(1.4px 1.4px at 26% 84%, rgb(226 232 240 / 75%), transparent),
+    radial-gradient(1.5px 1.5px at 62% 12%, rgb(255 255 255 / 85%), transparent),
+    radial-gradient(1.3px 1.3px at 34% 46%, rgb(160 174 192 / 75%), transparent),
+    radial-gradient(1.6px 1.6px at 92% 52%, rgb(255 255 255 / 80%), transparent);
+  animation: ambient-twinkle 6s ease-in-out infinite;
+}
+
+/* Дальний план — мелкая звёздная пыль, движется медленно. */
+.dev-mode .ambient-stars::before,
+.dev-mode .ambient-stars::after {
+  content: "";
+  position: absolute;
+  /* Запас по высоте: слой уезжает вверх и не должен обнажать край. */
+  inset: -50% 0 0 0;
+  height: 200%;
+  pointer-events: none;
+}
+.dev-mode .ambient-stars::before {
+  background-image:
+    radial-gradient(1px 1px at 8% 8%, rgb(226 232 240 / 55%), transparent),
+    radial-gradient(1px 1px at 22% 61%, rgb(255 255 255 / 50%), transparent),
+    radial-gradient(1px 1px at 37% 27%, rgb(160 174 192 / 45%), transparent),
+    radial-gradient(1px 1px at 51% 88%, rgb(226 232 240 / 50%), transparent),
+    radial-gradient(1px 1px at 66% 41%, rgb(255 255 255 / 45%), transparent),
+    radial-gradient(1px 1px at 74% 73%, rgb(200 220 255 / 50%), transparent),
+    radial-gradient(1px 1px at 84% 18%, rgb(226 232 240 / 45%), transparent),
+    radial-gradient(1px 1px at 95% 64%, rgb(255 255 255 / 50%), transparent),
+    radial-gradient(1px 1px at 16% 39%, rgb(226 232 240 / 40%), transparent),
+    radial-gradient(1px 1px at 59% 57%, rgb(255 255 255 / 45%), transparent);
+  background-size: 100% 50%;
+  animation: dev-star-drift-far 150s linear infinite;
+}
+/* Ближний план — редкие яркие звёзды, движутся заметно быстрее. */
+.dev-mode .ambient-stars::after {
+  background-image:
+    radial-gradient(2px 2px at 18% 14%, rgb(255 255 255 / 95%), transparent),
+    radial-gradient(2.2px 2.2px at 71% 29%, rgb(226 232 240 / 90%), transparent),
+    radial-gradient(2px 2px at 41% 77%, rgb(255 255 255 / 85%), transparent),
+    radial-gradient(2.4px 2.4px at 87% 62%, rgb(200 220 255 / 90%), transparent),
+    radial-gradient(2px 2px at 6% 52%, rgb(255 255 255 / 80%), transparent);
+  background-size: 100% 50%;
+  animation: dev-star-drift-near 70s linear infinite;
+}
+
+@keyframes dev-star-drift-far {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, -25%, 0); }
+}
+@keyframes dev-star-drift-near {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, -25%, 0); }
+}
+
+/* Туманность — мягкое свечение, чтобы небо не было пустым.
+   Живёт на .ambient-backdrop, который уже смонтирован глобально. */
+.dev-mode .ambient-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 40% at 22% 28%, rgb(125 211 252 / 9%), transparent 70%),
+    radial-gradient(ellipse 48% 38% at 82% 68%, rgb(148 163 184 / 10%), transparent 72%),
+    radial-gradient(ellipse 40% 30% at 62% 12%, rgb(226 232 240 / 6%), transparent 70%);
+  animation: dev-nebula-breathe 26s ease-in-out infinite;
+}
+@keyframes dev-nebula-breathe {
+  0%, 100% { opacity: 0.75; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.06); }
+}
+.dev-mode .ambient-vignette {
+  background: radial-gradient(ellipse at center, transparent 34%, rgb(6 9 16 / 36%) 74%, rgb(6 9 16 / 72%) 100%);
+}
+
+/* ── Премиальная серебристая кнопка (матовый металлик) ── */
+.dev-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 20px; border-radius: 14px;
+  font-size: 14px; font-weight: 500; letter-spacing: 0.01em;
+  color: #0F172A;
+  background: linear-gradient(145deg, #F1F5F9 0%, #E2E8F0 45%, #CBD5E1 100%);
+  border: 1px solid rgb(226 232 240 / 55%);
+  box-shadow: 0 4px 12px rgb(148 163 184 / 30%), inset 0 1px 0 rgb(255 255 255 / 70%);
+  transition: transform 0.18s var(--ease-out-soft, cubic-bezier(.16,1,.3,1)),
+              box-shadow 0.18s ease, filter 0.18s ease;
+  cursor: pointer;
+}
+.dev-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 18px rgb(148 163 184 / 42%), inset 0 1px 0 rgb(255 255 255 / 80%);
+}
+.dev-btn:active:not(:disabled) { transform: scale(0.975); }
+.dev-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Главное действие — единственное золото на экране студии. */
+.dev-btn--gold {
+  color: #1A1206;
+  background: linear-gradient(145deg, #F3DF9B 0%, #D4AF37 48%, #B4922B 100%);
+  border-color: rgb(212 175 55 / 60%);
+  box-shadow: 0 4px 16px rgb(212 175 55 / 34%), inset 0 1px 0 rgb(255 255 255 / 45%);
+}
+.dev-btn--gold:hover:not(:disabled) {
+  box-shadow: 0 6px 22px rgb(212 175 55 / 46%), inset 0 1px 0 rgb(255 255 255 / 55%);
+}
+
+/* Тихая кнопка-призрак (например «← В мир OSGARD»). */
+.dev-btn--ghost {
+  color: #CBD5E1;
+  background: rgb(226 232 240 / 6%);
+  border: 1px solid rgb(226 232 240 / 16%);
+  box-shadow: none;
+}
+.dev-btn--ghost:hover:not(:disabled) {
+  background: rgb(226 232 240 / 12%);
+  color: #F1F5F9;
+  filter: none;
+}
+
+/* ── Стеклянная карточка проекта ── */
+.dev-card {
+  background: rgb(255 255 255 / 3%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgb(226 232 240 / 12%);
+  border-radius: 16px;
+  transition: border-color 0.2s ease, transform 0.2s var(--ease-out-soft, cubic-bezier(.16,1,.3,1)),
+              background 0.2s ease;
+}
+.dev-card:hover {
+  border-color: rgb(226 232 240 / 30%);
+  background: rgb(255 255 255 / 6%);
+  transform: translateY(-2px);
+}
+
+/* ── Поле ввода: прозрачное, с серебристой обводкой ── */
+.dev-input {
+  width: 100%;
+  background: rgb(226 232 240 / 6%);
+  border: 1px solid rgb(226 232 240 / 18%);
+  border-radius: 14px;
+  color: #F1F5F9;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.dev-input::placeholder { color: rgb(148 163 184 / 75%); }
+.dev-input:focus {
+  outline: none;
+  border-color: rgb(226 232 240 / 45%);
+  background: rgb(226 232 240 / 9%);
+}
+
+/* Тонкий заголовок студии — «дорогая» типографика. */
+.dev-title {
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  color: #F1F5F9;
+}
+
+/* ── Кнопка входа в режим разработчика (шапка обычного режима) ──
+      Раньше была неотличима от служебных иконок шапки (серый текст,
+      бордер #2A2A3E) и подписана «Dev» — аббревиатурой, которая ничего
+      не говорит тому, кто про режим ещё не знает. Теперь это заметная
+      золотая кнопка с полным названием: вход во вторую вселенную —
+      не служебная иконка, он обязан бросаться в глаза. */
+.dev-mode-nav-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px; border-radius: 9999px;
+  font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  color: #F3DF9B;
+  background: linear-gradient(135deg, rgb(212 175 55 / 20%), rgb(212 175 55 / 8%));
+  border: 1px solid rgb(212 175 55 / 45%);
+  box-shadow: 0 0 0 0 rgb(212 175 55 / 40%);
+  transition: color .2s ease, background .2s ease, border-color .2s ease,
+              box-shadow .2s ease, transform .18s var(--ease-out-soft, cubic-bezier(.22,.61,.36,1));
+}
+.dev-mode-nav-btn:hover:not(:disabled) {
+  color: #0A0A0F;
+  background: linear-gradient(135deg, #F3DF9B, #D4AF37);
+  border-color: rgb(212 175 55 / 85%);
+  box-shadow: 0 0 18px rgb(212 175 55 / 45%);
+}
+.dev-mode-nav-btn:active:not(:disabled) { transform: scale(0.96); }
+.dev-mode-nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Мягкое «дыхание» рамки — притягивает взгляд, не мигая назойливо. */
+@keyframes dev-nav-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(212 175 55 / 0%); }
+  50%      { box-shadow: 0 0 14px 1px rgb(212 175 55 / 30%); }
+}
+.dev-mode-nav-btn { animation: dev-nav-pulse 3.4s ease-in-out infinite; }
+.dev-mode-nav-btn:hover { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .dev-mode-nav-btn { animation: none; transition: none; }
+}
+
+/* ── Глобальные слои платформы, которым не место в студии ──
+      Найдено живой проверкой в браузере: экономика возвращалась в Dev Mode
+      «с чёрного хода» — через подвал (Кузница, Маркет, Биржа, Кошелёк,
+      Зал Славы) и плавающий виджет ДЖАРВИСа. Оба слоя монтируются глобально
+      (footer — в серверном app/layout.tsx), поэтому скрывается здесь, а не
+      правкой самого компонента: обычный режим обязан остаться нетронутым.
+      Плавающий виджет ДЖАРВИСа выключается иначе — он клиентский, поэтому
+      просто не монтируется в Dev Mode (см. AppShell). */
+.dev-mode footer {
+  display: none !important;
+}
+
+/* ── Канвас перехода «Матрица» ──
+      Над всем интерфейсом, но полностью прозрачен для событий.
+      z-index выше навбара (z-50) и модалок платформы. */
+.matrix-transition-canvas {
+  position: fixed; inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* Экран под канвасом «плывёт» в момент распада — усиливает эффект
+   дезинтеграции без единой лишней анимации на самом контенте. */
+.mode-switching .app-root-content {
+  filter: blur(7px) saturate(0.55);
+  transform: scale(0.985);
+  transition: filter 0.5s ease, transform 0.5s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Переход целиком отключён в lib/dev-mode.tsx (режим меняется мгновенно),
+     здесь страхуемся на случай, если слой всё же смонтирован. */
+  .matrix-transition-canvas { display: none !important; }
+  .mode-switching .app-root-content {
+    filter: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .dev-card, .dev-btn { transition: none !important; }
+}
+
+/* ── Рельс навигации студии (components/dev-mode/DevRail.tsx) ──
+      Мобильный порядок первым: снизу горизонтальная полоса на всю ширину.
+      С `md` превращается в вертикальную колонку слева — там высота экрана
+      дороже ширины, под ней живут код и превью. */
+.dev-rail {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: space-around;
+  gap: 4px;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: rgb(9 12 22 / 88%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid rgb(226 232 240 / 12%);
+}
+
+.dev-rail__item {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 6px;
+  border-radius: 12px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  color: rgb(148 163 184 / 85%);
+  border: 1px solid transparent;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.dev-rail__item:hover { color: #F1F5F9; background: rgb(226 232 240 / 7%); }
+
+/* Активный раздел — серебряная подсветка. Цвет + рамка + фон вместе:
+   одного цвета мало, чтобы состояние читалось при дневном свете. */
+.dev-rail__item--active {
+  color: #F8FAFC;
+  background: linear-gradient(145deg, rgb(226 232 240 / 16%), rgb(148 163 184 / 8%));
+  border-color: rgb(226 232 240 / 30%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%);
+}
+
+@media (min-width: 768px) {
+  .dev-rail {
+    top: 0; bottom: 0; right: auto;
+    width: 84px;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 6px;
+    /* Отступ сверху пропускает шапку студии (марка + выход в мир). */
+    padding: 92px 10px 20px;
+    border-top: none;
+    border-right: 1px solid rgb(226 232 240 / 12%);
+  }
+  .dev-rail__item { flex: 0 0 auto; padding: 11px 6px; }
+}
+
+/* Контент студии уступает место рельсу: снизу на телефоне, слева на десктопе. */
+.dev-mode-layout { padding-bottom: 84px; }
+@media (min-width: 768px) {
+  .dev-mode-layout { padding-bottom: 0; padding-left: 84px; }
+}
+
+/* ── Стрелка-подсказка «нажмите для перехода» (DevTopBar.tsx) ──
+      Студия — вход по умолчанию, поэтому про вторую вселенную человеку
+      надо СКАЗАТЬ: иначе он не догадается, что артефакты, биржа и Зал
+      Славы никуда не делись. Показывается только до первого переключения.
+
+      Позиционируется под кнопкой, а не над: сверху её обрезал бы край окна. */
+.dev-hint {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+  animation: dev-hint-in 0.5s ease-out both;
+}
+.dev-hint__text {
+  max-width: 250px;
+  padding: 9px 13px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #F1F5F9;
+  text-align: left;
+  background: linear-gradient(145deg, rgb(212 175 55 / 16%), rgb(226 232 240 / 7%));
+  border: 1px solid rgb(212 175 55 / 34%);
+  box-shadow: 0 8px 24px rgb(3 6 16 / 50%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+/* Стрелка смотрит вверх — на кнопку прямо над подсказкой — и покачивается:
+   глаз ловит движение раньше, чем успевает прочитать текст. */
+.dev-hint__arrow {
+  flex-shrink: 0;
+  margin-top: 9px;
+  color: #D4AF37;
+  animation: dev-hint-nudge 1.9s ease-in-out infinite;
+}
+@keyframes dev-hint-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes dev-hint-nudge {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+/* Кнопка, на которую показывает подсказка: тёплая грань вместо призрачной. */
+.dev-btn--beacon {
+  background: linear-gradient(145deg, rgb(212 175 55 / 14%), rgb(226 232 240 / 6%)) !important;
+  border: 1px solid rgb(212 175 55 / 40%) !important;
+  color: #F8FAFC !important;
+  animation: dev-beacon-glow 2.6s ease-in-out infinite;
+}
+@keyframes dev-beacon-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(212 175 55 / 26%); }
+  50%      { box-shadow: 0 0 0 5px rgb(212 175 55 / 8%); }
+}
+
+/* ── Мастерская внутри студии: бирюза мира → серебро ──
+      Кнопки «Сохранить» / «Запустить» и рамки панелей приходят из общего
+      экрана Мастерской с жёстко вшитым accent #00D4FF (lib/economy.tsx).
+      Менять саму константу нельзя — она держит весь мир OSGARD, поэтому
+      перекрашиваем точечно и только под .dev-mode.
+
+      Селектор по атрибуту, а не по классу: цвета заданы inline-стилями,
+      классов у этих кнопок нет. */
+.dev-mode [style*="#00D4FF"],
+.dev-mode [style*="rgb(0, 212, 255)"] {
+  color: #E2E8F0 !important;
+  border-color: rgb(226 232 240 / 30%) !important;
+}
+/* Заливка (у «Сохранить»/«Запустить» цвет уходит в background) — серебро. */
+.dev-mode [style*="background-color: rgb(0, 212, 255)"],
+.dev-mode [style*="background: #00D4FF"],
+.dev-mode [style*="backgroundColor:#00D4FF"] {
+  background: linear-gradient(145deg, #E2E8F0, #CBD5E1) !important;
+  color: #0F172A !important;
+  border-color: transparent !important;
+}
+
+/* Второе золото на экране гасим: «Отправить Клоду» — важное действие, но
+   не главное. Главное живёт в строке состояния (Проверить / Запустить /
+   Задеплоить). Два золотых пятна спорят и оба перестают читаться. */
+.dev-mode .btn-premium-gold {
+  background: linear-gradient(145deg, rgb(226 232 240 / 14%), rgb(148 163 184 / 8%)) !important;
+  border: 1px solid rgb(226 232 240 / 28%) !important;
+  color: #F1F5F9 !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 10%) !important;
+}
+/* …кроме той единственной, что стоит в самой строке состояния. */
+.dev-mode .dev-statusbar .dev-btn--gold {
+  background: linear-gradient(145deg, #E8C766, #D4AF37) !important;
+  border: 1px solid rgb(212 175 55 / 55%) !important;
+  color: #1A1408 !important;
+}
+
+/* ── Строка состояния Мастерской в студии (DevStatusBar.tsx) ──
+      Одна панель вместо баннера + пяти карточек + полосы вердикта.
+      Стекло с тонкой серебряной гранью: премиальность даёт материал и
+      воздух, а не количество элементов. */
+.dev-statusbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgb(226 232 240 / 6%), rgb(148 163 184 / 3%));
+  border: 1px solid rgb(226 232 240 / 14%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%), 0 8px 26px rgb(3 6 16 / 45%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.dev-statusbar__track {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex-shrink: 0;
+}
+.dev-statusbar__node { display: flex; align-items: center; }
+.dev-statusbar__dot {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+/* Текущая стадия — единственная, что светится и пульсирует. */
+.dev-statusbar__dot--active {
+  box-shadow: 0 0 0 3px rgb(125 211 252 / 18%);
+  animation: dev-dot-pulse 1.8s ease-in-out infinite;
+}
+.dev-statusbar__link {
+  display: block;
+  width: 22px;
+  height: 1px;
+  background: rgb(226 232 240 / 16%);
+}
+@keyframes dev-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgb(125 211 252 / 16%); }
+  50%      { box-shadow: 0 0 0 6px rgb(125 211 252 / 6%); }
+}
+
+.dev-statusbar__headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 220px;
+  min-width: 0;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+.dev-statusbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dev-rail__item { transition: none !important; }
+  .dev-statusbar__dot--active { animation: none !important; }
+  /* Подсказка остаётся видимой — гасим только её движение и пульс. */
+  .dev-hint, .dev-hint__arrow, .dev-btn--beacon { animation: none !important; }
+  .dev-hint__arrow { transform: scaleY(-1) !important; }
+  /* Звёздный параллакс и дыхание туманности — движение ради атмосферы.
+     Само небо остаётся на месте, отключается только его перемещение. */
+  .dev-mode .ambient-stars,
+  .dev-mode .ambient-stars::before,
+  .dev-mode .ambient-stars::after,
+  .dev-mode .ambient-backdrop::after {
+    animation: none !important;
+  }
 }

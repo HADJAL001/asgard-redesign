@@ -1,4 +1,5 @@
 import { captureError } from "./sentry"
+import { propsContractDefects, repairPropValue } from "./props-contract"
 
 /* ================================================================
    OSGARD · Инженерная целостность сгенерированного приложения
@@ -130,8 +131,10 @@ function packageOf(spec: string): string {
   return spec.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0]
 }
 
-/** Всегда доступные пакеты каркаса (их ставит staticTemplateFiles). */
-const BUILTIN_PACKAGES = new Set(["next", "react", "react-dom", "typescript"])
+/** Всегда доступные пакеты каркаса (их ставит staticTemplateFiles).
+ *  lucide-react входит в каркас: модели тянут иконки практически в каждом
+ *  приложении, и без объявления пакета каждый такой импорт был ошибкой сборки. */
+const BUILTIN_PACKAGES = new Set(["next", "react", "react-dom", "typescript", "lucide-react"])
 
 const RESOLVE_SUFFIXES = ["", ".tsx", ".ts", "/index.tsx", "/index.ts", ".css", ".json"]
 
@@ -787,6 +790,20 @@ export function explainBuildIntegrity(files: SourceFile[]): IntegrityReport {
   const staticExport = staticExportDefects(factsList)
   const routes = routeContractDefects(factsList)
   const hygiene = contentHygieneDefects(files)
+  /* Контракт ТИПОВ ПРОПОВ (lib/props-contract). Отдельный модуль со своим разбором:
+     здесь нужны сигнатуры компонентов и JSX-атрибуты, а FileFacts выше собирает
+     импорты/экспорты/директивы — смешивать две разные модели одного файла дороже,
+     чем распарсить его дважды (речь о десятке файлов внутри процесса).
+     Нужен потому, что каркас глушит tsc через ignoreBuildErrors, а в проде нет
+     Docker — значит рассогласование пропов не поймает НИКТО, кроме этой сверки. */
+  const props = (() => {
+    try {
+      return propsContractDefects(files)
+    } catch (err) {
+      captureError("[build-integrity] сверка контракта пропов не удалась:", err)
+      return [] as IntegrityDefect[]
+    }
+  })()
 
   const checks: IntegrityCheck[] = [
     toCheck({ key: "syntax", label: "Синтаксис", defects: syntax, okDetail: "каждый файл разбирается компилятором" }),
@@ -795,9 +812,10 @@ export function explainBuildIntegrity(files: SourceFile[]): IntegrityReport {
     toCheck({ key: "static", label: "Статический экспорт", defects: staticExport, okDetail: "нет серверных конструкций" }),
     toCheck({ key: "routes", label: "Маршруты", defects: routes, okDetail: "каждая страница отдаёт компонент" }),
     toCheck({ key: "hygiene", label: "Чистота исходников", defects: hygiene, okDetail: "нет заглушек и следов ответа модели" }),
+    toCheck({ key: "props", label: "Пропы компонентов", defects: props, okDetail: "переданные пропы совпадают с сигнатурами" }),
   ]
 
-  const defects = [...syntax, ...graph, ...boundary, ...staticExport, ...routes, ...hygiene].sort((a, b) =>
+  const defects = [...syntax, ...graph, ...boundary, ...staticExport, ...routes, ...hygiene, ...props].sort((a, b) =>
     a.severity === b.severity ? a.file.localeCompare(b.file) : a.severity === "error" ? -1 : 1,
   )
 
@@ -899,6 +917,8 @@ export function repairIntegrity(files: SourceFile[], report: IntegrityReport): R
     "route-default-export-missing",
     "default-export-missing",
     "named-import-missing",
+    // Пропы правим последними: правка точечная и от структуры файла не зависит.
+    "prop-type-mismatch",
   ]
   fixable.sort((a, b) => order.indexOf(a.rule) - order.indexOf(b.rule))
 
@@ -954,6 +974,23 @@ export function repairIntegrity(files: SourceFile[], report: IntegrityReport): R
           if (next !== content) {
             byPath.set(path, next)
             actions.push({ rule: defect.rule, file: path, action: `импорт "${symbol}" переведён в default-форму` })
+          }
+          break
+        }
+        case "prop-type-mismatch": {
+          const { tag, prop, mode, referenced } = defect.hint ?? {}
+          if (!tag || !prop || !mode || !referenced) break
+          const next = repairPropValue(content!, { tag, prop, mode, referenced })
+          if (next !== content) {
+            byPath.set(path, next)
+            actions.push({
+              rule: defect.rule,
+              file: path,
+              action:
+                mode === "unwrap"
+                  ? `<${tag}>: проп "${prop}" получает ${referenced} вместо <${referenced} /> (ждали сам компонент)`
+                  : `<${tag}>: проп "${prop}" получает <${referenced} /> вместо ${referenced} (ждали разметку)`,
+            })
           }
           break
         }

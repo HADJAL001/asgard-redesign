@@ -501,7 +501,7 @@ export interface OsgardProject {
   /** Источник генерации файлов приложения: "ai"/"template-ai" (сгенерировано провайдером,
       напрямую или через сохранённый шаблон) или "fallback"/"template-local" (без AI). */
   aiSource?: "ai" | "fallback" | "template-ai" | "template-local" | null
-  /** Статус деплоя на Netlify (независим от status — проект можно передеплоить много раз). */
+  /** Статус деплоя (независим от status — проект можно передеплоить много раз). */
   deployStatus?: "deploying" | "deployed" | "failed" | null
   deployError?: string | null
   liveUrl?: string | null
@@ -577,11 +577,45 @@ export interface EngineeringReport {
   sandbox?: { ok: boolean; skipped: boolean }
 }
 
+/* ---- Счётчик расхода генерации (backend: lib/generation-telemetry, миграция 095) ----
+   Во что обошлась сборка приложения: обращения к моделям, токены, время. Отдельно от
+   вердикта по той же причине, по которой `verified:false` ≠ `broken`: у проектов,
+   сгенерированных до миграции, расход НИКТО не измерял. `meter: null` означает
+   «не измерялось» и обязан выглядеть в интерфейсе так, а не как «0 токенов» —
+   выдумать числа значило бы соврать ровно в том месте, ради честности которого
+   счётчик и сделан. */
+export interface GenerationMeterDetail {
+  /** Разбивка по провайдерам: видно, кто сколько съел. */
+  byProvider?: Record<string, { calls: number; tokens: number }>
+  /** Сумма времени сетевых вызовов (без пауз между ними). */
+  aiMs?: number
+  /** Сколько вызовов не отдали точный usage — оговорка к точности цифры. */
+  unmeasured?: number
+  failedCalls?: number
+  /** Сколько раундов ремонта потребовалось инженерному контуру. */
+  repairRounds?: number
+  repairedFiles?: number
+  verdict?: EngineeringVerdict
+}
+
+export interface GenerationMeter {
+  aiCalls: number | null
+  tokensIn: number | null
+  tokensOut: number | null
+  /** Полное время генерации (не сумма вызовов: включает проверки, ремонт и запись). */
+  durationMs: number | null
+  /** true — приложение заработало БЕЗ единого ремонта. null — не измерялось. */
+  firstTry: boolean | null
+  detail: GenerationMeterDetail | null
+}
+
 export interface ProjectEngineering {
   verified: boolean
   verdict: EngineeringVerdict | null
   report: EngineeringReport | null
   verifiedAt: number | null
+  /** Расход этой генерации. null — проект сгенерирован до появления счётчика. */
+  meter?: GenerationMeter | null
 }
 
 /** Результат refineProject (см. POST /projects/:id/refine, 202). */
@@ -612,8 +646,8 @@ export interface SaveFileActionResult {
   error?: string
 }
 
-/** Результат deployProjectToNetlify (см. POST /projects/:id/deploy-netlify). */
-export interface NetlifyDeployActionResult {
+/** Результат deployProject (см. POST /projects/:id/deploy). */
+export interface DeployActionResult {
   success: boolean
   project?: OsgardProject
   error?: string
@@ -778,7 +812,7 @@ export interface OsgardStoreState {
    *  standard/deep списывают кредиты и включают полную AI-генерацию / bypass кеша соответственно.
    *  Отвечает немедленно (HTTP 202) проектом со статусом 'generating' — прогресс отслеживается
    *  через pollProjectStatus/fetchProject, а не через этот единственный вызов. */
-  generateProject: (name: string, hint?: string, depth?: string) => Promise<ProjectActionResult>
+  generateProject: (name: string | undefined, hint?: string, depth?: string) => Promise<ProjectActionResult>
   /** Опрашивает GET /projects/:id, пока project.status не станет 'ready'/'failed' (или не истечёт таймаут). */
   pollProjectStatus: (id: number, opts?: { intervalMs?: number; timeoutMs?: number }) => Promise<OsgardProject | null>
   /** GET /projects/:id/files — файлы сгенерированного приложения. */
@@ -787,8 +821,10 @@ export interface OsgardStoreState {
   publishProjectToGithub: (id: number, opts?: { repoName?: string; private?: boolean }) => Promise<GithubPublishActionResult>
   /** PUT /projects/:id/files/* — сохраняет содержимое одного файла (Monaco-редактор). */
   saveProjectFile: (id: number, path: string, content: string) => Promise<SaveFileActionResult>
-  /** POST /projects/:id/deploy-netlify — запускает асинхронный деплой на Netlify (deploy_status='deploying'). */
-  deployProjectToNetlify: (id: number) => Promise<NetlifyDeployActionResult>
+  /** POST /projects/:id/deploy — запускает асинхронный деплой на нашу инфраструктуру
+   *  (deploy_status='deploying'). Площадку выбирает бэкенд: своя инфра, Netlify — только
+   *  аварийный запас (backend/src/services/deploy-target.ts). */
+  deployProject: (id: number) => Promise<DeployActionResult>
   /** Опрашивает GET /projects/:id, пока project.deployStatus не выйдет из 'deploying' (или не истечёт таймаут). */
   pollDeployStatus: (id: number, opts?: { intervalMs?: number; timeoutMs?: number }) => Promise<OsgardProject | null>
   /** PATCH /projects/:id — обновить название/описание/бейдж проекта. */
@@ -1747,11 +1783,11 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     }
   },
 
-  /* ---- проекты: POST /projects/:id/deploy-netlify — запуск асинхронного деплоя ---- */
-  deployProjectToNetlify: async (id) => {
+  /* ---- проекты: POST /projects/:id/deploy — запуск асинхронного деплоя ---- */
+  deployProject: async (id) => {
     set({ loading: true, error: null })
     try {
-      const res = await apiClient.post<{ project: OsgardProject }>(`/projects/${id}/deploy-netlify`)
+      const res = await apiClient.post<{ project: OsgardProject }>(`/projects/${id}/deploy`)
       set((s) => ({
         loading: false,
         error: null,
@@ -1760,7 +1796,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       }))
       return { success: true, project: res.project }
     } catch (err) {
-      const message = extractErrorMessage(err, "Не удалось запустить деплой на Netlify")
+      const message = extractErrorMessage(err, "Не удалось запустить деплой")
       set({ loading: false, error: message })
       return { success: false, error: message }
     }
