@@ -1,0 +1,8 @@
+# Placeholder for GardCore.aar
+# This file will be replaced by the actual AAR after gomobile build
+# 
+# To build GardCore.aar:
+# 1. Install Go 1.21+
+# 2. Install Android SDK with NDK
+# 3. Run: cd gard-core && make android
+# 4. Copy build/GardCore.aar to this directory

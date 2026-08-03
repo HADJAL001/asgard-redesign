@@ -1,26 +1,39 @@
 {
   "expo": {
     "name": "OSGARD",
-    "slug": "mobile",
+    "slug": "osgard",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "osgard",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.osgard.mobile",
+      "bundleIdentifier": "com.osgard.app",
+      "buildNumber": "1",
       "runtimeVersion": {
         "policy": "appVersion"
       },
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "OSGARD распознаёт вашу речь, чтобы заполнить описание артефакта.",
-        "NSMicrophoneUsageDescription": "OSGARD использует микрофон для голосового ввода описания артефакта."
+        "NSMicrophoneUsageDescription": "OSGARD использует микрофон для голосового ввода описания артефакта.",
+        "UIBackgroundModes": ["network-authentication"],
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false
+        }
+      },
+      "entitlements": {
+        "com.apple.developer.networking.networkextension": ["packet-tunnel-provider"],
+        "com.apple.security.application-groups": ["group.com.osgard.app"]
+      },
+      "config": {
+        "usesNonExemptEncryption": true
       }
     },
     "android": {
-      "package": "com.osgard.mobile",
+      "package": "com.osgard.app",
+      "versionCode": 1,
       "runtimeVersion": {
         "policy": "appVersion"
       },
@@ -29,11 +42,20 @@
         "backgroundColor": "#0A1128"
       },
       "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.WAKE_LOCK"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_PHONE_STATE"
       ]
     },
     "web": {
@@ -91,18 +113,28 @@
             "networkInspector": false
           },
           "android": {
+            "minSdkVersion": 24,
+            "targetSdkVersion": 34,
+            "compileSdkVersion": 34,
             "packagingOptions": {
               "pickFirst": ["**/libc++_shared.so"]
-            }
+            },
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          },
+          "ios": {
+            "deploymentTarget": "15.0"
           }
         }
-      ]
+      ],
+      "./modules/gard-core"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "updates": {
-      "url": "https://u.expo.dev/126712b9-08e9-4b03-a2f4-113363ed066c"
+      "url": "https://u.expo.dev/126712b9-08e9-4b03-a2f4-113363ed066c",
+      "fallbackToCacheTimeout": 0
     },
     "extra": {
       "router": {
@@ -112,6 +144,7 @@
         "projectId": "126712b9-08e9-4b03-a2f4-113363ed066c"
       }
     },
-    "owner": "senjorosas-team"
+    "owner": "senjorosas-team",
+    "privacy": "public"
   }
 }
