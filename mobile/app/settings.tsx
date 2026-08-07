@@ -29,6 +29,8 @@ export default function SettingsScreen() {
   const setPushEnabled = usePrefsStore((s) => s.setPushEnabled);
   const reduceMotionOverride = usePrefsStore((s) => s.reduceMotionOverride);
   const setReduceMotionOverride = usePrefsStore((s) => s.setReduceMotionOverride);
+  const voiceNarrationEnabled = usePrefsStore((s) => s.voiceNarrationEnabled);
+  const setVoiceNarrationEnabled = usePrefsStore((s) => s.setVoiceNarrationEnabled);
 
   const biometricEnabled = useBiometricStore((s) => s.isEnabled);
   const biometricAvailable = useBiometricStore((s) => s.isAvailable);
@@ -105,6 +107,31 @@ export default function SettingsScreen() {
                 {opt.label}
               </Button>
             ))}
+          </View>
+        </Card>
+
+        <Card className="gap-3">
+          <Text className="text-lg font-bold text-white">Озвучка результата ковки</Text>
+          <Text className="text-muted">
+            Голосом произносится название и редкость только что созданного артефакта. По умолчанию выключено.
+          </Text>
+          <View className="flex-row gap-2">
+            <Button
+              className="flex-1"
+              size="sm"
+              variant={voiceNarrationEnabled ? 'primary' : 'secondary'}
+              onPress={() => setVoiceNarrationEnabled(true)}
+            >
+              Включена
+            </Button>
+            <Button
+              className="flex-1"
+              size="sm"
+              variant={!voiceNarrationEnabled ? 'primary' : 'secondary'}
+              onPress={() => setVoiceNarrationEnabled(false)}
+            >
+              Выключена
+            </Button>
           </View>
         </Card>
 

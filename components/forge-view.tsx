@@ -13,6 +13,7 @@ import { ArtifactIdentityPanel } from "./artifact-identity-panel"
 import { ThemePicker, ARTIFACT_THEMES, type ArtifactThemeKey } from "./theme-picker"
 import { VoiceInputButton } from "./voice-input-button"
 import { useVoice } from "@/lib/hooks/useVoice"
+import { useVoiceNarration } from "@/hooks/useVoiceNarration"
 import { ConfirmModal } from "./ui/confirm-modal"
 import { ForgeRevealClipExport } from "./forge-reveal-clip-export"
 
@@ -154,6 +155,7 @@ export function ForgeView() {
   const [aiNotice, setAiNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [aiResult, setAiResult] = useState<OsgardArtifact | null>(null)
   const voice = useVoice((transcript) => setAiHint((prev) => (prev ? `${prev} ${transcript}` : transcript)))
+  const voiceNarration = useVoiceNarration()
   const [forgeConfirmOpen, setForgeConfirmOpen] = useState(false)
   const [aiConfirmOpen, setAiConfirmOpen] = useState(false)
 
@@ -298,6 +300,7 @@ export function ForgeView() {
         setCraftBreakdown(res.craftBreakdown || null)
         setIdentity(res.identity || null)
         setNotice({ ok: true, text: `Артефакт «${res.artifact.name}» создан!` })
+        voiceNarration.narrate(res.artifact.name, res.artifact.rarity)
         setName("")
         await new Promise((r) => setTimeout(r, reduceMotion ? 500 : 1800))
         closeCinematic()
@@ -338,6 +341,7 @@ export function ForgeView() {
         setForgePhase("reveal")
         setAiResult(res.artifact)
         setAiNotice({ ok: true, text: t("forge.aiGenerate.success", { name: res.artifact.name }) })
+        voiceNarration.narrate(res.artifact.name, res.artifact.rarity)
         setAiHint("")
         setThemeKey(null)
         await new Promise((r) => setTimeout(r, reduceMotion ? 500 : 1800))
