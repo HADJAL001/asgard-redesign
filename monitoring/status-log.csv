@@ -467,3 +467,5 @@ timestamp,endpoint,http_code,response_time_s,ok
 2026-08-08T14:36:10Z,tc-market-state,200,0.433485,1
 2026-08-08T15:01:09Z,health,200,0.444115,1
 2026-08-08T15:01:09Z,tc-market-state,200,0.380966,1
+2026-08-08T15:40:13Z,health,200,0.942241,1
+2026-08-08T15:40:13Z,tc-market-state,200,0.334620,1
