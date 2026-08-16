@@ -31,7 +31,7 @@ import { ProjectDesignPanel } from "./project-design-panel"
 import { ProjectEngineeringPanel } from "./project-engineering-panel"
 import { ForgeCeremony } from "./forge-ceremony"
 import { ConfirmModal } from "./ui/confirm-modal"
-import { useOsgardStore } from "@/lib/store/osgard-store"
+import { useOsgardStore, type RefinementKind } from "@/lib/store/osgard-store"
 import { useAuth } from "@/lib/auth-store"
 import { COLORS, badgeIcon, RARITY, ARTIFACT_TYPES, STAT_META, type ArtifactType, type Rarity } from "@/lib/economy"
 import { fmtTC, fmtUSD } from "@/lib/tc-market"
@@ -46,6 +46,19 @@ type ArtifactStatus = "kept" | "listed" | "sold"
 const REFINEMENT_CREDIT_COST = 20
 /** Максимум символов промпта доработки (паритет с валидацией POST /projects/:id/refine). */
 const REFINE_PROMPT_MAX = 2000
+
+const REFINEMENT_MODES: Array<{
+  kind: RefinementKind
+  Icon: typeof Sparkles
+  labelKey: string
+  descriptionKey: string
+}> = [
+  { kind: "feature", Icon: Sparkles, labelKey: "refine.modeFeature", descriptionKey: "refine.modeFeatureHint" },
+  { kind: "design", Icon: Palette, labelKey: "refine.modeDesign", descriptionKey: "refine.modeDesignHint" },
+  { kind: "fix", Icon: ShieldCheck, labelKey: "refine.modeFix", descriptionKey: "refine.modeFixHint" },
+  { kind: "performance", Icon: TrendingUp, labelKey: "refine.modePerformance", descriptionKey: "refine.modePerformanceHint" },
+  { kind: "custom", Icon: Wand2, labelKey: "refine.modeCustom", descriptionKey: "refine.modeCustomHint" },
+]
 
 function GithubIcon({ size = 16 }: { size?: number }) {
   return (
@@ -103,6 +116,7 @@ export function ProjectDetailView({ projectId }: Props) {
 
   // Вкладка «Доработки»: промпт, флаг отправки и инлайн-уведомление (успех/ошибка).
   const [refinePrompt, setRefinePrompt] = useState("")
+  const [refineKind, setRefineKind] = useState<RefinementKind>("feature")
   const [refining, setRefining] = useState(false)
   const [refineNotice, setRefineNotice] = useState<{ ok: boolean; message: string } | null>(null)
 
@@ -207,7 +221,7 @@ export function ProjectDetailView({ projectId }: Props) {
     setRefining(true)
     setRefineNotice(null)
     try {
-      const res = await refineProject(projectId, prompt)
+      const res = await refineProject(projectId, prompt, refineKind)
       if (res.success) {
         setRefinePrompt("")
         setRefineNotice({ ok: true, message: t("refine.started") })
@@ -582,6 +596,8 @@ export function ProjectDetailView({ projectId }: Props) {
               refining={refining}
               prompt={refinePrompt}
               onPrompt={setRefinePrompt}
+              kind={refineKind}
+              onKind={setRefineKind}
               onSubmit={handleRefine}
               remaining={refinementsRemaining}
               notice={refineNotice}
@@ -716,6 +732,8 @@ function RefinePanel({
   refining,
   prompt,
   onPrompt,
+  kind,
+  onKind,
   onSubmit,
   remaining,
   notice,
@@ -729,7 +747,9 @@ function RefinePanel({
   onSubmit: () => void
   remaining: number | null
   notice: { ok: boolean; message: string } | null
-  refinements: Array<{ id: number; prompt: string; status: string; costCredits: number; createdAt: number }>
+  refinements: Array<{ id: number; prompt: string; kind?: RefinementKind | string; status: string; costCredits: number; createdAt: number }>
+  kind: RefinementKind
+  onKind: (kind: RefinementKind) => void
   t: (key: string, params?: Record<string, string | number>) => string
 }) {
   const isFree = remaining === null || remaining > 0
@@ -784,6 +804,42 @@ function RefinePanel({
               {t("refine.costChip", { cost: REFINEMENT_CREDIT_COST })}
             </span>
           )}
+        </div>
+
+        <div className="mt-5" role="radiogroup" aria-label={t("refine.kindLabel")}>
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em]" style={{ color: COLORS.label }}>
+            {t("refine.kindLabel")}
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {REFINEMENT_MODES.map(({ kind: modeKind, Icon, labelKey, descriptionKey }) => {
+              const selected = kind === modeKind
+              return (
+                <button
+                  key={modeKind}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => onKind(modeKind)}
+                  disabled={busy}
+                  title={t(descriptionKey)}
+                  className="flex min-h-[58px] flex-col items-start justify-center gap-1 rounded-lg px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                  style={{
+                    color: selected ? "#f5c451" : "#a7b4ce",
+                    border: `1px solid ${selected ? "var(--elite-gold, #f5c451)" : COLORS.border}`,
+                    backgroundColor: selected ? "rgba(245,196,81,0.08)" : "rgba(255,255,255,0.015)",
+                  }}
+                >
+                  <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold">
+                    <Icon size={14} strokeWidth={1.75} />
+                    {t(labelKey)}
+                  </span>
+                  <span className="line-clamp-2 text-[10px] leading-tight" style={{ color: selected ? "#d8c48a" : COLORS.label }}>
+                    {t(descriptionKey)}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         <textarea
@@ -847,6 +903,8 @@ function RefinePanel({
           <ul className="mt-4 space-y-3">
             {refinements.map((r) => {
               const sm = statusMeta[r.status] ?? { label: r.status, color: COLORS.label }
+              const mode = REFINEMENT_MODES.find((entry) => entry.kind === r.kind) ?? REFINEMENT_MODES[4]
+              const ModeIcon = mode.Icon
               return (
                 <li key={r.id} className="eg-inset rounded-xl px-3.5 py-3">
                   <div className="flex items-center justify-between gap-2">
@@ -862,6 +920,10 @@ function RefinePanel({
                         <XCircle size={11} />
                       )}
                       {sm.label}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: "#9eabc4" }}>
+                      <ModeIcon size={11} strokeWidth={1.75} />
+                      {t(mode.labelKey)}
                     </span>
                     <span className="text-[11px]" style={{ color: r.costCredits > 0 ? "#c8d2ea" : "var(--elite-gold, #f5c451)" }}>
                       {r.costCredits > 0 ? `${r.costCredits} cr` : t("refine.free")}

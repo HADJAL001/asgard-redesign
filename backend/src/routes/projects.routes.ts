@@ -49,6 +49,7 @@ import {
   listProjectRefinements,
   REFINEMENT_CREDIT_COST,
 } from "../lib/refinements"
+import { normalizeRefinementKind } from "../lib/refinement-kinds"
 import { resolveProjectTitle } from "../lib/project-title"
 import { assessRequestClarity } from "../lib/request-clarity"
 
@@ -701,6 +702,7 @@ router.post("/:id/refine", requireAuth, asyncHandler(async (req: AuthRequest, re
   const projectId = Number(req.params.id)
   const userId = req.user!.userId
   const prompt = typeof req.body?.prompt === "string" ? req.body.prompt.trim() : ""
+  const kind = normalizeRefinementKind(req.body?.kind)
 
   if (!Number.isInteger(projectId) || projectId <= 0) {
     return res.status(400).json({ error: "Некорректный id проекта" })
@@ -761,13 +763,14 @@ router.post("/:id/refine", requireAuth, asyncHandler(async (req: AuthRequest, re
   }
 
   // Строка леджера (cost_credits=0 у бесплатных — так считается остаток гранта).
-  const refinementId = recordRefinement({ userId, projectId, prompt, costCredits: cost })
+  const refinementId = recordRefinement({ userId, projectId, prompt, kind, costCredits: cost })
 
   // Запуск регенерации файлов по промпту. onDone отметит статус строки в леджере.
   const started = refineGeneratedProject({
     userId,
     projectId,
     prompt,
+    kind,
     refinementId,
   })
 
@@ -791,6 +794,7 @@ router.post("/:id/refine", requireAuth, asyncHandler(async (req: AuthRequest, re
     success: true,
     projectId,
     refinementId,
+    kind,
     costCredits: cost,
     refinementsRemaining: refinementsRemaining(userId),
     aiConfigured: isAiConfigured(),

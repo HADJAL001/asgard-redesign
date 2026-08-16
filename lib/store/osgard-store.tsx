@@ -515,6 +515,8 @@ export interface OsgardProjectFile {
   updatedAt: number
 }
 
+export type RefinementKind = "feature" | "design" | "fix" | "performance" | "custom"
+
 /** Результат createProject/generateProject/updateProject — унифицированный ответ для UI. */
 export interface ProjectActionResult {
   success: boolean
@@ -540,6 +542,7 @@ export interface RefinementEntry {
   userId: number
   projectId: number
   prompt: string
+  kind: "feature" | "design" | "fix" | "performance" | "custom" | string
   status: "generating" | "ready" | "failed" | string
   costCredits: number
   createdAt: number
@@ -632,6 +635,7 @@ export interface RefineActionResult {
   success: boolean
   projectId?: number
   refinementId?: number
+  kind?: "feature" | "design" | "fix" | "performance" | "custom" | string
   /** Списанные за доработку кредиты (0 — в рамках бесплатного гранта). */
   costCredits?: number
   /** Остаток бесплатных доработок после этой операции. */
@@ -857,7 +861,7 @@ export interface OsgardStoreState {
   /** POST /projects/:id/refine — запускает AI-доработку существующего проекта (prompt).
    *  Первые N доработок бесплатны, дальше — за кредиты. Отвечает 202: проект переходит
    *  в 'generating', прогресс отслеживается через pollProjectStatus/fetchProject. */
-  refineProject: (id: number, prompt: string) => Promise<RefineActionResult>
+  refineProject: (id: number, prompt: string, kind?: RefinementKind) => Promise<RefineActionResult>
   /** GET /projects/:id/refinements — лента доработок проекта + актуальный остаток. */
   fetchProjectRefinements: (id: number) => Promise<void>
   /** Лента доработок текущего проекта (свежие сверху). */
@@ -1653,7 +1657,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
      Отвечает 202: проект переведён в status='generating', файлы перегенерируются в фоне.
      Первые FREE_REFINEMENTS_GRANT доработок бесплатны, дальше — за кредиты (сервер списывает).
      Вызывающий UI продолжает через pollProjectStatus/fetchProject, как при обычной генерации. */
-  refineProject: async (id, prompt) => {
+  refineProject: async (id, prompt, kind = "custom") => {
     set({ loading: true, error: null })
     try {
       const res = await apiClient.post<{
@@ -1663,7 +1667,8 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
         costCredits: number
         refinementsRemaining: number
         aiConfigured: boolean
-      }>(`/projects/${id}/refine`, { prompt })
+        kind?: RefinementKind
+      }>(`/projects/${id}/refine`, { prompt, kind })
 
       // Проект уже переведён на сервере в 'generating' — отражаем это локально сразу,
       // чтобы UI показал живой лог доработки без ожидания следующего fetchProject.
@@ -1689,6 +1694,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
         success: true,
         projectId: res.projectId,
         refinementId: res.refinementId,
+        kind: res.kind ?? kind,
         costCredits: res.costCredits,
         refinementsRemaining: res.refinementsRemaining,
         aiConfigured: res.aiConfigured,

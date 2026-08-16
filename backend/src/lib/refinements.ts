@@ -1,4 +1,5 @@
 import db from "./db"
+import type { RefinementKind } from "./refinement-kinds"
 
 /* ================================================================
    refinements — ядро механики «Доработок» (домен Claude B).
@@ -39,6 +40,7 @@ export interface RefinementRow {
   userId: number
   projectId: number
   prompt: string
+  kind: RefinementKind
   status: string
   costCredits: number
   createdAt: number
@@ -49,14 +51,15 @@ export function recordRefinement(params: {
   userId: number
   projectId: number
   prompt: string
+  kind: RefinementKind
   costCredits: number
 }): number {
   const info = db
     .prepare(
-      `INSERT INTO project_refinements (user_id, project_id, prompt, status, cost_credits, created_at)
-       VALUES (?, ?, ?, 'generating', ?, ?)`,
+      `INSERT INTO project_refinements (user_id, project_id, prompt, kind, status, cost_credits, created_at)
+       VALUES (?, ?, ?, ?, 'generating', ?, ?)`,
     )
-    .run(params.userId, params.projectId, params.prompt, params.costCredits, Date.now())
+    .run(params.userId, params.projectId, params.prompt, params.kind, params.costCredits, Date.now())
   return Number(info.lastInsertRowid)
 }
 
@@ -69,7 +72,7 @@ export function setRefinementStatus(refinementId: number, status: "ready" | "fai
 export function listProjectRefinements(projectId: number, limit = 20): RefinementRow[] {
   return db
     .prepare(
-      `SELECT id, user_id AS userId, project_id AS projectId, prompt, status,
+      `SELECT id, user_id AS userId, project_id AS projectId, prompt, kind, status,
               cost_credits AS costCredits, created_at AS createdAt
        FROM project_refinements WHERE project_id = ? ORDER BY id DESC LIMIT ?`,
     )

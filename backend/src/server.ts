@@ -350,6 +350,7 @@ import "./migrations/099_generation_makegood"
 import "./migrations/100_app_profile"
 import "./migrations/101_app_databases"
 import "./migrations/102_project_generation_jobs"
+import "./migrations/103_refinement_kind"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
