@@ -167,8 +167,38 @@ export function callReviewer(prompt: string, maxTokens: number): Promise<string 
   return callProviderChain(REVIEWER_CHAIN, prompt, maxTokens)
 }
 
+export type ProjectGenerationReadiness = {
+  ready: boolean
+  roles: { planner: boolean; coder: boolean; reviewer: boolean }
+  missing: Array<"planner" | "coder" | "reviewer">
+}
+
+/** Pure resolver kept separate so the strict provider contract is easy to test. */
+export function resolveProjectGenerationReadiness(config: {
+  deepSeek: boolean
+  claude: boolean
+  kimi: boolean
+}): ProjectGenerationReadiness {
+  const reasoningProvider = config.claude || config.kimi
+  const roles = {
+    planner: reasoningProvider,
+    coder: config.deepSeek,
+    reviewer: reasoningProvider,
+  }
+  const missing = (Object.keys(roles) as Array<keyof typeof roles>).filter((role) => !roles[role])
+  return { ready: missing.length === 0, roles, missing }
+}
+
+export function getProjectGenerationReadiness(): ProjectGenerationReadiness {
+  return resolveProjectGenerationReadiness({
+    deepSeek: isDeepSeekConfigured(),
+    claude: isClaudeConfigured(),
+    kimi: isKimiConfigured(),
+  })
+}
+
 export function isProjectGenerationConfigured(): boolean {
-  return isDeepSeekConfigured() && (isClaudeConfigured() || isKimiConfigured())
+  return getProjectGenerationReadiness().ready
 }
 
 export function isProjectReviewerConfigured(): boolean {
@@ -637,13 +667,15 @@ export async function repairFileWithAi(params: {
   siblings: string[]
   profile?: AppProfile
 }): Promise<string | null> {
-  if (!isProjectReviewerConfigured()) return null
+  if (!isDeepSeekConfigured()) return null
   try {
     const prompt = buildRepairPrompt({
       ...params,
       purpose: params.purpose || "файл приложения",
     })
-    const text = await callReviewer(prompt, 8000)
+    // Repairs are implementation work: DeepSeek applies deterministic/compiler
+    // findings, then Claude/Kimi independently review the resulting full project.
+    const text = await callCoder(prompt, 8000)
     if (!text) return null
     const code = extractCodeBlock(text)
     return code && code.trim().length >= 20 ? code : null

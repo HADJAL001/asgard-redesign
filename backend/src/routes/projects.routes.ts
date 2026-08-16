@@ -3,8 +3,12 @@ import { Octokit } from "@octokit/rest"
 import archiver from "archiver"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
-import { isAiConfigured } from "../services/ai-generator"
-import { validateGeneratedFiles, GeneratedAppFile } from "../services/app-generator"
+import {
+  getProjectGenerationReadiness,
+  isProjectGenerationConfigured,
+  validateGeneratedFiles,
+  GeneratedAppFile,
+} from "../services/app-generator"
 import { resolveDeployTarget, runDeployJob } from "../services/deploy-target"
 import { verifyBuildInSandbox } from "../services/sandbox.service"
 import { decrypt } from "../utils/encryption"
@@ -109,6 +113,11 @@ router.get("/generation-depths", requireAuth, (_req: AuthRequest, res) => {
   res.json({ depths: serializeDepths() })
 })
 
+/* Готовность именно проектного конвейера, а не наличие любого AI-ключа. */
+router.get("/generation-readiness", requireAuth, (_req: AuthRequest, res) => {
+  res.json(getProjectGenerationReadiness())
+})
+
 /* ---------------- POST /projects/generation-estimate — смета ДО запуска ----------------
    Единственная цифра, которую платформа знала точно ДО генерации, — стоимость в
    кредитах. Всё остальное (сколько обращений к моделям, сколько токенов, сколько
@@ -183,6 +192,7 @@ router.post(
          почему быстрая генерация дешевле: платформа уже собирала похожее. */
       templateTheme,
       estimates,
+      readiness: getProjectGenerationReadiness(),
       makegood: right
         ? {
             available: true,
@@ -543,6 +553,18 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
      безопасный режим, а не ошибка запроса: клиент старой версии профиля не знает. */
   const profile = normalizeAppProfile(req.body?.profile)
 
+  /* A verified template needs no provider. A new AI build is rejected before
+     quota, makegood, or credit accounting when a mandatory role is missing. */
+  const generationPlan = planGeneration({ name: resolvedName, hint: safeHint, depth, profile })
+  if (generationPlan.path === "ai" && !isProjectGenerationConfigured()) {
+    return res.status(503).json({
+      error:
+        "Конвейер генерации не готов: для кода нужен DeepSeek, для плана и независимой проверки — Claude или Kimi. Лимит и кредиты не списаны.",
+      code: "GENERATION_PROVIDERS_UNAVAILABLE",
+      readiness: getProjectGenerationReadiness(),
+    })
+  }
+
   /* --- Бесплатная (quick) генерация: расход дневной квоты тарифа --- */
   if (depthCfg.countsAgainstQuota) {
     const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
@@ -597,7 +619,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
         /* Клиент обязан сказать человеку, что запуск прошёл за счёт платформы: молчаливая
            компенсация неотличима от сбоя учёта. */
         makegoodApplied: makegoodId !== null,
-        aiConfigured: isAiConfigured(),
+        aiConfigured: isProjectGenerationConfigured(),
       })
     } catch (err) {
       /* Проект не создан — право возвращаем: иначе платформа промахнулась бы дважды и
@@ -628,7 +650,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
         depth,
         costCredits: 0,
         makegoodApplied: true,
-        aiConfigured: isAiConfigured(),
+        aiConfigured: isProjectGenerationConfigured(),
       })
     } catch (err) {
       releaseMakegood(paidRight.id)
@@ -675,7 +697,14 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     const { project, artifacts } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth, profile })
     return res
       .status(202)
-      .json({ project, artifacts, depth, costCredits: cost, makegoodApplied: false, aiConfigured: isAiConfigured() })
+      .json({
+        project,
+        artifacts,
+        depth,
+        costCredits: cost,
+        makegoodApplied: false,
+        aiConfigured: isProjectGenerationConfigured(),
+      })
   } catch (err) {
     /* Синхронный сбой создания — честно возвращаем кредиты. */
     db.exec("BEGIN IMMEDIATE")
@@ -721,6 +750,14 @@ router.post("/:id/refine", requireAuth, asyncHandler(async (req: AuthRequest, re
   if (!project) return res.status(404).json({ error: "Проект не найден" })
   if (project.status === "generating") {
     return res.status(409).json({ error: "Проект уже в процессе генерации — дождитесь завершения", code: "BUSY" })
+  }
+  if (!isProjectGenerationConfigured()) {
+    return res.status(503).json({
+      error:
+        "Конвейер доработки не готов: для кода нужен DeepSeek, для плана и независимой проверки — Claude или Kimi. Доработка и списание не начаты.",
+      code: "GENERATION_PROVIDERS_UNAVAILABLE",
+      readiness: getProjectGenerationReadiness(),
+    })
   }
 
   const remaining = refinementsRemaining(userId)
@@ -797,7 +834,7 @@ router.post("/:id/refine", requireAuth, asyncHandler(async (req: AuthRequest, re
     kind,
     costCredits: cost,
     refinementsRemaining: refinementsRemaining(userId),
-    aiConfigured: isAiConfigured(),
+    aiConfigured: isProjectGenerationConfigured(),
   })
 }))
 
