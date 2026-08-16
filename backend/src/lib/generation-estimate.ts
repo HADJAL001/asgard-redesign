@@ -110,6 +110,8 @@ export type GenerationEstimate = {
   samples: number
   aiCalls: Spread | null
   tokens: Spread | null
+  /** Per-run guardrail derived from p95 actual usage plus operational headroom. */
+  tokenLimit: TokenLimitRecommendation | null
   durationMs: Spread | null
   /** Доля генераций этого профиля, собравшихся без единого ремонта. null — не измерялось. */
   firstTryRate: number | null
@@ -119,6 +121,19 @@ export type GenerationEstimate = {
 
 /** Меньше трёх замеров — не выборка, а совпадение. Смету на них не строим. */
 export const MIN_ESTIMATE_SAMPLES = 3
+
+/** A tariff limit must not be inferred from a handful of unusually cheap runs. */
+export const MIN_TOKEN_LIMIT_SAMPLES = 20
+export const TOKEN_LIMIT_PERCENTILE = 0.95
+export const TOKEN_LIMIT_HEADROOM = 0.2
+export const TOKEN_LIMIT_ROUNDING = 10_000
+
+export type TokenLimitRecommendation = {
+  samples: number
+  p95: number
+  headroom: number
+  recommended: number
+}
 
 /** Сколько последних генераций берём в расчёт: генератор меняется волнами, и расход
  *  полугодовой давности описывает уже не тот код. Свежесть важнее полноты. */
@@ -131,6 +146,20 @@ function percentile(sortedAsc: number[], p: number): number {
   const rank = Math.ceil(p * sortedAsc.length)
   const idx = Math.min(sortedAsc.length - 1, Math.max(0, rank - 1))
   return sortedAsc[idx]
+}
+
+export function recommendTokenLimit(samples: GenerationSample[]): TokenLimitRecommendation | null {
+  const values = samples.map((sample) => sample.tokens).filter((value) => Number.isFinite(value) && value >= 0)
+  if (values.length < MIN_TOKEN_LIMIT_SAMPLES) return null
+  values.sort((a, b) => a - b)
+  const p95 = percentile(values, TOKEN_LIMIT_PERCENTILE)
+  const withHeadroom = p95 * (1 + TOKEN_LIMIT_HEADROOM)
+  return {
+    samples: values.length,
+    p95,
+    headroom: TOKEN_LIMIT_HEADROOM,
+    recommended: Math.ceil(withHeadroom / TOKEN_LIMIT_ROUNDING) * TOKEN_LIMIT_ROUNDING,
+  }
 }
 
 /** Границы коридора. Именно p10–p90, а не межквартильный размах: коридор, который
@@ -173,14 +202,30 @@ export function loadGenerationSamples(limit = ESTIMATE_HISTORY_LIMIT): Generatio
   try {
     const rows = db
       .prepare(
-        `SELECT generation_depth as depth, ai_source as aiSource, gen_ai_calls as calls,
-                gen_tokens_in as tokensIn, gen_tokens_out as tokensOut,
-                gen_duration_ms as durationMs, gen_first_try as firstTry, gen_meter as meter
-           FROM projects
-          WHERE gen_ai_calls IS NOT NULL
-            AND gen_duration_ms IS NOT NULL
-            AND ai_source IS NOT 'fallback'
-          ORDER BY id DESC
+        `WITH initial_usage AS (
+           SELECT project_id,
+                  SUM(ai_calls) AS calls,
+                  SUM(tokens_in) AS tokensIn,
+                  SUM(tokens_out) AS tokensOut,
+                  SUM(duration_ms) AS durationMs,
+                  SUM(COALESCE(json_extract(meter, '$.unmeasured'), 0)) AS unmeasured
+             FROM generation_usage_runs
+            WHERE kind = 'generation'
+            GROUP BY project_id
+         )
+         SELECT p.generation_depth as depth, p.ai_source as aiSource,
+                COALESCE(u.calls, p.gen_ai_calls) as calls,
+                COALESCE(u.tokensIn, p.gen_tokens_in) as tokensIn,
+                COALESCE(u.tokensOut, p.gen_tokens_out) as tokensOut,
+                COALESCE(u.durationMs, p.gen_duration_ms) as durationMs,
+                p.gen_first_try as firstTry, p.gen_meter as meter,
+                u.unmeasured as usageUnmeasured
+           FROM projects p
+           LEFT JOIN initial_usage u ON u.project_id = p.id
+          WHERE (u.project_id IS NOT NULL OR p.gen_ai_calls IS NOT NULL)
+            AND COALESCE(u.durationMs, p.gen_duration_ms) IS NOT NULL
+            AND p.ai_source IS NOT 'fallback'
+          ORDER BY p.id DESC
           LIMIT ?`,
       )
       .all(limit) as Array<{
@@ -192,6 +237,7 @@ export function loadGenerationSamples(limit = ESTIMATE_HISTORY_LIMIT): Generatio
       durationMs: number
       firstTry: number | null
       meter: string | null
+      usageUnmeasured: number | null
     }>
 
     return rows.map((r) => ({
@@ -205,7 +251,7 @@ export function loadGenerationSamples(limit = ESTIMATE_HISTORY_LIMIT): Generatio
       tokens: (r.tokensIn ?? 0) + (r.tokensOut ?? 0),
       durationMs: r.durationMs,
       firstTry: r.firstTry === null ? null : r.firstTry === 1,
-      unmeasured: readUnmeasured(r.meter),
+      unmeasured: r.usageUnmeasured ?? readUnmeasured(r.meter),
     }))
   } catch {
     /* Схема без колонок 095 — истории нет, смета честно скажет «не знаю». */
@@ -285,13 +331,20 @@ export function estimateGenerationCost(params: {
       samples: candidates[0].rows.length,
       aiCalls: null,
       tokens: null,
+      tokenLimit: null,
       durationMs: null,
       firstTryRate: null,
       unmeasuredShare: 0,
     }
   }
 
-  return { ...base, basis: chosen.basis, samples: chosen.rows.length, ...summarize(chosen.rows) }
+  return {
+    ...base,
+    basis: chosen.basis,
+    samples: chosen.rows.length,
+    ...summarize(chosen.rows),
+    tokenLimit: recommendTokenLimit(chosen.rows),
+  }
 }
 
 /**

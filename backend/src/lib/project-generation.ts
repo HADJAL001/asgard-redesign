@@ -19,6 +19,11 @@ import { bindAppDatabase } from "../services/app-database-binding"
 import { createNotification } from "./notifications"
 import { emitGenerationStage, emitGenerationMeter } from "./generation-events"
 import { withGenerationTelemetry, currentTelemetry, type TelemetrySnapshot } from "./generation-telemetry"
+import {
+  beginGenerationUsageRun,
+  finishGenerationUsageRun,
+  updateGenerationUsageRun,
+} from "./generation-usage"
 import { getForgeBonusForUser } from "./forge-loadout"
 import { nextFloats } from "./provably-fair"
 import { addArchitectXp } from "./architect-progression"
@@ -345,25 +350,25 @@ function applyDesignSystem(
  *  новая колонка не имеет права уронить генерацию (урок #59). */
 function persistGenerationMeter(
   projectId: number,
-  telemetry: TelemetrySnapshot,
   report: EngineeringReport,
 ) {
   const firstTry = report.verdict === "passed" && report.repairs.length === 0
   try {
+    const row = db.prepare(`SELECT gen_meter AS meter FROM projects WHERE id = ?`).get(projectId) as
+      | { meter: string | null }
+      | undefined
+    let meter: Record<string, unknown> = {}
+    try {
+      meter = row?.meter ? JSON.parse(row.meter) : {}
+    } catch {
+      meter = {}
+    }
     db.prepare(
-      `UPDATE projects SET gen_ai_calls = ?, gen_tokens_in = ?, gen_tokens_out = ?,
-         gen_duration_ms = ?, gen_first_try = ?, gen_meter = ? WHERE id = ?`,
+      `UPDATE projects SET gen_first_try = ?, gen_meter = ? WHERE id = ?`,
     ).run(
-      telemetry.calls,
-      telemetry.inputTokens,
-      telemetry.outputTokens,
-      telemetry.elapsedMs,
       firstTry ? 1 : 0,
       JSON.stringify({
-        byProvider: telemetry.byProvider,
-        aiMs: telemetry.aiMs,
-        unmeasured: telemetry.unmeasured,
-        failedCalls: telemetry.failed,
+        ...meter,
         repairRounds: report.attempts,
         repairedFiles: report.repairs.length,
         verdict: report.verdict,
@@ -374,6 +379,74 @@ function persistGenerationMeter(
     captureError("[projects.generate] meter persist skipped (schema without 095 columns):", err)
   }
   return firstTry
+}
+
+function persistProjectUsageDelta(
+  projectId: number,
+  current: TelemetrySnapshot,
+  previous: TelemetrySnapshot | null,
+): void {
+  const before = previous ?? {
+    calls: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+    aiMs: 0,
+    elapsedMs: 0,
+    unmeasured: 0,
+    failed: 0,
+    byProvider: {},
+  }
+  const calls = Math.max(0, current.calls - before.calls)
+  const tokensIn = Math.max(0, current.inputTokens - before.inputTokens)
+  const tokensOut = Math.max(0, current.outputTokens - before.outputTokens)
+  const durationMs = Math.max(0, current.elapsedMs - before.elapsedMs)
+  const aiMs = Math.max(0, current.aiMs - before.aiMs)
+  const unmeasured = Math.max(0, current.unmeasured - before.unmeasured)
+  const failedCalls = Math.max(0, current.failed - before.failed)
+
+  try {
+    const transaction = db.transaction(() => {
+      const row = db.prepare(`SELECT gen_meter AS meter FROM projects WHERE id = ?`).get(projectId) as
+        | { meter: string | null }
+        | undefined
+      let meter: Record<string, any> = {}
+      try {
+        meter = row?.meter ? JSON.parse(row.meter) : {}
+      } catch {
+        meter = {}
+      }
+
+      const byProvider: Record<string, { calls: number; tokens: number }> = { ...(meter.byProvider || {}) }
+      for (const [provider, usage] of Object.entries(current.byProvider)) {
+        const oldUsage = before.byProvider[provider] || { calls: 0, tokens: 0 }
+        const bucket = byProvider[provider] || { calls: 0, tokens: 0 }
+        bucket.calls += Math.max(0, usage.calls - oldUsage.calls)
+        bucket.tokens += Math.max(0, usage.tokens - oldUsage.tokens)
+        byProvider[provider] = bucket
+      }
+
+      const nextMeter = {
+        ...meter,
+        byProvider,
+        aiMs: (Number(meter.aiMs) || 0) + aiMs,
+        unmeasured: (Number(meter.unmeasured) || 0) + unmeasured,
+        failedCalls: (Number(meter.failedCalls) || 0) + failedCalls,
+      }
+      db.prepare(
+        `UPDATE projects
+            SET gen_ai_calls = COALESCE(gen_ai_calls, 0) + ?,
+                gen_tokens_in = COALESCE(gen_tokens_in, 0) + ?,
+                gen_tokens_out = COALESCE(gen_tokens_out, 0) + ?,
+                gen_duration_ms = COALESCE(gen_duration_ms, 0) + ?,
+                gen_meter = ?
+          WHERE id = ?`,
+      ).run(calls, tokensIn, tokensOut, durationMs, JSON.stringify(nextMeter), projectId)
+    })
+    transaction()
+  } catch (error) {
+    captureError("[projects.generate] durable usage snapshot skipped:", error)
+  }
 }
 
 /** Выполняет один запуск генерации внутри durable worker. Клиент получает ответ
@@ -389,12 +462,36 @@ function persistGenerationMeter(
  *  Без него цифры обновлялись бы только на смене стадии, а самая долгая стадия
  *  (`ai`) — одна: человек минуту смотрел бы на замерший счётчик. */
 async function runAppGenerationJob(...args: Parameters<typeof runAppGenerationJobInner>) {
+  const userId = args[0]
   const projectId = args[1]
-  const { result } = await withGenerationTelemetry(
-    () => runAppGenerationJobInner(...args),
-    (snapshot) => emitGenerationMeter(projectId, snapshot),
-  )
-  return result
+  const depth = args[7]
+  const kind = args[10] ? "refinement" : "generation"
+  const usageRunId = beginGenerationUsageRun({ projectId, userId, kind, depth })
+  let previous: TelemetrySnapshot | null = null
+  let latest: TelemetrySnapshot | null = null
+
+  const persist = (snapshot: TelemetrySnapshot) => {
+    persistProjectUsageDelta(projectId, snapshot, previous)
+    updateGenerationUsageRun(usageRunId, snapshot)
+    previous = snapshot
+    latest = snapshot
+  }
+
+  try {
+    const { result } = await withGenerationTelemetry(
+      () => runAppGenerationJobInner(...args),
+      (snapshot) => {
+        persist(snapshot)
+        emitGenerationMeter(projectId, snapshot)
+      },
+      persist,
+    )
+    finishGenerationUsageRun(usageRunId, result ? "completed" : "failed", latest)
+    return result
+  } catch (error) {
+    finishGenerationUsageRun(usageRunId, "failed", latest)
+    throw error
+  }
 }
 
 type DurableGenerationPayload = {
@@ -1007,13 +1104,12 @@ async function runAppGenerationJobInner(
 
     // Дизайн-система и разбор её качества — отдельным стейтментом, чтобы схема без
     // колонок 090 не мешала проекту стать ready.
-    const meter = currentTelemetry()
     let firstTry = false
     if (shouldCommitFiles) {
       persistDesign(projectId, brief, designReport)
       persistEngineering(projectId, engineering.report)
-      firstTry = meter
-        ? persistGenerationMeter(projectId, meter, engineering.report)
+      firstTry = currentTelemetry()
+        ? persistGenerationMeter(projectId, engineering.report)
         : engineering.report.verdict === "passed" && engineering.report.repairs.length === 0
     }
 

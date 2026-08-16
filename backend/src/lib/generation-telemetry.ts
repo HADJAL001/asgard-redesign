@@ -118,10 +118,21 @@ function summarize(ctx: TelemetryContext): TelemetrySnapshot {
 export async function withGenerationTelemetry<T>(
   fn: () => Promise<T>,
   onUpdate?: (snapshot: TelemetrySnapshot) => void,
+  onFinish?: (snapshot: TelemetrySnapshot) => void,
 ): Promise<{ result: T; telemetry: TelemetrySnapshot }> {
   const ctx: TelemetryContext = { startedAt: Date.now(), records: [], onUpdate }
-  const result = await storage.run(ctx, fn)
-  return { result, telemetry: summarize(ctx) }
+  try {
+    const result = await storage.run(ctx, fn)
+    return { result, telemetry: summarize(ctx) }
+  } finally {
+    if (onFinish) {
+      try {
+        onFinish(summarize(ctx))
+      } catch {
+        // Usage persistence is observability. It must never replace the real job result.
+      }
+    }
+  }
 }
 
 /** Записывает факт вызова модели в активный контекст. Вне контекста — no-op. */

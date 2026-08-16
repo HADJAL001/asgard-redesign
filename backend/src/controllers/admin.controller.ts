@@ -4,8 +4,42 @@ import { AuthRequest } from "../middleware/authMiddleware"
 import { captureError } from "../lib/sentry"
 import { recordAdminAction } from "../lib/admin-audit"
 import { countStaleGuests, GUEST_REAP_TTL_MS } from "../lib/guest-service"
+import { loadGenerationSamples, recommendTokenLimit } from "../lib/generation-estimate"
+import { getGenerationUsageReport } from "../lib/generation-usage"
 
 export class AdminController {
+  // ===== GET /admin/analytics/generation-budget =====
+  static async generationBudget(_req: AuthRequest, res: Response) {
+    try {
+      const samples = loadGenerationSamples()
+      const profile = (depth: "quick" | "standard" | "deep", path: "template" | "ai") => {
+        const rows = samples.filter((sample) => sample.depth === depth && sample.path === path)
+        return { samples: rows.length, limit: recommendTokenLimit(rows) }
+      }
+
+      res.json({
+        success: true,
+        usage: getGenerationUsageReport(),
+        methodology: {
+          percentile: 0.95,
+          headroom: 0.2,
+          minimumSamples: 20,
+          note: "Recommended per-generation limit is p95 of actual token usage plus 20%, rounded up to 10,000 tokens.",
+        },
+        recommendations: {
+          quickTemplate: profile("quick", "template"),
+          quickAi: profile("quick", "ai"),
+          standardAi: profile("standard", "ai"),
+          deepAi: profile("deep", "ai"),
+          platform: { samples: samples.length, limit: recommendTokenLimit(samples) },
+        },
+      })
+    } catch (error) {
+      captureError("Admin generation budget error:", error)
+      res.status(500).json({ error: "Internal server error" })
+    }
+  }
+
   // ===== GET /admin/stats =====
   static async stats(_req: AuthRequest, res: Response) {
     try {

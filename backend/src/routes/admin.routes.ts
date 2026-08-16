@@ -23,5 +23,6 @@ router.get("/analytics/integrity", AdminController.integrity)
 router.get("/analytics/security", AdminController.security)
 router.get("/analytics/guest-funnel", AdminController.guestFunnel)
 router.get("/analytics/guest-hygiene", AdminController.guestHygiene)
+router.get("/analytics/generation-budget", AdminController.generationBudget)
 
 export default router

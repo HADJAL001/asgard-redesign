@@ -18,6 +18,7 @@ import {
   ScrollText,
   TrendingUp,
   CreditCard,
+  Gauge,
   type LucideIcon,
 } from "lucide-react"
 import { Navbar } from "./navbar"
@@ -93,6 +94,34 @@ type AdminPaywallFunnel = {
   byTier: { tier: string; clicks: number; conversions: number; notConverted: number }[]
 }
 
+type TokenLimitRecommendation = {
+  samples: number
+  p95: number
+  headroom: number
+  recommended: number
+}
+
+type AdminGenerationBudget = {
+  usage: {
+    runs: number
+    completed: number
+    failed: number
+    running: number
+    calls: number
+    tokensIn: number
+    tokensOut: number
+    totalTokens: number
+    unmeasuredCalls: number
+    byProvider: Record<string, { calls: number; tokens: number }>
+    byKind: Record<string, { runs: number; tokens: number }>
+  }
+  methodology: { minimumSamples: number }
+  recommendations: Record<
+    "quickTemplate" | "quickAi" | "standardAi" | "deepAi" | "platform",
+    { samples: number; limit: TokenLimitRecommendation | null }
+  >
+}
+
 const ACTION_LABELS: Record<string, string> = {
   set_role: "Изменение роли",
   set_banned: "Изменение блокировки",
@@ -145,6 +174,7 @@ export function AdminView() {
   const [funnel, setFunnel] = useState<AdminFunnel | null>(null)
   const [retention, setRetention] = useState<AdminRetentionRow[]>([])
   const [paywallFunnel, setPaywallFunnel] = useState<AdminPaywallFunnel | null>(null)
+  const [generationBudget, setGenerationBudget] = useState<AdminGenerationBudget | null>(null)
   const [loadingAnalytics, setLoadingAnalytics] = useState(false)
 
   const [grantingUserId, setGrantingUserId] = useState<number | null>(null)
@@ -223,7 +253,7 @@ export function AdminView() {
   const loadAnalytics = useCallback(async () => {
     setLoadingAnalytics(true)
     try {
-      const [funnelData, retentionData, paywallFunnelData] = await Promise.all([
+      const [funnelData, retentionData, paywallFunnelData, generationBudgetData] = await Promise.all([
         apiClient.get<{ funnel: AdminFunnel }>("/admin/analytics/funnel?days=30", { skipAuthRedirect: true }),
         apiClient.get<{ retention: AdminRetentionRow[] }>("/admin/analytics/retention?days=30", {
           skipAuthRedirect: true,
@@ -231,14 +261,19 @@ export function AdminView() {
         apiClient.get<{ funnel: AdminPaywallFunnel }>("/admin/analytics/paywall-funnel?days=30", {
           skipAuthRedirect: true,
         }),
+        apiClient.get<AdminGenerationBudget>("/admin/analytics/generation-budget", {
+          skipAuthRedirect: true,
+        }),
       ])
       setFunnel(funnelData.funnel)
       setRetention(retentionData.retention)
       setPaywallFunnel(paywallFunnelData.funnel)
+      setGenerationBudget(generationBudgetData)
     } catch {
       setFunnel(null)
       setRetention([])
       setPaywallFunnel(null)
+      setGenerationBudget(null)
     } finally {
       setLoadingAnalytics(false)
     }
@@ -726,6 +761,92 @@ export function AdminView() {
         {/* Analytics */}
         {tab === "analytics" && (
           <div className="space-y-6">
+            <Card>
+              <SectionTitle Icon={Gauge}>Расход AI на генерацию приложений</SectionTitle>
+              {loadingAnalytics ? (
+                <div className="py-6 text-center text-[13px]" style={{ color: LABEL }}>
+                  Загрузка...
+                </div>
+              ) : !generationBudget ? (
+                <div className="py-6 text-center text-[13px]" style={{ color: LABEL }}>
+                  Нет данных
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                    {[
+                      ["Токенов всего", generationBudget.usage.totalTokens],
+                      ["Вызовов моделей", generationBudget.usage.calls],
+                      ["Запусков", generationBudget.usage.runs],
+                      ["Неуспешных попыток", generationBudget.usage.failed],
+                    ].map(([label, value]) => (
+                      <div key={String(label)}>
+                        <div className="text-[24px] font-medium leading-none">
+                          {new Intl.NumberFormat("ru-RU").format(Number(value))}
+                        </div>
+                        <div className="mt-2 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+                          {label}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {Object.entries(generationBudget.usage.byProvider).map(([provider, usage]) => (
+                      <span
+                        key={provider}
+                        className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[12px]"
+                        style={{ border: `1px solid ${BORDER}`, color: "rgba(255,255,255,0.72)" }}
+                      >
+                        <span style={{ color: ACCENT }}>{provider}</span>
+                        {new Intl.NumberFormat("ru-RU").format(usage.tokens)} токенов / {usage.calls} вызовов
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 overflow-x-auto">
+                    <table className="w-full text-left text-[13px]">
+                      <thead>
+                        <tr style={{ color: LABEL }}>
+                          <th className="pb-3 pr-4 font-medium">Профиль</th>
+                          <th className="pb-3 pr-4 font-medium">Замеров</th>
+                          <th className="pb-3 pr-4 font-medium">P95</th>
+                          <th className="pb-3 pr-4 font-medium">Лимит на запуск</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y" style={{ borderColor: BORDER }}>
+                        {(
+                          [
+                            ["Quick / шаблон", "quickTemplate"],
+                            ["Quick / AI", "quickAi"],
+                            ["Standard / AI", "standardAi"],
+                            ["Deep / AI", "deepAi"],
+                            ["Вся платформа", "platform"],
+                          ] as const
+                        ).map(([label, key]) => {
+                          const row = generationBudget.recommendations[key]
+                          return (
+                            <tr key={key}>
+                              <td className="py-3 pr-4">{label}</td>
+                              <td className="py-3 pr-4" style={{ color: LABEL }}>{row.samples}</td>
+                              <td className="py-3 pr-4">
+                                {row.limit ? new Intl.NumberFormat("ru-RU").format(row.limit.p95) : "-"}
+                              </td>
+                              <td className="py-3 pr-4" style={{ color: row.limit ? ACCENT : LABEL }}>
+                                {row.limit
+                                  ? new Intl.NumberFormat("ru-RU").format(row.limit.recommended)
+                                  : `Нужно ${generationBudget.methodology.minimumSamples} замеров`}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </Card>
+
             <Card>
               <SectionTitle Icon={TrendingUp}>Воронка за 30 дней</SectionTitle>
               {loadingAnalytics ? (
