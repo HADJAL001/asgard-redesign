@@ -44,13 +44,16 @@ export function useVoice(onTranscript: (text: string) => void) {
   const startedAt = useRef(0)
   const lastResultAt = useRef(0)
   const onTranscriptRef = useRef(onTranscript)
-  onTranscriptRef.current = onTranscript
 
   useEffect(() => {
-    setSupported(isSttSupported())
+    onTranscriptRef.current = onTranscript
+  }, [onTranscript])
+
+  useEffect(() => {
+    queueMicrotask(() => setSupported(isSttSupported()))
   }, [])
 
-  const runRecognition = useCallback(() => {
+  const runRecognition = useCallback(function recognize() {
     startListening({
       lang: language,
       continuous: false,
@@ -70,7 +73,7 @@ export function useVoice(onTranscript: (text: string) => void) {
         const silentFor = now - (lastResultAt.current || startedAt.current)
         const elapsed = now - startedAt.current
         if (!stoppedByUser.current && silentFor < SILENCE_AUTOSTOP_MS && elapsed < MAX_RECORDING_MS) {
-          runRecognition()
+          recognize()
         } else {
           setIsListening(false)
         }

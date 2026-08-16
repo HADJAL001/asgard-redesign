@@ -143,7 +143,7 @@ export function DevMemoryView() {
   }, [])
 
   useEffect(() => {
-    void load()
+    queueMicrotask(() => void load())
   }, [load])
 
   const m = data?.mistakes

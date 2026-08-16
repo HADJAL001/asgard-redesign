@@ -20,7 +20,7 @@
    Использует useOsgardStore(): generateProject()
    ================================================================ */
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { X, Wand2, PenLine, Loader2, ArrowRight, ArrowLeft, Check, Coins } from "lucide-react"
 import { useOsgardStore, type OsgardArtifact } from "@/lib/store/osgard-store"
 import { COLORS, RARITY, RARITY_CHAIN } from "@/lib/economy"
@@ -111,6 +111,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
   const [depthId, setDepthId] = useState<DepthOption["id"]>("quick")
   /** autoStart уже запущен (эффект стартует ровно один раз, включая React strict-mode). */
   const [autoStarted, setAutoStarted] = useState(false)
+  const autoStartedRef = useRef(false)
 
   // Каталог глубин — реальные тарифы из бэкенда (не хардкод), подтягиваем один раз при монтировании.
   useEffect(() => {
@@ -141,9 +142,12 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
   // «Первый клик создаёт проект»: идея уже описана — не спрашиваем имя/тему,
   // запускаем генерацию сразу при открытии мастера.
   useEffect(() => {
-    if (autoStart && !autoStarted) {
-      setAutoStarted(true)
-      void handleSubmit()
+    if (autoStart && !autoStartedRef.current) {
+      autoStartedRef.current = true
+      queueMicrotask(() => {
+        setAutoStarted(true)
+        void handleSubmit()
+      })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

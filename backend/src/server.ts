@@ -210,6 +210,7 @@ import artifactsRoutes from "./routes/artifacts.routes"
 import shareRoutes from "./routes/share.routes"
 import marketplaceRoutes from "./routes/marketplace.routes"
 import projectsRoutes from "./routes/projects.routes"
+import { resumeProjectGenerationJobs } from "./lib/project-generation"
 import leaderboardRoutes from "./routes/leaderboard.routes"
 import hallOfFameRoutes from "./routes/halloffame.routes"
 import transactionsRoutes from "./routes/transactions.routes"
@@ -344,6 +345,7 @@ import "./migrations/095_generation_meter"
 import "./migrations/096_own_cluster_deploy"
 import "./migrations/097_lesson_effectiveness"
 import "./migrations/098_lesson_teaching_baseline"
+import "./migrations/099_project_generation_jobs"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
@@ -505,7 +507,16 @@ runOrchestratorWebhookTriggersMigration()
 /* Самолечение: если процесс перезапустился во время генерации приложения (in-memory
    состояние джоба теряется), зависшие в "generating" проекты переводим в "failed" —
    иначе они зависли бы навсегда. */
-db.prepare(`UPDATE projects SET status = 'failed', generation_error = 'Генерация прервана перезапуском сервера' WHERE status = 'generating'`).run()
+db.prepare(
+  `UPDATE projects
+   SET status = 'failed', generation_error = 'Generation was interrupted before durable queue registration'
+   WHERE status = 'generating'
+     AND id NOT IN (
+       SELECT project_id FROM project_generation_jobs WHERE status IN ('queued', 'running')
+     )`,
+).run()
+
+resumeProjectGenerationJobs()
 
 /* Аналогичное самолечение для зависших деплоев на Netlify. */
 db.prepare(`UPDATE projects SET deploy_status = 'failed', deploy_error = 'Деплой прерван перезапуском сервера' WHERE deploy_status = 'deploying'`).run()

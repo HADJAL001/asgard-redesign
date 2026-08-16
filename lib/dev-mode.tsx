@@ -115,13 +115,20 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
 
   // Восстановление состояния — строго после монтирования (см. заголовок про SSR).
   useEffect(() => {
-    const storedMode = readStored<OsgardMode>(STORAGE_KEY_MODE, ["world", "dev"])
-    if (storedMode) {
-      setMode(storedMode)
-      setModeChosen(true)
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      const storedMode = readStored<OsgardMode>(STORAGE_KEY_MODE, ["world", "dev"])
+      if (storedMode) {
+        setMode(storedMode)
+        setModeChosen(true)
+      }
+      setSoundEnabled(readStored(STORAGE_KEY_SOUND, ["on", "off"]) === "on")
+      setHydrated(true)
+    })
+    return () => {
+      cancelled = true
     }
-    setSoundEnabled(readStored(STORAGE_KEY_SOUND, ["on", "off"]) === "on")
-    setHydrated(true)
   }, [])
 
   /* ── Студия как вход по умолчанию ──
@@ -146,8 +153,10 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
     const isEntryPoint = pathname === "/" || pathname === WORLD_MODE_ROUTE
     if (!isEntryPoint) return
     redirectedToStudio.current = true
-    setMode("dev")
-    router.replace(DEV_MODE_ROUTE)
+    queueMicrotask(() => {
+      setMode("dev")
+      router.replace(DEV_MODE_ROUTE)
+    })
   }, [hydrated, transitioning, modeChosen, pathname, router, isAuthenticated])
 
   /* Роут — сильнейший источник правды о режиме, сильнее localStorage.
@@ -165,7 +174,7 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
     const routeMode: OsgardMode = inDevRoute ? "dev" : "world"
     // Правим только реальное расхождение — иначе лишний рендер на каждой навигации.
     if (routeMode === "dev" && mode !== "dev") {
-      setMode("dev")
+      queueMicrotask(() => setMode("dev"))
       /* В хранилище НЕ пишем: нахождение на /dev само по себе не выбор
          человека — сюда мог привести автоперенос по умолчанию. Записывает
          только switchMode, то есть явное нажатие кнопки. Иначе первый же

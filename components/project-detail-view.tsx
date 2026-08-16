@@ -30,6 +30,7 @@ import { ProjectFileEditor } from "./project-file-editor"
 import { ProjectDesignPanel } from "./project-design-panel"
 import { ProjectEngineeringPanel } from "./project-engineering-panel"
 import { ForgeCeremony } from "./forge-ceremony"
+import { ConfirmModal } from "./ui/confirm-modal"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { useAuth } from "@/lib/auth-store"
 import { COLORS, badgeIcon, RARITY, ARTIFACT_TYPES, STAT_META, type ArtifactType, type Rarity } from "@/lib/economy"
@@ -95,6 +96,10 @@ export function ProjectDetailView({ projectId }: Props) {
   const [publishResult, setPublishResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [deploying, setDeploying] = useState(false)
   const [deployRequestError, setDeployRequestError] = useState<string | null>(null)
+  /* Отказ публикации по инженерному вердикту держим отдельно от прочих ошибок
+     деплоя: у него другой смысл («чинить», а не «повторить») и своё действие. */
+  const [deployBlocked, setDeployBlocked] = useState<{ message: string; defects: number } | null>(null)
+  const [confirmBrokenDeploy, setConfirmBrokenDeploy] = useState(false)
 
   // Вкладка «Доработки»: промпт, флаг отправки и инлайн-уведомление (успех/ошибка).
   const [refinePrompt, setRefinePrompt] = useState("")
@@ -170,18 +175,25 @@ export function ProjectDetailView({ projectId }: Props) {
     }
   }
 
-  async function handleDeploy() {
+  async function handleDeploy(opts?: { acknowledgeBroken?: boolean }) {
     setDeploying(true)
     setDeployRequestError(null)
+    setDeployBlocked(null)
     try {
-      const res = await deployProject(projectId)
+      const res = await deployProject(projectId, opts)
       if (res.success) {
         await pollDeployStatus(projectId)
+      } else if (res.blockedByEngineering) {
+        /* Не «сбой деплоя», а отказ по инженерному вердикту: приложение не
+           собирается (backend/src/lib/engineering-gate). Разница важна —
+           повтор той же кнопки ничего не изменит, нужен ремонт. */
+        setDeployBlocked({ message: res.error || "", defects: res.defects ?? 0 })
       } else {
         setDeployRequestError(res.error || t("projectDetail.deployRequestFailed"))
       }
     } finally {
       setDeploying(false)
+      setConfirmBrokenDeploy(false)
     }
   }
 
@@ -320,7 +332,7 @@ export function ProjectDetailView({ projectId }: Props) {
                 )}
                 <button
                   type="button"
-                  onClick={handleDeploy}
+                  onClick={() => handleDeploy()}
                   disabled={deploying || currentProject.deployStatus === "deploying"}
                   className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors disabled:opacity-50"
                   style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
@@ -413,6 +425,44 @@ export function ProjectDetailView({ projectId }: Props) {
             <p className="whitespace-pre-wrap text-[13px]">{deployRequestError}</p>
           </div>
         )}
+        {/* Публикация не пущена инженерным вердиктом: причина словами + путь к
+            ремонту (вкладка «Инженерия») и осознанный обход отдельной ссылкой. */}
+        {deployBlocked && (
+          <div
+            className="mt-6 flex flex-wrap items-start gap-3 rounded-xl px-4 py-3"
+            style={{ backgroundColor: "rgba(248,113,113,0.06)", border: `1px solid ${COLORS.red}` }}
+          >
+            <AlertTriangle size={16} style={{ color: COLORS.red, flexShrink: 0, marginTop: 2 }} />
+            <p className="min-w-0 flex-1 whitespace-pre-wrap text-[13px]">{deployBlocked.message}</p>
+            <button
+              type="button"
+              onClick={() => setTab("engineering")}
+              className="rounded-lg px-3 py-1.5 text-[12.5px] font-medium"
+              style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+            >
+              Открыть разбор
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmBrokenDeploy(true)}
+              className="self-center text-[12px] underline underline-offset-2"
+              style={{ color: COLORS.label }}
+            >
+              {t("workspace.deployAnyway")}
+            </button>
+          </div>
+        )}
+        <ConfirmModal
+          open={confirmBrokenDeploy}
+          onCancel={() => setConfirmBrokenDeploy(false)}
+          onConfirm={() => handleDeploy({ acknowledgeBroken: true })}
+          title={t("workspace.deployAnywayTitle")}
+          message={t("workspace.deployAnywayMessage", { count: deployBlocked?.defects ?? 0 })}
+          confirmLabel={t("workspace.deployAnywayConfirm")}
+          cancelLabel={t("workspace.cancel")}
+          loading={deploying}
+          danger
+        />
         {publishResult && (
           <div
             className="mt-6 flex items-center gap-3 rounded-xl px-4 py-3"

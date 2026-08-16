@@ -1026,7 +1026,16 @@
     "nextEyebrowProgress": "In progress",
     "nextEyebrowError": "Needs a fix",
     "nextEyebrowDone": "Done",
-    "nextAllDone": "Checked, running, and deployed — everything is ready"
+    "nextAllDone": "Checked, running, and deployed — everything is ready",
+    "deployBlocked": "The app does not build — there is nothing to publish. Defects left: {{count}}",
+    "deployBlockedHint": "Press “Fix”: the platform rewrites the broken files and checks again.",
+    "deployAnyway": "Publish anyway",
+    "deployAnywayTitle": "Publish an app that does not work?",
+    "deployAnywayMessage": "The engineering check found {{count}} unresolved defect(s). The build will most likely fail, and visitors will see an error. Publishing is irreversible: the address becomes public.",
+    "deployAnywayConfirm": "Publish as is",
+    "cancel": "Cancel",
+    "verdictRealBuildFailed": "The real build failed during publishing — the verdict was updated from its log",
+    "provenByRealBuild": "· proven by the build during publishing"
   },
   "ceremony": {
     "starting": "The forge is warming up…",

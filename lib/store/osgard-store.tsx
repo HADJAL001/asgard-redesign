@@ -526,6 +526,12 @@ export interface ProjectActionResult {
   /** Списанные за генерацию кредиты (0 для quick). */
   costCredits?: number
   error?: string
+  /** true — платформа не поняла заявку и НИЧЕГО не сгенерировала (422
+   *  unclear_request): проект не создан, квота и кредиты не тронуты.
+   *  Это вопрос человеку, а не сбой — и показывать его надо как вопрос. */
+  unclearRequest?: boolean
+  /** Что сервер реально прочитал в заявке — показываем, а не прячем. */
+  received?: string
 }
 
 /** Одна строка ленты доработок проекта (см. GET /projects/:id/refinements). */
@@ -567,14 +573,17 @@ export interface EngineeringRepair {
 }
 
 export interface EngineeringReport {
-  /** Чем доказан вердикт: разбором кода или реальной сборкой в песочнице. */
-  verifiedBy?: "static" | "sandbox" | "none"
+  /** Чем доказан вердикт: разбором кода, песочницей или реальной сборкой при публикации. */
+  verifiedBy?: "static" | "sandbox" | "none" | "real-build"
   checks?: EngineeringCheck[]
   defects?: EngineeringDefect[]
   repairs?: EngineeringRepair[]
   initialErrors?: number
   analyzedFiles?: number
   sandbox?: { ok: boolean; skipped: boolean }
+  /** Приговор настоящего `next build` при публикации (backend: lib/engineering-gate).
+   *  Появляется только когда сборка упала — успешная сборка вердикт не меняет. */
+  realBuild?: { ok: boolean; source: "cluster" | "host"; status: string; message: string; at: number }
 }
 
 /* ---- Счётчик расхода генерации (backend: lib/generation-telemetry, миграция 095) ----
@@ -651,6 +660,12 @@ export interface DeployActionResult {
   success: boolean
   project?: OsgardProject
   error?: string
+  /** true — сервер не пустил публикацию: приложение не собирается (409
+   *  engineering_broken). Не «сломался деплой», а «нечего публиковать»:
+   *  интерфейс обязан предложить ремонт, а не повтор той же кнопки. */
+  blockedByEngineering?: boolean
+  /** Сколько нерешённых дефектов насчитала инженерная проверка. */
+  defects?: number
 }
 
 
@@ -821,10 +836,12 @@ export interface OsgardStoreState {
   publishProjectToGithub: (id: number, opts?: { repoName?: string; private?: boolean }) => Promise<GithubPublishActionResult>
   /** PUT /projects/:id/files/* — сохраняет содержимое одного файла (Monaco-редактор). */
   saveProjectFile: (id: number, path: string, content: string) => Promise<SaveFileActionResult>
-  /** POST /projects/:id/deploy — запускает асинхронный деплой на нашу инфраструктуру
+  /** POST /projects/:id/deploy — запускает асинхронный деплой на нашу инфраструктуру.
+   *  opts.acknowledgeBroken — человек увидел вердикт «не собирается» и всё равно
+   *  решил публиковать; без него сервер отвечает 409 engineering_broken.
    *  (deploy_status='deploying'). Площадку выбирает бэкенд: своя инфра, Netlify — только
    *  аварийный запас (backend/src/services/deploy-target.ts). */
-  deployProject: (id: number) => Promise<DeployActionResult>
+  deployProject: (id: number, opts?: { acknowledgeBroken?: boolean }) => Promise<DeployActionResult>
   /** Опрашивает GET /projects/:id, пока project.deployStatus не выйдет из 'deploying' (или не истечёт таймаут). */
   pollDeployStatus: (id: number, opts?: { intervalMs?: number; timeoutMs?: number }) => Promise<OsgardProject | null>
   /** PATCH /projects/:id — обновить название/описание/бейдж проекта. */
@@ -1619,8 +1636,16 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       }
     } catch (err) {
       const message = extractErrorMessage(err, "Не удалось сгенерировать проект")
-      set({ loading: false, error: message })
-      return { success: false, error: message }
+      /* 422 unclear_request — платформа не поняла заявку и ничего не выдумала.
+         Это вопрос человеку, а не сбой: в общую полосу ошибок не кладём,
+         вызывающий экран показывает его рядом с полем ввода. */
+      const unclear = extractErrorCode(err) === "unclear_request"
+      const received =
+        err instanceof ApiError && typeof (err.data as { received?: unknown } | undefined)?.received === "string"
+          ? (err.data as { received: string }).received
+          : undefined
+      set({ loading: false, error: unclear ? null : message })
+      return { success: false, error: message, unclearRequest: unclear, received }
     }
   },
 
@@ -1783,11 +1808,17 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     }
   },
 
-  /* ---- проекты: POST /projects/:id/deploy — запуск асинхронного деплоя ---- */
-  deployProject: async (id) => {
+  /* ---- проекты: POST /projects/:id/deploy — запуск асинхронного деплоя ----
+     acknowledgeBroken — осознанная публикация приложения с вердиктом broken.
+     Без него сервер отвечает 409 engineering_broken: платформа не выкладывает
+     в интернет то, про что сама знает, что оно не собирается. */
+  deployProject: async (id, opts) => {
     set({ loading: true, error: null })
     try {
-      const res = await apiClient.post<{ project: OsgardProject }>(`/projects/${id}/deploy`)
+      const res = await apiClient.post<{ project: OsgardProject }>(
+        `/projects/${id}/deploy`,
+        opts?.acknowledgeBroken ? { acknowledgeBroken: true } : {},
+      )
       set((s) => ({
         loading: false,
         error: null,
@@ -1797,8 +1828,15 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       return { success: true, project: res.project }
     } catch (err) {
       const message = extractErrorMessage(err, "Не удалось запустить деплой")
-      set({ loading: false, error: message })
-      return { success: false, error: message }
+      const blocked = extractErrorCode(err) === "engineering_broken"
+      const defects =
+        err instanceof ApiError && typeof (err.data as { defects?: unknown } | undefined)?.defects === "number"
+          ? ((err.data as { defects: number }).defects)
+          : undefined
+      /* Отказ по вердикту — не сбой платформы: в глобальную полосу ошибок его не
+         кладём, о нём говорит сам экран проекта рядом с кнопкой. */
+      set({ loading: false, error: blocked ? null : message })
+      return { success: false, error: message, blockedByEngineering: blocked, defects }
     }
   },
 

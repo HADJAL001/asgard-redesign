@@ -34,6 +34,8 @@ function DeployRow({ project, primary }: { project: OsgardProject; primary: bool
   const [busy, setBusy] = useState<RowBusy>(null)
   const [error, setError] = useState<string | null>(null)
   const [repoUrl, setRepoUrl] = useState<string | null>(null)
+  /** Не null — сервер не пустил публикацию: приложение не собирается. */
+  const [blockedDefects, setBlockedDefects] = useState<number | null>(null)
 
   // Проект мог начать деплоиться в другом месте (Мастерская) — тогда
   // строка обязана показывать «публикуется», даже если кнопку жали не здесь.
@@ -44,15 +46,20 @@ function DeployRow({ project, primary }: { project: OsgardProject; primary: bool
   // Публиковать можно только собранное: у 'generating'/'failed' нет файлов.
   const canDeploy = project.status === "ready" && !deploying
 
-  async function handleDeploy() {
+  async function handleDeploy(opts?: { acknowledgeBroken?: boolean }) {
     setBusy("deploy")
     setError(null)
-    const res = await deployProject(project.id)
+    const res = await deployProject(project.id, opts)
     if (!res.success) {
       setError(res.error || "Опубликовать не удалось. Попробуйте ещё раз.")
+      /* Отказ по инженерному вердикту — не «попробуйте ещё раз»: повтор той же
+         кнопки ничего не изменит. Показываем осознанный обход отдельной
+         ссылкой (backend/src/lib/engineering-gate). */
+      setBlockedDefects(res.blockedByEngineering ? res.defects ?? 0 : null)
       setBusy(null)
       return
     }
+    setBlockedDefects(null)
     // Ждём реального финала, иначе адрес не появится до перезагрузки.
     const finished = await pollDeployStatus(project.id)
     if (finished?.deployStatus === "failed") {
@@ -143,6 +150,27 @@ function DeployRow({ project, primary }: { project: OsgardProject; primary: bool
               {error}
             </p>
           ) : null}
+
+          {blockedDefects !== null ? (
+            <div className="mt-1.5 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => router.push(`/dev/workspace/${project.id}`)}
+                className="dev-btn dev-btn--ghost"
+              >
+                Починить
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeploy({ acknowledgeBroken: true })}
+                disabled={busy !== null}
+                className="text-[12px] underline underline-offset-4 disabled:opacity-40"
+                style={{ color: "rgb(148 163 184 / 80%)" }}
+              >
+                всё равно опубликовать
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -164,7 +192,7 @@ function DeployRow({ project, primary }: { project: OsgardProject; primary: bool
 
           <button
             type="button"
-            onClick={handleDeploy}
+            onClick={() => handleDeploy()}
             disabled={!canDeploy || busy !== null}
             /* Золото — только у ОДНОГО действия на экране (правило режима:
                одна точка притяжения взгляда). Шесть золотых кнопок в списке

@@ -77,16 +77,15 @@ export function LiveGenerationMeter({
   /* Секунды идут локально: слать кадр раз в секунду только ради часов —
      напрасный трафик, а время и без сервера известно точно. Токены при
      этом ТОЛЬКО из потока: выдумывать их локально нельзя. */
-  const [now, setNow] = useState<number | null>(null)
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
     if (!active || startedAt === null) return
-    setNow(Date.now())
     const timer = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(timer)
   }, [active, startedAt])
 
-  const elapsed = startedAt !== null && now !== null ? Math.max(0, now - startedAt) : null
+  const elapsed = startedAt !== null ? Math.max(0, now - startedAt) : null
   const approx = (meter?.estimated ?? 0) > 0
 
   const items: Array<{ Icon: typeof Coins; text: string; title: string }> = []

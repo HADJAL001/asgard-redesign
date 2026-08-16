@@ -5,6 +5,7 @@ import path from "node:path"
 import os from "node:os"
 import db from "../lib/db"
 import { captureError } from "../lib/sentry"
+import { recordRealBuildFailure } from "../lib/engineering-gate"
 
 /* ================================================================
    OSGARD · Деплой сгенерированных приложений на СВОЮ инфраструктуру
@@ -170,6 +171,23 @@ export function classifyDeploymentStatus(status: string): "pending" | "live" | "
 
 export function describeFailure(status: string): string {
   return FAILURE_REASONS[status] || `деплой завершился статусом ${status}`
+}
+
+/** Отказ деплоя с сохранённым статусом control-plane. Текст ошибки уезжает
+ *  пользователю, а статус нужен коду: `build_failed` — это приговор реального
+ *  `next build`, и он обязан вернуться в инженерный вердикт проекта, а не
+ *  остаться строкой в deploy_error (lib/engineering-gate). */
+export class DeploymentFailedError extends Error {
+  constructor(readonly deploymentStatus: string, message: string) {
+    super(message)
+    this.name = "DeploymentFailedError"
+  }
+}
+
+/** Статусы, означающие «код не собрался» — в отличие от инфраструктурных отказов
+ *  (реестр, health-check, откат), за которые автор приложения не отвечает. */
+export function isBuildFailure(status: string): boolean {
+  return status === "build_failed"
 }
 
 /** Dockerfile для статического экспорта Next.js (движок генерирует
@@ -473,7 +491,9 @@ async function waitForDeployment(
     lastStatus = deployment.status
     const verdict = classifyDeploymentStatus(deployment.status)
     if (verdict === "live") return
-    if (verdict === "failed") throw new Error(describeFailure(deployment.status))
+    if (verdict === "failed") {
+      throw new DeploymentFailedError(deployment.status, describeFailure(deployment.status))
+    }
   }
 
   throw new Error(
@@ -546,6 +566,14 @@ export async function runOwnClusterDeployJob(projectId: number) {
     )
     captureError("[own-cluster-deploy] job failed:", new Error(message))
     failProject(projectId, message)
+
+    /* Сборка в кластере — единственный настоящий `next build`, который у нас есть
+       (в облачном рантайме платформы Docker нет, песочница возвращает skipped).
+       Раз он сказал «нет», проект перестаёт считаться проверенным: иначе студия
+       продолжит показывать «Проверено» и предлагать публикацию того же кода. */
+    if (err instanceof DeploymentFailedError && isBuildFailure(err.deploymentStatus)) {
+      recordRealBuildFailure(projectId, { source: "cluster", status: err.deploymentStatus, message })
+    }
   } finally {
     await fs.rm(workDir, { recursive: true, force: true })
   }

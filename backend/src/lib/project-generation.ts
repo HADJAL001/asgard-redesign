@@ -1,9 +1,11 @@
 import db from "./db"
+import { randomUUID } from "node:crypto"
 import { localFallbackGeneration, type AiArtifactSuggestion } from "../services/ai-generator"
-import { generateApp, GeneratedAppFile } from "../services/app-generator"
+import { cacheVerifiedAppGeneration, generateApp, GeneratedAppFile } from "../services/app-generator"
 import {
   detectTheme,
   findBestTemplate,
+  getTemplateById,
   saveTemplateFromGeneration,
   incrementTemplateUsage,
   estimateTokensSaved,
@@ -25,7 +27,6 @@ import { deriveExportContract, reconcileWithContract } from "./generation-contra
 import {
   craftQuality,
   getLessonsReport,
-  isWorthLearning,
   listAuthoredLessons,
   rankedLessons,
   recordLessons,
@@ -38,6 +39,7 @@ import {
   type LessonDefectSample,
 } from "./lesson-author"
 import { resolveProjectTitle } from "./project-title"
+import { decideProjectRelease } from "./project-release"
 
 /* ================================================================
    OSGARD · Общий сервис генерации проектов
@@ -365,8 +367,9 @@ function persistGenerationMeter(
   return firstTry
 }
 
-/** Асинхронный джоб генерации реального приложения — вызывается fire-and-forget сразу
- *  после ответа клиенту. Никогда не бросает наружу: любая ошибка помечает проект failed.
+/** Выполняет один запуск генерации внутри durable worker. Клиент получает ответ
+ *  сразу после постановки в SQLite-очередь, а worker повторяет временные сбои
+ *  с backoff и переводит проект в failed только после последней попытки.
  *
  *  Обёртка существует ради одного: весь джоб целиком выполняется внутри контекста
  *  телеметрии, поэтому КАЖДЫЙ вызов модели на любой глубине (генерация файлов,
@@ -382,6 +385,247 @@ async function runAppGenerationJob(...args: Parameters<typeof runAppGenerationJo
     () => runAppGenerationJobInner(...args),
     (snapshot) => emitGenerationMeter(projectId, snapshot),
   )
+}
+
+type DurableGenerationPayload = {
+  userId: number
+  projectId: number
+  name: string
+  hint?: string
+  quick: { description: string; badge: string; artifacts: AiArtifactSuggestion[] }
+  templateId: number | null
+  bypassCache: boolean
+  depth: GenerationDepth
+  design?: { theme?: string; keywords?: string[] }
+}
+
+type DurableGenerationJobRow = {
+  project_id: number
+  user_id: number
+  payload: string
+  refinement_id: number | null
+  attempts: number
+  lease_token: string
+}
+
+const GENERATION_JOB_LEASE_MS = 2 * 60_000
+const GENERATION_JOB_MAX_ATTEMPTS = 3
+const GENERATION_JOB_RETRY_DELAYS_MS = [5_000, 20_000] as const
+let generationWorkerTimer: NodeJS.Timeout | null = null
+let generationWorkerRunning = false
+
+function generationRetryDelayMs(attempts: number): number {
+  return GENERATION_JOB_RETRY_DELAYS_MS[Math.min(Math.max(attempts - 1, 0), GENERATION_JOB_RETRY_DELAYS_MS.length - 1)]
+}
+
+function enqueueGenerationJob(payload: DurableGenerationPayload, refinementId?: number): void {
+  const now = Date.now()
+  db.prepare(
+    `INSERT INTO project_generation_jobs
+       (project_id, user_id, payload, refinement_id, status, attempts, available_at,
+        lease_until, lease_token, last_error, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'queued', 0, ?, NULL, NULL, NULL, ?, ?)
+     ON CONFLICT(project_id) DO UPDATE SET
+       user_id = excluded.user_id,
+       payload = excluded.payload,
+       refinement_id = excluded.refinement_id,
+       status = 'queued',
+       attempts = 0,
+       available_at = excluded.available_at,
+       lease_until = NULL,
+       lease_token = NULL,
+       last_error = NULL,
+       updated_at = excluded.updated_at`,
+  ).run(payload.projectId, payload.userId, JSON.stringify(payload), refinementId ?? null, now, now, now)
+  scheduleGenerationWorker()
+}
+
+function claimGenerationJob(): DurableGenerationJobRow | null {
+  const now = Date.now()
+  db.exec("BEGIN IMMEDIATE")
+  try {
+    const exhausted = db.prepare(
+      `SELECT project_id, user_id, refinement_id
+       FROM project_generation_jobs
+       WHERE status = 'running' AND attempts >= ? AND COALESCE(lease_until, 0) <= ?`,
+    ).all(GENERATION_JOB_MAX_ATTEMPTS, now) as Array<{
+      project_id: number
+      user_id: number
+      refinement_id: number | null
+    }>
+    for (const job of exhausted) {
+      const message = `Generation stopped after ${GENERATION_JOB_MAX_ATTEMPTS} attempts`
+      db.prepare(
+        `UPDATE project_generation_jobs
+         SET status = 'failed', lease_until = NULL, lease_token = NULL, last_error = ?, updated_at = ?
+         WHERE project_id = ?`,
+      ).run(message, now, job.project_id)
+      db.prepare(`UPDATE projects SET status = 'failed', generation_error = ? WHERE id = ?`).run(message, job.project_id)
+      if (job.refinement_id != null) {
+        db.prepare(`UPDATE project_refinements SET status = 'failed' WHERE id = ?`).run(job.refinement_id)
+      }
+    }
+
+    const row = db.prepare(
+      `SELECT project_id, user_id, payload, refinement_id, attempts
+       FROM project_generation_jobs
+       WHERE attempts < ?
+         AND ((status = 'queued' AND available_at <= ?)
+           OR (status = 'running' AND COALESCE(lease_until, 0) <= ?))
+       ORDER BY created_at ASC LIMIT 1`,
+    ).get(GENERATION_JOB_MAX_ATTEMPTS, now, now) as Omit<DurableGenerationJobRow, "lease_token"> | undefined
+
+    if (!row) {
+      db.exec("COMMIT")
+      for (const job of exhausted) {
+        reportTerminalGenerationFailure(job, `Generation stopped after ${GENERATION_JOB_MAX_ATTEMPTS} attempts`)
+      }
+      return null
+    }
+
+    const leaseToken = randomUUID()
+    db.prepare(
+      `UPDATE project_generation_jobs
+       SET status = 'running', attempts = attempts + 1, lease_until = ?, lease_token = ?, updated_at = ?
+       WHERE project_id = ?`,
+    ).run(now + GENERATION_JOB_LEASE_MS, leaseToken, now, row.project_id)
+    db.prepare(`UPDATE projects SET status = 'generating', generation_error = NULL WHERE id = ?`).run(row.project_id)
+    db.exec("COMMIT")
+    for (const job of exhausted) {
+      reportTerminalGenerationFailure(job, `Generation stopped after ${GENERATION_JOB_MAX_ATTEMPTS} attempts`)
+    }
+    return { ...row, attempts: row.attempts + 1, lease_token: leaseToken }
+  } catch (error) {
+    db.exec("ROLLBACK")
+    throw error
+  }
+}
+
+function nextGenerationLeaseDelay(): number | null {
+  const row = db.prepare(
+    `SELECT MIN(next_at) AS nextAt
+     FROM (
+       SELECT available_at AS next_at FROM project_generation_jobs WHERE status = 'queued'
+       UNION ALL
+       SELECT lease_until AS next_at FROM project_generation_jobs WHERE status = 'running'
+     )`,
+  ).get() as { nextAt: number | null }
+  if (row.nextAt == null) return null
+  return Math.max(1_000, row.nextAt - Date.now() + 100)
+}
+
+function reportTerminalGenerationFailure(job: Pick<DurableGenerationJobRow, "project_id" | "user_id">, message: string): void {
+  const project = db.prepare(`SELECT name FROM projects WHERE id = ?`).get(job.project_id) as { name: string } | undefined
+  emitGenerationStage({
+    projectId: job.project_id,
+    stage: "failed",
+    label: "Ошибка генерации",
+    progress: 1,
+    error: message,
+  })
+  createNotification({
+    userId: job.user_id,
+    type: "generation_failed",
+    entityType: "project",
+    entityId: job.project_id,
+    text: `Не удалось сгенерировать проект «${project?.name ?? `#${job.project_id}`}». Можно попробовать снова.`,
+  })
+}
+
+function scheduleGenerationWorker(delayMs = 0): void {
+  if (generationWorkerRunning || generationWorkerTimer) return
+  generationWorkerTimer = setTimeout(() => {
+    generationWorkerTimer = null
+    void drainGenerationJobs()
+  }, delayMs)
+  generationWorkerTimer.unref?.()
+}
+
+async function drainGenerationJobs(): Promise<void> {
+  if (generationWorkerRunning) return
+  generationWorkerRunning = true
+  try {
+    for (;;) {
+      const job = claimGenerationJob()
+      if (!job) break
+
+      let heartbeat: NodeJS.Timeout | null = null
+      try {
+        const payload = JSON.parse(job.payload) as DurableGenerationPayload
+        heartbeat = setInterval(() => {
+          db.prepare(
+            `UPDATE project_generation_jobs SET lease_until = ?, updated_at = ?
+             WHERE project_id = ? AND status = 'running' AND lease_token = ?`,
+          ).run(Date.now() + GENERATION_JOB_LEASE_MS, Date.now(), job.project_id, job.lease_token)
+        }, Math.floor(GENERATION_JOB_LEASE_MS / 3))
+        heartbeat.unref?.()
+
+        const template = payload.templateId == null ? null : getTemplateById(payload.templateId)
+        await runAppGenerationJob(
+          payload.userId,
+          payload.projectId,
+          payload.name,
+          payload.hint,
+          payload.quick,
+          template,
+          payload.bypassCache,
+          payload.depth,
+          payload.design,
+        )
+
+        const project = db.prepare(`SELECT status, generation_error FROM projects WHERE id = ?`).get(job.project_id) as
+          | { status: string; generation_error: string | null }
+          | undefined
+        const completed = project?.status === "ready"
+        const queueUpdate = db.prepare(
+          `UPDATE project_generation_jobs
+           SET status = ?, lease_until = NULL, lease_token = NULL, last_error = ?, updated_at = ?
+           WHERE project_id = ? AND status = 'running' AND lease_token = ?`,
+        ).run(
+          completed ? "completed" : "failed",
+          completed ? null : project?.generation_error ?? "generation failed",
+          Date.now(),
+          job.project_id,
+          job.lease_token,
+        )
+        if (queueUpdate.changes > 0 && job.refinement_id != null) {
+          db.prepare(`UPDATE project_refinements SET status = ? WHERE id = ?`).run(completed ? "ready" : "failed", job.refinement_id)
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "generation worker failed"
+        const finalAttempt = job.attempts >= GENERATION_JOB_MAX_ATTEMPTS
+        const availableAt = finalAttempt ? Date.now() : Date.now() + generationRetryDelayMs(job.attempts)
+        const queueUpdate = db.prepare(
+          `UPDATE project_generation_jobs
+           SET status = CASE WHEN attempts < ? THEN 'queued' ELSE 'failed' END,
+               available_at = ?, lease_until = NULL, lease_token = NULL, last_error = ?, updated_at = ?
+           WHERE project_id = ? AND status = 'running' AND lease_token = ?`,
+        ).run(GENERATION_JOB_MAX_ATTEMPTS, availableAt, message, Date.now(), job.project_id, job.lease_token)
+        const stillOwned = queueUpdate.changes > 0
+        if (stillOwned && finalAttempt) {
+          db.prepare(`UPDATE projects SET status = 'failed', generation_error = ? WHERE id = ?`).run(message, job.project_id)
+          reportTerminalGenerationFailure(job, message)
+        } else if (stillOwned) {
+          db.prepare(`UPDATE projects SET status = 'generating', generation_error = NULL WHERE id = ?`).run(job.project_id)
+        }
+        if (stillOwned && job.refinement_id != null && finalAttempt) {
+          db.prepare(`UPDATE project_refinements SET status = 'failed' WHERE id = ?`).run(job.refinement_id)
+        }
+        captureError("[projects.generate] durable worker failed:", error)
+      } finally {
+        if (heartbeat) clearInterval(heartbeat)
+      }
+    }
+  } finally {
+    generationWorkerRunning = false
+    const delay = nextGenerationLeaseDelay()
+    if (delay != null) scheduleGenerationWorker(delay)
+  }
+}
+
+/** Starts recovery after migrations have created the durable queue table. */
+export function resumeProjectGenerationJobs(): void {
+  scheduleGenerationWorker()
 }
 
 async function runAppGenerationJobInner(
@@ -401,6 +645,7 @@ async function runAppGenerationJobInner(
     let description = quick.description
     let badge = quick.badge
     let artifactNames: string[] | null = null
+    let generatedLessons: Array<{ rule: string; count: number }> = []
 
     // Стадия 1: замысел разобран (тема/шаблон уже определены синхронно при создании проекта).
     emitGenerationStage({ projectId, stage: "analyzing", label: "Анализирую замысел", progress: 0.1 })
@@ -450,7 +695,8 @@ async function runAppGenerationJobInner(
       /* Уроки досборки, случившейся ВНУТРИ генерации. Записываем здесь, потому
          что повторная сверка ниже их уже не увидит — дефект к тому моменту
          починен. Именно этот разрыв и делал память платформы неполной. */
-      if (result.lessons?.length) recordLessons(result.lessons)
+      generatedLessons = result.lessons ?? []
+      if (generatedLessons.length) recordLessons(generatedLessons)
       // Сохранение в корпус переехало ПОСЛЕ инженерного контура: раньше шаблон
       // писался прямо здесь — то есть в память платформы попадал непроверенный
       // код, и следующие проекты наследовали его дефекты.
@@ -515,6 +761,7 @@ async function runAppGenerationJobInner(
     // Бриф передаём намеренно: с ним включается проверка контраста ПАР токенов
     // (lib/design-qa) — она считает реальные отношения по палитре ЭТОГО проекта.
     const designReport = explainDesignQuality(files, brief)
+    const release = decideProjectRelease(engineering.report)
 
     /* --- Самообучение платформы (корпус ремесла) ---
        (1) Память ошибок: на каких правилах генератор споткнулся в этот раз.
@@ -527,7 +774,8 @@ async function runAppGenerationJobInner(
     recordLessons(engineering.report.lessons)
     learnFromGenerationInBackground(engineering.report, files)
 
-    if (source === "ai" && isWorthLearning(engineering.report.verdict)) {
+    if (source === "ai" && release.status === "ready") {
+      cacheVerifiedAppGeneration(name, hint, { files, source, brief, lessons: generatedLessons }, release.status)
       saveTemplateFromGeneration({
         name,
         hint,
@@ -574,26 +822,13 @@ async function runAppGenerationJobInner(
 
        Все прочие дефекты (стиль, клиент/сервер и т.п.) на статус НЕ влияют —
        блокируем ровно то, что делает сборку невозможной. */
-    const blockingImportErrors = engineering.report.defects.filter(
-      (d) =>
-        d.severity === "error" &&
-        (d.rule === "import-missing" || d.rule === "named-import-missing" || d.rule === "default-export-missing" || d.rule === "dependency-missing"),
-    )
-    const finalStatus = blockingImportErrors.length > 0 ? "failed" : "ready"
-    const finalError =
-      blockingImportErrors.length > 0
-        ? `Приложение не собирается: несогласованных импортов — ${blockingImportErrors.length}. ` +
-          blockingImportErrors
-            .slice(0, 3)
-            .map((d) => `${d.file}: ${d.message}`)
-            .join("; ") +
-          (blockingImportErrors.length > 3 ? ` (и ещё ${blockingImportErrors.length - 3})` : "")
-        : engineeringError
-    if (blockingImportErrors.length > 0) {
-      console.warn(
-        `[projects.generate] проект ${projectId} НЕ выпущен в ready: ошибок импортов ${blockingImportErrors.length} — ` +
-          blockingImportErrors.slice(0, 6).map((d) => `${d.file}: ${d.message}`).join("; "),
-      )
+    const incompleteGeneration = !template && source !== "ai"
+      ? "DeepSeek did not return every file from the Claude/Kimi plan"
+      : null
+    const finalStatus = incompleteGeneration ? "failed" : release.status
+    const finalError = incompleteGeneration ?? release.message ?? engineeringError
+    if (finalStatus === "failed") {
+      console.warn(`[projects.generate] project ${projectId} was not released: ${finalError}`)
     }
 
     db.prepare(
@@ -621,54 +856,43 @@ async function runAppGenerationJobInner(
       })
     }
 
-    // Терминальная стадия ready: живой лог рождения проекта завершён успехом.
     emitGenerationStage({
       projectId,
-      stage: "ready",
+      stage: finalStatus === "ready" ? "ready" : "failed",
       label:
-        engineering.report.verdict === "repaired"
-          ? "Приложение готово — дефекты найдены и исправлены"
-          : engineering.report.verdict === "broken"
-            ? "Приложение готово, но проверка нашла дефекты"
+        finalStatus === "failed"
+          ? "Приложение не прошло инженерную проверку"
+          : engineering.report.verdict === "repaired"
+            ? "Приложение готово — дефекты найдены и исправлены"
             : "Приложение готово и проверено",
       progress: 1,
       fileCount: files.length,
       source,
       verdict: engineering.report.verdict,
-      defects: engineering.report.defects.filter((d) => d.severity === "error").length,
+      defects: release.errors.length,
       firstTry,
+      ...(finalStatus === "failed" ? { error: finalError ?? undefined } : {}),
     })
 
-    // Реальное асинхронное событие завершения: мгновенно пушим уведомление через SSE.
     createNotification({
       userId,
-      type: "generation_ready",
+      type: finalStatus === "ready" ? "generation_ready" : "generation_failed",
       entityType: "project",
       entityId: projectId,
-      text: `Проект «${name}» готов — приложение сгенерировано.`,
+      text:
+        finalStatus === "ready"
+          ? `Проект «${name}» готов — приложение сгенерировано и проверено.`
+          : `Проект «${name}» не прошёл инженерную проверку. Запустите ремонт после просмотра ошибок.`,
     })
   } catch (err: any) {
     captureError("[projects.generate] app generation job failed:", err)
-    const message = err?.message || "Неизвестная ошибка генерации"
-    db.prepare(`UPDATE projects SET status = 'failed', generation_error = ? WHERE id = ?`).run(
-      message,
-      projectId,
-    )
-    // Терминальная стадия failed: клиент показывает ошибку и кнопку «попробовать снова».
-    emitGenerationStage({ projectId, stage: "failed", label: "Ошибка генерации", progress: 1, error: message })
-    createNotification({
-      userId,
-      type: "generation_failed",
-      entityType: "project",
-      entityId: projectId,
-      text: `Не удалось сгенерировать проект «${name}». Можно попробовать снова.`,
-    })
+    throw err
   }
 }
 
 /**
- * Создаёт проект в статусе 'generating' вместе со стартовыми артефактами и немедленно
- * запускает фоновую AI-генерацию файлов (fire-and-forget). Возвращает свежий проект и
+ * Создаёт проект в статусе 'generating' вместе со стартовыми артефактами и ставит
+ * фоновую AI-генерацию файлов в SQLite-очередь. Возвращает свежий проект и
  * его артефакты — вызывающая сторона отдаёт их клиенту и опрашивает статус позже.
  *
  * НЕ проверяет лимиты/тарифы/биллинг — это ответственность вызывающего маршрута (веб-квота
@@ -717,9 +941,16 @@ export function createGeneratedProject(params: {
     .prepare(`SELECT ${ARTIFACT_SELECT_COLUMNS} FROM artifacts WHERE project_id = ? ORDER BY created_at DESC`)
     .all(projectId)
 
-  void runAppGenerationJob(params.userId, projectId, trimmedName, safeHint, quick, template, depthCfg.bypassCache, depth, {
-    theme,
-    keywords,
+  enqueueGenerationJob({
+    userId: params.userId,
+    projectId,
+    name: trimmedName,
+    hint: safeHint,
+    quick,
+    templateId: template?.id ?? null,
+    bypassCache: depthCfg.bypassCache,
+    depth,
+    design: { theme, keywords },
   })
 
   return { project, artifacts, projectId }
@@ -748,7 +979,6 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
     .all(project.id) as GeneratedAppFile[]
   if (rows.length === 0) return false
 
-  const previousStatus = project.status
   db.prepare(`UPDATE projects SET status = 'generating', generation_error = NULL WHERE id = ?`).run(project.id)
 
   void (async () => {
@@ -796,8 +1026,10 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
         if (!keptPaths.has(row.path)) removeFile.run(project.id, row.path)
       }
 
-      db.prepare(`UPDATE projects SET status = 'ready', generation_error = ? WHERE id = ?`).run(
-        summarizeVerdict(engineering.report),
+      const release = decideProjectRelease(engineering.report)
+      db.prepare(`UPDATE projects SET status = ?, generation_error = ? WHERE id = ?`).run(
+        release.status,
+        release.message ?? summarizeVerdict(engineering.report),
         project.id,
       )
       persistEngineering(project.id, engineering.report)
@@ -810,7 +1042,7 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
 
       emitGenerationStage({
         projectId: project.id,
-        stage: "ready",
+        stage: release.status === "ready" ? "ready" : "failed",
         label:
           engineering.report.verdict === "broken"
             ? "Ремонт завершён — часть дефектов осталась"
@@ -818,15 +1050,14 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
         progress: 1,
         fileCount: engineering.files.length,
         verdict: engineering.report.verdict,
-        defects: engineering.report.defects.filter((d) => d.severity === "error").length,
+        defects: release.errors.length,
+        ...(release.status === "failed" ? { error: release.message ?? summarizeVerdict(engineering.report) ?? undefined } : {}),
       })
     } catch (err) {
       captureError("[projects.repair] повторный контур упал:", err)
       // Проект обязан вернуться в рабочее состояние — «generating» навсегда недопустим.
-      db.prepare(`UPDATE projects SET status = ? WHERE id = ?`).run(
-        previousStatus === "generating" ? "ready" : previousStatus,
-        project.id,
-      )
+      const message = err instanceof Error ? err.message : "Unknown repair error"
+      db.prepare(`UPDATE projects SET status = 'failed', generation_error = ? WHERE id = ?`).run(message, project.id)
       emitGenerationStage({
         projectId: project.id,
         stage: "failed",
@@ -850,7 +1081,7 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
  * НЕ проверяет владение/квоты/списания — это ответственность вызывающего
  * маршрута (POST /projects/:id/refine). Возвращает false, если проект не найден.
  * force=AI (template=null): промпт доработки должен реально менять код, а не
- * просто переадаптировать шаблон. Никогда не бросает наружу.
+ * просто переадаптировать шаблон. Результат также выполняется durable worker.
  *
  * onDone (опц.) — колбэк по завершении джоба (обновить статус строки леджера).
  */
@@ -858,7 +1089,7 @@ export function refineGeneratedProject(params: {
   userId: number
   projectId: number
   prompt: string
-  onDone?: (ok: boolean) => void
+  refinementId?: number
 }): boolean {
   const project = db
     .prepare(`SELECT id, name, description FROM projects WHERE id = ? AND user_id = ?`)
@@ -880,17 +1111,19 @@ export function refineGeneratedProject(params: {
 
   const quick = localFallbackGeneration(project.name, refine)
 
-  // fire-and-forget тот же джоб; template=null → полная AI-генерация по промпту.
-  // onDone вызываем после завершения (успех/ошибка) для отметки в леджере.
+  // Тот же durable job; template=null → полная AI-генерация по промпту.
   // Доработка идёт по стандартной глубине: полная AI-генерация по промпту и
   // такой же инженерный контур, как у обычной генерации.
-  void runAppGenerationJob(params.userId, project.id, project.name, mergedHint, quick, null, true, "standard")
-    .then(() => {
-      const row = db.prepare(`SELECT status FROM projects WHERE id = ?`).get(project.id) as
-        | { status: string }
-        | undefined
-      params.onDone?.(row?.status === "ready")
-    })
+  enqueueGenerationJob({
+    userId: params.userId,
+    projectId: project.id,
+    name: project.name,
+    hint: mergedHint,
+    quick,
+    templateId: null,
+    bypassCache: true,
+    depth: "standard",
+  }, params.refinementId)
 
   return true
 }

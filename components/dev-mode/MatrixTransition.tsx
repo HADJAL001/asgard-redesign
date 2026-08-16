@@ -99,7 +99,9 @@ export function MatrixTransition() {
   // напрямую, он перезапустился бы на полпути: анимация дёрнулась бы с
   // нуля, а палитра перескочила на противоположную.
   const modeAtStart = useRef<OsgardMode>(mode)
-  if (!transitioning) modeAtStart.current = mode
+  useEffect(() => {
+    if (!transitioning) modeAtStart.current = mode
+  }, [mode, transitioning])
 
   useEffect(() => {
     if (!transitioning) return

@@ -21,6 +21,11 @@ import { GENERATION_DEPTHS, resolveDepth, serializeDepths } from "../lib/generat
 import { logAudit } from "../lib/audit"
 import { generationEvents, getRecentStages, type GenerationStreamEvent } from "../lib/generation-events"
 import { guestProjectCapReached } from "../lib/guest-service"
+import {
+  readEngineeringGate,
+  deployNeedsAcknowledgement,
+  describeBrokenGate,
+} from "../lib/engineering-gate"
 import { getLessonsReport } from "../lib/craft-corpus"
 import { getTemplateSavingsReport } from "../services/template-store"
 import {
@@ -31,6 +36,7 @@ import {
   REFINEMENT_CREDIT_COST,
 } from "../lib/refinements"
 import { resolveProjectTitle } from "../lib/project-title"
+import { assessRequestClarity } from "../lib/request-clarity"
 
 const router = Router()
 
@@ -393,6 +399,23 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
   if (!hasName && !hasHint) {
     return res.status(400).json({ error: "Опишите идею или укажите название проекта" })
   }
+
+  /* Третий ответ, кроме «сгенерировал» и «ошибка»: ВОПРОС. Заявка, из которой
+     нельзя понять продукт (битая кодировка, текст без единого слова), не идёт
+     в генератор — иначе модель обязана что-то придумать, и человек получает
+     чужой продукт за свою квоту (выстрел 30.07.2026: кракозябры → дашборд
+     Kubernetes вместо лендинга). Проверка стоит ДО квот и списаний.
+     См. lib/request-clarity.ts. */
+  const clarity = assessRequestClarity({ name, hint: safeHint })
+  if (!clarity.clear) {
+    return res.status(422).json({
+      error: clarity.question,
+      code: "unclear_request",
+      reason: clarity.reason,
+      received: clarity.sample,
+    })
+  }
+
   const resolvedName = resolveProjectTitle(name, safeHint)
 
   /* Хард-кап гостя: второй проект гостя отклоняется ДО квот/списаний. */
@@ -567,7 +590,7 @@ router.post("/:id/refine", requireAuth, asyncHandler(async (req: AuthRequest, re
     userId,
     projectId,
     prompt,
-    onDone: (ok) => setRefinementStatus(refinementId, ok ? "ready" : "failed"),
+    refinementId,
   })
 
   if (!started) {
@@ -1000,6 +1023,24 @@ const deployProjectHandler = asyncHandler(async (req: AuthRequest, res) => {
   }
   if (project.status !== "ready") {
     return res.status(400).json({ error: "Проект ещё не готов к деплою" })
+  }
+
+  /* Инженерный вердикт — допуск к публикации, а не украшение отчёта.
+     `status='ready'` означает всего лишь «генерация закончилась»; приложение,
+     про которое платформа сама написала «N нерешённых дефектов», уезжало в
+     интернет одним кликом и падало на сборке в кластере (выстрел 30.07.2026,
+     деплой 82). Публикация остаётся возможной — но осознанной: клиент обязан
+     прислать acknowledgeBroken:true, то есть человек увидел причину и решил
+     сам. См. lib/engineering-gate.ts. */
+  const gate = readEngineeringGate(id)
+  if (deployNeedsAcknowledgement(gate) && req.body?.acknowledgeBroken !== true) {
+    return res.status(409).json({
+      error: describeBrokenGate(gate),
+      code: "engineering_broken",
+      verdict: gate.verdict,
+      defects: gate.errorDefects,
+      rules: gate.rules,
+    })
   }
 
   const decision = resolveDeployTarget()

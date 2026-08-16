@@ -5,6 +5,7 @@ import { asyncHandler } from "../utils/async-handler"
 import { logAudit } from "../lib/audit"
 import { createGeneratedProject, PROJECT_SELECT_COLUMNS } from "../lib/project-generation"
 import { resolveProjectTitle } from "../lib/project-title"
+import { assessRequestClarity } from "../lib/request-clarity"
 import {
   generateApiKey,
   resolveApiKey,
@@ -171,6 +172,20 @@ partnerPublicRouter.post("/generate", apiKeyAuth, asyncHandler(async (_req: Requ
   if (!rawName && !hint?.trim()) {
     return res.status(400).json({ error: "Укажите name или hint проекта", code: "NAME_OR_HINT_REQUIRED" })
   }
+
+  /* Тот же отказ, что и у веб-клиента: непонятную заявку не превращаем в
+     выдуманный продукт за деньги партнёра. До списания кредитов — иначе
+     интегратор платит за приложение, которого не заказывал. */
+  const clarity = assessRequestClarity({ name: rawName, hint })
+  if (!clarity.clear) {
+    return res.status(422).json({
+      error: clarity.question,
+      code: "UNCLEAR_REQUEST",
+      reason: clarity.reason,
+      received: clarity.sample,
+    })
+  }
+
   const name = resolveProjectTitle(rawName, hint)
 
   /* Реальное списание кредитов владельца в транзакции. */

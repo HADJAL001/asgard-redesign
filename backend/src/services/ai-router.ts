@@ -22,8 +22,12 @@ dotenv.config()
    ================================================================ */
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ""
-const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
+const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL || "https://api.deepseek.com/chat/completions"
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat"
+
+const KIMI_API_KEY = process.env.KIMI_API_KEY || process.env.MOONSHOT_API_KEY || ""
+const KIMI_API_URL = process.env.KIMI_API_URL || process.env.MOONSHOT_API_URL || "https://api.moonshot.ai/v1/chat/completions"
+const KIMI_MODEL = process.env.KIMI_MODEL || process.env.MOONSHOT_MODEL || "kimi-k2.5"
 
 const GROK_API_KEY = process.env.GROK_API_KEY || process.env.XAI_API_KEY || ""
 const GROK_API_URL = "https://api.x.ai/v1/chat/completions"
@@ -33,7 +37,16 @@ const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_K
 /* Временно можно указать CLAUDE_API_URL в .env, чтобы направить запросы через сторонний
    шлюз (например, на время отсутствия прямого ключа Anthropic). По умолчанию — офиц. API. */
 const CLAUDE_API_URL = process.env.CLAUDE_API_URL || "https://api.anthropic.com/v1/messages"
-const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022"
+const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929"
+
+const DEFAULT_PROVIDER_TIMEOUT_MS = 90_000
+
+/** Every provider call has a hard deadline so a dead upstream cannot leave a project generating forever. */
+export function providerTimeoutMs(): number {
+  const configured = Number(process.env.AI_PROVIDER_TIMEOUT_MS)
+  if (!Number.isFinite(configured)) return DEFAULT_PROVIDER_TIMEOUT_MS
+  return Math.min(300_000, Math.max(10_000, Math.round(configured)))
+}
 
 /** Простой детерминированный хэш строки → число (используется для стабильных fallback-выборов и кеш-ключей). */
 export function hashString(str: string): number {
@@ -92,6 +105,7 @@ export async function callOpenAiCompatible<T>(
 
     const res = await fetch(apiUrl, {
       method: "POST",
+      signal: AbortSignal.timeout(providerTimeoutMs()),
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`,
@@ -167,6 +181,10 @@ export function isClaudeConfigured(): boolean {
   return !!CLAUDE_API_KEY
 }
 
+export function isDeepSeekConfigured(): boolean {
+  return !!DEEPSEEK_API_KEY
+}
+
 /** Какая модель отвечает за рассуждение — для витрин и отчётов (значение неизменяемо снаружи). */
 export function reasoningModelName(): string {
   return CLAUDE_REASONING_MODEL
@@ -202,6 +220,7 @@ export async function callClaudeApi(
   try {
     const res = await fetch(CLAUDE_API_URL, {
       method: "POST",
+      signal: AbortSignal.timeout(providerTimeoutMs()),
       headers: {
         "Content-Type": "application/json",
         "x-api-key": CLAUDE_API_KEY,
@@ -290,6 +309,10 @@ export async function callDeepSeekRaw(prompt: string, maxTokens: number): Promis
   return callOpenAiCompatible(DEEPSEEK_API_URL, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, prompt, (t) => t, "deepseek-raw", maxTokens)
 }
 
+export async function callKimiRaw(prompt: string, maxTokens: number): Promise<string | null> {
+  return callOpenAiCompatible(KIMI_API_URL, KIMI_API_KEY, KIMI_MODEL, prompt, (t) => t, "kimi-raw", maxTokens)
+}
+
 export async function callGrokRaw(prompt: string, maxTokens: number): Promise<string | null> {
   return callOpenAiCompatible(GROK_API_URL, GROK_API_KEY, GROK_MODEL, prompt, (t) => t, "grok-raw", maxTokens)
 }
@@ -320,5 +343,9 @@ export async function callGrok<T>(
 
 /** true, если хотя бы один реальный AI-провайдер сконфигурирован (иначе везде используется fallback). */
 export function isAiConfigured(): boolean {
-  return !!(DEEPSEEK_API_KEY || GROK_API_KEY || CLAUDE_API_KEY)
+  return !!(DEEPSEEK_API_KEY || KIMI_API_KEY || GROK_API_KEY || CLAUDE_API_KEY)
+}
+
+export function isKimiConfigured(): boolean {
+  return !!KIMI_API_KEY
 }

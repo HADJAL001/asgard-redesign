@@ -104,6 +104,12 @@ function rowToMatch(row: TemplateRow): MatchedTemplate {
  *  вытеснял редкий сильный, и корпус деградировал от популярности. Качество (миграция
  *  092) производно от инженерного вердикта и балла интерфейса — отбор идёт по нему.
  *  Схема без 092 → мягкий откат на прежний порядок, поведение 1:1 как было. */
+/** Reloads a queued job's template without repeating semantic matching after a restart. */
+export function getTemplateById(templateId: number): MatchedTemplate | null {
+  const row = db.prepare(`SELECT * FROM project_templates WHERE id = ?`).get(templateId) as TemplateRow | undefined
+  return row ? rowToMatch(row) : null
+}
+
 export function findBestTemplate(theme: string, keywords: string[]): MatchedTemplate | null {
   if (theme === "general") return null
 

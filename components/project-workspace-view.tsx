@@ -43,6 +43,7 @@ import { DevStatusBar } from "./dev-mode/DevStatusBar"
 import { LiveGenerationMeter, GenerationMeterCard } from "./dev-mode/GenerationMeter"
 import { GenerationStory } from "./dev-mode/GenerationStory"
 import { WorkshopBackdrop } from "./workshop-backdrop"
+import { ConfirmModal } from "./ui/confirm-modal"
 import { useDevMode } from "@/lib/dev-mode"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { COLORS } from "@/lib/economy"
@@ -84,6 +85,17 @@ const STEP_COLOR: Record<StepState, string> = {
   error: COLORS.red,
 }
 
+function WorkspaceTopBar({ isDev }: { isDev: boolean }) {
+  return isDev ? (
+    <>
+      <DevRail />
+      <DevTopBar />
+    </>
+  ) : (
+    <Navbar />
+  )
+}
+
 export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   const { t } = useTranslation()
   const router = useRouter()
@@ -94,17 +106,6 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
      мира разъехались бы на первой же правке. См. lib/dev-mode.tsx. */
   const { mode } = useDevMode()
   const isDev = mode === "dev"
-  /** Шапка экрана — в мире Navbar, в студии шапка студии + её рельс
-   *  разделов. Без рельса Мастерская была бы тупиком: человек попадал в
-   *  код и терял навигацию по студии (проверено на живом стенде). */
-  const TopBar = isDev
-    ? () => (
-        <>
-          <DevRail />
-          <DevTopBar />
-        </>
-      )
-    : Navbar
   /** Куда возвращает «назад»: в студии — к её списку кода, в мире — к проектам. */
   const backHref = isDev ? "/dev/workspace" : "/projects"
   const {
@@ -164,6 +165,10 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   /* ---- деплой ---- */
   const [deploying, setDeploying] = useState(false)
   const [deployError, setDeployError] = useState<string | null>(null)
+  /* Публикация приложения с вердиктом «не собирается» — осознанное действие,
+     а не случайный клик: сервер отвечает 409 (backend/src/lib/engineering-gate),
+     а здесь спрашиваем человека прямо, прежде чем послать acknowledgeBroken. */
+  const [confirmBrokenDeploy, setConfirmBrokenDeploy] = useState(false)
 
   /* ---- мобильная раскладка: код или превью ---- */
   const [pane, setPane] = useState<Pane>("code")
@@ -185,29 +190,19 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
      раз. */
   const [codeOpen, setCodeOpen] = useState(false)
   useEffect(() => {
-    try {
-      if (window.localStorage.getItem(CODE_OPEN_STORAGE_KEY) === "1") setCodeOpen(true)
-    } catch {
-      // Приватный режим и заблокированное хранилище — не повод падать:
-      // просто останемся на значении по умолчанию.
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      try {
+        if (window.localStorage.getItem(CODE_OPEN_STORAGE_KEY) === "1") setCodeOpen(true)
+      } catch {
+        // Приватный режим и заблокированное хранилище — не повод падать.
+      }
+    })
+    return () => {
+      cancelled = true
     }
   }, [])
-
-  const toggleCode = useCallback(() => {
-    setCodeOpen((open) => {
-      // Прятать редактор с несохранёнными правками — молча их терять.
-      // Тот же вопрос, что при переключении файла, и с тем же текстом.
-      if (open && dirtyRef.current && !confirm(t("workspace.confirmDiscard"))) return open
-      const next = !open
-      try {
-        window.localStorage.setItem(CODE_OPEN_STORAGE_KEY, next ? "1" : "0")
-      } catch {
-        // Не смогли запомнить выбор — показываем то, что попросили сейчас.
-      }
-      return next
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t])
 
   useEffect(() => {
     fetchProject(projectId, { skipAuthRedirect: true })
@@ -266,11 +261,19 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   }, [selectedFile?.path])
 
   const dirty = selectedFile !== null && draft !== selectedFile.content
-  /* toggleCode объявлен выше самого `dirty` (он нужен кнопке в шапке), а
-     читать его должен всегда свежим — иначе кнопка «Скрыть код» судила бы о
-     несохранённых правках по состоянию на момент своего создания. */
-  const dirtyRef = useRef(dirty)
-  dirtyRef.current = dirty
+  const toggleCode = useCallback(() => {
+    setCodeOpen((open) => {
+      // Прятать редактор с несохранёнными правками — молча их терять.
+      if (open && dirty && !confirm(t("workspace.confirmDiscard"))) return open
+      const next = !open
+      try {
+        window.localStorage.setItem(CODE_OPEN_STORAGE_KEY, next ? "1" : "0")
+      } catch {
+        // Не смогли запомнить выбор — показываем то, что попросили сейчас.
+      }
+      return next
+    })
+  }, [dirty, t])
 
   /* ---------------- действия ---------------- */
 
@@ -299,7 +302,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
      Ручка отвечает 202 и работает фоном, поэтому подтягиваем проект — он уходит в
      'generating', включается тот же SSE-поток, и человек видит живые стадии
      building/repairing вместо немого спиннера. Терминал стадии вернёт вердикт. */
-  async function handleRepair() {
+  const handleRepair = useCallback(async () => {
     if (repairing || isGenerating) return
     setRepairing(true)
     setRepairNotice(null)
@@ -319,9 +322,9 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
       setRepairNotice(res.error || t("workspace.repairFailed"))
       setRepairing(false)
     }
-  }
+  }, [fetchProjectEngineering, isGenerating, pollProjectStatus, projectId, repairProject, repairing, t])
 
-  async function handleRun() {
+  const handleRun = useCallback(async () => {
     if (currentProjectFiles.length === 0 || runState === "starting") return
     setRunState("starting")
     setRunError(null)
@@ -337,7 +340,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
       setRunError(err?.message || t("workspace.runFailed"))
       setRunState("error")
     }
-  }
+  }, [currentProjectFiles, runState, t])
 
   async function handleRefine() {
     const text = prompt.trim()
@@ -358,17 +361,25 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     }
   }
 
-  async function handleDeploy() {
+  const handleDeploy = useCallback(async (opts?: { acknowledgeBroken?: boolean }) => {
     setDeploying(true)
     setDeployError(null)
     try {
-      const res = await deployProject(projectId)
-      if (res.success) await pollDeployStatus(projectId)
-      else setDeployError(res.error || t("workspace.deployFailed"))
+      const res = await deployProject(projectId, opts)
+      if (res.success) {
+        await pollDeployStatus(projectId)
+        /* Сборка идёт уже в кластере, и её приговор возвращается в вердикт
+           проекта (backend/src/lib/engineering-gate) — перечитываем, иначе экран
+           продолжит показывать «проверено» после провалившейся сборки. */
+        await fetchProjectEngineering(projectId)
+      } else {
+        setDeployError(res.error || t("workspace.deployFailed"))
+      }
     } finally {
       setDeploying(false)
+      setConfirmBrokenDeploy(false)
     }
-  }
+  }, [deployProject, fetchProjectEngineering, pollDeployStatus, projectId, t])
 
   /* ---------------- инженерный вердикт: производные ----------------
      Всё считаем ИЗ отчёта, а не из отдельных полей: балл и объяснение не имеют права
@@ -382,6 +393,15 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   const repairCount = report?.repairs?.length ?? 0
   const passedChecks = (report?.checks ?? []).filter((c) => c.passed).length
   const totalChecks = report?.checks?.length ?? 0
+  /* Допуск к публикации. Выстрел 30.07.2026: платформа сама написала «40 нерешённых
+     дефектов» и тем же экраном предложила «Опубликовать» — приложение уехало в
+     кластер и там не собралось. Пока вердикт broken, публикация перестаёт быть
+     рядовым действием: кнопка не притворяется готовой, рядом видна причина, а
+     обойти гейт можно только осознанно (то же требование стоит и на сервере). */
+  const deployBlocked = engineering?.verdict === "broken"
+  /* Вердикт, вынесенный НАСТОЯЩЕЙ сборкой при публикации, — сильнейшее из
+     доказательств: показываем его отдельно от статического разбора. */
+  const realBuildFailure = report?.realBuild && report.realBuild.ok === false ? report.realBuild : null
   /* Живая стадия контура из общего SSE-потока: тот же поток, что и у генерации —
      ремонт эмитит building/repairing, поэтому отдельный канал не нужен. */
   const contourStage =
@@ -614,7 +634,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   if (loading && !currentProject) {
     return (
       <div className="eg-page min-h-screen font-sans" style={{ color: COLORS.text }}>
-        <TopBar />
+        <WorkspaceTopBar isDev={isDev} />
         <main className="mx-auto flex max-w-[1240px] flex-col items-center gap-3 px-6 py-24 text-center">
           <Loader2 size={28} className="animate-spin" style={{ color: COLORS.accent }} />
           <p className="text-[14px]" style={{ color: COLORS.label }}>{t("workspace.loading")}</p>
@@ -626,7 +646,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   if (!currentProject) {
     return (
       <div className="eg-page min-h-screen font-sans" style={{ color: COLORS.text }}>
-        <TopBar />
+        <WorkspaceTopBar isDev={isDev} />
         <main className="mx-auto flex max-w-[1240px] flex-col items-center gap-4 px-6 py-24 text-center">
           <p className="text-[15px]" style={{ color: COLORS.label }}>{error || t("workspace.notFound")}</p>
           <button
@@ -653,7 +673,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
       {/* Мастерская мира рисует свой тёплый фон; в студии его роль играет
           общий AmbientBackdrop, перекрашенный в сине-серебряную гамму. */}
       {isDev ? null : <WorkshopBackdrop />}
-      <TopBar />
+      <WorkspaceTopBar isDev={isDev} />
 
       {/* ---- Шапка мастерской ---- */}
       <header className="relative z-10 mx-auto w-full max-w-[1680px] px-4 pt-5 md:px-8">
@@ -728,8 +748,14 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             <button
               type="button"
               data-tour="workspace-deploy-btn"
-              onClick={handleDeploy}
-              disabled={deploying || currentProject.deployStatus === "deploying" || currentProject.status !== "ready"}
+              onClick={() => handleDeploy()}
+              disabled={
+                deploying ||
+                currentProject.deployStatus === "deploying" ||
+                currentProject.status !== "ready" ||
+                deployBlocked
+              }
+              aria-describedby={deployBlocked ? "workspace-deploy-blocked" : undefined}
               className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
             >
@@ -738,6 +764,50 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             </button>
           </div>
         </div>
+
+        {/* ---- Почему публикация недоступна ----
+             Причина стоит РЯДОМ с погашенной кнопкой и видна глазами (не только
+             в title/скринридере) — тот же приём, что в Кузнице с исчерпанным
+             дневным лимитом. Без него погашенная кнопка читается как поломка
+             интерфейса, а не как честный отказ платформы. */}
+        {deployBlocked && (
+          <div
+            id="workspace-deploy-blocked"
+            className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg px-3 py-2"
+            style={{ backgroundColor: "rgba(248,113,113,0.06)", border: `1px solid ${COLORS.red}33` }}
+          >
+            <ShieldAlert size={15} style={{ color: COLORS.red, flexShrink: 0 }} />
+            <span className="text-[12.5px]" style={{ color: COLORS.red }}>
+              {t("workspace.deployBlocked", { count: errorDefects.length })}
+            </span>
+            <span className="text-[12px]" style={{ color: COLORS.label }}>
+              {realBuildFailure ? t("workspace.verdictRealBuildFailed") : t("workspace.deployBlockedHint")}
+            </span>
+            {/* Обход остаётся: платформа не хозяин чужому решению. Но это
+                вторичная ссылка с подтверждением, а не главная кнопка. */}
+            <button
+              type="button"
+              onClick={() => setConfirmBrokenDeploy(true)}
+              disabled={deploying || currentProject.deployStatus === "deploying"}
+              className="text-[12px] underline underline-offset-2 disabled:opacity-40"
+              style={{ color: COLORS.label }}
+            >
+              {t("workspace.deployAnyway")}
+            </button>
+          </div>
+        )}
+
+        <ConfirmModal
+          open={confirmBrokenDeploy}
+          onCancel={() => setConfirmBrokenDeploy(false)}
+          onConfirm={() => handleDeploy({ acknowledgeBroken: true })}
+          title={t("workspace.deployAnywayTitle")}
+          message={t("workspace.deployAnywayMessage", { count: errorDefects.length })}
+          confirmLabel={t("workspace.deployAnywayConfirm")}
+          cancelLabel={t("workspace.cancel")}
+          loading={deploying}
+          danger
+        />
 
         {/* ---- Студия: всё состояние одной строкой ----
              В режиме разработчика баннер, лента конвейера и полоса вердикта
@@ -884,7 +954,9 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                 <span className="text-[11px]" style={{ color: COLORS.label }}>
                   {report.verifiedBy === "sandbox"
                     ? t("workspace.provenBySandbox")
-                    : t("workspace.provenByStatic")}
+                    : report.verifiedBy === "real-build"
+                      ? t("workspace.provenByRealBuild")
+                      : t("workspace.provenByStatic")}
                 </span>
               )}
               {(errorDefects.length > 0 || repairCount > 0 || totalChecks > 0) && (

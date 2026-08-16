@@ -54,6 +54,8 @@ export function EternityLanding() {
   const [ikeaSession, setIkeaSession] = useState<DemoSessionV2 | null>(null)
   const [scrolled, setScrolled] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  /** Вопрос платформы, когда заявку не удалось прочитать (422 unclear_request). */
+  const [clarify, setClarify] = useState<{ question: string; received?: string } | null>(null)
 
   const handleLimitReached = useCallback((session: DemoSessionV2) => {
     setDemoOpen(false)
@@ -106,6 +108,7 @@ export function EternityLanding() {
     if (submitting) return
     const el = inputRef.current
     if (!el) return
+    setClarify(null)
     const query = el.value.trim()
     if (!query) {
       flashInputError()
@@ -135,6 +138,14 @@ export function EternityLanding() {
             router.push(`/projects/${res.project.id}`)
             return
           }
+          /* Заявку не поняли — это не повод гнать гостя на регистрацию: там его
+             будет ждать тот же непонятый текст. Спрашиваем здесь и сейчас. */
+          if (res.unclearRequest) {
+            setClarify({ question: res.error || "", received: res.received })
+            flashInputError()
+            setSubmitting(false)
+            return
+          }
         }
       } catch {
         /* падаем в fallback ниже */
@@ -157,6 +168,7 @@ export function EternityLanding() {
         router.push(`/projects/${res.project.id}`)
         return
       }
+      if (res.unclearRequest) setClarify({ question: res.error || "", received: res.received })
       flashInputError()
       setSubmitting(false)
     } catch {
@@ -230,7 +242,15 @@ export function EternityLanding() {
 
           {/* Миниатюрное окно ввода (всегда видимо) */}
           <form className="artifact-form" onSubmit={handleSubmit}>
-            <input ref={inputRef} type="text" placeholder={t("landing.inputPlaceholder")} autoComplete="off" aria-label={t("landing.inputPlaceholder")} disabled={submitting} />
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder={t("landing.inputPlaceholder")}
+              autoComplete="off"
+              aria-label={t("landing.inputPlaceholder")}
+              aria-describedby={clarify ? "landing-clarify" : undefined}
+              disabled={submitting}
+            />
             <button type="submit" className={submitting ? "submitting" : undefined} disabled={submitting}>
               {submitting ? (
                 <>
@@ -243,6 +263,22 @@ export function EternityLanding() {
               )}
             </button>
           </form>
+
+          {/* Платформа не поняла заявку — спрашивает, а не выдумывает продукт.
+              Раньше здесь была только красная вспышка поля: человек не узнавал
+              ни что не так, ни что до сервера доехало (выстрел 30.07.2026 —
+              битая кодировка молча превратилась в чужое приложение). */}
+          {clarify && (
+            <p id="landing-clarify" role="status" className="hero-clarify">
+              {clarify.question}
+              {clarify.received ? (
+                <>
+                  {" "}
+                  <span className="hero-clarify-received">Мы прочитали: «{clarify.received}»</span>
+                </>
+              ) : null}
+            </p>
+          )}
 
           <div className="hero-pulse">
             <LivePulseBar variant="landing" />
@@ -723,6 +759,15 @@ const CSS = `
 .eternity-page .artifact-form button:hover::before { transform: translateX(120%); }
 .eternity-page .artifact-form button:hover::after { opacity: 0.8; transform: translateX(0); }
 .eternity-page .artifact-form button svg { stroke: #0A0D14; stroke-width: 2; position: relative; }
+
+.eternity-page .hero-clarify {
+  width: 100%; max-width: 560px; margin-top: -4px;
+  font-size: 13px; font-weight: 400; color: #E8B84B; line-height: 1.5;
+  letter-spacing: 0.01em; animation: eternity-rise 0.4s ease-out forwards;
+}
+.eternity-page .hero-clarify-received {
+  color: #6B7A8C; font-style: italic;
+}
 
 .eternity-page .architects-section h2,
 .eternity-page .how-section h2,

@@ -10,7 +10,7 @@ import {
   type RepairAction,
   type SourceFile,
 } from "./build-integrity"
-import { repairFileWithAi } from "../services/app-generator"
+import { repairFileWithAi, reviewGeneratedAppWithAi } from "../services/app-generator"
 import { verifyBuildInSandbox } from "../services/sandbox.service"
 import { captureError } from "./sentry"
 import type { DesignBrief } from "./design-system"
@@ -68,8 +68,10 @@ export type SandboxSummary = {
 
 export type EngineeringReport = {
   verdict: EngineeringVerdict
-  /** Чем доказана работоспособность: реальной сборкой или статическим разбором. */
-  verifiedBy: "sandbox" | "static" | "none"
+  /** Чем доказана работоспособность: реальной сборкой или статическим разбором.
+   *  `real-build` ставится задним числом (lib/engineering-gate), когда настоящий
+   *  `next build` при публикации опроверг чистый статический разбор. */
+  verifiedBy: "sandbox" | "static" | "none" | "real-build"
   checks: IntegrityCheck[]
   /** Остаточные дефекты (после всех попыток ремонта), с ограничением объёма. */
   defects: IntegrityDefect[]
@@ -143,6 +145,66 @@ export function summarizeVerdict(report: EngineeringReport): string | null {
   return `Инженерная проверка нашла ${errors.length} нерешённых дефекта(ов): ${rules}. Разбор — во вкладке «Инженерия», можно запустить повторный ремонт.`
 }
 
+export function shouldRequireIndependentAiReview(): boolean {
+  const flag = process.env.OSGARD_REQUIRE_AI_REVIEW
+  if (flag === "1") return true
+  if (flag === "0") return false
+  return process.env.NODE_ENV === "production"
+}
+
+async function addIndependentAiReview(
+  files: SourceFile[],
+  report: IntegrityReport,
+  opts: { name: string; hint?: string; onProgress?: (p: ContourProgress) => void },
+): Promise<IntegrityReport> {
+  const required = shouldRequireIndependentAiReview()
+  const review = await reviewGeneratedAppWithAi({ name: opts.name, hint: opts.hint, files })
+  if (review.status === "unavailable" && !required) return report
+
+  opts.onProgress?.({ phase: "building", label: "Claude/Kimi independently review DeepSeek code" })
+
+  const reviewDefects: IntegrityDefect[] = review.issues.map((issue) => ({
+    rule: "independent-ai-review",
+    severity: issue.severity,
+    file: issue.path,
+    message: issue.message,
+    autoFixable: false,
+  }))
+
+  if (review.status === "unavailable") {
+    reviewDefects.push({
+      rule: "independent-ai-review-unavailable",
+      severity: "error",
+      file: files.find((file) => file.path === "app/page.tsx")?.path ?? files[0]?.path ?? "app/page.tsx",
+      message: "Claude/Kimi independent review is required but unavailable",
+      autoFixable: false,
+    })
+  }
+
+  const errors = reviewDefects.filter((defect) => defect.severity === "error").length
+  const warnings = reviewDefects.length - errors
+  const checks = report.checks.filter((check) => check.key !== "independent-ai-review")
+  checks.push({
+    key: "independent-ai-review",
+    label: "Claude/Kimi review",
+    passed: review.status === "approved" && errors === 0,
+    errors,
+    warnings,
+    detail:
+      review.status === "unavailable"
+        ? "Independent reviewer unavailable"
+        : review.status === "approved"
+          ? "Independent reviewer approved the implementation"
+          : `Independent reviewer found ${errors} blocking issue(s)`,
+  })
+
+  const defects = [
+    ...report.defects.filter((defect) => !defect.rule.startsWith("independent-ai-review")),
+    ...reviewDefects,
+  ]
+  return { ...report, ok: !defects.some((defect) => defect.severity === "error"), checks, defects }
+}
+
 /**
  * Прогоняет набор файлов через инженерный контур и возвращает исправленный набор
  * вместе с честным отчётом. Единственная точка, где решается вердикт проекта.
@@ -195,7 +257,7 @@ export async function runEngineeringContour(
   try {
     opts.onProgress?.({ phase: "building", label: "Проверяю работоспособность приложения" })
 
-    let report = explainBuildIntegrity(files)
+    let report = await addIndependentAiReview(files, explainBuildIntegrity(files), opts)
 
     // Разбор физически невозможен — честное «не проверено», а не ложное «готово».
     if (!report.analyzed) {
@@ -212,7 +274,7 @@ export async function runEngineeringContour(
         const afterBuild = await repairFromBuildLog(files, verified, opts, repairs)
         files = afterBuild.files
         attempts += afterBuild.rounds
-        const reReport = explainBuildIntegrity(files)
+        const reReport = await addIndependentAiReview(files, explainBuildIntegrity(files), opts)
         const reVerified = afterBuild.rounds > 0 ? await maybeVerifyBuild(files, opts) : verified
         const ok = !!reVerified?.ok
         return finish(
@@ -243,7 +305,7 @@ export async function runEngineeringContour(
       files = mechanical.files
       repairs.push(...mechanical.actions)
       attempts += 1
-      report = explainBuildIntegrity(files)
+      report = await addIndependentAiReview(files, explainBuildIntegrity(files), opts)
     }
 
     /* --- Раунды AI-ремонта: перегенерируем только дефектные файлы --- */
@@ -264,7 +326,7 @@ export async function runEngineeringContour(
         repairs.push(...mech.actions)
         next = explainBuildIntegrity(files)
       }
-      report = next
+      report = await addIndependentAiReview(files, next, opts)
 
       opts.onProgress?.({
         phase: "repairing",
@@ -286,7 +348,7 @@ export async function runEngineeringContour(
       const afterBuild = await repairFromBuildLog(files, verified, opts, repairs)
       files = afterBuild.files
       attempts += afterBuild.rounds
-      const reReport = explainBuildIntegrity(files)
+      const reReport = await addIndependentAiReview(files, explainBuildIntegrity(files), opts)
       const reVerified = afterBuild.rounds > 0 ? await maybeVerifyBuild(files, opts) : verified
       return finish(
         reReport,
@@ -306,7 +368,7 @@ export async function runEngineeringContour(
     )
   } catch (err) {
     captureError("[project-engineering] контур упал, отдаю честный неполный вердикт:", err)
-    const report = explainBuildIntegrity(files)
+    const report = await addIndependentAiReview(files, explainBuildIntegrity(files), opts)
     return finish(report, report.analyzed && report.ok ? "passed" : "broken", "static", 0)
   }
 }

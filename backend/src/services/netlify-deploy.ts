@@ -6,6 +6,7 @@ import os from "node:os"
 import archiver from "archiver"
 import db from "../lib/db"
 import { captureError } from "../lib/sentry"
+import { recordRealBuildFailure } from "../lib/engineering-gate"
 import { buildNextStaticExport, isDockerAvailable } from "./sandbox.service"
 
 /* ================================================================
@@ -154,7 +155,20 @@ export async function runNetlifyDeployJob(projectId: number) {
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), `osgard-deploy-${projectId}-`))
 
   try {
-    const outDir = await buildStaticOut(projectId, files, workDir)
+    /* Провал именно СБОРКИ отделяем от провала выкладки: за первый отвечает код
+       приложения (и он обязан вернуться в инженерный вердикт — lib/engineering-gate),
+       за второй — сеть и площадка, автор приложения тут ни при чём. */
+    let outDir: string
+    try {
+      outDir = await buildStaticOut(projectId, files, workDir)
+    } catch (buildErr: any) {
+      recordRealBuildFailure(projectId, {
+        source: "host",
+        status: "build_failed",
+        message: String(buildErr?.message || "next build завершился ошибкой"),
+      })
+      throw buildErr
+    }
 
     const zipPath = path.join(os.tmpdir(), `osgard-deploy-${projectId}-${Date.now()}.zip`)
     await zipDirectory(outDir, zipPath)

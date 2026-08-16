@@ -579,16 +579,17 @@ function ArtifactIdentityModal({ artifactId, onClose }: { artifactId: number | n
   const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
-    if (artifactId == null) {
+    let cancelled = false
+    queueMicrotask(async () => {
+      if (cancelled) return
       setProvenance(null)
       setNotFound(false)
-      return
-    }
-    let cancelled = false
-    setProvenance(null)
-    setNotFound(false)
-    setLoading(true)
-    fetchArtifactIdentity(artifactId).then((res) => {
+      if (artifactId == null) {
+        setLoading(false)
+        return
+      }
+      setLoading(true)
+      const res = await fetchArtifactIdentity(artifactId)
       if (cancelled) return
       setLoading(false)
       if (!res) setNotFound(true)
