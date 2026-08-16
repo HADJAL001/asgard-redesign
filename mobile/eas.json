@@ -8,7 +8,8 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://localhost:3003"
+        "EXPO_PUBLIC_API_URL": "http://localhost:3003",
+        "EXPO_PUBLIC_GARD_API_URL": "https://api.gard.vpn"
       }
     },
     "preview": {
@@ -19,19 +20,70 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://staging-api.osgard.example.com",
+        "EXPO_PUBLIC_GARD_API_URL": "https://staging-api.gard.vpn",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      }
+    },
+    "vpn-test": {
+      "extends": "development",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
+      },
+      "ios": {
+        "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://localhost:3003",
+        "EXPO_PUBLIC_GARD_API_URL": "https://api.gard.vpn",
+        "EXPO_PUBLIC_VPN_DEBUG": "true"
       }
     },
     "production": {
       "channel": "production",
       "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleRelease"
+      },
+      "ios": {
+        "resourceClass": "m-medium"
+      },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.osgard.example.com",
+        "EXPO_PUBLIC_API_URL": "https://api.osgard.app",
+        "EXPO_PUBLIC_GARD_API_URL": "https://api.gard.vpn",
+        "EXPO_PUBLIC_SENTRY_DSN": "${SENTRY_DSN}",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./credentials/google-play-service-account.json",
+        "track": "internal",
+        "releaseStatus": "draft",
+        "changesNotSentForReview": true
+      },
+      "ios": {
+        "appleId": "${APPLE_ID}",
+        "ascAppId": "${ASC_APP_ID}",
+        "appleTeamId": "${APPLE_TEAM_ID}",
+        "sku": "com.osgard.app"
+      }
+    },
+    "beta": {
+      "android": {
+        "serviceAccountKeyPath": "./credentials/google-play-service-account.json",
+        "track": "beta",
+        "releaseStatus": "completed"
+      },
+      "ios": {
+        "appleId": "${APPLE_ID}",
+        "ascAppId": "${ASC_APP_ID}",
+        "appleTeamId": "${APPLE_TEAM_ID}"
+      }
+    }
   }
 }

@@ -12,9 +12,11 @@ import {
 } from "./build-integrity"
 import { repairFileWithAi, reviewGeneratedAppWithAi } from "../services/app-generator"
 import { verifyBuildInSandbox } from "../services/sandbox.service"
+import { lessonsFromBuildLog } from "./build-log-lessons"
 import { captureError } from "./sentry"
 import type { DesignBrief } from "./design-system"
 import type { GenerationDepth } from "./generation-depths"
+import { DEFAULT_APP_PROFILE, type AppProfile } from "./app-profiles"
 
 /* ================================================================
    OSGARD · Инженерный контур генерации
@@ -137,6 +139,18 @@ function countRules(defects: IntegrityDefect[]): Array<{ rule: string; count: nu
     .sort((a, b) => b.count - a.count)
 }
 
+/** Добавляет уроки, которые статический разбор не увидел, но увидел компилятор —
+ *  ровно тот сигнал, который волна 7 п.2 перестаёт выбрасывать. Учим на ПЕРВОМ
+ *  провале сборки, до AI-ремонта: после ремонта причина уже могла исчезнуть. */
+function mergeLessons(
+  base: Array<{ rule: string; count: number }>,
+  extra: Array<{ rule: string; count: number }>,
+): Array<{ rule: string; count: number }> {
+  const counts = new Map(base.map((l) => [l.rule, l.count]))
+  for (const l of extra) counts.set(l.rule, (counts.get(l.rule) ?? 0) + l.count)
+  return [...counts.entries()].map(([rule, count]) => ({ rule, count })).sort((a, b) => b.count - a.count)
+}
+
 /** Короткая человеческая сводка вердикта — уезжает в generation_error и в UI. */
 export function summarizeVerdict(report: EngineeringReport): string | null {
   if (report.verdict !== "broken") return null
@@ -216,6 +230,8 @@ export async function runEngineeringContour(
     hint?: string
     brief: DesignBrief
     depth: GenerationDepth
+    /** Режим приложения: статический экспорт или fullstack с базой. */
+    profile?: AppProfile
     /** Живой прогресс для SSE-лога генерации. */
     onProgress?: (p: ContourProgress) => void
     /** Метка для логов песочницы. */
@@ -223,6 +239,7 @@ export async function runEngineeringContour(
   },
 ): Promise<EngineeringOutcome> {
   const startedAt = Date.now()
+  const profile = opts.profile ?? DEFAULT_APP_PROFILE
   let files = input
   const repairs: RepairAction[] = []
   let attempts = 0
@@ -257,7 +274,7 @@ export async function runEngineeringContour(
   try {
     opts.onProgress?.({ phase: "building", label: "Проверяю работоспособность приложения" })
 
-    let report = await addIndependentAiReview(files, explainBuildIntegrity(files), opts)
+    let report = await addIndependentAiReview(files, explainBuildIntegrity(files, profile), opts)
 
     // Разбор физически невозможен — честное «не проверено», а не ложное «готово».
     if (!report.analyzed) {
@@ -271,10 +288,11 @@ export async function runEngineeringContour(
       const verified = await maybeVerifyBuild(files, opts)
       if (verified && !verified.skipped && !verified.ok) {
         // Сборка сказала «нет» там, где статический разбор сказал «да» — доверяем сборке.
+        lessons = mergeLessons(lessons, lessonsFromBuildLog(verified.logTail))
         const afterBuild = await repairFromBuildLog(files, verified, opts, repairs)
         files = afterBuild.files
         attempts += afterBuild.rounds
-        const reReport = await addIndependentAiReview(files, explainBuildIntegrity(files), opts)
+        const reReport = await addIndependentAiReview(files, explainBuildIntegrity(files, profile), opts)
         const reVerified = afterBuild.rounds > 0 ? await maybeVerifyBuild(files, opts) : verified
         const ok = !!reVerified?.ok
         return finish(
@@ -305,7 +323,7 @@ export async function runEngineeringContour(
       files = mechanical.files
       repairs.push(...mechanical.actions)
       attempts += 1
-      report = await addIndependentAiReview(files, explainBuildIntegrity(files), opts)
+      report = await addIndependentAiReview(files, explainBuildIntegrity(files, profile), opts)
     }
 
     /* --- Раунды AI-ремонта: перегенерируем только дефектные файлы --- */
@@ -319,12 +337,12 @@ export async function runEngineeringContour(
 
       // После AI повторяем механический проход: модель часто чинит логику,
       // но снова забывает директиву или default-экспорт.
-      let next = explainBuildIntegrity(files)
+      let next = explainBuildIntegrity(files, profile)
       const mech = repairIntegrity(files, next)
       if (mech.actions.length > 0) {
         files = mech.files
         repairs.push(...mech.actions)
-        next = explainBuildIntegrity(files)
+        next = explainBuildIntegrity(files, profile)
       }
       report = await addIndependentAiReview(files, next, opts)
 
@@ -345,10 +363,11 @@ export async function runEngineeringContour(
     }
 
     if (verified && !verified.skipped && !verified.ok) {
+      lessons = mergeLessons(lessons, lessonsFromBuildLog(verified.logTail))
       const afterBuild = await repairFromBuildLog(files, verified, opts, repairs)
       files = afterBuild.files
       attempts += afterBuild.rounds
-      const reReport = await addIndependentAiReview(files, explainBuildIntegrity(files), opts)
+      const reReport = await addIndependentAiReview(files, explainBuildIntegrity(files, profile), opts)
       const reVerified = afterBuild.rounds > 0 ? await maybeVerifyBuild(files, opts) : verified
       return finish(
         reReport,
@@ -368,7 +387,7 @@ export async function runEngineeringContour(
     )
   } catch (err) {
     captureError("[project-engineering] контур упал, отдаю честный неполный вердикт:", err)
-    const report = await addIndependentAiReview(files, explainBuildIntegrity(files), opts)
+    const report = await addIndependentAiReview(files, explainBuildIntegrity(files, profile), opts)
     return finish(report, report.analyzed && report.ok ? "passed" : "broken", "static", 0)
   }
 }
@@ -380,7 +399,13 @@ export async function runEngineeringContour(
 async function aiRepairRound(
   files: SourceFile[],
   report: IntegrityReport,
-  opts: { name: string; hint?: string; brief: DesignBrief; onProgress?: (p: ContourProgress) => void },
+  opts: {
+    name: string
+    hint?: string
+    brief: DesignBrief
+    profile?: AppProfile
+    onProgress?: (p: ContourProgress) => void
+  },
   repairs: RepairAction[],
 ): Promise<{ files: SourceFile[]; changedAny: boolean }> {
   const targets = filesNeedingRegeneration(errorsOf(report)).slice(0, MAX_FILES_PER_ROUND)
@@ -411,6 +436,7 @@ async function aiRepairRound(
         defects,
         brief: opts.brief,
         siblings,
+        profile: opts.profile,
       })
       return fixed && fixed !== current ? { path, content: fixed } : null
     }),
@@ -436,13 +462,16 @@ async function aiRepairRound(
 
 async function maybeVerifyBuild(
   files: SourceFile[],
-  opts: { depth: GenerationDepth; logLabel?: string; onProgress?: (p: ContourProgress) => void },
+  opts: { depth: GenerationDepth; profile?: AppProfile; logLabel?: string; onProgress?: (p: ContourProgress) => void },
 ): Promise<SandboxSummary | null> {
   if (!shouldVerifyBuild(opts.depth)) return null
 
   opts.onProgress?.({ phase: "building", label: "Собираю приложение в изолированной песочнице" })
   try {
-    const result = await verifyBuildInSandbox(files, { logLabel: opts.logLabel ?? "contour-build" })
+    const result = await verifyBuildInSandbox(files, {
+      logLabel: opts.logLabel ?? "contour-build",
+      profile: opts.profile ?? DEFAULT_APP_PROFILE,
+    })
     return {
       ok: result.ok,
       skipped: result.skipped,
@@ -464,7 +493,13 @@ async function maybeVerifyBuild(
 async function repairFromBuildLog(
   files: SourceFile[],
   build: SandboxSummary,
-  opts: { name: string; hint?: string; brief: DesignBrief; onProgress?: (p: ContourProgress) => void },
+  opts: {
+    name: string
+    hint?: string
+    brief: DesignBrief
+    profile?: AppProfile
+    onProgress?: (p: ContourProgress) => void
+  },
   repairs: RepairAction[],
 ): Promise<{ files: SourceFile[]; rounds: number }> {
   const mentioned = files
@@ -489,6 +524,7 @@ async function repairFromBuildLog(
         defects: `Реальная сборка next build завершилась ошибкой. Лог:\n${build.logTail.slice(-2000)}`,
         brief: opts.brief,
         siblings,
+        profile: opts.profile,
       })
       return fixed && fixed !== file.content ? { path: file.path, content: fixed } : null
     }),

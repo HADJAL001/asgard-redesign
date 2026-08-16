@@ -66,6 +66,10 @@ export type GenerationStageEvent = {
   tokensEstimated?: number
   /** true на терминале ready, если приложение заработало без единого ремонта. */
   firstTry?: boolean
+  /** true, если платформа признала промах и выдала право на бесплатную перегенерацию
+   *  (lib/generation-makegood). Приходит вместе с самим провалом — иначе человек узнал
+   *  бы о компенсации случайно, при следующем запуске. */
+  makegood?: boolean
   at: number
 }
 
@@ -143,6 +147,7 @@ export function emitGenerationStage(evt: Omit<GenerationStageEvent, "type" | "at
     tokensOut: evt.tokensOut ?? meter?.outputTokens,
     tokensEstimated: evt.tokensEstimated ?? meter?.unmeasured,
     firstTry: evt.firstTry,
+    makegood: evt.makegood,
   }
 
   const buf = recentStages.get(full.projectId) ?? []

@@ -6,6 +6,7 @@ import os from "node:os"
 import crypto from "node:crypto"
 import { captureError } from "../lib/sentry"
 import { SCAFFOLD_FINGERPRINT_LABEL, scaffoldDepsFingerprint } from "../lib/app-scaffold-deps"
+import type { AppProfile } from "../lib/app-profiles"
 
 /* ================================================================
    OSGARD · Sandbox Service (Docker)
@@ -363,6 +364,44 @@ export async function buildNextStaticExport(
   }
 }
 
+/**
+ * Собирает fullstack-приложение (профиль `fullstack`): обычный `next build` без
+ * `output: "export"`. Артефакт не извлекается — у серверного приложения нет
+ * самодостаточной `out/`, а рантайм-хостинг сгенерированного бэкенда в скоуп
+ * пока не входит; проверяется ровно факт «компилируется».
+ *
+ * Быстрый путь через преднастроенный образ здесь СОЗНАТЕЛЬНО не используется:
+ * образ прогрет набором каркаса (app-scaffold-deps), в нём нет клиента Supabase,
+ * поэтому попытка была бы заведомо провальной — ровно та потеря минут на
+ * несуществующий кэш, которую лечила сверка отпечатка. Идём сразу на install.
+ */
+export async function buildNextFullstackApp(
+  files: SandboxFile[],
+  opts?: { timeoutMs?: number; logLabel?: string },
+): Promise<NextBuildResult> {
+  const timeoutMs = opts?.timeoutMs ?? 8 * 60 * 1000
+  const logLabel = opts?.logLabel ?? "sandbox-next-fullstack"
+
+  const result = await runInSandbox({
+    files,
+    image: "node:20-slim",
+    command: "npm install --no-audit --no-fund && NODE_ENV=production npx next build",
+    network: true, // npm install физически должен сходить в реестр
+    memoryMb: 2048,
+    cpus: 2,
+    timeoutMs: timeoutMs + 4 * 60 * 1000, // install добавляет времени
+    logLabel: `${logLabel}-install`,
+  })
+
+  return {
+    ok: result.ok,
+    outDir: null,
+    logs: joinLogs(result),
+    timedOut: result.timedOut,
+    durationMs: result.durationMs,
+  }
+}
+
 function joinLogs(r: SandboxResult): string {
   return [r.stdout, r.stderr].filter(Boolean).join("\n")
 }
@@ -384,14 +423,21 @@ export interface VerifyBuildResult {
  */
 export async function verifyBuildInSandbox(
   files: SandboxFile[],
-  opts?: { logLabel?: string },
+  opts?: { logLabel?: string; profile?: AppProfile },
 ): Promise<VerifyBuildResult> {
   if (!(await isDockerAvailable())) {
     return { ok: false, skipped: true, logs: "Docker-демон недоступен — проверка сборки пропущена", timedOut: false, durationMs: 0 }
   }
+  const logLabel = opts?.logLabel ?? "verify-build"
+
+  if (opts?.profile === "fullstack") {
+    const build = await buildNextFullstackApp(files, { logLabel })
+    return { ok: build.ok, skipped: false, logs: build.logs, timedOut: build.timedOut, durationMs: build.durationMs }
+  }
+
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "osgard-verify-"))
   try {
-    const build = await buildNextStaticExport(files, tmp, { logLabel: opts?.logLabel ?? "verify-build" })
+    const build = await buildNextStaticExport(files, tmp, { logLabel })
     return { ok: build.ok, skipped: false, logs: build.logs, timedOut: build.timedOut, durationMs: build.durationMs }
   } finally {
     await fs.rm(tmp, { recursive: true, force: true }).catch(() => {})

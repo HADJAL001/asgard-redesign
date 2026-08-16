@@ -13,7 +13,20 @@
     "e2e:build:ios": "detox build -c ios.sim.debug",
     "e2e:test:ios": "detox test -c ios.sim.debug",
     "e2e:build:android": "detox build -c android.emu.debug",
-    "e2e:test:android": "detox test -c android.emu.debug"
+    "e2e:test:android": "detox test -c android.emu.debug",
+    "prebuild": "expo prebuild --clean",
+    "prebuild:android": "expo prebuild --platform android",
+    "prebuild:ios": "expo prebuild --platform ios",
+    "build:dev": "eas build --profile development",
+    "build:preview": "eas build --profile preview",
+    "build:production": "eas build --profile production",
+    "build:android": "eas build --profile production --platform android",
+    "build:ios": "eas build --profile production --platform ios",
+    "build:vpn-test": "eas build --profile vpn-test",
+    "submit:android": "eas submit --platform android --profile production",
+    "submit:ios": "eas submit --platform ios --profile production",
+    "submit:all": "eas submit --platform all --profile production",
+    "vpn:test": "npx ts-node scripts/vpn-test.ts"
   },
   "jest": {
     "preset": "jest-expo",

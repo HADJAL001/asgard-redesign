@@ -5,6 +5,7 @@ import path from "node:path"
 import os from "node:os"
 import archiver from "archiver"
 import db from "../lib/db"
+import { normalizeAppProfile } from "../lib/app-profiles"
 import { captureError } from "../lib/sentry"
 import { recordRealBuildFailure } from "../lib/engineering-gate"
 import { buildNextStaticExport, isDockerAvailable } from "./sandbox.service"
@@ -137,8 +138,25 @@ export async function runNetlifyDeployJob(projectId: number) {
     return
   }
 
-  const project: any = db.prepare(`SELECT id, name, netlify_site_id FROM projects WHERE id = ?`).get(projectId)
+  const project: any = db
+    .prepare(`SELECT id, name, netlify_site_id, app_profile FROM projects WHERE id = ?`)
+    .get(projectId)
   if (!project) return
+
+  /* Публикация статикой физически несовместима с fullstack-приложением: у него нет
+     out/, потому что серверные роуты и обращения к базе исполняются в рантайме.
+     Отказываем ЗДЕСЬ и с объяснением, а не даём сборке упасть где-то в глубине с
+     невнятным логом — «deploy failed» без причины хуже честного отказа. */
+  if (normalizeAppProfile(project.app_profile) === "fullstack") {
+    db.prepare(`UPDATE projects SET deploy_status = 'failed', deploy_error = ? WHERE id = ?`).run(
+      "Приложение с базой данных (профиль fullstack) не публикуется статическим хостингом: " +
+        "ему нужен серверный рантайм. Код и база готовы — приложение можно скачать и запустить " +
+        "(npm install && npm run build && npm start). Публикация серверных приложений на стороне " +
+        "OSGARD появится отдельной волной.",
+      projectId,
+    )
+    return
+  }
 
   const files = db
     .prepare(`SELECT path, content FROM project_files WHERE project_id = ?`)

@@ -27,7 +27,7 @@ test("generation queue migration upgrades the first durable schema in place", as
       ON project_generation_jobs(status, lease_until, created_at);
   `)
 
-  await import("../migrations/099_project_generation_jobs")
+  await import("../migrations/102_project_generation_jobs")
 
   const columns = new Set(
     (db.prepare(`PRAGMA table_info(project_generation_jobs)`).all() as Array<{ name: string }>).map((column) => column.name),
