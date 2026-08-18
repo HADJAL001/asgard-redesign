@@ -1,9 +1,0 @@
-{
-  "platforms": ["ios", "android"],
-  "ios": {
-    "modules": ["GardCoreModule"]
-  },
-  "android": {
-    "modules": ["expo.modules.gardcore.GardCoreModule"]
-  }
-}
