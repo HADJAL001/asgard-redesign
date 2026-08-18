@@ -105,13 +105,13 @@ export type ContourProgress = {
 }
 
 const MAX_DEFECTS_STORED = 40
-const MAX_FILES_PER_ROUND = 4
+const MAX_FILES_PER_ROUND = 6
 const MAX_REPAIRS_STORED = 40
-const MAX_AI_REPAIR_ROUNDS = 2
+const MAX_AI_REPAIR_ROUNDS = 6
 
 /** Сколько раундов AI-ремонта допускает глубина генерации. */
 function aiRoundsFor(depth: GenerationDepth): number {
-  return depth === "deep" ? 3 : depth === "standard" ? 2 : 1
+  return depth === "deep" ? 5 : depth === "standard" ? 4 : 3
 }
 
 /**
@@ -134,7 +134,12 @@ function errorsOf(report: IntegrityReport): IntegrityDefect[] {
 /** Частоты правил — сырьё памяти ошибок платформы (lib/craft-corpus). */
 function countRules(defects: IntegrityDefect[]): Array<{ rule: string; count: number }> {
   const counts = new Map<string, number>()
-  for (const defect of defects) counts.set(defect.rule, (counts.get(defect.rule) ?? 0) + 1)
+  for (const defect of defects) {
+    // The review rule is an envelope. Store stable semantic categories below,
+    // otherwise every review failure becomes one useless generic lesson.
+    if (defect.rule === "independent-ai-review") continue
+    counts.set(defect.rule, (counts.get(defect.rule) ?? 0) + 1)
+  }
   return [...counts.entries()]
     .map(([rule, count]) => ({ rule, count }))
     .sort((a, b) => b.count - a.count)
@@ -167,23 +172,55 @@ export function shouldRequireIndependentAiReview(): boolean {
   return process.env.NODE_ENV === "production"
 }
 
-/** AI review remains advisory unless a deterministic check points at the same file. */
+/** Preserve the largest observation for the same rule across repair rounds. */
+function mergeLessonMaximum(
+  base: Array<{ rule: string; count: number }>,
+  extra: Array<{ rule: string; count: number }>,
+): Array<{ rule: string; count: number }> {
+  const counts = new Map(base.map((lesson) => [lesson.rule, lesson.count]))
+  for (const lesson of extra) counts.set(lesson.rule, Math.max(counts.get(lesson.rule) ?? 0, lesson.count))
+  return [...counts.entries()].map(([rule, count]) => ({ rule, count })).sort((a, b) => b.count - a.count)
+}
+
+/** Independent review findings are semantic quality-gate results, not compiler duplicates. */
 export function corroborateIndependentReviewIssues(
   issues: IndependentReviewIssue[],
   deterministicDefects: IntegrityDefect[],
 ): IntegrityDefect[] {
   return issues.map((issue) => {
-    const corroborated = deterministicDefects.some(
-      (defect) => defect.severity === "error" && defect.file === issue.path,
-    )
     return {
       rule: "independent-ai-review",
-      severity: corroborated && issue.severity === "error" ? "error" : "warn",
+      // The reviewer is an independent quality gate. Its concrete findings
+      // must be repairable blockers even when static analysis cannot express
+      // the semantic defect (SQL, data flow, missing product behavior).
+      severity: issue.severity === "error" ? "error" : "warn",
       file: issue.path,
-      message: corroborated ? issue.message : `OSGARD review: ${issue.message}`,
+      message: `OSGARD review: ${issue.message}`,
       autoFixable: false,
     }
   })
+}
+
+/** Stable buckets make semantic review findings reusable in future prompts. */
+export function lessonsFromIndependentReviewIssues(
+  defects: IntegrityDefect[],
+): Array<{ rule: string; count: number }> {
+  const counts = new Map<string, number>()
+  for (const defect of defects) {
+    if (defect.rule !== "independent-ai-review" || defect.severity !== "error") continue
+    const text = `${defect.file} ${defect.message}`.toLowerCase()
+    const rule = /sql|database|schema|migration|query|postgres|uuid|owner|timestamp|route/.test(text)
+      ? "review-data-contract"
+      : /not implemented|missing|no navigation|splash|static page|feature/.test(text)
+        ? "review-feature-completeness"
+        : /palette|visual|design|color|graphite|cyan|ivory/.test(text)
+          ? "review-design-contract"
+          : /billing|subscription|plan|seat|payment/.test(text)
+            ? "review-billing-flow"
+            : "review-runtime-behavior"
+    counts.set(rule, (counts.get(rule) ?? 0) + 1)
+  }
+  return [...counts.entries()].map(([rule, count]) => ({ rule, count }))
 }
 
 async function addIndependentAiReview(
@@ -288,7 +325,10 @@ export async function runEngineeringContour(
       repairs: repairs.slice(0, MAX_REPAIRS_STORED),
       initialErrors,
       attempts,
-      lessons,
+      lessons: mergeLessons(
+        mergeLessonMaximum(lessons, countRules(errorsOf(report))),
+        lessonsFromIndependentReviewIssues(report.defects),
+      ),
       analyzedFiles: report.analyzedFiles,
       sandbox,
       durationMs: Date.now() - startedAt,
@@ -438,6 +478,16 @@ async function aiRepairRound(
 
   const siblings = files.filter((f) => /\.(tsx?|css|json)$/.test(f.path)).map((f) => f.path)
   const byPath = new Map(files.map((f) => [f.path, f.content]))
+  const sharedContext = files
+    .filter((file) =>
+      file.path === "package.json" ||
+      file.path === "db/schema.sql" ||
+      file.path.startsWith("app/api/") ||
+      file.path.startsWith("lib/") ||
+      file.path.startsWith("types/"),
+    )
+    .slice(0, 8)
+    .map((file) => ({ path: file.path, content: file.content }))
 
   opts.onProgress?.({
     phase: "repairing",
@@ -449,8 +499,17 @@ async function aiRepairRound(
     targets.map(async (path) => {
       const current = byPath.get(path)
       if (current === undefined) return null
-      const defects = formatDefectsForRepair(report.defects.filter((d) => d.file === path))
+      const targetDefects = report.defects.filter((d) => d.file === path)
+      const defects = formatDefectsForRepair(targetDefects)
       if (!defects) return null
+      const directlyRelated = targetDefects
+        .flatMap((defect) => [defect.hint?.consumer, defect.hint?.target])
+        .filter((relatedPath): relatedPath is string => !!relatedPath && relatedPath !== path)
+        .map((relatedPath) => files.find((file) => file.path === relatedPath))
+        .filter((file): file is SourceFile => !!file)
+      const context = [...directlyRelated, ...sharedContext]
+        .filter((file, index, all) => all.findIndex((candidate) => candidate.path === file.path) === index)
+        .slice(0, 10)
 
       const fixed = await repairFileWithAi({
         name: opts.name,
@@ -461,6 +520,7 @@ async function aiRepairRound(
         defects,
         brief: opts.brief,
         siblings,
+        context,
         profile: opts.profile,
       })
       return fixed && fixed !== current ? { path, content: fixed } : null

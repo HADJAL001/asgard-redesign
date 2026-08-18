@@ -1,5 +1,5 @@
 import { captureError } from "./sentry"
-import { propsContractDefects, repairPropValue } from "./props-contract"
+import { propsContractDefects, repairPropValue, repairUnknownProp } from "./props-contract"
 import {
   allowsServerCode,
   DEFAULT_APP_PROFILE,
@@ -505,17 +505,31 @@ function moduleGraphDefects(
         if (!targetFacts.hasStarReexport) {
           for (const spec of ref.named) {
             if (targetFacts.namedExports.has(spec.name)) continue
-            const fixable = targetFacts.hasDefaultExport && ref.named.length === 1 && !ref.defaultName
+            const isTypesNamespace = /(?:^|\/)types\.tsx?$/.test(target) && ref.named.length === 1 && ref.named[0]?.name === "Types"
+            const isUtilityNamespace =
+              /^(?:lib|utils)\/.+\.tsx?$/.test(target) &&
+              !/(?:^|\/)types\.tsx?$/.test(target) &&
+              ref.named.length === 1 &&
+              !ref.defaultName &&
+              spec.name === componentNameFor(target) &&
+              targetFacts.namedExports.size > 0
+            const fixable = isTypesNamespace || isUtilityNamespace || (targetFacts.hasDefaultExport && ref.named.length === 1 && !ref.defaultName)
+            const mode = isTypesNamespace ? "types-namespace" : isUtilityNamespace ? "runtime-namespace" : undefined
             defects.push({
               rule: "named-import-missing",
               severity: "error",
-              file: facts.path,
+              // When no deterministic import rewrite exists, the missing
+              // contract belongs to the exporting file. AI must repair that
+              // target instead of repeatedly rewriting a valid consumer.
+              file: fixable ? facts.path : target,
               line: ref.line,
               message: fixable
-                ? `"${spec.name}" импортируется как именованный, а "${target}" отдаёт default — импорт нужно переписать`
+                ? isUtilityNamespace
+                  ? `"${spec.name}" — синтетическое имя утилитного модуля "${target}"; его реальные именованные функции нужно импортировать namespace-формой`
+                  : `"${spec.name}" импортируется как именованный, а "${target}" отдаёт default — импорт нужно переписать`
                 : `"${spec.name}" не экспортируется из "${target}"`,
               autoFixable: fixable,
-              hint: { spec: ref.spec, symbol: spec.name, alias: spec.alias },
+              hint: { spec: ref.spec, symbol: spec.name, alias: spec.alias, consumer: facts.path, ...(mode ? { mode } : {}) },
             })
           }
         }
@@ -929,6 +943,22 @@ function namedImportToDefault(content: string, spec: string, symbol: string, ali
   return content.replace(re, `import ${alias} from "${spec}"`)
 }
 
+function namedTypesNamespaceImport(content: string, spec: string, alias: string): string {
+  const escaped = spec.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const re = new RegExp(`import\\s*\\{\\s*Types(?:\\s+as\\s+\\w+)?\\s*,?\\s*\\}\\s*from\\s*(["'])${escaped}\\1`, "m")
+  return content.replace(re, `import type * as ${alias} from "${spec}"`)
+}
+
+function namedRuntimeNamespaceImport(content: string, spec: string, symbol: string, alias: string): string {
+  const escapedSpec = spec.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const escapedSymbol = symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const re = new RegExp(
+    `import\\s*\\{\\s*${escapedSymbol}(?:\\s+as\\s+\\w+)?\\s*,?\\s*\\}\\s*from\\s*(["'])${escapedSpec}\\1`,
+    "m",
+  )
+  return content.replace(re, `import * as ${alias} from "${spec}"`)
+}
+
 /** Удаляет `export const dynamic = ...` (и родню), несовместимые со static export. */
 function removeDynamicFlag(content: string, symbol: string): string {
   const re = new RegExp(`^\\s*export\\s+const\\s+${symbol}\\s*=.*$\\n?`, "m")
@@ -962,6 +992,7 @@ export function repairIntegrity(files: SourceFile[], report: IntegrityReport): R
     "named-import-missing",
     // Пропы правим последними: правка точечная и от структуры файла не зависит.
     "prop-type-mismatch",
+    "prop-unknown",
   ]
   fixable.sort((a, b) => order.indexOf(a.rule) - order.indexOf(b.rule))
 
@@ -1013,10 +1044,20 @@ export function repairIntegrity(files: SourceFile[], report: IntegrityReport): R
         case "named-import-missing": {
           const { spec, symbol, alias } = defect.hint ?? {}
           if (!spec || !symbol) break
-          const next = namedImportToDefault(content!, spec, symbol, alias || symbol)
+          const next = defect.hint?.mode === "types-namespace"
+            ? namedTypesNamespaceImport(content!, spec, alias || symbol)
+            : defect.hint?.mode === "runtime-namespace"
+              ? namedRuntimeNamespaceImport(content!, spec, symbol, alias || symbol)
+            : namedImportToDefault(content!, spec, symbol, alias || symbol)
           if (next !== content) {
             byPath.set(path, next)
-            actions.push({ rule: defect.rule, file: path, action: `импорт "${symbol}" переведён в default-форму` })
+            actions.push({
+              rule: defect.rule,
+              file: path,
+              action: defect.hint?.mode === "types-namespace" || defect.hint?.mode === "runtime-namespace"
+                ? `импорт "${symbol}" переведён в ${defect.hint.mode === "types-namespace" ? "type " : ""}namespace`
+                : `импорт "${symbol}" переведён в default-форму`,
+            })
           }
           break
         }
@@ -1034,6 +1075,16 @@ export function repairIntegrity(files: SourceFile[], report: IntegrityReport): R
                   ? `<${tag}>: проп "${prop}" получает ${referenced} вместо <${referenced} /> (ждали сам компонент)`
                   : `<${tag}>: проп "${prop}" получает <${referenced} /> вместо ${referenced} (ждали разметку)`,
             })
+          }
+          break
+        }
+        case "prop-unknown": {
+          const { component, prop } = defect.hint ?? {}
+          if (!component || !prop) break
+          const next = repairUnknownProp(content!, { component, prop })
+          if (next !== content) {
+            byPath.set(path, next)
+            actions.push({ rule: defect.rule, file: path, action: `добавлен optional prop "${prop}" в ${component}` })
           }
           break
         }

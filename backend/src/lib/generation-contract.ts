@@ -49,11 +49,14 @@ export type ExportShape = {
   importSpec: string
   /** Готовая строка импорта — ровно то, что модель должна написать. */
   importLine: string
+  /** Generic type registries use a type-only contract, never a runtime function. */
+  typeOnly: boolean
 }
 
 export type ExportContract = {
   files: ExportShape[]
   byPath: Map<string, ExportShape>
+  allowedPackages: Set<string>
 }
 
 /* ----------------------------------------------------------------
@@ -117,15 +120,18 @@ function importSpecFor(path: string): string {
 function shapeFor(rawPath: string): ExportShape {
   const path = normalize(rawPath)
   const symbol = symbolFor(path)
+  const typeOnly = /(?:^|\/)types\.ts$/.test(path)
   const requiresDefault = isRouteFile(path) || isComponent(path)
-  const requiresNamed = !isRouteFile(path)
+  const requiresNamed = !isRouteFile(path) && !typeOnly
   const importSpec = importSpecFor(path)
 
-  const importLine = requiresDefault
+  const importLine = typeOnly
+    ? `import type * as ${symbol} from "${importSpec}"`
+    : requiresDefault
     ? `import ${symbol} from "${importSpec}"`
     : `import { ${symbol} } from "${importSpec}"`
 
-  return { path, symbol, requiresDefault, requiresNamed, importSpec, importLine }
+  return { path, symbol, requiresDefault, requiresNamed, importSpec, importLine, typeOnly }
 }
 
 /**
@@ -133,7 +139,7 @@ function shapeFor(rawPath: string): ExportShape {
  * Файлы маршрутов (`app/**`) в контракт импорта не попадают: их никто не
  * импортирует, их монтирует роутер — но требование default для них остаётся.
  */
-export function deriveExportContract(paths: string[]): ExportContract {
+export function deriveExportContract(paths: string[], additionalPackages: string[] = []): ExportContract {
   const files: ExportShape[] = []
   const byPath = new Map<string, ExportShape>()
 
@@ -145,7 +151,7 @@ export function deriveExportContract(paths: string[]): ExportContract {
     byPath.set(shape.path, shape)
   }
 
-  return { files, byPath }
+  return { files, byPath, allowedPackages: new Set([...BUILTIN_PACKAGES, ...additionalPackages]) }
 }
 
 /* ----------------------------------------------------------------
@@ -178,7 +184,9 @@ export function renderExportContract(
   const own = self ? contract.byPath.get(self) : undefined
   const ownRule = own
     ? `\nТВОЙ ФАЙЛ "${own.path}" ОБЯЗАН экспортировать: ${
-        own.requiresDefault && own.requiresNamed
+        own.typeOnly
+          ? `именованные \`export type Record = ...\`, \`export type Billing = ...\` и другие типы из purpose; НЕ экспортируй искусственный символ ${own.symbol}`
+          : own.requiresDefault && own.requiresNamed
           ? `и \`export default ${own.symbol}\`, и \`export function ${own.symbol}\` (обе формы одновременно — соседи могут импортировать любой из них)`
           : own.requiresDefault
             ? `\`export default ${own.symbol}\``
@@ -195,7 +203,7 @@ ${ownRule}
 и сборка упадёт с "Module not found". Нужна вспомогательная функция — объяви её
 в этом же файле, а не импортируй из несуществующего модуля.
 
-Из внешних пакетов доступны ТОЛЬКО: next, react, react-dom и lucide-react
+Из внешних пакетов доступны ТОЛЬКО: ${[...contract.allowedPackages].join(", ")}
 (иконки, например \`import { Plus } from "lucide-react"\`). Любой другой пакет
 не установлен, и сборка упадёт.`
 }
@@ -303,7 +311,7 @@ export function verifyAgainstContract(files: SourceFile[], contract: ExportContr
 
       if (!isLocalSpec(spec)) {
         const pkg = spec.startsWith("@") ? spec.split("/").slice(0, 2).join("/") : spec.split("/")[0]
-        if (!BUILTIN_PACKAGES.has(pkg)) {
+        if (!contract.allowedPackages.has(pkg)) {
           violations.push({
             kind: "unknown-import",
             file: path,
@@ -341,7 +349,10 @@ export function verifyAgainstContract(files: SourceFile[], contract: ExportContr
         })
       }
 
-      if (wantsNamed && !targetShape.requiresNamed) {
+      // Type registries are erased by TypeScript; named type imports are
+      // runtime-safe even when the contract intentionally exposes no value
+      // export. Runtime modules still require the exact import form.
+      if (wantsNamed && !targetShape.requiresNamed && !targetShape.typeOnly) {
         violations.push({
           kind: "wrong-import-form",
           file: path,

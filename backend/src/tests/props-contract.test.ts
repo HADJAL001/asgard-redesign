@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { propsContractDefects, repairPropValue } from '../lib/props-contract';
+import { propsContractDefects, repairPropValue, repairUnknownProp } from '../lib/props-contract';
 import { explainBuildIntegrity, repairIntegrity, type SourceFile } from '../lib/build-integrity';
 import { hasLessonText } from '../lib/craft-corpus';
 
@@ -245,6 +245,8 @@ test('проп, которого нет в закрытой сигнатуре �
   const unknown = defects.filter((d) => d.rule === 'prop-unknown');
   assert.equal(unknown.length, 1);
   assert.match(unknown[0].message, /subtitle/);
+  assert.equal(unknown[0].file, 'components/EmptyState.tsx');
+  assert.equal(unknown[0].hint?.consumer, 'components/NotesEmpty.tsx');
 });
 
 test('interface с extends — о лишнем пропе молчим (набор шире объявленного)', () => {
@@ -555,6 +557,13 @@ export default function Page() {
 test('битый файл не роняет разбор', () => {
   const broken: SourceFile = { path: 'components/Broken.tsx', content: '{'.repeat(5000) };
   assert.doesNotThrow(() => propsContractDefects([EMPTY_STATE, broken, consumer('<EmptyState title="Ок" />')]));
+});
+
+test('unknown prop repair adds an optional field to an inline component contract', () => {
+  const source = `export function Drawer({ open }: { open: boolean }) { return <div>{String(open)}</div> }\n`;
+  const repaired = repairUnknownProp(source, { component: 'Drawer', prop: 'invoice' });
+  assert.match(repaired, /invoice\?\s*:\s*any/);
+  assert.equal(repairUnknownProp(repaired, { component: 'Drawer', prop: 'invoice' }), repaired);
 });
 
 /* ----------------------------------------------------------------

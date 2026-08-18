@@ -21,6 +21,7 @@ node_modules
 
 # Local SQLite dev database
 backend/data/
+backend/out/
 
 # Playwright MCP debug artifacts (console logs, page snapshots/screenshots)
 .playwright-mcp/

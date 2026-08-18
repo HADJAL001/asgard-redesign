@@ -110,6 +110,38 @@ test('ловит импорт файла, которого нет в маниф�
   );
 });
 
+test('generic types file is a type-only contract rather than a runtime function', () => {
+  const contract = deriveExportContract(['app/page.tsx', 'lib/types.ts']);
+  const consumerContract = renderExportContract(
+    contract,
+    new Map([['lib/types.ts', 'domain types']]),
+    'app/page.tsx',
+  );
+  const ownerContract = renderExportContract(contract, new Map(), 'lib/types.ts');
+  assert.match(consumerContract, /import type \* as Types from "@\/lib\/types"/);
+  assert.match(ownerContract, /export type Record/);
+  assert.doesNotMatch(ownerContract, /export function Types/);
+  const files: SourceFile[] = [
+    { path: 'app/page.tsx', content: `import type * as Types from "@/lib/types"\nexport default function Page() { const row: Types.Record | null = null; return <main>{row?.id}</main> }\n` },
+    { path: 'lib/types.ts', content: `export type Record = { id: string }\n` },
+  ];
+  assert.deepEqual(verifyAgainstContract(files, contract), []);
+
+  const namedTypeImport = [
+    { path: 'app/page.tsx', content: `import { Record } from "@/lib/types"\nexport default function Page() { const row: Record | null = null; return <main>{row?.id}</main> }\n` },
+    { path: 'lib/types.ts', content: `export type Record = { id: string }\n` },
+  ];
+  assert.deepEqual(verifyAgainstContract(namedTypeImport, contract), []);
+});
+
+test('profile-specific package is allowed only when declared by the contract', () => {
+  const files: SourceFile[] = [
+    { path: 'app/page.tsx', content: `import pg from "pg"\nexport default function Page() { return null }\n` },
+  ];
+  assert.ok(verifyAgainstContract(files, deriveExportContract(['app/page.tsx'])).some((v) => v.kind === 'unknown-import'));
+  assert.deepEqual(verifyAgainstContract(files, deriveExportContract(['app/page.tsx'], ['pg'])), []);
+});
+
 test('ловит отсутствие обязательного экспорта по контракту', () => {
   const contract = deriveExportContract(['components/Hero.tsx']);
   const files: SourceFile[] = [

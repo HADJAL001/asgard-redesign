@@ -148,7 +148,61 @@ test('именованный импорт того, чего нет в цели 
       { path: 'components/Hero.tsx', content: `export function Hero() { return <h1>Привет</h1> }\n` },
     ),
   );
-  assert.ok(report.defects.some((d) => d.rule === 'named-import-missing'));
+  const defect = report.defects.find((d) => d.rule === 'named-import-missing');
+  assert.ok(defect);
+  assert.equal(defect!.file, 'components/Hero.tsx', 'AI должен дописать контракт в цели импорта');
+  assert.equal(defect!.hint?.consumer, 'app/page.tsx');
+});
+
+test('synthetic Types import is rewritten to a type namespace', () => {
+  const files = withBase(
+    { path: 'app/page.tsx', content: `import { Types } from "@/lib/types"\nexport default function Page() { const row: Types.Record | null = null; return <main>{row}</main> }\n` },
+    { path: 'lib/types.ts', content: `export type Record = { id: string }\n` },
+  );
+  const report = explainBuildIntegrity(files);
+  const defect = report.defects.find((item) => item.rule === 'named-import-missing');
+  assert.equal(defect?.autoFixable, true);
+  const repaired = repairIntegrity(files, report);
+  assert.match(repaired.files.find((file) => file.path === 'app/page.tsx')?.content ?? '', /import type \* as Types/);
+  assert.equal(explainBuildIntegrity(repaired.files).defects.filter((item) => item.rule === 'named-import-missing').length, 0);
+});
+
+test('aliased synthetic Types import keeps its local namespace name', () => {
+  const files = withBase(
+    { path: 'app/page.tsx', content: `import { Types as Domain } from "@/lib/types"\nexport default function Page() { const row: Domain.Record | null = null; return <main>{row}</main> }\n` },
+    { path: 'lib/types.ts', content: `export type Record = { id: string }\n` },
+  );
+  const report = explainBuildIntegrity(files);
+  const repaired = repairIntegrity(files, report);
+  assert.match(repaired.files.find((file) => file.path === 'app/page.tsx')?.content ?? '', /import type \* as Domain/);
+});
+
+test('synthetic utility name is rewritten to a runtime namespace', () => {
+  const files = withBase(
+    { path: 'app/page.tsx', content: `import { Format } from "@/lib/format"\nexport default function Page() { return <main>{Format.currency(12)}</main> }\n` },
+    { path: 'lib/format.ts', content: `export function currency(value: number) { return String(value) }\nexport function date(value: Date) { return value.toISOString() }\n` },
+  );
+  const report = explainBuildIntegrity(files);
+  const defect = report.defects.find((item) => item.rule === 'named-import-missing');
+  assert.equal(defect?.file, 'app/page.tsx');
+  assert.equal(defect?.autoFixable, true);
+  assert.equal(defect?.hint?.mode, 'runtime-namespace');
+  const repaired = repairIntegrity(files, report);
+  assert.match(repaired.files.find((file) => file.path === 'app/page.tsx')?.content ?? '', /import \* as Format from "@\/lib\/format"/);
+  assert.equal(explainBuildIntegrity(repaired.files).defects.filter((item) => item.severity === 'error').length, 0);
+});
+
+test('unknown component prop is repaired in the exporting signature', () => {
+  const files = withBase(
+    { path: 'app/page.tsx', content: `import Drawer from "@/components/Drawer"\nexport default function Page() { return <Drawer open invoice={null} /> }\n` },
+    { path: 'components/Drawer.tsx', content: `export default function Drawer({ open }: { open: boolean }) { return <div>{String(open)}</div> }\n` },
+  );
+  const report = explainBuildIntegrity(files);
+  const defect = report.defects.find((item) => item.rule === 'prop-unknown');
+  assert.equal(defect?.autoFixable, true);
+  const repaired = repairIntegrity(files, report);
+  assert.match(repaired.files.find((file) => file.path === 'components/Drawer.tsx')?.content ?? '', /invoice\?\s*:\s*any/);
+  assert.equal(explainBuildIntegrity(repaired.files).defects.filter((item) => item.severity === 'error').length, 0);
 });
 
 test('export * from — состав экспортов неизвестен, ложных ошибок не выдумываем', () => {

@@ -11,7 +11,7 @@ import {
   sandboxBasePackageJson,
   scaffoldDepsFingerprint,
 } from '../lib/app-scaffold-deps';
-import { generateApp } from '../services/app-generator';
+import { acceptedRepairContent, ensureManifestContracts, ensureManifestFiles, generateApp, generationPhase, mergeGeneratedFiles, type ManifestEntry } from '../services/app-generator';
 
 /* ================================================================
    OSGARD · Кэш node_modules для сборок — синхронность с генератором
@@ -50,6 +50,80 @@ test('package.json сгенерированного приложения = на�
     'зависимости приложения обязаны совпадать с набором образа — иначе быстрая сборка падает "module not found"',
   );
   assert.deepEqual(pkg.devDependencies, { ...SCAFFOLD_DEV_DEPENDENCIES });
+});
+
+test('fullstack manifest всегда сохраняет page, schema и API в пределах лимита', () => {
+  const plannerOutput: ManifestEntry[] = Array.from({ length: 14 }, (_, index) => ({
+    path: `components/Optional${index}.tsx`,
+    purpose: 'optional',
+  }));
+  const manifest = ensureManifestContracts(plannerOutput, 'fullstack');
+  assert.ok(manifest.length <= 14, 'манифест не должен превышать лимит');
+  assert.ok(manifest.some((entry) => entry.path === 'app/page.tsx'));
+  assert.ok(manifest.some((entry) => entry.path === 'db/schema.sql'));
+  assert.ok(manifest.some((entry) => entry.path === 'app/api/records/route.ts'));
+});
+
+test('billing manifest keeps the complete client-invoice-payment workflow', () => {
+  const manifest = ensureManifestContracts([
+    { path: 'app/page.tsx', purpose: 'InvoiceFlow overview' },
+    { path: 'components/InvoiceTable.tsx', purpose: 'Invoice and payment status table' },
+  ], 'fullstack');
+  const paths = new Set(manifest.map((entry) => entry.path));
+  for (const path of [
+    'app/dashboard/page.tsx',
+    'app/clients/page.tsx',
+    'app/invoices/page.tsx',
+    'app/invoices/[id]/page.tsx',
+    'app/plans/page.tsx',
+    'app/api/clients/route.ts',
+    'app/api/invoices/route.ts',
+    'app/api/invoices/[id]/route.ts',
+    'app/api/payments/route.ts',
+    'app/api/dashboard/route.ts',
+    'components/AppShell.tsx',
+    'lib/types.ts',
+  ]) assert.ok(paths.has(path), `billing contract missing: ${path}`);
+  assert.ok(manifest.length <= 14);
+});
+
+test('platform-owned scaffold file replaces an AI duplicate exactly once', () => {
+  const files = mergeGeneratedFiles([
+    { path: 'lib/db.ts', content: 'generated duplicate' },
+    { path: '/app/page.tsx', content: 'page' },
+    { path: 'lib/db.ts', content: 'platform implementation' },
+  ]);
+  assert.equal(files.filter((file) => file.path === 'lib/db.ts').length, 1);
+  assert.equal(files.find((file) => file.path === 'lib/db.ts')?.content, 'platform implementation');
+  assert.ok(files.some((file) => file.path === 'app/page.tsx'));
+});
+
+test('missing provider output stays visible as an empty manifest file for repair', () => {
+  const files = ensureManifestFiles(
+    [{ path: 'app/page.tsx', content: 'page' }],
+    [
+      { path: 'app/page.tsx', purpose: 'page' },
+      { path: 'app/invoices/page.tsx', purpose: 'invoice workspace' },
+    ],
+  );
+  assert.equal(files.find((file) => file.path === 'app/invoices/page.tsx')?.content, '');
+});
+
+test('AI repair rejects truncated TypeScript instead of overwriting usable code', () => {
+  assert.equal(acceptedRepairContent('components/Card.tsx', '```tsx\nexport function Card() { return <div>\n```'), null);
+  assert.match(
+    acceptedRepairContent('components/Card.tsx', '```tsx\nexport function Card() { return <div>ok</div> }\nexport default Card\n```') ?? '',
+    /export default Card/,
+  );
+});
+
+test('fullstack generation orders data contracts before consumers', () => {
+  assert.ok(generationPhase('db/schema.sql', 'fullstack') < generationPhase('lib/types.ts', 'fullstack'));
+  assert.ok(generationPhase('lib/types.ts', 'fullstack') < generationPhase('app/api/records/route.ts', 'fullstack'));
+  assert.ok(generationPhase('app/api/records/route.ts', 'fullstack') < generationPhase('components/Table.tsx', 'fullstack'));
+  assert.ok(generationPhase('components/Table.tsx', 'fullstack') < generationPhase('app/page.tsx', 'fullstack'));
+  assert.equal(generationPhase('app/page.tsx', 'static'), 0);
+  assert.equal(generationPhase('app/invoices/[id]/page.tsx', 'fullstack'), 5);
 });
 
 test('Dockerfile в репозитории не отстал от набора зависимостей', () => {

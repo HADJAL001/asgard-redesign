@@ -14,7 +14,7 @@ import {
 import { adaptTemplate } from "../services/template-adapter"
 import { captureError } from "./sentry"
 import { GENERATION_DEPTHS, resolveDepth, type GenerationDepth } from "./generation-depths"
-import { allowsServerCode, DEFAULT_APP_PROFILE, normalizeAppProfile, type AppProfile } from "./app-profiles"
+import { allowsServerCode, DEFAULT_APP_PROFILE, FULLSTACK_DEPENDENCIES, normalizeAppProfile, type AppProfile } from "./app-profiles"
 import { bindAppDatabase } from "../services/app-database-binding"
 import { createNotification } from "./notifications"
 import { emitGenerationStage, emitGenerationMeter } from "./generation-events"
@@ -933,7 +933,10 @@ async function runAppGenerationJobInner(
        импортируют, но которого нет, создаётся по контракту; недостающий экспорт
        дописывается. Остаток расхождений не глотается — он неизбежно всплывёт
        ошибками графа модулей в контуре ниже и повлияет на вердикт. */
-    const contractBefore = deriveExportContract(files.map((f) => f.path))
+    const contractBefore = deriveExportContract(
+      files.map((f) => f.path),
+      allowsServerCode(profile) ? Object.keys(FULLSTACK_DEPENDENCIES) : [],
+    )
     const contractCheck = reconcileWithContract(files, contractBefore)
     if (contractCheck.actions.length > 0) {
       files = contractCheck.files.map((f) => ({ path: f.path, content: f.content }))

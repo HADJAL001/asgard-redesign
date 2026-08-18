@@ -153,6 +153,7 @@ const MAX_MANIFEST_FILES = 14
 const MAX_FILE_LINES = 650
 const MAX_PAGE_LINES = 240
 const FILE_GENERATION_CONCURRENCY = 3
+const BILLING_DOMAIN_RE = /invoice|billing|payment|subscription|vat|recurring|\u043a\u043b\u0438\u0435\u043d\u0442|\u0441\u0447[\u0451\u0435]\u0442/i
 
 async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const output: R[] = new Array(items.length)
@@ -166,6 +167,28 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T)
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()))
   return output
+}
+
+/** Merge generated and platform-owned files into one canonical project tree. */
+export function mergeGeneratedFiles(files: GeneratedAppFile[]): GeneratedAppFile[] {
+  const byPath = new Map<string, GeneratedAppFile>()
+  for (const file of files) {
+    const path = file.path.replace(/^\/+/, "")
+    byPath.set(path, { path, content: file.content })
+  }
+  return [...byPath.values()]
+}
+
+/** Preserve manifest intent when a provider returns no usable body. The empty
+ * file is deliberate: build-integrity can now report it and the engineering
+ * contour can target that exact path for repair instead of silently dropping
+ * a required screen or route. */
+export function ensureManifestFiles(files: GeneratedAppFile[], manifest: ManifestEntry[]): GeneratedAppFile[] {
+  const byPath = new Map(mergeGeneratedFiles(files).map((file) => [file.path, file]))
+  for (const entry of manifest) {
+    if (!byPath.has(entry.path)) byPath.set(entry.path, { path: entry.path, content: "" })
+  }
+  return [...byPath.values()]
 }
 
 export async function firstAcceptedProviderResponse(
@@ -556,7 +579,11 @@ ${brief.layout.map((l) => `- ${l}`).join("\n")}
   "app/api/<сущность>/route.ts", файл "lib/types.ts" с типами записей базы и
   ОБЯЗАТЕЛЬНО "db/schema.sql" — идемпотентный скрипт создания таблиц
   (CREATE TABLE IF NOT EXISTS). Модуль доступа к базе ("lib/db.ts") платформа
-  создаёт сама — в список его НЕ включай.`
+  создаёт сама — в список его НЕ включай.
+- Purpose каждого fullstack-файла — это краткий точный контракт, а не общая фраза:
+  для schema перечисли таблицы/колонки/constraints; для types — имена типов и поля;
+  для API — методы, payload и response; для компонентов — props и рабочие действия.
+  Все purpose должны описывать ОДНУ согласованную модель данных.`
       : ""
   }
 Ответь только JSON.`
@@ -585,16 +612,112 @@ async function generateManifest(
     .filter((f: ManifestEntry) =>
       allowsServerCode(profile) && f.path === "db/schema.sql"
         ? true
-        : /^(app|components|hooks|lib|utils|types)\/[\w\-/]+\.tsx?$/.test(f.path),
+        : /^(app|components|hooks|lib|utils|types)\/[A-Za-z0-9_./\-\[\]]+\.tsx?$/.test(f.path),
     )
     .filter((f: ManifestEntry) => !RESERVED_PATHS.has(f.path.toLowerCase()))
-    .slice(0, MAX_MANIFEST_FILES)
+    // The final size is enforced after mandatory fullstack entries are added.
 
   if (!entries.some((f) => f.path === "app/page.tsx")) {
     entries.unshift({ path: "app/page.tsx", purpose: "Главная страница приложения" })
   }
 
-  return entries.length >= 8 ? entries : null
+  if (allowsServerCode(profile)) {
+    // A planner omission must not remove the persistence contract.
+    if (!entries.some((f) => f.path === "db/schema.sql")) {
+      entries.push({ path: "db/schema.sql", purpose: "Idempotent database schema" })
+    }
+    if (!entries.some((f) => /^app\/api\/[^/]+\/route\.ts$/.test(f.path))) {
+      entries.push({ path: "app/api/records/route.ts", purpose: "Primary records API" })
+    }
+  }
+
+  const contracted = ensureManifestContracts(entries, profile)
+  return contracted.length >= 8 ? contracted : null
+}
+
+/** Apply mandatory runtime files while keeping the planner's hard file limit. */
+export function ensureManifestContracts(
+  input: ManifestEntry[],
+  profile: AppProfile = DEFAULT_APP_PROFILE,
+): ManifestEntry[] {
+  const byPath = new Map<string, ManifestEntry>()
+  for (const entry of input) {
+    if (!byPath.has(entry.path)) byPath.set(entry.path, entry)
+  }
+
+  if (!byPath.has("app/page.tsx")) {
+    byPath.set("app/page.tsx", { path: "app/page.tsx", purpose: "Главная страница приложения" })
+  }
+  if (allowsServerCode(profile)) {
+    if (!byPath.has("db/schema.sql")) {
+      byPath.set("db/schema.sql", { path: "db/schema.sql", purpose: "Idempotent database schema" })
+    }
+    if (![...byPath.keys()].some((path) => /^app\/api\/[^/]+\/route\.ts$/.test(path))) {
+      byPath.set("app/api/records/route.ts", { path: "app/api/records/route.ts", purpose: "Primary records API" })
+    }
+
+    // Billing-like products need a connected workflow, not a single records
+    // table. Keep this deterministic so planner omissions cannot silently
+    // produce dead links or forms without matching routes.
+    const domain = [...byPath.values()]
+      .map((entry) => `${entry.path} ${entry.purpose}`.toLowerCase())
+      .join(" ")
+    if (BILLING_DOMAIN_RE.test(domain)) {
+      const billingContracts: ManifestEntry[] = [
+        { path: "app/dashboard/page.tsx", purpose: "Dashboard with revenue, overdue and payment status metrics" },
+        { path: "app/clients/page.tsx", purpose: "Client list with create, edit and empty/error states" },
+        { path: "app/invoices/page.tsx", purpose: "Invoice workspace with draft, sent, paid and overdue filters" },
+        { path: "app/invoices/[id]/page.tsx", purpose: "Invoice detail with status transitions and PDF action" },
+        { path: "app/plans/page.tsx", purpose: "Plans and subscription management screen" },
+        { path: "app/api/clients/route.ts", purpose: "GET and POST clients with validation and typed responses" },
+        { path: "app/api/invoices/route.ts", purpose: "GET and POST invoices with VAT and lifecycle fields" },
+        { path: "app/api/invoices/[id]/route.ts", purpose: "GET, PATCH and DELETE one invoice with lifecycle validation" },
+        { path: "app/api/payments/route.ts", purpose: "Payment intent and paid/failed status updates" },
+        { path: "app/api/dashboard/route.ts", purpose: "Aggregated dashboard metrics from persisted records" },
+        { path: "components/AppShell.tsx", purpose: "Shared navigation linking dashboard, clients, invoices and plans" },
+        { path: "lib/types.ts", purpose: "Shared client, invoice, payment and dashboard response types" },
+      ]
+      for (const contract of billingContracts) {
+        if (!byPath.has(contract.path)) byPath.set(contract.path, contract)
+      }
+    }
+  }
+
+  const entries = [...byPath.values()]
+  const domain = entries.map((entry) => `${entry.path} ${entry.purpose}`.toLowerCase()).join(" ")
+  const billing = allowsServerCode(profile) && BILLING_DOMAIN_RE.test(domain)
+  if (billing) {
+    const canonicalBillingPaths = [
+      "app/page.tsx",
+      "db/schema.sql",
+      "app/dashboard/page.tsx",
+      "app/clients/page.tsx",
+      "app/invoices/page.tsx",
+      "app/invoices/[id]/page.tsx",
+      "app/plans/page.tsx",
+      "app/api/clients/route.ts",
+      "app/api/invoices/route.ts",
+      "app/api/invoices/[id]/route.ts",
+      "app/api/payments/route.ts",
+      "app/api/dashboard/route.ts",
+      "components/AppShell.tsx",
+      "lib/types.ts",
+    ]
+    return canonicalBillingPaths
+      .map((path) => byPath.get(path))
+      .filter((entry): entry is ManifestEntry => !!entry)
+      .slice(0, MAX_MANIFEST_FILES)
+  }
+  if (entries.length <= MAX_MANIFEST_FILES) return entries
+
+  const required = new Set(["app/page.tsx", ...(allowsServerCode(profile) ? ["db/schema.sql"] : [])])
+  if (allowsServerCode(profile)) {
+    const api = entries.find((entry) => /^app\/api\/[^/]+\/route\.ts$/.test(entry.path))
+    if (api) required.add(api.path)
+  }
+  const mustKeep = entries.filter((entry) => required.has(entry.path))
+  const optional = entries.filter((entry) => !required.has(entry.path))
+  return [...mustKeep, ...optional].slice(0, MAX_MANIFEST_FILES)
 }
 
 function fallbackManifest(profile: AppProfile = DEFAULT_APP_PROFILE): ManifestEntry[] {
@@ -636,7 +759,9 @@ function renderRuntimeContract(profile: AppProfile): string {
 - У приложения ЕСТЬ своя база PostgreSQL. Работай с ней ТОЛЬКО через готовый модуль
   "@/lib/db" (он создан платформой, не переписывай его):
     import { query } from "@/lib/db"
-    const rows = await query<{ id: number; title: string }>("SELECT id, title FROM notes ORDER BY id DESC LIMIT 50")
+    const rows = await query<{ id: number; title: string }>("SELECT id, title FROM notes ORDER BY id DESC LIMIT 50", [])
+    // query() already returns T[]; never use result.rows and never spread
+    // params into query(sql, ...params). Pass one parameter array as above.
 - Модуль базы работает ТОЛЬКО в серверном коде (API-роуты, серверные компоненты).
   Из файла с "use client" его импортировать нельзя — пароль базы попал бы в браузер.
   Клиентский компонент получает данные через fetch к своему же API-роуту.
@@ -662,8 +787,14 @@ function buildFilePrompt(
   lessons: string,
   contract: ExportContract,
   profile: AppProfile = DEFAULT_APP_PROFILE,
+  implementedContext: GeneratedAppFile[] = [],
 ): string {
   const purposeByPath = new Map(manifest.map((f) => [f.path.replace(/^\/+/, ""), f.purpose]))
+  const context = implementedContext
+    .filter((file) => file.path !== entry.path)
+    .slice(-8)
+    .map((file) => `FILE: ${file.path}\n${file.content.slice(0, 4500)}`)
+    .join("\n\n---\n\n")
   return `Ты пишешь исходный код для реального Next.js (App Router, TypeScript, Tailwind CSS) приложения "${name}"${hint ? ` в теме: "${hint}"` : ""}.
 
 ${renderExportContract(contract, purposeByPath, entry.path)}
@@ -683,7 +814,13 @@ ${lessons}
   задавай значения по умолчанию. Иконку принимай как САМ компонент (\`icon?: LucideIcon\`) и
   рисуй её сам (\`const Icon = icon; <Icon />\`) — не как готовую разметку: тогда сосед
   передаст \`icon={Plus}\`, а не \`icon={<Plus />}\`, и типы совпадут.
+- Every visible button, link, form, menu, toggle, and row action must have a real handler and complete loading, error, and success states. Never ship a static pseudo-button.
 ${renderRuntimeContract(profile)}
+- Уже реализованные нижележащие файлы приведены ниже. Сохраняй их SQL, типы, поля,
+  API payloads и имена props буквально; не изобретай второй несовместимый контракт.
+
+IMPLEMENTED PROJECT CONTEXT:
+${context || "none yet"}
 - Верни ТОЛЬКО код в одном \`\`\`tsx блоке, без пояснений до или после.`
 }
 
@@ -696,11 +833,20 @@ async function generateFileContent(
   lessons: string,
   contract: ExportContract,
   profile: AppProfile = DEFAULT_APP_PROFILE,
+  implementedContext: GeneratedAppFile[] = [],
 ): Promise<string | null> {
-  const prompt = buildFilePrompt(name, hint, manifest, entry, brief, lessons, contract, profile)
+  const prompt = buildFilePrompt(name, hint, manifest, entry, brief, lessons, contract, profile, implementedContext)
   const lineLimit = entry.path === "app/page.tsx" ? MAX_PAGE_LINES : MAX_FILE_LINES
   const readCode = (response: string | null): string | null => {
     const code = response ? extractCodeBlock(response) : null
+    if (entry.path === "db/schema.sql") {
+      if (!code) return null
+      // SQL is occasionally wrapped in a TSX example by the coder. Keep the
+      // actual DDL tail, but never persist executable TypeScript in schema.sql.
+      const ddlStart = code.search(/(?:CREATE\s+TABLE|CREATE\s+OR\s+REPLACE\s+FUNCTION|--\s*\S)/i)
+      const sql = ddlStart >= 0 ? code.slice(ddlStart).trim() : ""
+      return sql && /CREATE\s+(?:TABLE|OR\s+REPLACE\s+FUNCTION)/i.test(sql) ? `${sql}\n` : null
+    }
     if (!code || code.split(/\r?\n/).length > lineLimit) return null
     const syntaxErrors = validateGeneratedFiles([{ path: entry.path, content: code }])
     return syntaxErrors.length === 0 ? code : null
@@ -713,7 +859,27 @@ async function generateFileContent(
      disabled. One compact retry salvages only that file and keeps the rest of
      the generation intact; it is deliberately not an unbounded repair loop. */
   const compactPrompt = `${prompt}\n\nCOMPACT RETRY: keep this file under ${lineLimit} lines. Extract repeated UI into the other listed files. Return only compilable code; do not explain anything.`
-  return readCode(await callCoder(compactPrompt, 4500))
+  const second = readCode(await callCoder(compactPrompt, 4500))
+  if (second) return second
+  const minimalPrompt = `${compactPrompt}\n\nFINAL RETRY: implement the smallest COMPLETE version of this file under ${Math.min(lineLimit, 320)} lines. Close every syntax construct and preserve the declared contracts.`
+  return readCode(await callCoder(minimalPrompt, 3200))
+}
+
+export function generationPhase(path: string, profile: AppProfile = DEFAULT_APP_PROFILE): number {
+  if (!allowsServerCode(profile)) return 0
+  if (path === "db/schema.sql") return 0
+  if (path === "lib/types.ts" || path.startsWith("types/")) return 1
+  if (path.startsWith("lib/")) return 2
+  if (path.startsWith("app/api/") || path.startsWith("hooks/")) return 3
+  if (path.startsWith("components/")) return 4
+  if (path === "app/page.tsx" || /^app\/.*\/page\.tsx$/.test(path)) return 5
+  return 3
+}
+
+export function acceptedRepairContent(path: string, raw: string | null): string | null {
+  const code = raw ? extractCodeBlock(raw) : null
+  if (!code || code.trim().length < 20 || code.split(/\r?\n/).length > MAX_FILE_LINES) return null
+  return validateGeneratedFiles([{ path, content: code }]).length === 0 ? code : null
 }
 
 /** Промпт ремонта файла: инженерные дефекты + текущий код → исправленный файл целиком.
@@ -728,10 +894,15 @@ function buildRepairPrompt(params: {
   defects: string
   brief: DesignBrief
   siblings: string[]
+  context?: Array<{ path: string; content: string }>
   profile?: AppProfile
 }): string {
-  const { name, hint, path, purpose, current, defects, brief, siblings } = params
+  const { name, hint, path, purpose, current, defects, brief, siblings, context = [] } = params
   const profile = params.profile ?? DEFAULT_APP_PROFILE
+  const relatedContext = context
+    .filter((file) => file.path !== path)
+    .map((file) => `FILE: ${file.path}\n${file.content.slice(0, 6000)}`)
+    .join("\n\n---\n\n")
   return `Ты чинишь один файл реального Next.js (App Router, TypeScript, Tailwind) приложения "${name}"${hint ? ` в теме: "${hint}"` : ""}.
 
 Файлы приложения (импортировать можно ТОЛЬКО их):
@@ -749,6 +920,9 @@ ${defects}
 ${current.slice(0, 12000)}
 \`\`\`
 
+RELATED PROJECT CONTEXT (use it to preserve cross-file contracts):
+${relatedContext || "none"}
+
 Требования к ответу:
 - Верни ПОЛНОЕ исправленное содержимое файла, а не патч и не пояснения.
 - Сохрани замысел и вёрстку файла — правь ровно то, что перечислено в дефектах.
@@ -756,6 +930,7 @@ ${current.slice(0, 12000)}
   кроме next, react, react-dom, lucide-react (иконки)${allowsServerCode(profile) ? " и клиента Supabase\n  (@supabase/supabase-js, @supabase/ssr)" : ""}.
 - Если нужен хук или обработчик события — первой строкой файла поставь "use client".
 ${renderRuntimeContract(profile)}
+- When a review defect mentions an interaction, implement the complete workflow in this file: state, handler, matching API route, error handling, and success confirmation. Do not merely hide or disable the control.
 - Верни ТОЛЬКО код в одном \`\`\`tsx блоке.`
 }
 
@@ -773,6 +948,7 @@ export async function repairFileWithAi(params: {
   defects: string
   brief: DesignBrief
   siblings: string[]
+  context?: Array<{ path: string; content: string }>
   profile?: AppProfile
 }): Promise<string | null> {
   if (!isDeepSeekConfigured()) return null
@@ -783,10 +959,10 @@ export async function repairFileWithAi(params: {
     })
     // Repairs are implementation work: DeepSeek applies deterministic/compiler
     // findings, then Claude/Kimi independently review the resulting full project.
-    const text = await callCoder(prompt, 8000)
-    if (!text) return null
-    const code = extractCodeBlock(text)
-    return code && code.trim().length >= 20 ? code : null
+    const first = acceptedRepairContent(params.path, await callCoder(prompt, 8000))
+    if (first) return first
+    const compactPrompt = `${prompt}\n\nCOMPACT RETRY: return a COMPLETE compilable file under ${MAX_FILE_LINES} lines. Close every string, JSX tag, block, and function. Preserve all cross-file contracts.`
+    return acceptedRepairContent(params.path, await callCoder(compactPrompt, 5000))
   } catch (err) {
     captureError("[app-generator] AI-ремонт файла не удался:", err)
     return null
@@ -814,7 +990,9 @@ export type IndependentReview = {
   issues: IndependentReviewIssue[]
 }
 
-const REVIEW_SOURCE_LIMIT = 70_000
+// Review complete files only. Truncating TSX mid-expression creates false
+// syntax findings and can hide routes that appear later in the project.
+const REVIEW_SOURCE_LIMIT = 180_000
 
 function buildIndependentReviewPrompt(
   name: string,
@@ -823,11 +1001,25 @@ function buildIndependentReviewPrompt(
 ): string {
   let remaining = REVIEW_SOURCE_LIMIT
   const sections: string[] = []
-  for (const file of files.filter((item) => /\.(tsx?|css|json|js)$/.test(item.path))) {
-    if (remaining <= 0) break
-    const content = file.content.slice(0, remaining)
-    sections.push(`FILE: ${file.path}\n${content}`)
-    remaining -= content.length
+  const reviewable = files
+    .filter((item) => /\.(tsx?|css|json|js)$/.test(item.path))
+    .sort((a, b) => {
+      const priority = (path: string) =>
+        path === "db/schema.sql" ? 0 :
+        path.startsWith("app/api/") ? 1 :
+        path.startsWith("app/") ? 2 :
+        path.startsWith("components/") ? 3 :
+        path.startsWith("lib/") || path.startsWith("hooks/") ? 4 : 5
+      return priority(a.path) - priority(b.path) || a.path.localeCompare(b.path)
+    })
+  const omitted: string[] = []
+  for (const file of reviewable) {
+    if (file.content.length > remaining) {
+      omitted.push(file.path)
+      continue
+    }
+    sections.push(`FILE: ${file.path}\n${file.content}`)
+    remaining -= file.content.length
   }
 
   return `You are the independent senior reviewer. DeepSeek wrote this application from a plan created by Claude or Kimi.
@@ -839,13 +1031,17 @@ Request: ${hint || "not provided"}
 Check cross-file imports and exports, React/Next.js client-server rules, runtime failures, route completeness,
 interactive behavior, data-flow mistakes, accessibility blockers, and whether the implementation actually fulfills the request.
 Do not report subjective styling preferences. Report only concrete defects with an exact file path.
+Every visible button, link, form, menu, toggle, and row action must have a real handler and complete success/error state.
+For every fetch call, verify that a matching route exists in the complete file inventory below; do not infer a missing route from an omitted file.
 
 Return only JSON:
 {"approved":true,"issues":[]}
 or
 {"approved":false,"issues":[{"path":"app/page.tsx","severity":"error","message":"concrete defect"}]}
 
-${sections.join("\n\n---\n\n")}`
+${sections.join("\n\n---\n\n")}
+
+FILES OMITTED ONLY BECAUSE OF REVIEW BUDGET (do not report defects about these paths): ${omitted.length ? omitted.join(", ") : "none"}`
 }
 
 /** Claude or Kimi independently reviews code authored by DeepSeek. */
@@ -948,19 +1144,36 @@ export async function generateApp(
     /* ФАЗА 1 — КОНТРАКТ. Только списки экспортов, без тел файлов. Выводится кодом
        из манифеста (deriveExportContract), поэтому НЕ стоит ни одного AI-вызова:
        имя экспорта у файла приложения однозначно следует из его пути. */
-    const contract = deriveExportContract(manifest.map((entry) => entry.path))
+    const contract = deriveExportContract(
+      manifest.map((entry) => entry.path),
+      allowsServerCode(profile) ? Object.keys(FULLSTACK_DEPENDENCIES) : [],
+    )
 
-    /* ФАЗА 2 — ТЕЛА. По-прежнему параллельно (скорость не теряем), но каждый файл
-       пишется поверх ОБЩЕГО контракта и больше не угадывает форму импорта соседа. */
-    const generated = await mapWithConcurrency(manifest, FILE_GENERATION_CONCURRENCY, async (entry) => {
-        const content = await generateFileContent(name, hint, manifest, entry, brief, lessons, contract, profile)
+    /* ФАЗА 2 — ТЕЛА. Fullstack строится слоями: schema/types → API/hooks → UI → page.
+       Внутри слоя файлы остаются параллельными, а следующий слой получает уже
+       написанные контракты. Static не платит за эту координацию и идёт одним слоем. */
+    const generated: Array<{ path: string; content: string | null }> = []
+    const phases = [...new Set(manifest.map((entry) => generationPhase(entry.path, profile)))].sort((a, b) => a - b)
+    for (const phase of phases) {
+      const entries = manifest.filter((entry) => generationPhase(entry.path, profile) === phase)
+      const implementedContext = generated
+        .filter((file): file is GeneratedAppFile => typeof file.content === "string")
+      const batch = await mapWithConcurrency(entries, FILE_GENERATION_CONCURRENCY, async (entry) => {
+        const content = await generateFileContent(
+          name, hint, manifest, entry, brief, lessons, contract, profile, implementedContext,
+        )
         return {
           path: entry.path,
           content: content ?? (entry.path === "app/page.tsx" ? renderFallbackPage(brief, name, hint) : null),
         }
       })
+      generated.push(...batch)
+    }
 
-    let files = generated.filter((f): f is GeneratedAppFile => typeof f.content === "string")
+    let files = ensureManifestFiles(
+      generated.filter((f): f is GeneratedAppFile => typeof f.content === "string"),
+      manifest,
+    )
 
     if (!files.some((f) => f.path === "app/page.tsx")) {
       files.push({ path: "app/page.tsx", content: renderFallbackPage(brief, name, hint) })
@@ -969,7 +1182,12 @@ export async function generateApp(
     /* ФАЗА 3 — СВЕРКА С КОНТРАКТОМ ДО ВЫДАЧИ. Расхождение — ошибка, а не
        предупреждение: недостающий файл достраивается по контракту, недостающий
        экспорт дописывается. Всё детерминированно, без AI-вызовов. */
-    const reconciled = reconcileWithContract(files, contract)
+    // Platform scaffold comes last so generated code cannot replace lib/db,
+    // package.json, design tokens, or other runtime-owned files. Including it
+    // in reconciliation also prevents a second placeholder lib/db from being
+    // synthesized for API imports.
+    const projectFiles = mergeGeneratedFiles([...files, ...template])
+    const reconciled = reconcileWithContract(projectFiles, contract)
     files = reconciled.files
     const residual = verifyAgainstContract(files, reconciled.contract)
     if (residual.length > 0) {
@@ -984,8 +1202,11 @@ export async function generateApp(
       )
     }
 
-    const source: "ai" | "fallback" = generated.every((file) => typeof file.content === "string") ? "ai" : "fallback"
-    const allFiles = [...template, ...files]
+    // Individual omissions can be recovered by the engineering contour. The
+    // final release gate, not this intermediate file count, decides whether
+    // the application is complete and independently approved.
+    const source: "ai" | "fallback" = generated.some((file) => typeof file.content === "string") ? "ai" : "fallback"
+    const allFiles = files
     // Кешируем только реальный ai-результат, чтобы не «залипал» fallback.
     return { files: allFiles, source, brief, lessons: reconciled.lessons, cached: false }
   } catch (err) {

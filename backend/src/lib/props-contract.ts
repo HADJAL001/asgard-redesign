@@ -576,10 +576,11 @@ export function propsContractDefects(files: SourceFile[]): IntegrityDefect[] {
           defects.push({
             rule: "prop-unknown",
             severity: "error",
-            file: path,
+            file: decl.path,
             line: usage.line,
             message: `<${usage.tag}> получает проп "${attr.name}", которого нет в сигнатуре компонента (${decl.path}) — либо опечатка в имени, либо проп забыли объявить`,
-            autoFixable: false,
+            autoFixable: true,
+            hint: { consumer: path, component: usage.tag, prop: attr.name, mode: "add-optional" },
           })
         }
       }
@@ -687,4 +688,40 @@ export function repairPropValue(
   if (!edit) return content
   const { start, end, text } = edit
   return content.slice(0, start) + text + content.slice(end)
+}
+
+/** Adds a conservative optional `any` prop to an inline component signature.
+ * It is used only for a closed signature where a real consumer already proves
+ * the prop exists; optional keeps unrelated callers source-compatible. */
+export function repairUnknownProp(content: string, hint: { component: string; prop: string }): string {
+  const ts = loadTs()
+  if (!ts) return content
+  const sf = parse(ts, { path: "repair.tsx", content })
+  if (!sf) return content
+  let edit: { position: number; text: string } | null = null
+  const visit = (node: import("typescript").Node): void => {
+    if (edit) return
+    let name: string | null = null
+    let parameter: import("typescript").ParameterDeclaration | undefined
+    if (ts.isFunctionDeclaration(node) && node.name?.text === hint.component) {
+      name = node.name.text
+      parameter = node.parameters[0]
+    } else if (ts.isVariableStatement(node)) {
+      const declaration = node.declarationList.declarations[0]
+      if (declaration && ts.isIdentifier(declaration.name) && declaration.name.text === hint.component && declaration.initializer && ts.isArrowFunction(declaration.initializer)) {
+        name = declaration.name.text
+        parameter = declaration.initializer.parameters[0]
+      }
+    }
+    if (name && parameter?.type && ts.isTypeLiteralNode(parameter.type)) {
+      if (parameter.type.members.some((member) => ts.isPropertySignature(member) && !!member.name && member.name.getText(sf) === hint.prop)) return
+      const close = parameter.type.getEnd() - 1
+      edit = { position: close, text: `\n  ${hint.prop}?: any;\n` }
+      return
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  const change = edit as { position: number; text: string } | null
+  return change ? `${content.slice(0, change.position)}${change.text}${content.slice(change.position)}` : content
 }
