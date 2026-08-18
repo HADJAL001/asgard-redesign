@@ -515,7 +515,7 @@ export function ProjectDetailView({ projectId }: Props) {
 
         {/* Tabs: Артефакты / Файлы */}
         <div className="mt-10">
-          <div className="flex items-center gap-1 border-b" style={{ borderColor: COLORS.border }}>
+          <div className="flex items-center gap-1 overflow-x-auto border-b whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ borderColor: COLORS.border }}>
             <button
               type="button"
               onClick={() => setTab("artifacts")}

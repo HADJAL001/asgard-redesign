@@ -23,7 +23,7 @@ const GROK_MODEL = process.env.GROK_MODEL || "grok-4-fast" /* grok-2-latest сн
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ""
 const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat"
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash"
 
 export const ARTIFACT_RARITIES = ["common", "rare", "epic", "legendary", "mythic"] as const
 export type AiArtifactRarity = (typeof ARTIFACT_RARITIES)[number]

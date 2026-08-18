@@ -5,6 +5,7 @@ import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import {
   getProjectGenerationReadiness,
+  getVerifiedProjectGenerationReadiness,
   isProjectGenerationConfigured,
   validateGeneratedFiles,
   GeneratedAppFile,
@@ -114,9 +115,9 @@ router.get("/generation-depths", requireAuth, (_req: AuthRequest, res) => {
 })
 
 /* Готовность именно проектного конвейера, а не наличие любого AI-ключа. */
-router.get("/generation-readiness", requireAuth, (_req: AuthRequest, res) => {
-  res.json(getProjectGenerationReadiness())
-})
+router.get("/generation-readiness", requireAuth, asyncHandler(async (_req: AuthRequest, res) => {
+  res.json(await getVerifiedProjectGenerationReadiness())
+}))
 
 /* ---------------- POST /projects/generation-estimate — смета ДО запуска ----------------
    Единственная цифра, которую платформа знала точно ДО генерации, — стоимость в
@@ -556,12 +557,15 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
   /* A verified template needs no provider. A new AI build is rejected before
      quota, makegood, or credit accounting when a mandatory role is missing. */
   const generationPlan = planGeneration({ name: resolvedName, hint: safeHint, depth, profile })
-  if (generationPlan.path === "ai" && !isProjectGenerationConfigured()) {
+  const verifiedReadiness = generationPlan.path === "ai"
+    ? await getVerifiedProjectGenerationReadiness(true)
+    : getProjectGenerationReadiness()
+  if (generationPlan.path === "ai" && !verifiedReadiness.ready) {
     return res.status(503).json({
       error:
-        "Конвейер генерации не готов: для кода нужен DeepSeek, для плана и независимой проверки — Claude или Kimi. Лимит и кредиты не списаны.",
+        "Конвейер генерации не готов: для кода нужен OSGARD 4.0, для плана и независимой проверки — OSGARD 5.0 или OSGARD 4.8. Лимит и кредиты не списаны.",
       code: "GENERATION_PROVIDERS_UNAVAILABLE",
-      readiness: getProjectGenerationReadiness(),
+      readiness: verifiedReadiness,
     })
   }
 
@@ -637,7 +641,13 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
   const paidRight = findMakegoodFor(userId, depth)
   if (paidRight && consumeMakegood(paidRight.id, null)) {
     try {
-      const { project, artifacts, projectId } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth })
+      const { project, artifacts, projectId } = createGeneratedProject({
+        userId,
+        name: resolvedName,
+        hint: safeHint,
+        depth,
+        profile,
+      })
       attachMakegoodProject(paidRight.id, projectId)
       logAudit(userId, "credit", paidRight.credits, "project_generation_makegood", {
         depth,
@@ -751,12 +761,13 @@ router.post("/:id/refine", requireAuth, asyncHandler(async (req: AuthRequest, re
   if (project.status === "generating") {
     return res.status(409).json({ error: "Проект уже в процессе генерации — дождитесь завершения", code: "BUSY" })
   }
-  if (!isProjectGenerationConfigured()) {
+  const verifiedReadiness = await getVerifiedProjectGenerationReadiness(true)
+  if (!verifiedReadiness.ready) {
     return res.status(503).json({
       error:
-        "Конвейер доработки не готов: для кода нужен DeepSeek, для плана и независимой проверки — Claude или Kimi. Доработка и списание не начаты.",
+        "Конвейер доработки не готов: для кода нужен OSGARD 4.0, для плана и независимой проверки — OSGARD 5.0 или OSGARD 4.8. Доработка и списание не начаты.",
       code: "GENERATION_PROVIDERS_UNAVAILABLE",
-      readiness: getProjectGenerationReadiness(),
+      readiness: verifiedReadiness,
     })
   }
 

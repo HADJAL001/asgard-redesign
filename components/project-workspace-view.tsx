@@ -17,7 +17,7 @@
    Мастерская собирает всё в один экран:
      файлы + Monaco  |  живой запуск (WebContainer)  |  чат с Клодом
    и показывает КОНВЕЙЕР сборки — кто именно и что сейчас делает:
-     Замысел → DeepSeek пишет код → Компилятор проверяет → Запуск в браузере → Деплой
+     Замысел → OSGARD 4.0 пишет код → Компилятор проверяет → Запуск в браузере → Деплой
    Состояния конвейера берутся из РЕАЛЬНЫХ сигналов (SSE-стадии генерации,
    ошибки tsc при сохранении, реальная сборка в песочнице, состояние
    WebContainer, deployStatus), а не рисуются для красоты.
@@ -35,6 +35,7 @@ import {
   ArrowLeft, FileCode2, Save, Loader2, AlertTriangle, CheckCircle2, Hammer, Play,
   RefreshCw, ExternalLink, Rocket, Send, Sparkles, Wand2, Boxes, Lightbulb, Bot,
   XCircle, Download, PanelsTopLeft, Coins, ShieldCheck, Wrench, ShieldAlert,
+  Gauge, SlidersHorizontal, type LucideIcon,
 } from "lucide-react"
 import { Navbar } from "./navbar"
 import { DevTopBar } from "./dev-mode/DevTopBar"
@@ -45,7 +46,7 @@ import { GenerationStory } from "./dev-mode/GenerationStory"
 import { WorkshopBackdrop } from "./workshop-backdrop"
 import { ConfirmModal } from "./ui/confirm-modal"
 import { useDevMode } from "@/lib/dev-mode"
-import { useOsgardStore } from "@/lib/store/osgard-store"
+import { useOsgardStore, type RefinementKind } from "@/lib/store/osgard-store"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { API_BASE_URL, apiClient } from "@/lib/api-client"
@@ -61,6 +62,18 @@ const CODE_OPEN_STORAGE_KEY = "osgard.workspace.codeOpen"
 type RunState = "idle" | "starting" | "ready" | "error"
 type StepState = "idle" | "active" | "done" | "error"
 type Pane = "code" | "preview"
+
+const REFINEMENT_MODES: Array<{
+  kind: RefinementKind
+  icon: LucideIcon
+  labelKey: string
+}> = [
+  { kind: "feature", icon: Boxes, labelKey: "refine.modeFeature" },
+  { kind: "design", icon: PanelsTopLeft, labelKey: "refine.modeDesign" },
+  { kind: "fix", icon: Wrench, labelKey: "refine.modeFix" },
+  { kind: "performance", icon: Gauge, labelKey: "refine.modePerformance" },
+  { kind: "custom", icon: SlidersHorizontal, labelKey: "refine.modeCustom" },
+]
 
 /* Инженерный вердикт приходит из стора (см. lib/store/osgard-store.tsx).
    Шаг «Компилятор проверяет» раньше дёргал POST /verify-build — реальную сборку в
@@ -159,6 +172,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
 
   /* ---- чат с Клодом (доработки) ---- */
   const [prompt, setPrompt] = useState("")
+  const [refineKind, setRefineKind] = useState<RefinementKind>("custom")
   const [refining, setRefining] = useState(false)
   const [refineNotice, setRefineNotice] = useState<{ ok: boolean; message: string } | null>(null)
 
@@ -348,7 +362,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     setRefining(true)
     setRefineNotice(null)
     try {
-      const res = await refineProject(projectId, text)
+      const res = await refineProject(projectId, text, refineKind)
       if (res.success) {
         setPrompt("")
         setRefineNotice({ ok: true, message: t("workspace.refineStarted") })
@@ -1403,6 +1417,30 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                     : t("workspace.aiCost", { cost: REFINEMENT_CREDIT_COST })}
                 </span>
               )}
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-5" aria-label={t("refine.kindLabel")}>
+              {REFINEMENT_MODES.map(({ kind, icon: ModeIcon, labelKey }) => {
+                const selected = refineKind === kind
+                return (
+                  <button
+                    key={kind}
+                    type="button"
+                    aria-pressed={selected}
+                    disabled={isGenerating || refining}
+                    onClick={() => setRefineKind(kind)}
+                    className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{
+                      borderColor: selected ? "var(--elite-gold, #f5c451)" : COLORS.border,
+                      background: selected ? "rgb(245 196 81 / 10%)" : "rgb(255 255 255 / 2%)",
+                      color: selected ? "var(--elite-gold, #f5c451)" : COLORS.label,
+                    }}
+                  >
+                    <ModeIcon size={13} strokeWidth={1.75} aria-hidden="true" />
+                    <span className="truncate">{t(labelKey)}</span>
+                  </button>
+                )
+              })}
             </div>
 
             <textarea

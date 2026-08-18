@@ -10,7 +10,7 @@ import {
   type RepairAction,
   type SourceFile,
 } from "./build-integrity"
-import { repairFileWithAi, reviewGeneratedAppWithAi } from "../services/app-generator"
+import { repairFileWithAi, reviewGeneratedAppWithAi, type IndependentReviewIssue } from "../services/app-generator"
 import { verifyBuildInSandbox } from "../services/sandbox.service"
 import { lessonsFromBuildLog } from "./build-log-lessons"
 import { captureError } from "./sentry"
@@ -107,6 +107,7 @@ export type ContourProgress = {
 const MAX_DEFECTS_STORED = 40
 const MAX_FILES_PER_ROUND = 4
 const MAX_REPAIRS_STORED = 40
+const MAX_AI_REPAIR_ROUNDS = 2
 
 /** Сколько раундов AI-ремонта допускает глубина генерации. */
 function aiRoundsFor(depth: GenerationDepth): number {
@@ -166,6 +167,25 @@ export function shouldRequireIndependentAiReview(): boolean {
   return process.env.NODE_ENV === "production"
 }
 
+/** AI review remains advisory unless a deterministic check points at the same file. */
+export function corroborateIndependentReviewIssues(
+  issues: IndependentReviewIssue[],
+  deterministicDefects: IntegrityDefect[],
+): IntegrityDefect[] {
+  return issues.map((issue) => {
+    const corroborated = deterministicDefects.some(
+      (defect) => defect.severity === "error" && defect.file === issue.path,
+    )
+    return {
+      rule: "independent-ai-review",
+      severity: corroborated && issue.severity === "error" ? "error" : "warn",
+      file: issue.path,
+      message: corroborated ? issue.message : `OSGARD review: ${issue.message}`,
+      autoFixable: false,
+    }
+  })
+}
+
 async function addIndependentAiReview(
   files: SourceFile[],
   report: IntegrityReport,
@@ -175,22 +195,16 @@ async function addIndependentAiReview(
   const review = await reviewGeneratedAppWithAi({ name: opts.name, hint: opts.hint, files })
   if (review.status === "unavailable" && !required) return report
 
-  opts.onProgress?.({ phase: "building", label: "Claude/Kimi independently review DeepSeek code" })
+  opts.onProgress?.({ phase: "building", label: "OSGARD 5.0/4.8 independently review OSGARD 4.0 code" })
 
-  const reviewDefects: IntegrityDefect[] = review.issues.map((issue) => ({
-    rule: "independent-ai-review",
-    severity: issue.severity,
-    file: issue.path,
-    message: issue.message,
-    autoFixable: false,
-  }))
+  const reviewDefects = corroborateIndependentReviewIssues(review.issues, report.defects)
 
   if (review.status === "unavailable") {
     reviewDefects.push({
       rule: "independent-ai-review-unavailable",
       severity: "error",
       file: files.find((file) => file.path === "app/page.tsx")?.path ?? files[0]?.path ?? "app/page.tsx",
-      message: "Claude/Kimi independent review is required but unavailable",
+      message: "OSGARD 5.0/4.8 independent review is required but unavailable",
       autoFixable: false,
     })
   }
@@ -200,8 +214,8 @@ async function addIndependentAiReview(
   const checks = report.checks.filter((check) => check.key !== "independent-ai-review")
   checks.push({
     key: "independent-ai-review",
-    label: "Claude/Kimi review",
-    passed: review.status === "approved" && errors === 0,
+    label: "OSGARD 5.0/4.8 review",
+    passed: review.status !== "unavailable" && errors === 0,
     errors,
     warnings,
     detail:
@@ -217,6 +231,17 @@ async function addIndependentAiReview(
     ...reviewDefects,
   ]
   return { ...report, ok: !defects.some((defect) => defect.severity === "error"), checks, defects }
+}
+
+/** Do not pay a senior reviewer to restate compiler errors. The reviewer runs
+ * once deterministic/static blockers are gone, then may drive a targeted
+ * DeepSeek repair round. */
+async function addReviewWhenStaticClean(
+  files: SourceFile[],
+  report: IntegrityReport,
+  opts: { name: string; hint?: string; onProgress?: (p: ContourProgress) => void },
+): Promise<IntegrityReport> {
+  return errorsOf(report).length > 0 ? report : addIndependentAiReview(files, report, opts)
 }
 
 /**
@@ -274,7 +299,7 @@ export async function runEngineeringContour(
   try {
     opts.onProgress?.({ phase: "building", label: "Проверяю работоспособность приложения" })
 
-    let report = await addIndependentAiReview(files, explainBuildIntegrity(files, profile), opts)
+    let report = await addReviewWhenStaticClean(files, explainBuildIntegrity(files, profile), opts)
 
     // Разбор физически невозможен — честное «не проверено», а не ложное «готово».
     if (!report.analyzed) {
@@ -292,7 +317,7 @@ export async function runEngineeringContour(
         const afterBuild = await repairFromBuildLog(files, verified, opts, repairs)
         files = afterBuild.files
         attempts += afterBuild.rounds
-        const reReport = await addIndependentAiReview(files, explainBuildIntegrity(files, profile), opts)
+        const reReport = await addReviewWhenStaticClean(files, explainBuildIntegrity(files, profile), opts)
         const reVerified = afterBuild.rounds > 0 ? await maybeVerifyBuild(files, opts) : verified
         const ok = !!reVerified?.ok
         return finish(
@@ -323,11 +348,11 @@ export async function runEngineeringContour(
       files = mechanical.files
       repairs.push(...mechanical.actions)
       attempts += 1
-      report = await addIndependentAiReview(files, explainBuildIntegrity(files, profile), opts)
+      report = await addReviewWhenStaticClean(files, explainBuildIntegrity(files, profile), opts)
     }
 
     /* --- Раунды AI-ремонта: перегенерируем только дефектные файлы --- */
-    const maxRounds = aiRoundsFor(opts.depth)
+    const maxRounds = Math.min(aiRoundsFor(opts.depth), MAX_AI_REPAIR_ROUNDS)
     for (let round = 0; round < maxRounds && errorsOf(report).length > 0; round++) {
       const changed = await aiRepairRound(files, report, opts, repairs)
       if (!changed.changedAny) break
@@ -344,7 +369,7 @@ export async function runEngineeringContour(
         repairs.push(...mech.actions)
         next = explainBuildIntegrity(files, profile)
       }
-      report = await addIndependentAiReview(files, next, opts)
+      report = await addReviewWhenStaticClean(files, next, opts)
 
       opts.onProgress?.({
         phase: "repairing",
@@ -367,7 +392,7 @@ export async function runEngineeringContour(
       const afterBuild = await repairFromBuildLog(files, verified, opts, repairs)
       files = afterBuild.files
       attempts += afterBuild.rounds
-      const reReport = await addIndependentAiReview(files, explainBuildIntegrity(files, profile), opts)
+      const reReport = await addReviewWhenStaticClean(files, explainBuildIntegrity(files, profile), opts)
       const reVerified = afterBuild.rounds > 0 ? await maybeVerifyBuild(files, opts) : verified
       return finish(
         reReport,

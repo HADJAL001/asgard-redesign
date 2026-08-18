@@ -30,7 +30,7 @@ dotenv.config()
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ""
 const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat"
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash"
 
 const GROK_API_KEY = process.env.GROK_API_KEY || process.env.XAI_API_KEY || ""
 const GROK_API_URL = "https://api.x.ai/v1/chat/completions"

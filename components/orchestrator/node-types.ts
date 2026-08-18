@@ -27,7 +27,7 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     Icon: PremiumClaudeIcon,
     color: "#00D4FF",
     defaultData: {
-      label: "OS 5.0",
+      label: "OSGARD 5.0",
       type: "claude",
       systemPrompt: "",
       temperature: 0.7,
@@ -41,7 +41,7 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     Icon: PremiumDeepseekIcon,
     color: "#4ADE80",
     defaultData: {
-      label: "OS 3.0",
+      label: "OSGARD 4.0",
       type: "deepseek",
       systemPrompt: "",
       temperature: 0.7,
@@ -55,7 +55,7 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     Icon: PremiumGrokIcon,
     color: "#FBBF24",
     defaultData: {
-      label: "OS 3.3",
+      label: "OSGARD 3.3",
       type: "grok",
       systemPrompt: "",
       temperature: 0.7,

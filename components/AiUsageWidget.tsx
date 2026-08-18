@@ -42,9 +42,9 @@ interface AiUsageResponse {
 
 /* ── Конфиги провайдеров ── */
 const PROVIDERS: { key: "claude" | "grok" | "deepseek"; label: string; color: string }[] = [
-  { key: "claude",   label: "OS 5.0",   color: "#F59E0B" },
-  { key: "grok",     label: "OS 3.3",   color: "#A855F7" },
-  { key: "deepseek", label: "OS 3.0",   color: "#06B6D4" },
+  { key: "claude",   label: "OSGARD 5.0", color: "#F59E0B" },
+  { key: "grok",     label: "OSGARD 3.3", color: "#A855F7" },
+  { key: "deepseek", label: "OSGARD 4.0", color: "#06B6D4" },
 ]
 
 const PLAN_LABELS: Record<string, string> = {

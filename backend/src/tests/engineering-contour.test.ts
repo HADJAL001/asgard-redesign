@@ -22,12 +22,21 @@ import type { SourceFile } from '../lib/build-integrity';
 let runEngineeringContour: typeof import('../lib/project-engineering').runEngineeringContour;
 let shouldVerifyBuild: typeof import('../lib/project-engineering').shouldVerifyBuild;
 let summarizeVerdict: typeof import('../lib/project-engineering').summarizeVerdict;
+let corroborateIndependentReviewIssues: typeof import('../lib/project-engineering').corroborateIndependentReviewIssues;
 let brief: import('../lib/design-system').DesignBrief;
 
 before(async () => {
   process.env.DB_PATH = ':memory:';
+  process.env.OSGARD_REQUIRE_AI_REVIEW = '0'; // deterministic unit suite: never call paid providers
+  process.env.CLAUDE_API_KEY = '';
+  process.env.ANTHROPIC_API_KEY = '';
+  process.env.KIMI_API_KEY = '';
+  process.env.MOONSHOT_API_KEY = '';
+  process.env.DEEPSEEK_API_KEY = '';
+  process.env.GROK_API_KEY = '';
+  process.env.XAI_API_KEY = '';
   process.env.OSGARD_VERIFY_BUILD = '0'; // тесты не зависят от наличия Docker
-  ({ runEngineeringContour, shouldVerifyBuild, summarizeVerdict } = await import('../lib/project-engineering'));
+  ({ runEngineeringContour, shouldVerifyBuild, summarizeVerdict, corroborateIndependentReviewIssues } = await import('../lib/project-engineering'));
   const ds = await import('../lib/design-system');
   brief = ds.deriveDesignBrief({ name: 'Каталог', theme: 'shop' });
 });
@@ -182,4 +191,20 @@ test('контур сохраняет файлы, которые не трога
     outcome.files.find((f) => f.path === 'lib/format.ts'),
     untouched,
   );
+});
+
+test('неподтверждённое замечание независимой проверки остаётся предупреждением', () => {
+  const defects = corroborateIndependentReviewIssues(
+    [{ path: 'app/page.tsx', severity: 'error', message: 'Неподтверждённая претензия' }],
+    [],
+  );
+  assert.equal(defects[0]?.severity, 'warn');
+});
+
+test('замечание независимой проверки блокирует только при детерминированном подтверждении', () => {
+  const defects = corroborateIndependentReviewIssues(
+    [{ path: 'app/page.tsx', severity: 'error', message: 'Импорт не существует' }],
+    [{ rule: 'import-missing', severity: 'error', file: 'app/page.tsx', message: 'Модуль не найден', autoFixable: false }],
+  );
+  assert.equal(defects[0]?.severity, 'error');
 });

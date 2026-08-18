@@ -8,6 +8,11 @@ import {
   isClaudeConfigured,
   isDeepSeekConfigured,
   isKimiConfigured,
+  markProviderRuntimeFailure,
+  probeClaude,
+  probeDeepSeek,
+  probeKimi,
+  type ProviderProbe,
 } from "./ai-router"
 import { captureError } from "../lib/sentry"
 import {
@@ -144,33 +149,78 @@ const CODER_CHAIN: RawProvider[] = [callDeepSeekRaw]
 const REVIEWER_CHAIN: RawProvider[] = [callClaudeRaw, callKimiRaw]
 const GENERAL_CHAIN: RawProvider[] = [callClaudeRaw, callKimiRaw, callDeepSeekRaw, callGrokRaw]
 
-async function callProviderChain(chain: RawProvider[], prompt: string, maxTokens: number): Promise<string | null> {
-  for (const provider of chain) {
+const MAX_MANIFEST_FILES = 14
+const MAX_FILE_LINES = 650
+const MAX_PAGE_LINES = 240
+const FILE_GENERATION_CONCURRENCY = 3
+
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const output: R[] = new Array(items.length)
+  let cursor = 0
+  async function worker() {
+    for (;;) {
+      const index = cursor++
+      if (index >= items.length) return
+      output[index] = await fn(items[index])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()))
+  return output
+}
+
+export async function firstAcceptedProviderResponse(
+  chain: RawProvider[],
+  prompt: string,
+  maxTokens: number,
+  accepts: (response: string) => boolean = (response) => response.trim().length > 0,
+  onRejected?: (index: number, response: string) => void,
+): Promise<string | null> {
+  for (let index = 0; index < chain.length; index += 1) {
+    const provider = chain[index]
     const result = await provider(prompt, maxTokens)
-    if (result) return result
+    if (result && accepts(result)) return result
+    if (result) onRejected?.(index, result)
   }
   return null
 }
 
+function rejectInvalidReasoningResponse(index: number): void {
+  markProviderRuntimeFailure(index === 0 ? "claude" : "kimi", "invalid_structured_response")
+}
+
 /** Architecture and product planning belong to Claude, with Kimi as the primary fallback. */
 export function callPlanner(prompt: string, maxTokens: number): Promise<string | null> {
-  return callProviderChain(PLANNER_CHAIN, prompt, maxTokens)
+  return firstAcceptedProviderResponse(
+    PLANNER_CHAIN,
+    prompt,
+    maxTokens,
+    (response) => extractJson(response) !== null,
+    rejectInvalidReasoningResponse,
+  )
 }
 
 /** DeepSeek alone implements the Claude/Kimi plan. */
 export function callCoder(prompt: string, maxTokens: number): Promise<string | null> {
-  return callProviderChain(CODER_CHAIN, prompt, maxTokens)
+  return firstAcceptedProviderResponse(CODER_CHAIN, prompt, maxTokens)
 }
 
 /** Review is independent from the DeepSeek coding role. */
 export function callReviewer(prompt: string, maxTokens: number): Promise<string | null> {
-  return callProviderChain(REVIEWER_CHAIN, prompt, maxTokens)
+  return firstAcceptedProviderResponse(
+    REVIEWER_CHAIN,
+    prompt,
+    maxTokens,
+    (response) => extractJson(response) !== null,
+    rejectInvalidReasoningResponse,
+  )
 }
 
 export type ProjectGenerationReadiness = {
   ready: boolean
   roles: { planner: boolean; coder: boolean; reviewer: boolean }
   missing: Array<"planner" | "coder" | "reviewer">
+  checkedAt?: number
+  providers?: { deepSeek: ProviderProbe; claude: ProviderProbe; kimi: ProviderProbe }
 }
 
 /** Pure resolver kept separate so the strict provider contract is easy to test. */
@@ -197,6 +247,35 @@ export function getProjectGenerationReadiness(): ProjectGenerationReadiness {
   })
 }
 
+let verifiedReadinessCache: { expiresAt: number; value: ProjectGenerationReadiness } | null = null
+
+export async function getVerifiedProjectGenerationReadiness(
+  force = false,
+): Promise<ProjectGenerationReadiness> {
+  const now = Date.now()
+  if (!force && verifiedReadinessCache && verifiedReadinessCache.expiresAt > now) {
+    return verifiedReadinessCache.value
+  }
+
+  const [deepSeek, claude, kimi] = await Promise.all([probeDeepSeek(), probeClaude(), probeKimi()])
+  const resolved = resolveProjectGenerationReadiness({
+    deepSeek: deepSeek.available,
+    claude: claude.available,
+    kimi: kimi.available,
+  })
+  const value: ProjectGenerationReadiness = {
+    ...resolved,
+    checkedAt: now,
+    providers: { deepSeek, claude, kimi },
+  }
+  const configuredTtl = Number(process.env.AI_PROVIDER_PREFLIGHT_TTL_MS)
+  const ttl = Number.isFinite(configuredTtl)
+    ? Math.min(30 * 60_000, Math.max(10_000, Math.round(configuredTtl)))
+    : 5 * 60_000
+  verifiedReadinessCache = { expiresAt: now + ttl, value }
+  return value
+}
+
 export function isProjectGenerationConfigured(): boolean {
   return getProjectGenerationReadiness().ready
 }
@@ -207,7 +286,7 @@ export function isProjectReviewerConfigured(): boolean {
 
 /** Compatibility alias for existing reasoning callers. */
 export function callAnyProvider(prompt: string, maxTokens: number): Promise<string | null> {
-  return callProviderChain(GENERAL_CHAIN, prompt, maxTokens)
+  return firstAcceptedProviderResponse(GENERAL_CHAIN, prompt, maxTokens)
 }
 
 /** Достаёт код из ```-фенса ответа модели (в отличие от extractJson — без JSON.parse,
@@ -464,6 +543,8 @@ ${brief.layout.map((l) => `- ${l}`).join("\n")}
 - Обязательно включи "app/page.tsx". Не экономь на количестве файлов и компонентов —
   раскладывай интерфейс так, как это сделал бы опытный frontend-разработчик на реальном
   проекте (отдельные компоненты, hooks/, lib/ для клиентской логики).
+- Return 8-${MAX_MANIFEST_FILES} source files. app/page.tsx must only compose imported screens/components and stay under 180 lines.
+- Put each major workflow in its own component. No generated file may exceed ${MAX_FILE_LINES} lines.
 - Спроектируй ПРОДУКТ, а не витрину: продумай реальные экраны и состояния (пустое,
   загрузка, ошибка), а не одну страницу с текстом.
 - Пути только внутри app/, components/, hooks/ или lib/; расширение .tsx или .ts.
@@ -507,17 +588,33 @@ async function generateManifest(
         : /^(app|components|hooks|lib|utils|types)\/[\w\-/]+\.tsx?$/.test(f.path),
     )
     .filter((f: ManifestEntry) => !RESERVED_PATHS.has(f.path.toLowerCase()))
-    .slice(0, 40)
+    .slice(0, MAX_MANIFEST_FILES)
 
   if (!entries.some((f) => f.path === "app/page.tsx")) {
     entries.unshift({ path: "app/page.tsx", purpose: "Главная страница приложения" })
   }
 
-  return entries.length > 0 ? entries : null
+  return entries.length >= 8 ? entries : null
 }
 
-function fallbackManifest(): ManifestEntry[] {
-  return [{ path: "app/page.tsx", purpose: "Главная страница приложения" }]
+function fallbackManifest(profile: AppProfile = DEFAULT_APP_PROFILE): ManifestEntry[] {
+  const entries: ManifestEntry[] = [
+    { path: "app/page.tsx", purpose: "Тонкая композиция экранов приложения без большой встроенной разметки" },
+    { path: "components/AppShell.tsx", purpose: "Навигационная оболочка продукта" },
+    { path: "components/OverviewDashboard.tsx", purpose: "Главный обзор с метриками и действиями" },
+    { path: "components/PrimaryWorkspace.tsx", purpose: "Основной рабочий процесс продукта" },
+    { path: "components/RecordsTable.tsx", purpose: "Рабочая таблица данных с состояниями" },
+    { path: "components/TaskPanel.tsx", purpose: "Панель задач и следующих действий" },
+    { path: "hooks/useAppData.ts", purpose: "Клиентское состояние и загрузка данных" },
+    { path: "lib/types.ts", purpose: "Общие типы предметной области" },
+  ]
+  if (allowsServerCode(profile)) {
+    entries.push(
+      { path: "app/api/records/route.ts", purpose: "API чтения и записи основных сущностей" },
+      { path: "db/schema.sql", purpose: "Идемпотентная схема основных таблиц приложения" },
+    )
+  }
+  return entries
 }
 
 /** Промпт содержимого файла. Ключевых контрактов здесь ДВА, и оба нужны потому,
@@ -600,12 +697,23 @@ async function generateFileContent(
   contract: ExportContract,
   profile: AppProfile = DEFAULT_APP_PROFILE,
 ): Promise<string | null> {
-  const text = await callCoder(
-    buildFilePrompt(name, hint, manifest, entry, brief, lessons, contract, profile),
-    8000,
-  )
-  if (!text) return null
-  return extractCodeBlock(text)
+  const prompt = buildFilePrompt(name, hint, manifest, entry, brief, lessons, contract, profile)
+  const lineLimit = entry.path === "app/page.tsx" ? MAX_PAGE_LINES : MAX_FILE_LINES
+  const readCode = (response: string | null): string | null => {
+    const code = response ? extractCodeBlock(response) : null
+    if (!code || code.split(/\r?\n/).length > lineLimit) return null
+    const syntaxErrors = validateGeneratedFiles([{ path: entry.path, content: code }])
+    return syntaxErrors.length === 0 ? code : null
+  }
+
+  const first = readCode(await callCoder(prompt, 6000))
+  if (first) return first
+
+  /* V4 can spend its whole answer on a large component even with thinking
+     disabled. One compact retry salvages only that file and keeps the rest of
+     the generation intact; it is deliberately not an unbounded repair loop. */
+  const compactPrompt = `${prompt}\n\nCOMPACT RETRY: keep this file under ${lineLimit} lines. Extract repeated UI into the other listed files. Return only compilable code; do not explain anything.`
+  return readCode(await callCoder(compactPrompt, 4500))
 }
 
 /** Промпт ремонта файла: инженерные дефекты + текущий код → исправленный файл целиком.
@@ -835,7 +943,7 @@ export async function generateApp(
     const brief = options?.brief ?? (await directDesign(name, hint, baseBrief))
     const template = staticTemplateFiles(name, brief, description, profile)
 
-    const manifest = (await generateManifest(name, hint, brief, profile)) || fallbackManifest()
+    const manifest = (await generateManifest(name, hint, brief, profile)) || fallbackManifest(profile)
 
     /* ФАЗА 1 — КОНТРАКТ. Только списки экспортов, без тел файлов. Выводится кодом
        из манифеста (deriveExportContract), поэтому НЕ стоит ни одного AI-вызова:
@@ -844,15 +952,13 @@ export async function generateApp(
 
     /* ФАЗА 2 — ТЕЛА. По-прежнему параллельно (скорость не теряем), но каждый файл
        пишется поверх ОБЩЕГО контракта и больше не угадывает форму импорта соседа. */
-    const generated = await Promise.all(
-      manifest.map(async (entry) => {
+    const generated = await mapWithConcurrency(manifest, FILE_GENERATION_CONCURRENCY, async (entry) => {
         const content = await generateFileContent(name, hint, manifest, entry, brief, lessons, contract, profile)
         return {
           path: entry.path,
           content: content ?? (entry.path === "app/page.tsx" ? renderFallbackPage(brief, name, hint) : null),
         }
-      }),
-    )
+      })
 
     let files = generated.filter((f): f is GeneratedAppFile => typeof f.content === "string")
 

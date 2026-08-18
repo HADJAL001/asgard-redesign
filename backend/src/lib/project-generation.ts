@@ -982,7 +982,7 @@ async function runAppGenerationJobInner(
     const designReport = explainDesignQuality(files, brief)
     const release = decideProjectRelease(engineering.report)
     const incompleteGeneration = !template && source !== "ai"
-      ? "DeepSeek did not return every file from the Claude/Kimi plan"
+      ? "OSGARD 4.0 did not return every file from the OSGARD 5.0/4.8 plan"
       : null
     const finalStatus = incompleteGeneration ? "failed" : release.status
     const finalError = incompleteGeneration ?? release.message ?? engineeringError
@@ -1365,53 +1365,63 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
         progress: 0.3,
       })
 
-      const engineering = await runEngineeringContour(rows, {
-        name: project.name,
-        hint: project.description ?? undefined,
-        brief,
-        depth: "standard",
-        profile,
-        logLabel: `repair-${project.id}`,
-        onProgress: (p) =>
-          emitGenerationStage({
-            projectId: project.id,
-            stage: p.phase,
-            label: p.label,
-            progress: p.phase === "building" ? 0.5 : 0.7,
-            defects: p.defects,
+      const usageRunId = beginGenerationUsageRun({ projectId: project.id, userId: params.userId, kind: "repair", depth: "standard" })
+      let repairTelemetry: TelemetrySnapshot | null = null
+      let engineering: Awaited<ReturnType<typeof runEngineeringContour>>
+      try {
+        const measured = await withGenerationTelemetry(
+          () => runEngineeringContour(rows, {
+            name: project.name,
+            hint: project.description ?? undefined,
+            brief,
+            depth: "standard",
+            profile,
+            logLabel: `repair-${project.id}`,
+            onProgress: (p) =>
+              emitGenerationStage({
+                projectId: project.id,
+                stage: p.phase,
+                label: p.label,
+                progress: p.phase === "building" ? 0.5 : 0.7,
+                defects: p.defects,
+              }),
           }),
-      })
-
-      const insertFile = db.prepare(
-        `INSERT INTO project_files (project_id, path, content, updated_at)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT(project_id, path) DO UPDATE SET content = excluded.content, updated_at = excluded.updated_at`,
-      )
-      const now = Date.now()
-      const keptPaths = new Set(engineering.files.map((f) => f.path))
-      for (const file of engineering.files) {
-        insertFile.run(project.id, file.path, file.content, now)
+          undefined,
+          (snapshot) => {
+            repairTelemetry = snapshot
+            updateGenerationUsageRun(usageRunId, snapshot)
+          },
+        )
+        repairTelemetry = measured.telemetry
+        engineering = measured.result
+      } catch (error) {
+        finishGenerationUsageRun(usageRunId, "failed", repairTelemetry)
+        throw error
       }
-      // Контур мог снести файл, несовместимый со сборкой (например, api-роут) —
-      // тогда его надо убрать и из проекта, иначе вердикт разойдётся с содержимым.
-      const removeFile = db.prepare(`DELETE FROM project_files WHERE project_id = ? AND path = ?`)
-      for (const row of rows) {
-        if (!keptPaths.has(row.path)) removeFile.run(project.id, row.path)
-      }
+      persistProjectUsageDelta(project.id, repairTelemetry!, null)
 
       const release = decideProjectRelease(engineering.report)
+      finishGenerationUsageRun(usageRunId, release.status === "ready" ? "completed" : "failed", repairTelemetry)
+      /* A failed repair candidate is diagnostic evidence, not a new project
+         version. Keep the last usable files intact until the complete static,
+         build and independent-review contour accepts the candidate. */
+      commitAcceptedRepairFiles(project.id, rows, engineering.files, release.status === "ready")
+
       db.prepare(`UPDATE projects SET status = ?, generation_error = ? WHERE id = ?`).run(
         release.status,
         release.message ?? summarizeVerdict(engineering.report),
         project.id,
       )
       persistEngineering(project.id, engineering.report)
+      persistGenerationMeter(project.id, engineering.report)
       // Ремонт — такой же источник знания о слабых местах генератора, как и сама
       // генерация: дефекты, найденные здесь, тоже идут в память ошибок платформы —
       // включая формулировку урока для правил, которых нет в рукописном словаре.
       recordLessons(engineering.report.lessons)
       learnFromGenerationInBackground(engineering.report, engineering.files)
-      persistDesign(project.id, brief, explainDesignQuality(engineering.files, brief))
+      if (release.status === "ready") {
+        persistDesign(project.id, brief, explainDesignQuality(engineering.files, brief))
+      }
 
       emitGenerationStage({
         projectId: project.id,
@@ -1441,6 +1451,36 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
     }
   })()
 
+  return true
+}
+
+/** Atomically promote a repair candidate only after the release gate accepts it. */
+export function commitAcceptedRepairFiles(
+  projectId: number,
+  previousFiles: GeneratedAppFile[],
+  candidateFiles: GeneratedAppFile[],
+  accepted: boolean,
+): boolean {
+  if (!accepted) return false
+
+  const commitFiles = db.transaction(() => {
+    const insertFile = db.prepare(
+      `INSERT INTO project_files (project_id, path, content, updated_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(project_id, path) DO UPDATE SET content = excluded.content, updated_at = excluded.updated_at`,
+    )
+    const now = Date.now()
+    const keptPaths = new Set(candidateFiles.map((file) => file.path))
+    for (const file of candidateFiles) {
+      insertFile.run(projectId, file.path, file.content, now)
+    }
+
+    const removeFile = db.prepare(`DELETE FROM project_files WHERE project_id = ? AND path = ?`)
+    for (const row of previousFiles) {
+      if (!keptPaths.has(row.path)) removeFile.run(projectId, row.path)
+    }
+  })
+  commitFiles()
   return true
 }
 

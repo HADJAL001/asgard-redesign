@@ -25,7 +25,11 @@ export const REFINEMENT_CREDIT_COST = 20
 /** Сколько бесплатных доработок пользователь уже израсходовал (cost_credits = 0). */
 export function usedFreeRefinements(userId: number): number {
   const row = db
-    .prepare(`SELECT COUNT(*) AS n FROM project_refinements WHERE user_id = ? AND cost_credits = 0`)
+    // A failed run delivered no refinement and must not consume the user's grant.
+    .prepare(
+      `SELECT COUNT(*) AS n FROM project_refinements
+       WHERE user_id = ? AND cost_credits = 0 AND status IN ('generating', 'ready')`,
+    )
     .get(userId) as { n: number }
   return row?.n ?? 0
 }

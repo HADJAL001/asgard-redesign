@@ -24,6 +24,7 @@ import {
 import { Navbar } from "./navbar"
 import { apiClient } from "@/lib/api-client"
 import { useAuth, useRequireAuth } from "@/lib/auth-store"
+import { displayAiModelName } from "@/lib/ai-model-labels"
 
 /* ---- Palette ----
    bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E */
@@ -798,7 +799,7 @@ export function AdminView() {
                         className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[12px]"
                         style={{ border: `1px solid ${BORDER}`, color: "rgba(255,255,255,0.72)" }}
                       >
-                        <span style={{ color: ACCENT }}>{provider}</span>
+                        <span style={{ color: ACCENT }}>{displayAiModelName(provider)}</span>
                         {new Intl.NumberFormat("ru-RU").format(usage.tokens)} токенов / {usage.calls} вызовов
                       </span>
                     ))}

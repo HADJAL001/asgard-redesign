@@ -303,6 +303,8 @@ function NavDrawer({
     return () => document.removeEventListener("keydown", onKeyDown)
   }, [open, onClose])
 
+  if (!open) return null
+
   return (
     <>
       <div
@@ -414,7 +416,7 @@ export function Navbar() {
       {/* Logo — 24px inset */}
       <Link
         href="/"
-        className="pl-6 flex items-baseline gap-2 transition-opacity hover:opacity-90"
+        className="flex items-baseline gap-2 pl-4 transition-opacity hover:opacity-90 sm:pl-6"
         aria-label={t("nav.homeAria")}
       >
         <span
@@ -496,7 +498,7 @@ export function Navbar() {
           flex-shrink-0: этот кластер не должен сжиматься под давлением core nav —
           именно отсутствие этого свойства раньше давало визуальную тесноту на
           768–1023px (см. min-w-0 у соседнего nav выше). */}
-      <div className="ml-auto flex shrink-0 items-center gap-5 pr-6">
+      <div className="ml-auto flex min-w-0 shrink-0 items-center gap-2 pr-3 sm:gap-3 sm:pr-4 lg:gap-5 lg:pr-6">
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
@@ -521,7 +523,7 @@ export function Navbar() {
           href="/about"
           aria-label={t("nav.about")}
           aria-current={isActive("/about") ? "page" : undefined}
-          className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/5"
+          className="hidden items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/5 sm:flex"
           style={{ color: "var(--color-gold)", border: "1px solid var(--color-gold)" }}
         >
           <HelpCircle size={16} strokeWidth={1.9} aria-hidden="true" />
@@ -556,8 +558,12 @@ export function Navbar() {
             )
           })}
         </div>
-        <DevModeSwitch />
-        <LanguageSwitcher />
+        <div className="hidden sm:block">
+          <DevModeSwitch />
+        </div>
+        <div className="hidden md:block">
+          <LanguageSwitcher />
+        </div>
         <Link
           href="/notifications"
           aria-label={t("nav.notifications")}
@@ -568,7 +574,7 @@ export function Navbar() {
           <Bell size={18} strokeWidth={1.5} aria-hidden="true" />
           <Badge count={isAuthenticated ? unreadCount : 0} />
           {showNotificationsLabel && (
-            <span className="text-[12px] transition-opacity" aria-hidden="true">
+            <span className="hidden text-[12px] transition-opacity min-[1600px]:block" aria-hidden="true">
               {t("nav.notifications")}
             </span>
           )}
@@ -577,13 +583,13 @@ export function Navbar() {
           href="/messages"
           aria-label={t("nav.messages")}
           aria-current={isActive("/messages") ? "page" : undefined}
-          className="relative flex items-center gap-1.5 transition-colors hover:text-white"
+          className="relative hidden items-center gap-1.5 transition-colors hover:text-white md:flex"
           style={{ color: isActive("/messages") ? "var(--color-gold)" : "#6A6A8A" }}
         >
           <Mail size={18} strokeWidth={1.5} aria-hidden="true" />
           <Badge count={0} />
           {showMessagesLabel && (
-            <span className="text-[12px] transition-opacity" aria-hidden="true">
+            <span className="hidden text-[12px] transition-opacity min-[1600px]:block" aria-hidden="true">
               {t("nav.messages")}
             </span>
           )}

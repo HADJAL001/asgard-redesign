@@ -8,8 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://localhost:3003",
-        "EXPO_PUBLIC_GARD_API_URL": "https://api.gard.vpn"
+        "EXPO_PUBLIC_API_URL": "http://localhost:3003"
       }
     },
     "preview": {
@@ -19,25 +18,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging-api.osgard.example.com",
-        "EXPO_PUBLIC_GARD_API_URL": "https://staging-api.gard.vpn",
+        "EXPO_PUBLIC_API_URL": "https://osgardnewworld.com/api",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
-      }
-    },
-    "vpn-test": {
-      "extends": "development",
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk",
-        "gradleCommand": ":app:assembleDebug"
-      },
-      "ios": {
-        "simulator": false
-      },
-      "env": {
-        "EXPO_PUBLIC_API_URL": "http://localhost:3003",
-        "EXPO_PUBLIC_GARD_API_URL": "https://api.gard.vpn",
-        "EXPO_PUBLIC_VPN_DEBUG": "true"
       }
     },
     "production": {
@@ -51,8 +33,7 @@
         "resourceClass": "m-medium"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.osgard.app",
-        "EXPO_PUBLIC_GARD_API_URL": "https://api.gard.vpn",
+        "EXPO_PUBLIC_API_URL": "https://osgardnewworld.com/api",
         "EXPO_PUBLIC_SENTRY_DSN": "${SENTRY_DSN}",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }

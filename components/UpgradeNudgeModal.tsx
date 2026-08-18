@@ -44,7 +44,7 @@ const PERKS = [
     color: "#F59E0B",
     glow: "rgba(245,158,11,0.15)",
     title: "Supreme — $99/мес",
-    desc: "Оркестратор: 10 OS 5.0 + 10 OS 3.3 + 10 OS 3.0/мес",
+    desc: "Оркестратор: 10 OSGARD 5.0 + 10 OSGARD 3.3 + 10 OSGARD 4.0/мес",
   },
   {
     Icon: Sparkles,
@@ -58,7 +58,7 @@ const PERKS = [
     color: "#34D399",
     glow: "rgba(52,211,153,0.15)",
     title: "Оркестратор AI-цепочек",
-    desc: "OS 5.0 → OS 3.3 → OS 3.0 в одном пайплайне",
+    desc: "OSGARD 5.0 → OSGARD 3.3 → OSGARD 4.0 в одном пайплайне",
   },
 ]
 

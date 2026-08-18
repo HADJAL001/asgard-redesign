@@ -30,8 +30,10 @@ const IMMUTABLE_PATHS = new Set([
 ])
 const SOURCE_EXTENSION = /\.(?:tsx?|jsx?|css|json|sql)$/i
 const SAFE_NEW_PATH = /^(?:app|components|hooks|lib|utils|types|db)\/[a-zA-Z0-9._@()[\]-]+(?:\/[a-zA-Z0-9._@()[\]-]+)*$/
-const PLAN_SOURCE_LIMIT = 70_000
-const CODER_CONTEXT_LIMIT = 42_000
+const PLAN_SOURCE_LIMIT = 50_000
+const CODER_CONTEXT_LIMIT = 24_000
+const CODER_CONTEXT_PER_FILE_LIMIT = 6_000
+const MAX_REFINEMENT_FILES = 6
 
 function normalizePath(value: string): string {
   return value.trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+/g, "/")
@@ -62,7 +64,7 @@ export function parseRefinementPlan(value: unknown, files: GeneratedAppFile[]): 
     const action = requestedAction === "delete" ? "delete" : existing.has(path) ? "modify" : "create"
     seen.add(path)
     changes.push({ path, action, purpose: candidate.purpose.trim().slice(0, 500) })
-    if (changes.length >= 14) break
+    if (changes.length >= MAX_REFINEMENT_FILES) break
   }
   if (changes.length === 0) return null
 
@@ -88,6 +90,69 @@ function renderFiles(files: GeneratedAppFile[], limit: number, excludePath?: str
     const content = file.content.slice(0, remaining)
     sections.push(`FILE: ${file.path}\n${content}`)
     remaining -= content.length
+  }
+  return sections.join("\n\n---\n\n")
+}
+
+/** Put direct consumers and dependencies in the coder context before unrelated files.
+ * A fixed character budget otherwise hides the actual prop contract behind early files. */
+export function rankRefinementContext(
+  files: GeneratedAppFile[],
+  targetPath: string,
+  current: string | null,
+  hints = "",
+): GeneratedAppFile[] {
+  const normalizedTarget = normalizePath(targetPath)
+  const targetStem = normalizedTarget.split("/").pop()?.replace(/\.(?:tsx?|jsx?|css|json|sql)$/i, "") ?? ""
+  const indexed = files.map((file, index) => ({ file, index }))
+  return indexed
+    .sort((left, right) => {
+      const score = (candidate: GeneratedAppFile): number => {
+        if (normalizePath(candidate.path) === normalizedTarget) return -1
+        const candidateStem = normalizePath(candidate.path)
+          .split("/")
+          .pop()
+          ?.replace(/\.(?:tsx?|jsx?|css|json|sql)$/i, "") ?? ""
+        let value = 0
+        if (targetStem && candidate.content.includes(targetStem)) value += 6
+        if (candidateStem && `${current ?? ""}\n${hints}`.includes(candidateStem)) value += 4
+        if (candidate.path.split("/").slice(0, -1).join("/") === normalizedTarget.split("/").slice(0, -1).join("/")) value += 1
+        return value
+      }
+      return score(right.file) - score(left.file) || left.index - right.index
+    })
+    .map(({ file }) => file)
+}
+
+function focusedContext(content: string, focusTerm: string): string {
+  if (content.length <= CODER_CONTEXT_PER_FILE_LIMIT) return content
+  const lastFocus = focusTerm ? content.lastIndexOf(focusTerm) : -1
+  if (lastFocus < 0) return content.slice(0, CODER_CONTEXT_PER_FILE_LIMIT)
+
+  const headLength = 1_600
+  const windowLength = CODER_CONTEXT_PER_FILE_LIMIT - headLength
+  const windowStart = Math.max(headLength, lastFocus - Math.floor(windowLength / 2))
+  return `${content.slice(0, headLength)}\n/* ... focused context omitted ... */\n${content.slice(windowStart, windowStart + windowLength)}`
+}
+
+function renderCoderContext(params: {
+  files: GeneratedAppFile[]
+  targetPath: string
+  current: string | null
+  hints: string
+}): string {
+  const targetStem = normalizePath(params.targetPath)
+    .split("/")
+    .pop()
+    ?.replace(/\.(?:tsx?|jsx?|css|json|sql)$/i, "") ?? ""
+  const ranked = rankRefinementContext(params.files, params.targetPath, params.current, params.hints)
+  let remaining = CODER_CONTEXT_LIMIT
+  const sections: string[] = []
+  for (const file of ranked) {
+    if (file.path === params.targetPath || remaining <= 0) continue
+    const excerpt = focusedContext(file.content, targetStem).slice(0, remaining)
+    sections.push(`FILE: ${file.path}\n${excerpt}`)
+    remaining -= excerpt.length
   }
   return sections.join("\n\n---\n\n")
 }
@@ -166,6 +231,8 @@ Rules:
 - Return the COMPLETE final contents of ${params.target.path}, never a patch or explanation.
 - Preserve all behavior in the current file that the plan does not explicitly change.
 - Keep imports and exports consistent with the listed project files.
+- Inspect every listed call site before defining component props. Keep exactly one default export.
+- Use the actual hook and type shapes shown in context; never invent nested collections or aliases.
 - Do not add packages. Use only dependencies already present in the source.
 - Implement real interactions and state; no TODOs, fake buttons, placeholder handlers, or prose describing missing behavior.
 - Follow these platform lessons:
@@ -175,7 +242,12 @@ CURRENT TARGET FILE:
 ${params.current ?? "(new file)"}
 
 OTHER PROJECT FILES (context, may be truncated):
-${renderFiles(params.files, CODER_CONTEXT_LIMIT, params.target.path)}
+${renderCoderContext({
+  files: params.files,
+  targetPath: params.target.path,
+  current: params.current,
+  hints: `${params.request}\n${params.target.purpose}\n${params.plan.summary}`,
+})}
 
 Return only the file contents in one fenced code block.`
 }

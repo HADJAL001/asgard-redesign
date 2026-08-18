@@ -32,6 +32,7 @@ import { useEffect, useState } from "react"
 import { Gauge, Coins, Timer, Bot, CheckCircle2, Wrench, HelpCircle } from "lucide-react"
 import type { LiveMeter } from "@/hooks/useProjectGenerationStream"
 import type { GenerationMeter } from "@/lib/store/osgard-store"
+import { displayAiModelName } from "@/lib/ai-model-labels"
 
 /* ---------------- форматирование ---------------- */
 
@@ -309,7 +310,7 @@ export function GenerationMeterCard({ meter }: { meter: GenerationMeter | null |
         <ul className="mt-3.5 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-[11.5px]">
           {Object.entries(detail.byProvider).map(([provider, stat]) => (
             <li key={provider} style={{ color: "rgb(148 163 184 / 85%)" }}>
-              {provider}:{" "}
+              {displayAiModelName(provider)}:{" "}
               <span style={{ color: "#CBD5E1", fontVariantNumeric: "tabular-nums" }}>
                 {formatTokens(stat.tokens)}
               </span>{" "}

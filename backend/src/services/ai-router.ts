@@ -23,11 +23,14 @@ dotenv.config()
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ""
 const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL || "https://api.deepseek.com/chat/completions"
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat"
+/* DeepSeek retired the old `deepseek-chat` alias from its catalogue. Keep an
+   env override for older accounts, but use the currently published model by
+   default so a valid official key is not rejected before generation. */
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash"
 
 const KIMI_API_KEY = process.env.KIMI_API_KEY || process.env.MOONSHOT_API_KEY || ""
 const KIMI_API_URL = process.env.KIMI_API_URL || process.env.MOONSHOT_API_URL || "https://api.moonshot.ai/v1/chat/completions"
-const KIMI_MODEL = process.env.KIMI_MODEL || process.env.MOONSHOT_MODEL || "kimi-k2.5"
+const KIMI_MODEL = process.env.KIMI_MODEL || process.env.MOONSHOT_MODEL || "kimi-k3"
 
 const GROK_API_KEY = process.env.GROK_API_KEY || process.env.XAI_API_KEY || ""
 const GROK_API_URL = "https://api.x.ai/v1/chat/completions"
@@ -39,13 +42,90 @@ const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_K
 const CLAUDE_API_URL = process.env.CLAUDE_API_URL || "https://api.anthropic.com/v1/messages"
 const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929"
 
+export function claudeApiFormat(): "anthropic" | "openai" {
+  const configured = process.env.CLAUDE_API_FORMAT?.trim().toLowerCase()
+  if (configured === "openai" || configured === "anthropic") return configured
+  return /\/chat\/completions\/?$/i.test(CLAUDE_API_URL) ? "openai" : "anthropic"
+}
+
 const DEFAULT_PROVIDER_TIMEOUT_MS = 90_000
+
+export type RuntimeProvider = "claude" | "kimi" | "deepseek" | "grok"
+type RuntimeProviderBlock = { until: number; reason: string }
+
+const runtimeProviderBlocks = new Map<RuntimeProvider, RuntimeProviderBlock>()
+
+function runtimeProviderForLabel(label: string): RuntimeProvider | null {
+  if (label.startsWith("claude")) return "claude"
+  if (label.startsWith("kimi")) return "kimi"
+  if (label.startsWith("deepseek")) return "deepseek"
+  if (label.startsWith("grok")) return "grok"
+  return null
+}
+
+function providerFailureCooldownMs(): number {
+  const configured = Number(process.env.AI_PROVIDER_FAILURE_COOLDOWN_MS)
+  if (!Number.isFinite(configured)) return 5 * 60_000
+  return Math.min(30 * 60_000, Math.max(30_000, Math.round(configured)))
+}
+
+function blockRuntimeProvider(label: string, reason: string): void {
+  const provider = runtimeProviderForLabel(label)
+  if (!provider) return
+  runtimeProviderBlocks.set(provider, { until: Date.now() + providerFailureCooldownMs(), reason })
+}
+
+export function markProviderRuntimeFailure(provider: RuntimeProvider, reason: string): void {
+  blockRuntimeProvider(provider, reason)
+}
+
+function clearRuntimeProviderBlock(label: string): void {
+  const provider = runtimeProviderForLabel(label)
+  if (provider) runtimeProviderBlocks.delete(provider)
+}
+
+function runtimeProviderBlock(provider: RuntimeProvider): RuntimeProviderBlock | null {
+  const block = runtimeProviderBlocks.get(provider)
+  if (!block) return null
+  if (block.until <= Date.now()) {
+    runtimeProviderBlocks.delete(provider)
+    return null
+  }
+  return block
+}
+
+function runtimeProviderBlockForLabel(label: string): RuntimeProviderBlock | null {
+  const provider = runtimeProviderForLabel(label)
+  return provider ? runtimeProviderBlock(provider) : null
+}
+
+export function shouldDisableProviderThinking(label: string): boolean {
+  const provider = runtimeProviderForLabel(label)
+  return provider === "deepseek" || provider === "kimi"
+}
 
 /** Every provider call has a hard deadline so a dead upstream cannot leave a project generating forever. */
 export function providerTimeoutMs(): number {
   const configured = Number(process.env.AI_PROVIDER_TIMEOUT_MS)
   if (!Number.isFinite(configured)) return DEFAULT_PROVIDER_TIMEOUT_MS
   return Math.min(300_000, Math.max(10_000, Math.round(configured)))
+}
+
+/** Gateways sometimes return HTTP 200 with a short refusal instead of the
+ * requested JSON/code. Treat that as a failed provider response so the caller
+ * can continue to the next official provider. */
+export function isProviderRefusal(text: string): boolean {
+  const normalized = text
+    .trim()
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/\s+/g, " ")
+  if (!normalized || normalized.length > 400) return false
+  return [
+    /^i (?:can(?:not|'t)|won't) discuss that[.!]?$/i,
+    /^(?:i'm sorry,? but )?i (?:can(?:not|'t)|won't) (?:assist|help) with that(?: request)?[.!]?$/i,
+    /^sorry,? i (?:can(?:not|'t)|won't) (?:assist|help) with that(?: request)?[.!]?$/i,
+    /^request (?:refused|rejected)[.!]?$/i,
+  ].some((pattern) => pattern.test(normalized))
 }
 
 /** Простой детерминированный хэш строки → число (используется для стабильных fallback-выборов и кеш-ключей). */
@@ -92,6 +172,7 @@ export async function callOpenAiCompatible<T>(
   temperature?: number,
 ): Promise<T | null> {
   if (!apiKey) return null
+  if (runtimeProviderBlockForLabel(logLabel)) return null
 
   /* Замер начинается ДО сетевого вызова и закрывается на каждом пути выхода
      (успех, HTTP-ошибка, исключение) — упавший вызов тоже стоил пользователю
@@ -114,12 +195,14 @@ export async function callOpenAiCompatible<T>(
         model,
         messages,
         max_tokens: maxTokens,
+        ...(shouldDisableProviderThinking(logLabel) ? { thinking: { type: "disabled" } } : {}),
         ...(temperature !== undefined ? { temperature } : {}),
       }),
     })
 
     if (!res.ok) {
       console.error(`[ai-router] ${logLabel} API error: ${res.status} ${res.statusText}`)
+      blockRuntimeProvider(logLabel, `http_${res.status}`)
       recordAiCall({
         provider: logLabel,
         model,
@@ -138,6 +221,8 @@ export async function callOpenAiCompatible<T>(
        Если поля нет — считаем оценкой по длине и помечаем estimated. */
     const usage = data?.usage
     const measured = typeof usage?.prompt_tokens === "number" && typeof usage?.completion_tokens === "number"
+    const truncated = data?.choices?.[0]?.finish_reason === "length"
+    const refused = isProviderRefusal(text)
     recordAiCall({
       provider: logLabel,
       model,
@@ -145,11 +230,21 @@ export async function callOpenAiCompatible<T>(
       outputTokens: measured ? usage.completion_tokens : estimateTokens(text),
       ms: Date.now() - startedAt,
       estimated: !measured,
-      ok: true,
+      ok: !truncated && !refused,
     })
+    if (truncated) {
+      blockRuntimeProvider(logLabel, "truncated_response")
+      return null
+    }
+    if (refused) {
+      blockRuntimeProvider(logLabel, "runtime_refusal")
+      return null
+    }
+    clearRuntimeProviderBlock(logLabel)
     return parser(text)
   } catch (err) {
     captureError(`[ai-router] ${logLabel} API call failed:`, err)
+    blockRuntimeProvider(logLabel, err instanceof Error && err.name === "TimeoutError" ? "timeout" : "network_error")
     recordAiCall({
       provider: logLabel,
       model,
@@ -210,12 +305,32 @@ export async function callClaudeApi(
     options?.onFailure?.("ключ Claude не задан")
     return null
   }
+  if (runtimeProviderBlockForLabel("claude")) {
+    options?.onFailure?.("Claude is temporarily unavailable after a runtime failure")
+    return null
+  }
 
   const startedAt = Date.now()
   /* Фактическая модель вызова. Считать расход всегда по CLAUDE_MODEL нельзя: разбор
      дефектов ходит к более дорогой модели, и счётчик приписал бы её токены обычной —
      витрина расхода показывала бы неправду ровно там, где цена выше. */
   const model = options?.model || CLAUDE_MODEL
+
+  if (claudeApiFormat() === "openai") {
+    const result = await callOpenAiCompatible(
+      CLAUDE_API_URL,
+      CLAUDE_API_KEY,
+      model,
+      prompt,
+      (text) => text,
+      "claude",
+      maxTokens,
+      systemPrompt,
+      temperature,
+    )
+    if (!result) options?.onFailure?.("OpenAI-compatible Claude gateway unavailable or refused the request")
+    return result
+  }
 
   try {
     const res = await fetch(CLAUDE_API_URL, {
@@ -237,6 +352,7 @@ export async function callClaudeApi(
 
     if (!res.ok) {
       console.error(`[ai-router] Claude API error: ${res.status} ${res.statusText}`)
+      blockRuntimeProvider("claude", `http_${res.status}`)
       options?.onFailure?.(`HTTP ${res.status} ${res.statusText}`)
       recordAiCall({
         provider: "claude",
@@ -255,6 +371,8 @@ export async function callClaudeApi(
     /* Anthropic-формат: usage.input_tokens/output_tokens (иначе, чем у OpenAI). */
     const usage = data?.usage
     const measured = typeof usage?.input_tokens === "number" && typeof usage?.output_tokens === "number"
+    const truncated = data?.stop_reason === "max_tokens"
+    const refused = isProviderRefusal(text)
     recordAiCall({
       provider: "claude",
       model,
@@ -262,11 +380,22 @@ export async function callClaudeApi(
       outputTokens: measured ? usage.output_tokens : estimateTokens(text),
       ms: Date.now() - startedAt,
       estimated: !measured,
-      ok: true,
+      ok: !truncated && !refused,
     })
+    if (truncated) {
+      blockRuntimeProvider("claude", "truncated_response")
+      return null
+    }
+    if (refused) {
+      blockRuntimeProvider("claude", "runtime_refusal")
+      options?.onFailure?.("Claude refused the request")
+      return null
+    }
+    clearRuntimeProviderBlock("claude")
     return text
   } catch (err) {
     captureError("[ai-router] Claude API call failed:", err)
+    blockRuntimeProvider("claude", err instanceof Error && err.name === "TimeoutError" ? "timeout" : "network_error")
     options?.onFailure?.(err instanceof Error ? err.message : "вызов не удался")
     recordAiCall({
       provider: "claude",
@@ -307,6 +436,108 @@ export async function callClaudeRaw(prompt: string, maxTokens: number): Promise<
 
 export async function callDeepSeekRaw(prompt: string, maxTokens: number): Promise<string | null> {
   return callOpenAiCompatible(DEEPSEEK_API_URL, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, prompt, (t) => t, "deepseek-raw", maxTokens)
+}
+
+export type ProviderProbe = {
+  configured: boolean
+  available: boolean
+  reason?: string
+}
+
+function preflightTimeoutMs(): number {
+  const configured = Number(process.env.AI_PROVIDER_PREFLIGHT_TIMEOUT_MS)
+  if (!Number.isFinite(configured)) return 15_000
+  return Math.min(30_000, Math.max(3_000, Math.round(configured)))
+}
+
+async function probeOpenAiCompatible(
+  apiUrl: string,
+  apiKey: string,
+  model: string,
+  provider: RuntimeProvider,
+): Promise<ProviderProbe> {
+  if (!apiKey) return { configured: false, available: false, reason: "key_missing" }
+  const runtimeBlock = runtimeProviderBlock(provider)
+  if (runtimeBlock) return { configured: true, available: false, reason: runtimeBlock.reason }
+  try {
+    /* All providers used by the project pipeline expose an OpenAI-compatible
+       model catalogue. A GET is authenticated but does not consume inference
+       tokens, unlike the old one-token chat probe. */
+    const modelsUrl = providerModelsUrl(apiUrl)
+    const response = await fetch(modelsUrl, {
+      method: "GET",
+      signal: AbortSignal.timeout(preflightTimeoutMs()),
+      headers: { Authorization: `Bearer ${apiKey}`, "x-api-key": apiKey },
+    })
+    if (!response.ok) return { configured: true, available: false, reason: `http_${response.status}` }
+    const payload = await response.json().catch(() => null)
+    const models = Array.isArray(payload?.data) ? payload.data : null
+    if (models && models.length > 0 && !models.some((entry: any) => entry?.id === model)) {
+      return { configured: true, available: false, reason: "model_unavailable" }
+    }
+    return { configured: true, available: true }
+  } catch (error) {
+    return {
+      configured: true,
+      available: false,
+      reason: error instanceof Error && error.name === "TimeoutError" ? "timeout" : "network_error",
+    }
+  }
+}
+
+/** Derive the catalogue endpoint without guessing provider-specific hosts. */
+export function providerModelsUrl(apiUrl: string): string {
+  const url = new URL(apiUrl)
+  if (url.pathname.endsWith("/chat/completions")) {
+    url.pathname = `${url.pathname.slice(0, -"/chat/completions".length)}/models`
+  } else if (url.pathname.endsWith("/messages")) {
+    url.pathname = `${url.pathname.slice(0, -"/messages".length)}/models`
+  } else {
+    url.pathname = `${url.pathname.replace(/\/$/, "")}/models`
+  }
+  url.search = ""
+  return url.toString()
+}
+
+export function probeDeepSeek(): Promise<ProviderProbe> {
+  return probeOpenAiCompatible(DEEPSEEK_API_URL, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, "deepseek")
+}
+
+export function probeKimi(): Promise<ProviderProbe> {
+  return probeOpenAiCompatible(KIMI_API_URL, KIMI_API_KEY, KIMI_MODEL, "kimi")
+}
+
+export async function probeClaude(): Promise<ProviderProbe> {
+  if (!CLAUDE_API_KEY) return { configured: false, available: false, reason: "key_missing" }
+  const runtimeBlock = runtimeProviderBlock("claude")
+  if (runtimeBlock) return { configured: true, available: false, reason: runtimeBlock.reason }
+  if (claudeApiFormat() === "openai") {
+    return probeOpenAiCompatible(CLAUDE_API_URL, CLAUDE_API_KEY, CLAUDE_MODEL, "claude")
+  }
+  try {
+    const response = await fetch(providerModelsUrl(CLAUDE_API_URL), {
+      method: "GET",
+      signal: AbortSignal.timeout(preflightTimeoutMs()),
+      headers: {
+        "x-api-key": CLAUDE_API_KEY,
+        Authorization: `Bearer ${CLAUDE_API_KEY}`,
+        "anthropic-version": "2023-06-01",
+      },
+    })
+    if (!response.ok) return { configured: true, available: false, reason: `http_${response.status}` }
+    const payload = await response.json().catch(() => null)
+    const models = Array.isArray(payload?.data) ? payload.data : null
+    if (models && models.length > 0 && !models.some((entry: any) => entry?.id === CLAUDE_MODEL)) {
+      return { configured: true, available: false, reason: "model_unavailable" }
+    }
+    return { configured: true, available: true }
+  } catch (error) {
+    return {
+      configured: true,
+      available: false,
+      reason: error instanceof Error && error.name === "TimeoutError" ? "timeout" : "network_error",
+    }
+  }
 }
 
 export async function callKimiRaw(prompt: string, maxTokens: number): Promise<string | null> {

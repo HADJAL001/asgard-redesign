@@ -7,7 +7,7 @@
 
    Free и Pro — общий дневной счётчик генераций проектов (без разбивки
    по провайдерам). Supreme/Duo/Elite — доступ к Оркестратору с квотой
-   10 OS 5.0 + 10 OS 3.3 + 10 OS 3.0 в месяц (одинаковая квота для всех
+   10 OSGARD 5.0 + 10 OSGARD 3.3 + 10 OSGARD 4.0 в месяц (одинаковая квота для всех
    трёх — Duo/Elite лишь более дорогие тарифы). Докупаемые пакеты
    запросов — не сгорают, см. ExtraPackagePurchase.
 
@@ -70,14 +70,14 @@ interface PlanDef {
 
 /* ── Планы ─────────────────────────────────────────────────────── */
 const ORCHESTRATOR_LIMITS: PlanDef["aiLimits"] = [
-  { label: "OS 5.0 (Claude)",   value: "10/мес", color: "#F59E0B" },
-  { label: "OS 3.3 (Grok)",     value: "10/мес", color: "#A855F7" },
-  { label: "OS 3.0 (DeepSeek)", value: "10/мес", color: "#06B6D4" },
+  { label: "OSGARD 5.0", value: "10/мес", color: "#F59E0B" },
+  { label: "OSGARD 3.3", value: "10/мес", color: "#A855F7" },
+  { label: "OSGARD 4.0", value: "10/мес", color: "#06B6D4" },
 ]
 
 const ORCHESTRATOR_FEATURES: PlanDef["features"] = [
   { text: "Доступ к Оркестратору AI-цепочек",           highlight: true },
-  { text: "10 OS 5.0 + 10 OS 3.3 + 10 OS 3.0 в месяц",   highlight: true },
+  { text: "10 OSGARD 5.0 + 10 OSGARD 3.3 + 10 OSGARD 4.0 в месяц",   highlight: true },
   { text: "ДЖАРВИС + ВАЛЛИ + БЛИЗНЕЦ — всё" },
   { text: "Докупка пакетов провайдеров — не сгорают" },
   { text: "Деплой на инфраструктуру OSGARD + GitHub" },
@@ -113,7 +113,7 @@ const PLANS: PlanDef[] = [
     Icon:       Zap,
     features: [
       { text: "5 AI-генераций проектов/день" },
-      { text: "ДЖАРВИС — безлимит (OS 3.0)" },
+      { text: "ДЖАРВИС — безлимит (OSGARD 4.0)" },
       { text: "ВАЛЛИ — советник и 3D-комната" },
       { text: "БЛИЗНЕЦ — обучение на артефактах" },
       { text: "Маркетплейс и торговля" },
@@ -290,7 +290,7 @@ const AI_AGENTS = [
     name:  "ДЖАРВИС",
     Icon:  Bot,
     color: "#06B6D4",
-    desc:  "Советник, чат, помощь с артефактами — безлимит на OS 3.0/OS 5.0 для всех зарегистрированных пользователей.",
+    desc:  "Советник, чат, помощь с артефактами — безлимит на OSGARD 4.0/OSGARD 5.0 для всех зарегистрированных пользователей.",
   },
   {
     name:  "ВАЛЛИ",
@@ -308,7 +308,7 @@ const AI_AGENTS = [
     name:  "Оркестратор",
     Icon:  GitBranch,
     color: "#F59E0B",
-    desc:  "Цепочки нейросетей OSGARD (OS 5.0 → OS 3.3 → OS 3.0). Доступен на тарифах Supreme, Duo и Elite.",
+    desc:  "Цепочки нейросетей OSGARD (OSGARD 5.0 → OSGARD 3.3 → OSGARD 4.0). Доступен на тарифах Supreme, Duo и Elite.",
   },
 ]
 
@@ -711,7 +711,7 @@ export function PricingView() {
             Выбери свой путь
           </h1>
           <p className="text-[16px] max-w-xl mx-auto leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
-            От гостевого демо до полного безлимита — OS 5.0, OS 3.3 и OS 3.0 работают на тебя.
+            От гостевого демо до полного безлимита — OSGARD 5.0, OSGARD 3.3 и OSGARD 4.0 работают на тебя.
           </p>
         </div>
 
@@ -1230,8 +1230,8 @@ export function PricingView() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { plan: "Supreme / Duo / Elite", color: "#F59E0B", items: ["10 OS 5.0 (Claude) в месяц", "10 OS 3.3 (Grok) в месяц", "10 OS 3.0 (DeepSeek) в месяц", "До 20 узлов в цепочке", "Ранний доступ к новым фичам"] },
-              { plan: "Докупаемые пакеты", color: "#06B6D4", items: ["+5 OS 5.0 — $19", "+10 OS 3.3 — $15", "+10 OS 3.0 — $10", "Не сгорают, переносятся на след. месяцы"] },
+              { plan: "Supreme / Duo / Elite", color: "#F59E0B", items: ["10 OSGARD 5.0 в месяц", "10 OSGARD 3.3 в месяц", "10 OSGARD 4.0 в месяц", "До 20 узлов в цепочке", "Ранний доступ к новым фичам"] },
+              { plan: "Докупаемые пакеты", color: "#06B6D4", items: ["+5 OSGARD 5.0 — $19", "+10 OSGARD 3.3 — $15", "+10 OSGARD 4.0 — $10", "Не сгорают, переносятся на след. месяцы"] },
               { plan: "Что это даёт?", color: "#A855F7", items: ["Автоматизация задач", "Последовательная обработка текста", "Мульти-провайдерная генерация", "Сохранение как шаблоны ДЖАРВИСА", "SSE-поток прогресса в реальном времени"] },
             ].map(({ plan, color, items }) => (
               <div key={plan}>
@@ -1256,7 +1256,7 @@ export function PricingView() {
             {[
               {
                 q: "Что такое AI-лимиты?",
-                a: "На Free и Pro это один общий счётчик генераций проектов в день (5 и 20 соответственно), обнуляется в полночь UTC. На Supreme, Duo и Elite — квота Оркестратора: 10 OS 5.0 + 10 OS 3.3 + 10 OS 3.0 в месяц, отдельно по каждому провайдеру.",
+                a: "На Free и Pro это один общий счётчик генераций проектов в день (5 и 20 соответственно), обнуляется в полночь UTC. На Supreme, Duo и Elite — квота Оркестратора: 10 OSGARD 5.0 + 10 OSGARD 3.3 + 10 OSGARD 4.0 в месяц, отдельно по каждому уровню.",
               },
               {
                 q: "Входит ли ДЖАРВИС, ВАЛЛИ, БЛИЗНЕЦ в бесплатный план?",

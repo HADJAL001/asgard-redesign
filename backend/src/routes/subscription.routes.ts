@@ -53,9 +53,9 @@ function logPricingConversionEvent(
    см. migration 050 и orchestratorProviderQuota.ts).
    ================================================================ */
 const EXTRA_PACKAGES: Record<AiProvider, { amount: number; priceCents: number; label: string }> = {
-  claude: { amount: 5, priceCents: 1900, label: "Claude +5" },
+  claude: { amount: 5, priceCents: 1900, label: "OSGARD 5.0 +5" },
   grok: { amount: 10, priceCents: 1500, label: "Grok +10" },
-  deepseek: { amount: 10, priceCents: 1000, label: "DeepSeek +10" },
+  deepseek: { amount: 10, priceCents: 1000, label: "OSGARD 4.0 +10" },
 }
 
 /**

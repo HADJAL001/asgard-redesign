@@ -22,15 +22,15 @@ import { useAuth } from "@/lib/auth-store"
 type AiProvider = "claude" | "grok" | "deepseek"
 
 const PACKAGES: { provider: AiProvider; label: string; amount: number; priceLabel: string; color: string }[] = [
-  { provider: "claude", label: "OS 5.0 (Claude)", amount: 5, priceLabel: "$19", color: "#F59E0B" },
-  { provider: "grok", label: "OS 3.3 (Grok)", amount: 10, priceLabel: "$15", color: "#A855F7" },
-  { provider: "deepseek", label: "OS 3.0 (DeepSeek)", amount: 10, priceLabel: "$10", color: "#06B6D4" },
+  { provider: "claude", label: "OSGARD 5.0", amount: 5, priceLabel: "$19", color: "#F59E0B" },
+  { provider: "grok", label: "OSGARD 3.3", amount: 10, priceLabel: "$15", color: "#A855F7" },
+  { provider: "deepseek", label: "OSGARD 4.0", amount: 10, priceLabel: "$10", color: "#06B6D4" },
 ]
 
 const PACKAGE_LABELS: Record<AiProvider, string> = {
-  claude: "OS 5.0 (Claude)",
-  grok: "OS 3.3 (Grok)",
-  deepseek: "OS 3.0 (DeepSeek)",
+  claude: "OSGARD 5.0",
+  grok: "OSGARD 3.3",
+  deepseek: "OSGARD 4.0",
 }
 
 export function ExtraPackagePurchase() {

@@ -1,178 +1,33 @@
-import { useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
-import Animated, { FadeInDown, FadeOutLeft, LinearTransition } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
-import { Archive, SearchX } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { CheckCircle2, CircleAlert, CircleDashed, FolderKanban, Plus } from 'lucide-react-native';
 
-import { HistoryFilters, type HistoryFiltersValue } from '@/components/HistoryFilters';
-import { LoadingAnimation } from '@/components/LoadingAnimation';
-import { ArtifactCard } from '@/components/ArtifactCard';
-import { ForgeLoadoutPanel } from '@/components/ForgeLoadoutPanel';
-import { EmptyState } from '@/components/EmptyState';
-import { useToast } from '@/components/ui/Toast';
-import { useArtifactsQuery } from '@/hooks/useArtifactsQuery';
-import { useForgeLoadoutQuery } from '@/hooks/useForgeLoadoutQuery';
-import { useEquipArtifactMutation } from '@/hooks/useEquipArtifactMutation';
-import { useUnequipArtifactMutation } from '@/hooks/useUnequipArtifactMutation';
-import { useArchiveStore } from '@/store/archiveStore';
-import { ApiError } from '@/lib/api-client';
-import type { OsgardArtifact } from '@/types/artifact';
+import { useProjectsQuery } from '@/hooks/useProjectsQuery';
+import type { OsgardProject } from '@/types/project';
 
-const PAGE_SIZE = 20;
-
-const RANGE_MS: Record<string, number> = {
-  today: 24 * 60 * 60 * 1000,
-  week: 7 * 24 * 60 * 60 * 1000,
-  month: 30 * 24 * 60 * 60 * 1000,
-};
-
-function matchesFilters(artifact: OsgardArtifact, filters: HistoryFiltersValue): boolean {
-  if (filters.type && artifact.type !== filters.type) return false;
-  if (filters.rarity && artifact.rarity !== filters.rarity) return false;
-  if (filters.dateRange !== 'all') {
-    const maxAge = RANGE_MS[filters.dateRange];
-    if (Date.now() - artifact.createdAt > maxAge) return false;
-  }
-  return true;
+function statusMeta(project: OsgardProject) {
+  if (project.status === 'generating') return { label: 'Собирается', color: '#F5C451', Icon: CircleDashed };
+  if (project.status === 'failed') return { label: 'Нужен ремонт', color: '#FB7185', Icon: CircleAlert };
+  return { label: 'Готово', color: '#34D399', Icon: CheckCircle2 };
 }
 
-function ArchiveAction({ onPress }: { onPress: () => void }) {
+export default function ProjectsScreen() {
+  const { data: projects, isLoading, isRefetching, refetch } = useProjectsQuery();
   return (
-    <Pressable
-      onPress={onPress}
-      className="ml-2 items-center justify-center rounded-2xl bg-down/15"
-      style={{ width: 72 }}
-    >
-      <Archive size={22} color="#EF4444" />
-      <Text className="mt-1 text-xs font-semibold text-down">Архив</Text>
-    </Pressable>
-  );
-}
-
-export default function HistoryScreen() {
-  const { data: artifacts, isLoading, isFetching, refetch } = useArtifactsQuery();
-  const { data: forgeLoadout } = useForgeLoadoutQuery();
-  const equipMutation = useEquipArtifactMutation();
-  const unequipMutation = useUnequipArtifactMutation();
-  const [filters, setFilters] = useState<HistoryFiltersValue>({ dateRange: 'all', type: null, rarity: null });
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-
-  const archivedIds = useArchiveStore((s) => s.archivedIds);
-  const archiveArtifact = useArchiveStore((s) => s.archive);
-  const unarchiveArtifact = useArchiveStore((s) => s.unarchive);
-  const toast = useToast();
-
-  const equippedIds = useMemo(
-    () => new Set((forgeLoadout?.equipped ?? []).map((e) => e.id)),
-    [forgeLoadout?.equipped],
-  );
-  const slotsFull = (forgeLoadout?.equipped.length ?? 0) >= (forgeLoadout?.maxSlots ?? 3);
-
-  const handleEquip = async (artifactId: number) => {
-    try {
-      await equipMutation.mutateAsync(artifactId);
-    } catch (e) {
-      toast.show(e instanceof ApiError ? e.message : 'Не удалось надеть артефакт', 'error');
-    }
-  };
-
-  const handleUnequip = async (artifactId: number) => {
-    try {
-      await unequipMutation.mutateAsync(artifactId);
-    } catch (e) {
-      toast.show(e instanceof ApiError ? e.message : 'Не удалось снять артефакт', 'error');
-    }
-  };
-
-  const filtered = useMemo(() => {
-    const all = artifacts ?? [];
-    return all
-      .filter((a) => !archivedIds.includes(a.id))
-      .filter((a) => matchesFilters(a, filters))
-      .sort((a, b) => b.createdAt - a.createdAt);
-  }, [artifacts, filters, archivedIds]);
-
-  const visible = filtered.slice(0, visibleCount);
-
-  const handleArchive = (artifact: OsgardArtifact) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    archiveArtifact(artifact.id);
-    toast.show(`«${artifact.name}» отправлен в архив`, 'default', {
-      label: 'Восстановить',
-      onPress: () => unarchiveArtifact(artifact.id),
-    });
-  };
-
-  if (isLoading) {
-    return (
-      <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-        <LoadingAnimation label="Загрузка артефактов" />
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      <View className="gap-3 px-4 pb-3 pt-2">
-        <Text className="text-2xl font-bold text-white">История</Text>
-        <HistoryFilters
-          value={filters}
-          onChange={(next) => {
-            setFilters(next);
-            setVisibleCount(PAGE_SIZE);
-          }}
-        />
-      </View>
-      {forgeLoadout && <ForgeLoadoutPanel loadout={forgeLoadout} onUnequip={handleUnequip} />}
-      <FlatList
-        testID="history-list"
-        data={visible}
-        keyExtractor={(item) => String(item.id)}
-        numColumns={2}
-        columnWrapperStyle={{ gap: 10 }}
-        contentContainerStyle={{ padding: 16, paddingTop: 0, gap: 10, flexGrow: 1 }}
-        renderItem={({ item, index }) => (
-          <Animated.View
-            entering={FadeInDown.delay(Math.min(index, 12) * 60).springify().damping(16)}
-            exiting={FadeOutLeft.duration(220)}
-            layout={LinearTransition.duration(220)}
-            style={{ flex: 1 }}
-          >
-            <Swipeable
-              renderRightActions={() => <ArchiveAction onPress={() => handleArchive(item)} />}
-              overshootRight={false}
-            >
-              <ArtifactCard
-                artifact={item}
-                onPress={() => router.push(`/result/${item.id}`)}
-                equipped={equippedIds.has(item.id)}
-                slotsFull={slotsFull}
-                onEquip={() => handleEquip(item.id)}
-                onUnequip={() => handleUnequip(item.id)}
-              />
-            </Swipeable>
-          </Animated.View>
-        )}
-        refreshControl={<RefreshControl refreshing={isFetching && !isLoading} onRefresh={refetch} />}
-        onEndReachedThreshold={0.4}
-        onEndReached={() => setVisibleCount((c) => Math.min(c + PAGE_SIZE, filtered.length))}
-        ListEmptyComponent={
-          <EmptyState
-            icon={SearchX}
-            title="Артефакты не найдены"
-            description="Попробуйте изменить фильтры или создайте первый артефакт"
-            style={{ flex: 1, justifyContent: 'center' }}
-          />
-        }
-        ListFooterComponent={
-          visible.length < filtered.length ? (
-            <Text className="py-2 text-center text-xs text-muted">Загружаем ещё…</Text>
-          ) : null
-        }
-      />
+    <SafeAreaView className="flex-1 bg-bg">
+      <ScrollView refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#00F0FF" />} contentContainerStyle={{ padding: 20, gap: 16 }}>
+        <View className="flex-row items-end justify-between">
+          <View className="gap-1"><Text className="text-xs font-semibold uppercase tracking-[2px] text-accent">WORKSPACE</Text><Text className="text-3xl font-bold text-white">Мои проекты</Text><Text className="text-sm text-muted">История сборок и доработок</Text></View>
+          <Pressable onPress={() => router.push('/(tabs)')} accessibilityRole="button" accessibilityLabel="Создать проект" className="h-11 w-11 items-center justify-center rounded-full bg-accent"><Plus size={21} color="#07111F" /></Pressable>
+        </View>
+        {isLoading ? <Text className="py-10 text-center text-sm text-muted">Загружаю проекты…</Text> : projects?.length ? projects.map((project) => <ProjectCard key={project.id} project={project} />) : <View className="items-center gap-3 rounded-2xl border border-border bg-card px-5 py-12"><FolderKanban size={30} color="#77809A" /><Text className="text-base font-semibold text-white">Проектов пока нет</Text><Text className="text-center text-sm leading-5 text-muted">Создайте приложение по описанию, а затем дорабатывайте его словами.</Text><Pressable onPress={() => router.push('/(tabs)')} className="mt-2 rounded-xl bg-accent px-5 py-3"><Text className="font-semibold text-bg">Создать первый проект</Text></Pressable></View>}
+      </ScrollView>
     </SafeAreaView>
   );
+}
+
+function ProjectCard({ project }: { project: OsgardProject }) {
+  const { label, color, Icon } = statusMeta(project);
+  return <Pressable onPress={() => router.push(`/project/${project.id}`)} className="gap-3 rounded-2xl border border-border bg-card px-4 py-4"><View className="flex-row items-start gap-3"><View className="h-10 w-10 items-center justify-center rounded-xl bg-accent/10"><FolderKanban size={19} color="#00F0FF" /></View><View className="flex-1"><Text className="text-base font-semibold text-white" numberOfLines={1}>{project.name}</Text><Text className="mt-1 text-xs leading-4 text-muted" numberOfLines={2}>{project.description || 'Описание появится после сборки'}</Text></View><View className="flex-row items-center gap-1"><Icon size={14} color={color} /><Text style={{ color }} className="text-xs font-semibold">{label}</Text></View></View>{project.generationError && <Text className="text-xs leading-4 text-down" numberOfLines={2}>{project.generationError}</Text>}<Text className="text-xs text-muted">Открыть рабочую область →</Text></Pressable>;
 }
