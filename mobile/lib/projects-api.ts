@@ -40,6 +40,32 @@ export async function refineProject(id: number, prompt: string, kind = 'feature'
   }>(`/projects/${id}/refine`, { prompt: prompt.trim(), kind });
 }
 
+/** Re-run the engineering contour against the files already stored for a project. */
+export async function repairProject(id: number) {
+  return apiClient.post<{ project?: OsgardProject }>(`/projects/${id}/repair`);
+}
+
+/** Start an asynchronous deployment. A broken engineering verdict requires an explicit acknowledgement. */
+export async function deployProject(id: number, acknowledgeBroken = false) {
+  return apiClient.post<{
+    project: OsgardProject;
+    deployTarget?: string;
+    deployTargetLabel?: string;
+  }>(`/projects/${id}/deploy`, { acknowledgeBroken });
+}
+
+export async function publishProjectToGithub(id: number, repoName?: string) {
+  return apiClient.post<{ repoUrl: string; commitSha: string }>(`/projects/${id}/publish-github`, {
+    ...(repoName?.trim() ? { repoName: repoName.trim() } : {}),
+  });
+}
+
+export async function verifyProjectBuild(id: number) {
+  return apiClient.post<{ ok: boolean; skipped?: boolean; timedOut?: boolean; durationMs?: number; logs?: string }>(
+    `/projects/${id}/verify-build`,
+  );
+}
+
 export async function fetchProjectRefinements(id: number) {
   return apiClient.get<{ refinements: ProjectRefinement[]; refinementsRemaining: number }>(
     `/projects/${id}/refinements`,

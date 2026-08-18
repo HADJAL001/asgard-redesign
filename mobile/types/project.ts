@@ -11,6 +11,7 @@ export type OsgardProject = {
   generationDepth?: string | null;
   buildStatus?: string | null;
   deployStatus?: string | null;
+  deployError?: string | null;
   liveUrl?: string | null;
   artifactCount?: number;
 };
