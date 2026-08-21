@@ -1315,3 +1315,5 @@ timestamp,endpoint,http_code,response_time_s,ok
 2026-08-20T23:55:24Z,tc-market-state,200,0.460501,1
 2026-08-21T00:59:21Z,health,200,1.388118,1
 2026-08-21T00:59:21Z,tc-market-state,200,0.361292,1
+2026-08-21T02:24:31Z,health,200,0.456289,1
+2026-08-21T02:24:31Z,tc-market-state,200,0.372840,1
