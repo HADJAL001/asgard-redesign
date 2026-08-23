@@ -149,7 +149,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
      глубину не дороже той, что провалилась. */
   const makegoodRight = estimate?.makegood.available ? estimate.makegood : null
   const makegoodApplies = !!makegoodRight && depthCost <= makegoodRight.credits
-  const insufficientCredits = depthCost > 0 && wallet.credits < depthCost && !makegoodApplies
+  const insufficientCredits = wallet.timecoin < 1
 
   const totalSteps = 3
   const progress = (step / totalSteps) * 100
@@ -192,7 +192,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
     try {
       // Платная глубина требует достаточного баланса — проверяем до запроса, чтобы не ловить 402.
       if (insufficientCredits) {
-        setError(t("projectWizard.insufficientCredits", { cost: depthCost, balance: wallet.credits }))
+        setError(`Для создания проекта нужен 1 TimeCoin. Доступно: ${wallet.timecoin}.`)
         setSubmitting(false)
         return
       }
@@ -448,13 +448,13 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                     </label>
                     <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: COLORS.label }}>
                       <Coins size={12} strokeWidth={1.75} />
-                      {t("projectWizard.balance", { balance: wallet.credits })}
+                      Баланс: {wallet.timecoin} TimeCoin
                     </span>
                   </div>
                   <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
                     {depths.map((d) => {
                       const active = depthId === d.id
-                      const tooExpensive = d.credits > 0 && wallet.credits < d.credits && !makegoodApplies
+                      const tooExpensive = wallet.timecoin < 1
                       /* Ожидаемый расход прямо на карточке: сравнение вариантов должно
                          быть возможно ДО выбора, а не после списания. */
                       const costBadge = depthCostBadge(estimate?.estimates?.[d.id])
@@ -480,14 +480,8 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                             className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium"
                             style={{ color: d.credits > 0 ? COLORS.amber : COLORS.green }}
                           >
-                            {d.credits > 0 ? (
-                              <>
-                                <Coins size={11} strokeWidth={2} />
-                                {t("projectWizard.depthCost", { cost: d.credits })}
-                              </>
-                            ) : (
-                              t("projectWizard.depthFree")
-                            )}
+                            <Coins size={11} strokeWidth={2} />
+                            1 TimeCoin
                           </span>
                           {costBadge && (
                             <span className="text-[10px]" style={{ color: COLORS.label }}>
@@ -500,7 +494,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                   </div>
                   {insufficientCredits && (
                     <p className="mt-2 text-[12px]" style={{ color: COLORS.red }}>
-                      {t("projectWizard.insufficientCredits", { cost: depthCost, balance: wallet.credits })}
+                      Для создания проекта нужен 1 TimeCoin. Доступно: {wallet.timecoin}.
                     </p>
                   )}
                 </div>

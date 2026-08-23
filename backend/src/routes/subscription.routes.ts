@@ -15,6 +15,7 @@ import { captureError } from "../lib/sentry"
 import { logAudit } from "../lib/audit"
 import { getGenerationLimit, getGenerationUsage } from "../lib/generationsQuota"
 import { getProviderUsageStatus, type AiProvider } from "../lib/orchestratorProviderQuota"
+import { parseTimecoinQuantity, timecoinPurchaseCents, TIMECOIN_USD_CENTS } from "../lib/timecoin-economy"
 
 
 const router = Router()
@@ -84,6 +85,55 @@ function grantExtraCredits(userId: number, provider: AiProvider, amount: number,
 
   return true
 }
+
+function grantPurchasedTimecoin(userId: number, quantity: number, stripeSessionId: string): boolean {
+  const now = Date.now()
+  const tx = db.transaction(() => {
+    const inserted = db.prepare(
+      `INSERT OR IGNORE INTO timecoin_purchases (user_id, quantity, amount_cents, provider, provider_session_id, created_at)
+       VALUES (?, ?, ?, 'stripe', ?, ?)`,
+    ).run(userId, quantity, timecoinPurchaseCents(quantity), stripeSessionId, now)
+    if (inserted.changes !== 1) return false
+    const credited = db.prepare(
+      `UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`,
+    ).run(quantity, now, userId)
+    if (credited.changes !== 1) throw new Error("Wallet not found")
+    db.prepare(
+      `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+       VALUES (?, 'timecoin_purchase', ?, 'Stripe', ?, 'cash_usd', 'done')`,
+    ).run(userId, `${quantity} TimeCoin`, timecoinPurchaseCents(quantity) / 100)
+    return true
+  })
+  return tx()
+}
+
+router.post("/timecoin-checkout", rateLimit(60_000, 10), requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+  const quantity = parseTimecoinQuantity(req.body?.quantity)
+  if (!quantity) return res.status(400).json({ error: "Количество TimeCoin должно быть целым числом от 1 до 1000" })
+  if (!isStripeConfigured || !stripe) {
+    return res.status(503).json({ error: "Оплата TimeCoin временно недоступна" })
+  }
+  const userId = req.user!.userId
+  const user: any = db.prepare(`SELECT id, username, email FROM users WHERE id = ?`).get(userId)
+  if (!user) return res.status(404).json({ error: "Пользователь не найден", code: "USER_NOT_FOUND" })
+  const customerId = await getOrCreateStripeCustomer(userId, user)
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    customer: customerId,
+    line_items: [{
+      price_data: {
+        currency: "usd",
+        product_data: { name: "OSGARD TimeCoin" },
+        unit_amount: TIMECOIN_USD_CENTS,
+      },
+      quantity,
+    }],
+    success_url: `${FRONTEND_URL}/wallet?timecoin=success`,
+    cancel_url: `${FRONTEND_URL}/wallet?timecoin=cancel`,
+    metadata: { userId: String(userId), purchaseType: "timecoin", quantity: String(quantity) },
+  })
+  return res.json({ url: session.url, sessionId: session.id, quantity, amountUsd: timecoinPurchaseCents(quantity) / 100 })
+}))
 
 /* ================================================================
    Вспомогательные функции работы с таблицей subscriptions
@@ -612,6 +662,22 @@ router.post("/webhook", async (req, res) => {
            не пересекается с оформлением/продлением подписки (mode: "subscription"). */
         if (session.mode === "payment") {
           const userId = Number(session.metadata?.userId)
+          const purchaseType = session.metadata?.purchaseType
+          if (purchaseType === "timecoin") {
+            const quantity = parseTimecoinQuantity(session.metadata?.quantity)
+            const expectedCents = quantity ? timecoinPurchaseCents(quantity) : 0
+            if (!userId || !quantity || session.payment_status !== "paid" || session.amount_total !== expectedCents) {
+              throw new Error("Invalid TimeCoin checkout completion")
+            }
+            const granted = grantPurchasedTimecoin(userId, quantity, session.id)
+            if (granted) {
+              logAudit(userId, "credit", quantity, "timecoin_stripe_purchased", {
+                amountUsd: expectedCents / 100,
+                stripe_event_id: event.id,
+              })
+            }
+            break
+          }
           const provider = session.metadata?.provider as AiProvider | undefined
           const amount = Number(session.metadata?.amount)
 

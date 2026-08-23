@@ -525,8 +525,9 @@ export interface ProjectActionResult {
   aiConfigured?: boolean
   /** Глубина генерации, по которой создан проект (quick | standard | deep). */
   depth?: string
-  /** Списанные за генерацию кредиты (0 для quick). */
+  /** Legacy field retained for older clients. New projects are paid in TimeCoin. */
   costCredits?: number
+  costTimecoin?: number
   error?: string
   /** true — платформа не поняла заявку и НИЧЕГО не сгенерировала (422
    *  unclear_request): проект не создан, квота и кредиты не тронуты.
@@ -1616,6 +1617,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
         aiConfigured: boolean
         depth?: string
         costCredits?: number
+        costTimecoin?: number
       }>("/projects/generate", { name, hint, depth })
 
       set((s) => ({
@@ -1627,7 +1629,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       // синхронизация артефактов пользователя (стартовые артефакты проекта уже созданы на сервере)
       await get().fetchArtifacts()
       // платная генерация списала кредиты на сервере — подтягиваем актуальный баланс кошелька
-      if (res.costCredits && res.costCredits > 0) {
+      if ((res.costTimecoin && res.costTimecoin > 0) || (res.costCredits && res.costCredits > 0)) {
         await get().fetchWallet()
       }
 
@@ -1638,6 +1640,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
         aiConfigured: res.aiConfigured,
         depth: res.depth,
         costCredits: res.costCredits,
+        costTimecoin: res.costTimecoin,
       }
     } catch (err) {
       const message = extractErrorMessage(err, "Не удалось сгенерировать проект")

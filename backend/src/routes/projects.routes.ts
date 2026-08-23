@@ -37,6 +37,7 @@ import {
   MAKEGOOD_REASON_TEXT,
 } from "../lib/generation-makegood"
 import { logAudit } from "../lib/audit"
+import { PROJECT_CREATION_COST_TC } from "../lib/timecoin-economy"
 import { generationEvents, getRecentStages, type GenerationStreamEvent } from "../lib/generation-events"
 import { guestProjectCapReached } from "../lib/guest-service"
 import {
@@ -569,6 +570,42 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     })
   }
 
+  const chargedAt = Date.now()
+  const charged = db.transaction(() => {
+    const charge = db.prepare(
+      `UPDATE wallets SET timecoin = timecoin - ?, updated_at = ?
+        WHERE user_id = ? AND timecoin >= ?`,
+    ).run(PROJECT_CREATION_COST_TC, chargedAt, userId, PROJECT_CREATION_COST_TC)
+    if (charge.changes !== 1) return false
+    db.prepare(
+      `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+       VALUES (?, 'project_generation', ?, 'OSGARD', ?, 'timecoin', 'done')`,
+    ).run(userId, `Создание проекта: ${resolvedName}`, PROJECT_CREATION_COST_TC)
+    return true
+  })()
+  if (!charged) {
+    const available = (db.prepare(`SELECT timecoin FROM wallets WHERE user_id = ?`).get(userId) as
+      | { timecoin: number }
+      | undefined)?.timecoin ?? 0
+    return res.status(402).json({
+      error: `Для создания проекта нужен 1 TimeCoin. Доступно: ${available}.`,
+      code: "INSUFFICIENT_TIMECOIN",
+      required: PROJECT_CREATION_COST_TC,
+      available,
+    })
+  }
+  logAudit(userId, "debit", PROJECT_CREATION_COST_TC, "project_generation", { depth, name: resolvedName, currency: "timecoin" })
+
+  const refundProjectCharge = () => {
+    db.prepare(`UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`)
+      .run(PROJECT_CREATION_COST_TC, Date.now(), userId)
+    db.prepare(
+      `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+       VALUES (?, 'project_generation_refund', ?, 'OSGARD', ?, 'timecoin', 'done')`,
+    ).run(userId, `Возврат за проект: ${resolvedName}`, PROJECT_CREATION_COST_TC)
+    logAudit(userId, "credit", PROJECT_CREATION_COST_TC, "project_generation_refund", { depth, currency: "timecoin" })
+  }
+
   /* --- Бесплатная (quick) генерация: расход дневной квоты тарифа --- */
   if (depthCfg.countsAgainstQuota) {
     const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
@@ -596,6 +633,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
         if (right && consumeMakegood(right.id, null)) {
           makegoodId = right.id
         } else {
+          refundProjectCharge()
           return res.status(429).json({
             error: `Дневной лимит быстрых генераций (${dailyLimit}) для тарифа "${plan}" исчерпан. Попробуйте завтра, улучшите тариф или выберите платную глубину.`,
             plan,
@@ -620,6 +658,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
         artifacts,
         depth,
         costCredits: 0,
+        costTimecoin: PROJECT_CREATION_COST_TC,
         /* Клиент обязан сказать человеку, что запуск прошёл за счёт платформы: молчаливая
            компенсация неотличима от сбоя учёта. */
         makegoodApplied: makegoodId !== null,
@@ -629,6 +668,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
       /* Проект не создан — право возвращаем: иначе платформа промахнулась бы дважды и
          оба раза за счёт пользователя. */
       if (makegoodId !== null) releaseMakegood(makegoodId)
+      refundProjectCharge()
       captureError("[projects.generate] error:", err)
       return res.status(500).json({ error: "Не удалось создать проект" })
     }
@@ -659,17 +699,19 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
         artifacts,
         depth,
         costCredits: 0,
+        costTimecoin: PROJECT_CREATION_COST_TC,
         makegoodApplied: true,
         aiConfigured: isProjectGenerationConfigured(),
       })
     } catch (err) {
       releaseMakegood(paidRight.id)
+      refundProjectCharge()
       captureError("[projects.generate] error:", err)
       return res.status(500).json({ error: "Не удалось создать проект" })
     }
   }
 
-  const cost = depthCfg.credits
+  const cost = 0
   const wallet = db.prepare(`SELECT credits FROM wallets WHERE user_id = ?`).get(userId) as
     | { credits: number }
     | undefined
@@ -712,6 +754,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
         artifacts,
         depth,
         costCredits: cost,
+        costTimecoin: PROJECT_CREATION_COST_TC,
         makegoodApplied: false,
         aiConfigured: isProjectGenerationConfigured(),
       })
@@ -725,6 +768,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
       db.exec("ROLLBACK")
     }
     logAudit(userId, "credit", cost, "project_generation_refund", { depth })
+    refundProjectCharge()
     captureError("[projects.generate] error:", err)
     return res.status(500).json({ error: "Не удалось создать проект, кредиты возвращены" })
   }

@@ -149,6 +149,30 @@ test("webhook с неверной подписью отклоняется с 400
   assert.equal(res.status, 400)
 })
 
+test("TimeCoin checkout credits paid exact-price sessions exactly once", async () => {
+  const { userId } = await registerUser("stripetc")
+  const event = {
+    id: `evt_tc_${userId}`,
+    type: "checkout.session.completed",
+    data: { object: {
+      id: `cs_tc_${userId}`,
+      mode: "payment",
+      payment_status: "paid",
+      amount_total: 30_000,
+      metadata: { userId: String(userId), purchaseType: "timecoin", quantity: "30" },
+    } },
+  }
+  assert.equal((await postWebhook("/subscription/webhook", event, SUBSCRIPTION_WEBHOOK_SECRET)).status, 200)
+  assert.equal((await postWebhook("/subscription/webhook", event, SUBSCRIPTION_WEBHOOK_SECRET)).status, 200)
+
+  const conn = new Database(dbAbsolutePath)
+  const wallet = conn.prepare(`SELECT timecoin FROM wallets WHERE user_id = ?`).get(userId) as { timecoin: number }
+  const purchases = conn.prepare(`SELECT COUNT(*) AS count FROM timecoin_purchases WHERE user_id = ?`).get(userId) as { count: number }
+  conn.close()
+  assert.equal(wallet.timecoin, 30)
+  assert.equal(purchases.count, 1)
+})
+
 test("customer.subscription.updated обновляет план/статус по price_id, invoice.payment_failed создаёт уведомление и failed-транзакцию, повтор того же event.id идемпотентен", async () => {
   const { userId } = await registerUser("stripewhA")
   const stripeSubId = `sub_test_${userId}`
