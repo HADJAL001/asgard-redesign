@@ -1,5 +1,12 @@
 # RuStore — OSGARD
 
+## Актуальные ссылки для публикации
+Поддержка: https://osgardnewworld.com/support
+
+Политика конфиденциальности: https://osgardnewworld.com/privacy
+
+Условия использования: https://osgardnewworld.com/terms
+
 ## Название
 OSGARD
 

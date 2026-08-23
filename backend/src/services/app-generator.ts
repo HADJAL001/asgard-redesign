@@ -66,6 +66,10 @@ import { durableCache } from "./agents/durable-cache"
    Пустая память уроков даёт отпечаток "none" — то есть у платформы без единого урока
    ключ прежней формы по смыслу, и поведение как до волны 7. */
 const APP_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60
+/** Bump whenever prompts, scaffold ownership, generation phases, or release
+ * semantics change. Cached files are executable output, so the design-system
+ * version alone is not a sufficient compatibility boundary. */
+export const APP_GENERATOR_CACHE_VERSION = 2
 export function appCacheKey(
   name: string,
   hint?: string,
@@ -75,7 +79,7 @@ export function appCacheKey(
   const requestHash = createHash("sha256")
     .update(JSON.stringify({ name: name.trim(), hint: hint?.trim() ?? "" }))
     .digest("hex")
-  return `app-generator:v${DESIGN_BRIEF_VERSION}:l${lessonSetFingerprint}:p${profile}:${requestHash}`
+  return `app-generator:g${APP_GENERATOR_CACHE_VERSION}:v${DESIGN_BRIEF_VERSION}:l${lessonSetFingerprint}:p${profile}:${requestHash}`
 }
 
 function isCachedGeneration(value: unknown): value is AppGenerationResult {

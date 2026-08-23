@@ -24,11 +24,35 @@ db.exec(`
     ON generation_usage_runs(started_at DESC);
 `)
 
-/* A process restart interrupts an in-flight attempt. Keeping it as `running` forever
- * would make the live budget report lie; the durable worker records a new attempt if
- * it retries the project after startup. */
-db.prepare(
-  `UPDATE generation_usage_runs
-      SET status = 'failed', finished_at = COALESCE(finished_at, ?)
-    WHERE status = 'running'`,
-).run(Date.now())
+export const USAGE_RUN_STALE_MS = 15 * 60_000
+
+/** Recover only abandoned attempts. A deploy may briefly run old and new
+ * processes together, so startup must not fail a run whose durable job still
+ * owns a live lease in another process. */
+export function recoverStaleGenerationUsageRuns(
+  now = Date.now(),
+  staleMs = USAGE_RUN_STALE_MS,
+): number {
+  const hasJobsTable = !!db.prepare(
+    `SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'project_generation_jobs'`,
+  ).get()
+  const liveLeaseGuard = hasJobsTable
+    ? `AND NOT EXISTS (
+          SELECT 1
+            FROM project_generation_jobs AS job
+           WHERE job.project_id = generation_usage_runs.project_id
+             AND job.status = 'running'
+             AND COALESCE(job.lease_until, 0) > ?
+        )`
+    : ""
+  const result = db.prepare(
+    `UPDATE generation_usage_runs
+        SET status = 'failed', finished_at = COALESCE(finished_at, ?)
+      WHERE status = 'running'
+        AND started_at <= ?
+        ${liveLeaseGuard}`,
+  ).run(...(hasJobsTable ? [now, now - Math.max(0, staleMs), now] : [now, now - Math.max(0, staleMs)]))
+  return result.changes
+}
+
+recoverStaleGenerationUsageRuns()

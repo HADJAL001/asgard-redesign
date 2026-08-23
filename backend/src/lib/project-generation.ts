@@ -530,12 +530,12 @@ function generationRetryDelayMs(attempts: number): number {
 
 function enqueueGenerationJob(payload: DurableGenerationPayload, refinementId?: number): void {
   const now = Date.now()
-  db.prepare(
+  const queued = db.prepare(
     `INSERT INTO project_generation_jobs
        (project_id, user_id, payload, refinement_id, status, attempts, available_at,
         lease_until, lease_token, last_error, created_at, updated_at)
      VALUES (?, ?, ?, ?, 'queued', 0, ?, NULL, NULL, NULL, ?, ?)
-     ON CONFLICT(project_id) DO UPDATE SET
+      ON CONFLICT(project_id) DO UPDATE SET
        user_id = excluded.user_id,
        payload = excluded.payload,
        refinement_id = excluded.refinement_id,
@@ -545,8 +545,10 @@ function enqueueGenerationJob(payload: DurableGenerationPayload, refinementId?: 
        lease_until = NULL,
        lease_token = NULL,
        last_error = NULL,
-       updated_at = excluded.updated_at`,
+        updated_at = excluded.updated_at
+      WHERE project_generation_jobs.status NOT IN ('queued', 'running')`,
   ).run(payload.projectId, payload.userId, JSON.stringify(payload), refinementId ?? null, now, now, now)
+  if (queued.changes !== 1) throw new Error(`Generation job for project ${payload.projectId} is already active`)
   scheduleGenerationWorker()
 }
 
@@ -1359,6 +1361,9 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
   db.prepare(`UPDATE projects SET status = 'generating', generation_error = NULL WHERE id = ?`).run(project.id)
 
   void (async () => {
+    let usageRunId: number | null = null
+    let repairTelemetry: TelemetrySnapshot | null = null
+    let usageFinished = false
     try {
       const brief =
         loadProjectBrief(project.id) ?? deriveDesignBrief({ name: project.name, hint: project.description ?? undefined })
@@ -1370,8 +1375,7 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
         progress: 0.3,
       })
 
-      const usageRunId = beginGenerationUsageRun({ projectId: project.id, userId: params.userId, kind: "repair", depth: "standard" })
-      let repairTelemetry: TelemetrySnapshot | null = null
+      usageRunId = beginGenerationUsageRun({ projectId: project.id, userId: params.userId, kind: "repair", depth: "standard" })
       let engineering: Awaited<ReturnType<typeof runEngineeringContour>>
       try {
         const measured = await withGenerationTelemetry(
@@ -1401,12 +1405,14 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
         engineering = measured.result
       } catch (error) {
         finishGenerationUsageRun(usageRunId, "failed", repairTelemetry)
+        usageFinished = true
         throw error
       }
       persistProjectUsageDelta(project.id, repairTelemetry!, null)
 
       const release = decideProjectRelease(engineering.report)
       finishGenerationUsageRun(usageRunId, release.status === "ready" ? "completed" : "failed", repairTelemetry)
+      usageFinished = true
       /* A failed repair candidate is diagnostic evidence, not a new project
          version. Keep the last usable files intact until the complete static,
          build and independent-review contour accepts the candidate. */
@@ -1442,6 +1448,7 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
         ...(release.status === "failed" ? { error: release.message ?? summarizeVerdict(engineering.report) ?? undefined } : {}),
       })
     } catch (err) {
+      if (!usageFinished) finishGenerationUsageRun(usageRunId, "failed", repairTelemetry)
       captureError("[projects.repair] повторный контур упал:", err)
       // Проект обязан вернуться в рабочее состояние — «generating» навсегда недопустим.
       const message = err instanceof Error ? err.message : "Unknown repair error"
@@ -1544,18 +1551,24 @@ export function refineGeneratedProject(params: {
   // Тот же durable job; template=null → полная AI-генерация по промпту.
   // Доработка идёт по стандартной глубине: полная AI-генерация по промпту и
   // такой же инженерный контур, как у обычной генерации.
-  enqueueGenerationJob({
-    userId: params.userId,
-    projectId: project.id,
-    name: project.name,
-    hint: mergedHint,
-    quick,
-    templateId: null,
-    bypassCache: true,
-    depth: "standard",
-    profile,
-    refinement: { kind: normalizeRefinementKind(params.kind), prompt: refine },
-  }, params.refinementId)
+  try {
+    enqueueGenerationJob({
+      userId: params.userId,
+      projectId: project.id,
+      name: project.name,
+      hint: mergedHint,
+      quick,
+      templateId: null,
+      bypassCache: true,
+      depth: "standard",
+      profile,
+      refinement: { kind: normalizeRefinementKind(params.kind), prompt: refine },
+    }, params.refinementId)
+  } catch (error) {
+    db.prepare(`UPDATE projects SET status = 'ready', generation_error = ? WHERE id = ?`)
+      .run(error instanceof Error ? error.message : "Could not enqueue refinement", project.id)
+    return false
+  }
 
   return true
 }

@@ -4,7 +4,11 @@ import test from "node:test"
 import db from "../lib/db"
 import { deriveDesignBrief } from "../lib/design-system"
 import { durableCache } from "../services/agents/durable-cache"
-import { cacheVerifiedAppGeneration } from "../services/app-generator"
+import { APP_GENERATOR_CACHE_VERSION, appCacheKey, cacheVerifiedAppGeneration } from "../services/app-generator"
+
+test("generation cache key carries an explicit generator compatibility version", () => {
+  assert.match(appCacheKey("versioned", "cache"), new RegExp(`^app-generator:g${APP_GENERATOR_CACHE_VERSION}:`))
+})
 
 test("only a released AI result enters the durable generation cache", () => {
   const name = `cache-test-${Date.now()}`

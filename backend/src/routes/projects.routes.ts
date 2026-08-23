@@ -771,6 +771,19 @@ router.post("/:id/refine", requireAuth, asyncHandler(async (req: AuthRequest, re
     })
   }
 
+  // Readiness probing yields to the event loop. Recheck at the serialization
+  // point so two concurrent requests cannot both debit and enqueue from the
+  // same stale preflight snapshot. No await occurs between here and enqueue.
+  const freshProject = db
+    .prepare(`SELECT status FROM projects WHERE id = ? AND user_id = ?`)
+    .get(projectId, userId) as { status: string } | undefined
+  const activeGenerationJob = db.prepare(
+    `SELECT 1 FROM project_generation_jobs WHERE project_id = ? AND status IN ('queued', 'running')`,
+  ).get(projectId)
+  if (!freshProject || freshProject.status === "generating" || activeGenerationJob) {
+    return res.status(409).json({ error: "Project is already being generated", code: "BUSY" })
+  }
+
   const remaining = refinementsRemaining(userId)
   const isFree = remaining > 0
   const cost = isFree ? 0 : REFINEMENT_CREDIT_COST
