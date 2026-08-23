@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import db from './db';
+import Database from 'better-sqlite3';
 
 /**
  * Автоматические онлайн-бэкапы SQLite-БД.
@@ -26,7 +27,30 @@ const PREFIX = 'osgard-';
 
 /** ISO-таймстамп, безопасный для имени файла (без двоеточий — иначе ломается на Windows). */
 function stamp(): string {
-  return new Date().toISOString().replace(/:/g, '-').replace(/\..+$/, '');
+  return new Date().toISOString().replace(/:/g, '-').replace('.', '-').replace('Z', '');
+}
+
+export function verifyBackup(filePath: string, expectedTables?: string[]): { ok: true; tables: number; bytes: number } {
+  const stat = fs.statSync(filePath)
+  if (stat.size <= 0) throw new Error('Backup file is empty')
+  const snapshot = new Database(filePath, { readonly: true, fileMustExist: true })
+  try {
+    const integrity = snapshot.pragma('integrity_check') as Array<{ integrity_check: string }>
+    if (integrity.length !== 1 || integrity[0]?.integrity_check !== 'ok') {
+      throw new Error(`Backup integrity check failed: ${JSON.stringify(integrity)}`)
+    }
+    const tables = snapshot.prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name`,
+    ).all() as Array<{ name: string }>
+    if (expectedTables) {
+      const actual = new Set(tables.map((row) => row.name))
+      const missing = expectedTables.filter((name) => !actual.has(name))
+      if (missing.length > 0) throw new Error(`Backup is missing tables: ${missing.join(', ')}`)
+    }
+    return { ok: true, tables: tables.length, bytes: stat.size }
+  } finally {
+    snapshot.close()
+  }
 }
 
 /** Оставляет только N последних бэкапов, удаляя старые. Имена ISO-отсортированы лексикографически = хронологически. */
@@ -52,8 +76,12 @@ function pruneOld(): void {
 export async function backupNow(): Promise<string> {
   fs.mkdirSync(BACKUP_DIR, { recursive: true });
   const dest = path.join(BACKUP_DIR, `${PREFIX}${stamp()}.db`);
+  const expectedTables = (db.prepare(
+    `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`,
+  ).all() as Array<{ name: string }>).map((row) => row.name)
   // better-sqlite3: онлайн-бэкап, консистентный снимок без блокировки записей.
   await db.backup(dest);
+  verifyBackup(dest, expectedTables)
   pruneOld();
   return dest;
 }

@@ -16,6 +16,7 @@ import Database from 'better-sqlite3';
 let TMP: string;
 let db: any;
 let backupNow: () => Promise<string>;
+let verifyBackup: (path: string, expectedTables?: string[]) => { ok: true; tables: number; bytes: number };
 
 before(async () => {
   TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'osgard-bk-'));
@@ -27,7 +28,7 @@ before(async () => {
   db.exec('CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, v TEXT)');
   db.prepare('INSERT INTO t (v) VALUES (?)').run('hello');
 
-  ({ backupNow } = await import('../lib/db-backup'));
+  ({ backupNow, verifyBackup } = await import('../lib/db-backup'));
 });
 
 after(() => {
@@ -53,6 +54,15 @@ test('backupNow: создаёт валидный снимок с данными 
   const row = bk.prepare('SELECT v FROM t WHERE id = 1').get() as { v: string };
   bk.close();
   assert.equal(row.v, 'hello', 'данные оригинала должны быть в бэкапе');
+  const verification = verifyBackup(dest, ['t']);
+  assert.equal(verification.ok, true);
+  assert.ok(verification.bytes > 0);
+});
+
+test('verifyBackup: rejects a corrupt snapshot', () => {
+  const corrupt = path.join(TMP, 'corrupt.db');
+  fs.writeFileSync(corrupt, 'not a sqlite database');
+  assert.throws(() => verifyBackup(corrupt), /database|integrity|encrypted/i);
 });
 
 test('retention: старые бэкапы удаляются, остаётся не больше N', async () => {

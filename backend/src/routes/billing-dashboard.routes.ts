@@ -2,6 +2,7 @@ import { Router } from "express"
 import db from "../lib/db"
 import { requireAdmin } from "../middleware/admin.middleware"
 import { asyncHandler } from "../utils/async-handler"
+import { latestBillingReconciliation, runBillingReconciliation } from "../services/billing-reconciliation.service"
 
 /* ================================================================
    OSGARD · Admin billing dashboard (выручка / активные подписки / churn)
@@ -101,7 +102,15 @@ router.get(
       canceledLast30d,
       failedPayments30d,
       recentTransactions,
+      reconciliation: latestBillingReconciliation(),
     })
+  }),
+)
+
+router.post(
+  "/reconcile",
+  asyncHandler(async (_req, res) => {
+    res.json({ reconciliation: await runBillingReconciliation() })
   }),
 )
 

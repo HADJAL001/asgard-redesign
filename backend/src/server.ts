@@ -355,6 +355,8 @@ import "./migrations/104_generation_usage_runs"
 import "./migrations/105_timecoin_purchases"
 import "./migrations/106_artifact_abilities"
 import "./migrations/107_timecoin_rebalance"
+import "./migrations/108_billing_reconciliation"
+import { scheduleBillingReconciliation } from "./services/billing-reconciliation.service"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
 import "./services/cleanup.service"
@@ -463,6 +465,7 @@ if (process.env.NODE_ENV !== "test") {
 /* Автоматические онлайн-бэкапы SQLite (point-in-time recovery для экономики).
    BACKUP_DIR должен указывать на персистентный том — см. lib/db-backup.ts. */
 scheduleBackups()
+scheduleBillingReconciliation()
 
 /* Гигиена воронки: периодическая жатва брошенных гостей (is_guest=1 без проекта и
    без регистрации, старше TTL) — см. lib/guest-reaper.ts. Prod-safe (полный гвард). */

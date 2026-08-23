@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { DollarSign, Users, TrendingDown, Download, CreditCard, type LucideIcon } from "lucide-react"
+import { DollarSign, Users, TrendingDown, Download, CreditCard, RefreshCw, ShieldCheck, TriangleAlert, type LucideIcon } from "lucide-react"
 import { Navbar } from "./navbar"
 import { apiClient, API_BASE_URL } from "@/lib/api-client"
 import { useAuth, useRequireAuth } from "@/lib/auth-store"
@@ -21,6 +21,13 @@ type BillingSummary = {
   churnRate: number
   canceledLast30d: number
   failedPayments30d: number
+  reconciliation: {
+    status: "ok" | "warning" | "error"
+    checkedAt: number
+    checkedCount: number
+    issueCount: number
+    issues: { code: string; subject: string; detail: string }[]
+  } | null
   recentTransactions: {
     id: number
     userId: number
@@ -93,6 +100,7 @@ export function BillingDashboardView() {
   const [summary, setSummary] = useState<BillingSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [reconciling, setReconciling] = useState(false)
 
   useEffect(() => {
     if (!authLoading && user && user.role !== "admin") {
@@ -121,6 +129,18 @@ export function BillingDashboardView() {
 
   const handleExportCsv = () => {
     window.open(`${API_BASE_URL}/billing-dashboard/export.csv`, "_blank")
+  }
+
+  const handleReconcile = async () => {
+    setReconciling(true)
+    try {
+      await apiClient.post("/billing-dashboard/reconcile", {})
+      await loadSummary()
+    } catch {
+      setError("Не удалось выполнить сверку Stripe")
+    } finally {
+      setReconciling(false)
+    }
   }
 
   return (
@@ -202,6 +222,43 @@ export function BillingDashboardView() {
                 </p>
               </Card>
             </div>
+
+            <Card className="mb-8">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <SectionTitle Icon={summary.reconciliation?.status === "ok" ? ShieldCheck : TriangleAlert}>Сверка Stripe и TimeCoin</SectionTitle>
+                  {!summary.reconciliation ? (
+                    <p className="text-[13px]" style={{ color: LABEL }}>Сверка ещё не выполнялась</p>
+                  ) : (
+                    <>
+                      <p className="text-[13px]" style={{ color: summary.reconciliation.status === "ok" ? "#34D399" : "#FFB020" }}>
+                        {summary.reconciliation.status === "ok"
+                          ? `Расхождений нет · проверено ${summary.reconciliation.checkedCount}`
+                          : `Найдено расхождений: ${summary.reconciliation.issueCount}`}
+                      </p>
+                      <p className="mt-1 text-[11px]" style={{ color: LABEL }}>
+                        {new Date(summary.reconciliation.checkedAt).toLocaleString("ru-RU")}
+                      </p>
+                      {summary.reconciliation.issues.slice(0, 5).map((issue) => (
+                        <p key={`${issue.code}:${issue.subject}`} className="mt-2 text-[12px]" style={{ color: LABEL }}>
+                          {issue.code} · {issue.subject}
+                        </p>
+                      ))}
+                    </>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleReconcile}
+                  disabled={reconciling}
+                  className="flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium disabled:opacity-50"
+                  style={{ backgroundColor: CARD, border: `1px solid ${BORDER}`, color: ACCENT }}
+                >
+                  <RefreshCw size={14} className={reconciling ? "animate-spin" : ""} />
+                  Проверить сейчас
+                </button>
+              </div>
+            </Card>
 
             <Card>
               <SectionTitle Icon={CreditCard}>Последние транзакции</SectionTitle>
