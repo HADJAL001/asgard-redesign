@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+dist/
+web-build/
+android/
+ios/
+release/
+coverage/
+*.log
+*.tsbuildinfo
+.env
+.env*.local
+credentials/
+e2e/artifacts/
