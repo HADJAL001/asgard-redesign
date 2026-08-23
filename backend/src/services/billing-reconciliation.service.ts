@@ -5,13 +5,14 @@ import { compareTimecoinPurchases, type LocalTimecoinPurchase, type RemoteTimeco
 
 export async function runBillingReconciliation(limit = 100) {
   if (!stripe) throw new Error("Stripe is not configured")
+  const stripeClient = stripe
   const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)))
   const local = db.prepare(
     `SELECT user_id as userId, quantity, amount_cents as amountCents, provider_session_id as sessionId
      FROM timecoin_purchases WHERE provider = 'stripe' ORDER BY created_at DESC LIMIT ?`,
   ).all(safeLimit) as LocalTimecoinPurchase[]
 
-  const sessions = await stripe.checkout.sessions.list({ limit: safeLimit })
+  const sessions = await stripeClient.checkout.sessions.list({ limit: safeLimit })
   const toRemote = (session: any): RemoteTimecoinSession => ({
     id: session.id,
     paid: session.payment_status === "paid",
@@ -28,7 +29,7 @@ export async function runBillingReconciliation(limit = 100) {
     .filter((purchase) => !knownSessions.has(purchase.sessionId))
     .map(async (purchase) => {
       try {
-        return toRemote(await stripe.checkout.sessions.retrieve(purchase.sessionId))
+        return toRemote(await stripeClient.checkout.sessions.retrieve(purchase.sessionId))
       } catch {
         return null
       }
