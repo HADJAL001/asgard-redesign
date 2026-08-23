@@ -53,6 +53,7 @@ import { decideProjectRelease } from "./project-release"
 import { grantMakegood, type MakegoodReason } from "./generation-makegood"
 import { refineExistingApp } from "../services/app-refiner"
 import { normalizeRefinementKind, type RefinementKind } from "./refinement-kinds"
+import { failRefinementWithRefund } from "./refinements"
 
 /* ================================================================
    OSGARD · Общий сервис генерации проектов
@@ -577,7 +578,7 @@ function claimGenerationJob(): DurableGenerationJobRow | null {
         job.project_id,
       )
       if (job.refinement_id != null) {
-        db.prepare(`UPDATE project_refinements SET status = 'failed' WHERE id = ?`).run(job.refinement_id)
+        failRefinementWithRefund(job.refinement_id)
       }
     }
 
@@ -739,7 +740,11 @@ async function drainGenerationJobs(): Promise<void> {
           job.lease_token,
         )
         if (queueUpdate.changes > 0 && job.refinement_id != null) {
-          db.prepare(`UPDATE project_refinements SET status = ? WHERE id = ?`).run(completed ? "ready" : "failed", job.refinement_id)
+          if (completed) {
+            db.prepare(`UPDATE project_refinements SET status = 'ready' WHERE id = ?`).run(job.refinement_id)
+          } else {
+            failRefinementWithRefund(job.refinement_id)
+          }
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : "generation worker failed"
@@ -759,14 +764,11 @@ async function drainGenerationJobs(): Promise<void> {
             job.project_id,
           )
           if (job.refinement_id != null) {
-            db.prepare(`UPDATE project_refinements SET status = 'failed' WHERE id = ?`).run(job.refinement_id)
+            failRefinementWithRefund(job.refinement_id)
           }
           reportTerminalGenerationFailure(job, message)
         } else if (stillOwned) {
           db.prepare(`UPDATE projects SET status = 'generating', generation_error = NULL WHERE id = ?`).run(job.project_id)
-        }
-        if (stillOwned && job.refinement_id != null && finalAttempt) {
-          db.prepare(`UPDATE project_refinements SET status = 'failed' WHERE id = ?`).run(job.refinement_id)
         }
         captureError("[projects.generate] durable worker failed:", error)
       } finally {

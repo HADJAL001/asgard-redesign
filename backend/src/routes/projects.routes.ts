@@ -50,7 +50,7 @@ import { getTemplateSavingsReport } from "../services/template-store"
 import {
   refinementsRemaining,
   recordRefinement,
-  setRefinementStatus,
+  failRefinementWithRefund,
   listProjectRefinements,
   REFINEMENT_CREDIT_COST,
 } from "../lib/refinements"
@@ -823,18 +823,9 @@ router.post("/:id/refine", requireAuth, asyncHandler(async (req: AuthRequest, re
   })
 
   if (!started) {
-    // Синхронный сбой запуска — откат: помечаем строку failed и возвращаем кредиты.
-    setRefinementStatus(refinementId, "failed")
-    if (cost > 0) {
-      db.exec("BEGIN IMMEDIATE")
-      try {
-        db.prepare(`UPDATE wallets SET credits = credits + ?, updated_at = ? WHERE user_id = ?`).run(cost, Date.now(), userId)
-        db.exec("COMMIT")
-      } catch {
-        db.exec("ROLLBACK")
-      }
-      logAudit(userId, "credit", cost, "project_refinement_refund", { projectId })
-    }
+    // Тот же идемпотентный откат используется фоновым durable-worker: ни один
+    // терминальный путь не может удержать оплату или вернуть её дважды.
+    failRefinementWithRefund(refinementId)
     return res.status(500).json({ error: "Не удалось запустить доработку" + (cost > 0 ? ", кредиты возвращены" : "") })
   }
 

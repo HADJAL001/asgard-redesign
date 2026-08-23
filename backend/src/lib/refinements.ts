@@ -1,4 +1,5 @@
 import db from "./db"
+import { logAudit } from "./audit"
 import type { RefinementKind } from "./refinement-kinds"
 
 /* ================================================================
@@ -70,6 +71,51 @@ export function recordRefinement(params: {
 /** Обновляет статус строки доработки (generating → ready | failed). */
 export function setRefinementStatus(refinementId: number, status: "ready" | "failed"): void {
   db.prepare(`UPDATE project_refinements SET status = ? WHERE id = ?`).run(status, refinementId)
+}
+
+export type FailedRefinementSettlement = {
+  userId: number
+  projectId: number
+  refundedCredits: number
+}
+
+/**
+ * Marks a terminally failed refinement and refunds a paid attempt exactly once.
+ * The status transition is the idempotency guard: retries see `failed` and do
+ * not credit the wallet again. When the durable worker already owns a broader
+ * SQLite transaction, reuse it instead of opening a nested transaction.
+ */
+export function failRefinementWithRefund(refinementId: number): FailedRefinementSettlement | null {
+  const settle = (): FailedRefinementSettlement | null => {
+    const row = db
+      .prepare(
+        `SELECT user_id AS userId, project_id AS projectId, cost_credits AS costCredits
+         FROM project_refinements WHERE id = ? AND status = 'generating'`,
+      )
+      .get(refinementId) as { userId: number; projectId: number; costCredits: number } | undefined
+    if (!row) return null
+
+    const transitioned = db
+      .prepare(`UPDATE project_refinements SET status = 'failed' WHERE id = ? AND status = 'generating'`)
+      .run(refinementId)
+    if (transitioned.changes !== 1) return null
+
+    const refundedCredits = Math.max(0, row.costCredits)
+    if (refundedCredits > 0) {
+      const wallet = db
+        .prepare(`UPDATE wallets SET credits = credits + ?, updated_at = ? WHERE user_id = ?`)
+        .run(refundedCredits, Date.now(), row.userId)
+      if (wallet.changes !== 1) throw new Error(`Wallet not found for failed refinement ${refinementId}`)
+      logAudit(row.userId, "credit", refundedCredits, "project_refinement_refund", {
+        projectId: row.projectId,
+        refinementId,
+      })
+    }
+
+    return { userId: row.userId, projectId: row.projectId, refundedCredits }
+  }
+
+  return db.inTransaction ? settle() : db.transaction(settle)()
 }
 
 /** Лента доработок проекта (свежие сверху) — для UI-истории. */
