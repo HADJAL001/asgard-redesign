@@ -29,3 +29,4 @@ backend/out/
 # Ad-hoc dev/test run logs and TypeScript incremental build cache
 *.log
 *.tsbuildinfo
+.env*
