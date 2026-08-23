@@ -47,6 +47,21 @@ const HOF_MIN_PRICE: Record<string, number> = {
   cash_usd: 50,
 }
 
+const ARTIFACT_TC_FLOOR: Record<string, number> = {
+  common: 0.25,
+  rare: 0.5,
+  epic: 1,
+  legendary: 2,
+  mythic: 5,
+}
+
+function artifactTimecoinFloor(artifact: { rarity?: string; level?: number; ability_power?: number }): number {
+  const base = ARTIFACT_TC_FLOOR[artifact.rarity ?? "common"] ?? ARTIFACT_TC_FLOOR.common
+  const levelFactor = 1 + Math.max(0, Number(artifact.level ?? 1) - 1) * 0.05
+  const abilityFactor = 1 + Math.max(0, Number(artifact.ability_power ?? 0)) / 100
+  return Math.ceil(base * levelFactor * abilityFactor * 100) / 100
+}
+
 /* ---------------- GET /marketplace/listings ---------------- */
 router.get("/listings", (_req, res) => {
   const listings = db
@@ -91,6 +106,16 @@ router.post("/list", requireAuth, (req: AuthRequest, res) => {
   if (!artifact) return res.status(404).json({ error: "Артефакт не найден" })
   if (artifact.owner_id !== req.user!.userId) {
     return res.status(403).json({ error: "Нет доступа к этому артефакту" })
+  }
+  if (listCurrency === "timecoin") {
+    const minimum = artifactTimecoinFloor(artifact)
+    if (listPrice < minimum) {
+      return res.status(400).json({
+        error: `Минимальная цена этого артефакта: ${minimum} TimeCoin`,
+        code: "ARTIFACT_PRICE_BELOW_FLOOR",
+        minimum,
+      })
+    }
   }
   if (artifact.status === "listed") {
     return res.status(400).json({ error: "Артефакт уже выставлен на продажу" })

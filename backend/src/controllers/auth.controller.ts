@@ -10,6 +10,7 @@ import { fetchTreasuryTcForEmission, canEmitUnbackedSync } from '../lib/emission
 import { RefreshTokenService } from '../lib/refresh-tokens';
 import { TwoFAService } from '../services/twofa.service';
 import { track, GrowthEvent } from '../lib/analytics';
+import { TIMECOIN_PRICES } from '../lib/timecoin-economy';
 
 const SOCIAL_PROVIDERS: SocialProvider[] = ['google', 'github'];
 
@@ -143,7 +144,7 @@ export class AuthController {
             try {
               const guardPassed = treasuryTc !== null && canEmitUnbackedSync(10, treasuryTc);
               if (guardPassed) {
-                db.prepare(`UPDATE wallets SET timecoin = timecoin + 10 WHERE user_id = ?`).run(referredBy);
+                db.prepare(`UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?`).run(TIMECOIN_PRICES.referralOwnerReward, referredBy);
                 db.prepare(`
                   UPDATE referrals SET status = 'active', reward_amount = 10
                   WHERE referrer_id = ? AND referee_id = ? AND status = 'pending'
@@ -152,7 +153,7 @@ export class AuthController {
                 // но только если казна тянет полную эмиссию (10 рефереру + 5 новичку = 15).
                 // Реферер уже начислен по своему 10-guard'у выше — эта проверка его не откатывает.
                 if (canEmitUnbackedSync(15, treasuryTc)) {
-                  db.prepare(`UPDATE wallets SET timecoin = timecoin + 5 WHERE user_id = ?`).run(userId);
+                  db.prepare(`UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?`).run(TIMECOIN_PRICES.referralNewUserReward, userId);
                 }
               } else {
                 db.prepare(`

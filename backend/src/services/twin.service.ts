@@ -1,5 +1,6 @@
 import dotenv from "dotenv"
 import { callOpenAiCompatible, extractJson } from "./ai-router"
+import { TIMECOIN_PRICES } from "../lib/timecoin-economy"
 
 dotenv.config()
 
@@ -260,5 +261,8 @@ export async function generateTwinArtifactWithAi(
 
 /** Рекомендованная цена аренды близнеца в TimeCoin/сутки на основе уровня. */
 export function suggestedRentalPrice(level: number): number {
-  return Math.round((5 + level * 1.5) * 10) / 10
+  const safeLevel = Math.max(1, Math.floor(Number(level) || 1))
+  return Math.round(
+    (TIMECOIN_PRICES.twinRentalBase + safeLevel * TIMECOIN_PRICES.twinRentalPerLevel) * 100,
+  ) / 100
 }

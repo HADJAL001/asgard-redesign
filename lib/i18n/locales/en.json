@@ -817,7 +817,7 @@
       },
       "step2": {
         "title": "Forge Master",
-        "description": "One generation costs 50 ∞ TimeCoin. First \"Charging the core…\", then \"Synthesizing artifact…\" — and a few seconds later, a result: rarity is random, from common to the rarest, mythic, with no guarantees. There's a personal counter — 3 generations a day, but it's not a hard limit: generation stays available either way."
+        "description": "One generation costs 2 ∞ TimeCoin. First \"Charging the core…\", then \"Synthesizing artifact…\" — and a few seconds later, a result: rarity is random, from common to the rarest, mythic, with no guarantees. There's a personal counter — 3 generations a day, but it's not a hard limit: generation stays available either way."
       },
       "step3": {
         "title": "Economy",

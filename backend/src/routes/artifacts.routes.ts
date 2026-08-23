@@ -17,6 +17,7 @@ import { fuseStats, fusedRarity, fusionHint, MUTATION_CHANCE } from "../lib/arti
 import { explainCraftScore, deriveCraftedStats, type GenerationDepth } from "../lib/proof-of-craft"
 import { deriveArtifactIdentity, type ArtifactIdentity } from "../lib/artifact-identity"
 import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
+import { TIMECOIN_PRICES } from "../lib/timecoin-economy"
 
 const router = Router()
 
@@ -39,9 +40,9 @@ const LIST_CURRENCY_BY_RARITY: Record<string, string> = {
   mythic: "timecoin",
 }
 
-const FORGE_COST_TC = 50 /* стоимость создания артефакта в TimeCoin */
-const EVOLVE_COST_TC = 30 /* стоимость улучшения (уровень +1) */
-const EVOLVE_RARITY_COST_TC = 120 /* стоимость перехода на следующую редкость (каждые 5 уровней) */
+const FORGE_COST_TC = TIMECOIN_PRICES.artifactForge
+const EVOLVE_COST_TC = TIMECOIN_PRICES.artifactEvolve
+const EVOLVE_RARITY_COST_TC = TIMECOIN_PRICES.artifactRarityUpgrade
 
 const AI_GENERATE_COST_TC = FORGE_COST_TC /* стоимость AI-генерации — паритет с ручной ковкой */
 const AI_UNIQUENESS_MAX_ATTEMPTS = 3 /* попыток регенерации при коллизии имени, затем — суффикс */
@@ -57,7 +58,7 @@ const DAILY_AI_GENERATION_LIMIT = 3
    - Уровень 10+ открывает уникальные визуальные эффекты (поле visualEffect).
 ------------------------------------------------------------------------------ */
 const PREMIUM_MAX_LEVEL = 10
-const PREMIUM_UPGRADE_COST_TC_PER_LEVEL = 20 /* цена = уровень × эта константа */
+const PREMIUM_UPGRADE_COST_TC_PER_LEVEL = TIMECOIN_PRICES.artifactPremiumLevelFactor
 const PREMIUM_CRIT_CHANCE = 0.25 /* 25% шанс критического усиления (+2 уровня) */
 const NORMAL_CRIT_CHANCE = 0.05 /* для сравнения: 5% у обычного усиления */
 
@@ -82,6 +83,8 @@ router.get("/mine", requireAuth, (req: AuthRequest, res) => {
               status, views_24h as views24h, supply, price, list_currency as listCurrency,
               craft_score as craftScore,
               origin_myth as originMyth, visual_theme as visualTheme,
+              ability_key as abilityKey, ability_name as abilityName, ability_power as abilityPower,
+              ability_description as abilityDescription,
               description, lore, ai_visual as aiVisual, visual_effect as visualEffect, source,
               equipped_at as equippedAt, created_at as createdAt
        FROM artifacts WHERE owner_id = ? ORDER BY created_at DESC`,
@@ -100,7 +103,8 @@ router.get("/mine", requireAuth, (req: AuthRequest, res) => {
 
 const LOADOUT_SELECT = `id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
        status, price, list_currency as listCurrency, equipped_at as equippedAt, created_at as createdAt,
-       craft_score as craftScore`
+       craft_score as craftScore, ability_key as abilityKey, ability_name as abilityName,
+       ability_power as abilityPower, ability_description as abilityDescription`
 
 /** Собирает полезную нагрузку лоадаута пользователя: надетые артефакты + рассчитанный бонус + скидка на ковку. */
 function loadoutPayload(userId: number) {

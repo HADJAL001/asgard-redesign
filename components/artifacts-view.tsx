@@ -379,6 +379,9 @@ function ArtifactCard({
     status: string
     price: number
     listCurrency: string
+    abilityName?: string | null
+    abilityPower?: number | null
+    abilityDescription?: string | null
   }
   tcUsdPrice: number
   onSell: () => void
@@ -492,6 +495,16 @@ function ArtifactCard({
           </div>
         ))}
       </div>
+
+      {a.abilityName ? (
+        <div className="mt-3 rounded-lg px-3 py-2.5" style={{ border: `1px solid ${rarity.color}55`, backgroundColor: `${rarity.color}0D` }}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[12px] font-medium" style={{ color: rarity.color }}>{a.abilityName}</span>
+            <span className="text-[11px]" style={{ color: COLORS.label }}>+{a.abilityPower ?? 0}%</span>
+          </div>
+          <p className="mt-1 text-[11px] leading-relaxed" style={{ color: COLORS.label }}>{a.abilityDescription}</p>
+        </div>
+      ) : null}
 
       <div className="mt-auto flex items-center justify-between pt-5">
         <div className="flex flex-col">

@@ -61,6 +61,18 @@ export type EquippedArtifactStats = {
   level: number
   /** craft_score ∈ [0..1] надетого артефакта. NULL/undefined = legacy (труд не доказан). */
   craftScore?: number | null
+  abilityKey?: string | null
+  abilityPower?: number | null
+}
+
+function abilityFactor(artifact: EquippedArtifactStats, target: "stats" | "rarity" | "discount"): number {
+  const power = Math.max(0, Math.min(20, Number(artifact.abilityPower) || 0)) / 100
+  const fullMatch =
+    (target === "stats" && artifact.abilityKey === "forge_force") ||
+    (target === "rarity" && artifact.abilityKey === "forge_guard") ||
+    (target === "discount" && artifact.abilityKey === "forge_insight")
+  const multiplier = fullMatch ? 1 : artifact.abilityKey === "forge_velocity" ? 0.5 : 0
+  return 1 + power * multiplier
 }
 
 export type ForgeBonus = {
@@ -84,8 +96,8 @@ export function computeForgeBonus(equipped: EquippedArtifactStats[]): ForgeBonus
     const statAvg = (a.power + a.defense + a.magic + a.speed) / 4
     // Уровень слегка повышает вклад (усиленный артефакт — более ценный слот).
     const levelFactor = 1 + Math.max(0, (a.level ?? 1) - 1) * 0.05
-    rawStat += statAvg * STAT_CONTRIB_FACTOR * levelFactor
-    rawRarity += (RARITY_WEIGHT[a.rarity] ?? 1) * RARITY_CONTRIB_FACTOR * levelFactor
+    rawStat += statAvg * STAT_CONTRIB_FACTOR * levelFactor * abilityFactor(a, "stats")
+    rawRarity += (RARITY_WEIGHT[a.rarity] ?? 1) * RARITY_CONTRIB_FACTOR * levelFactor * abilityFactor(a, "rarity")
   }
 
   return {
@@ -100,7 +112,8 @@ export function getEquippedArtifacts(userId: number): Array<EquippedArtifactStat
   try {
     return db
       .prepare(
-        `SELECT id, name, type, rarity, level, power, defense, magic, speed, craft_score as craftScore
+        `SELECT id, name, type, rarity, level, power, defense, magic, speed, craft_score as craftScore,
+                ability_key as abilityKey, ability_power as abilityPower
          FROM artifacts
          WHERE owner_id = ? AND equipped_at IS NOT NULL
          ORDER BY equipped_at DESC
@@ -143,7 +156,7 @@ export function computeForgeDiscount(equipped: EquippedArtifactStats[]): ForgeDi
 
   let raw = 0
   for (const a of equipped.slice(0, FORGE_MAX_SLOTS)) {
-    raw += safeCraftScore(a.craftScore) * DISCOUNT_CONTRIB_FACTOR
+    raw += safeCraftScore(a.craftScore) * DISCOUNT_CONTRIB_FACTOR * abilityFactor(a, "discount")
   }
 
   return {

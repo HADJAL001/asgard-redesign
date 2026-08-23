@@ -152,5 +152,5 @@ test("параллельные покупки одного предмета ат
   checkDb.close()
 
   assert.equal(owned.c, 1, "Предмет должен быть куплен ровно один раз")
-  assert.equal(wallet.timecoin, 1000 - 50, "TC должны списаться ровно один раз (цена genesis = 50)")
+  assert.equal(wallet.timecoin, 1000 - 5, "TC должны списаться ровно один раз (цена genesis = 5)")
 })

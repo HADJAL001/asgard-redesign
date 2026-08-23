@@ -10,10 +10,10 @@ const DAY_MS = 24 * 60 * 60 * 1000
 
 /* APR зависит от срока стейка (чем дольше — тем выше ставка) */
 function getApr(days: number): number {
-  if (days >= 180) return 0.24
-  if (days >= 90) return 0.18
-  if (days >= 30) return 0.12
-  if (days >= 7) return 0.06
+  if (days >= 180) return 0.12
+  if (days >= 90) return 0.1
+  if (days >= 30) return 0.08
+  if (days >= 7) return 0.05
   return 0.03
 }
 

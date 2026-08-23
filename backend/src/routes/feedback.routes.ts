@@ -1,4 +1,5 @@
 import { Router } from "express"
+import { TIMECOIN_PRICES } from "../lib/timecoin-economy"
 import db from "../lib/db"
 import { optionalAuth, AuthRequest } from "../middleware/authMiddleware"
 import { asyncHandler } from "../utils/async-handler"
@@ -9,7 +10,7 @@ import { fetchTreasuryTcForEmission, canEmitUnbackedSync } from "../lib/emission
 
 const router = Router()
 
-const FEEDBACK_REWARD_TC = 5 /* +5 ∞ (TimeCoin) за отправленный фидбек */
+const FEEDBACK_REWARD_TC = TIMECOIN_PRICES.feedbackReward
 const FEEDBACK_DAILY_REWARD_LIMIT = 1 /* макс. кол-во вознаграждаемых фидбеков в сутки на пользователя */
 
 /* ----------------------------------------------------------------

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   computeForgeDiscount,
+  computeForgeBonus,
   FORGE_DISCOUNT_CAP,
   FORGE_MAX_SLOTS,
   ZERO_FORGE_DISCOUNT,
@@ -77,4 +78,21 @@ test('скидка: невалидный craftScore (NaN / вне [0..1]) нор
 test('скидка: детерминизм — тот же вход даёт тот же результат', () => {
   const eq = [mk(0.8), mk(0.4)];
   assert.deepEqual(computeForgeDiscount(eq), computeForgeDiscount(eq));
+});
+
+test('artifact ability power materially improves its forge discount', () => {
+  const base = { ...mk(1), abilityKey: 'forge_insight', abilityPower: 0 };
+  const empowered = { ...mk(1), abilityKey: 'forge_insight', abilityPower: 20 };
+  assert.ok(computeForgeDiscount([empowered]).discountRate > computeForgeDiscount([base]).discountRate);
+});
+
+test('artifact abilities have distinct, real forge effects', () => {
+  const base = { ...mk(1), power: 40, defense: 40, magic: 40, speed: 40 };
+  const force = { ...base, abilityKey: 'forge_force', abilityPower: 20 };
+  const guard = { ...base, abilityKey: 'forge_guard', abilityPower: 20 };
+  const insight = { ...base, abilityKey: 'forge_insight', abilityPower: 20 };
+
+  assert.ok(computeForgeBonus([force]).statBonus > computeForgeBonus([guard]).statBonus);
+  assert.ok(computeForgeBonus([guard]).rarityUpChance > computeForgeBonus([force]).rarityUpChance);
+  assert.ok(computeForgeDiscount([insight]).discountRate > computeForgeDiscount([force]).discountRate);
 });

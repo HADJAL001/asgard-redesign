@@ -3,6 +3,7 @@ import db from "../lib/db"
 import { runNode, type OrchestratorNodeConfig, type OrchestratorNodeType, type ChainContext } from "./orchestrator-nodes"
 import { logAudit } from "../lib/audit"
 import { captureError } from "../lib/sentry"
+import { ORCHESTRATOR_NODE_COST_TC } from "../lib/timecoin-economy"
 
 /* ================================================================
    OSGARD · Оркестратор — сервис
@@ -31,14 +32,7 @@ export const MAX_NODES = 20
 const CHAIN_TIMEOUT_MS = 5 * 60_000
 
 /** Стоимость запуска одного узла в TimeCoin — списывается со всей цепочки перед запуском. */
-const NODE_COST_TC: Record<OrchestratorNodeType, number> = {
-  claude: 5,
-  deepseek: 1,
-  grok: 2,
-  prompt_template: 0,
-  service_call: 3,
-  webhook_trigger: 0,
-}
+const NODE_COST_TC: Record<OrchestratorNodeType, number> = ORCHESTRATOR_NODE_COST_TC
 
 export function calculateChainCost(nodes: OrchestratorGraphNode[]): number {
   return nodes.reduce((sum, n) => sum + (NODE_COST_TC[n.data.type] ?? 0), 0)

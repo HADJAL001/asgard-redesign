@@ -77,7 +77,9 @@ export const PROJECT_SELECT_COLUMNS = `id, name, description, badge, artifact_co
        app_profile as appProfile`
 
 export const ARTIFACT_SELECT_COLUMNS = `id, project_id as projectId, name, type, rarity, level, power, defense, magic, speed,
-       status, views_24h as views24h, supply, price, list_currency as listCurrency, created_at as createdAt`
+       status, views_24h as views24h, supply, price, list_currency as listCurrency,
+       ability_key as abilityKey, ability_name as abilityName, ability_power as abilityPower,
+       ability_description as abilityDescription, created_at as createdAt`
 
 function computePrice(a: { power: number; defense: number; magic: number; speed: number }): number {
   const statSum = a.power + a.defense + a.magic + a.speed

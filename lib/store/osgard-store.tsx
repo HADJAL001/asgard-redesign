@@ -161,6 +161,10 @@ export interface OsgardArtifact {
   visualTheme?: string | null
   /** Уникальный визуальный эффект (появляется при level >= 10 через премиум-усиление). */
   visualEffect?: string | null
+  abilityKey?: string | null
+  abilityName?: string | null
+  abilityPower?: number | null
+  abilityDescription?: string | null
   /** Момент экипировки в снаряжение Кузницы (unix-ms) или null/undefined, если артефакт не надет. */
   equippedAt?: number | null
   /** Поля AI-генерации (POST /artifacts/generate-ai) — null/undefined для вручную скованных артефактов. */

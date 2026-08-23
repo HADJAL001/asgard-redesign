@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import db from '../lib/db'
 import { requireAuth } from '../middleware/authMiddleware'
 import { logAudit } from '../lib/audit'
+import { TIMECOIN_PRICES } from '../lib/timecoin-economy'
 
 /* ================================================================
    OSGARD · WALLI Upgrade System Routes
@@ -29,8 +30,8 @@ const SHOP_CATALOG = [
   { item_key: 'magnet',  item_type: 'accessory', name: 'Магнит-манипулятор', price_usd: 12, price_tc: null },
   { item_key: 'shield',  item_type: 'accessory', name: 'Щит от мусора',    price_usd: 15,  price_tc: null },
   // Эксклюзив
-  { item_key: 'genesis', item_type: 'exclusive', name: 'WALLI Genesis',    price_usd: null, price_tc: 50  },
-  { item_key: 'legend',  item_type: 'exclusive', name: 'Легендарный ВАЛЛИ', price_usd: null, price_tc: 50 },
+  { item_key: 'genesis', item_type: 'exclusive', name: 'WALLI Genesis',    price_usd: null, price_tc: TIMECOIN_PRICES.walliExclusive },
+  { item_key: 'legend',  item_type: 'exclusive', name: 'Легендарный ВАЛЛИ', price_usd: null, price_tc: TIMECOIN_PRICES.walliExclusive },
 ]
 
 const ABILITY_UPGRADE_PRICES: Record<number, number> = { 1: 19, 2: 29, 3: 39 }

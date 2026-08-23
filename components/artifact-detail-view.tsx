@@ -261,6 +261,18 @@ export function ArtifactDetailView({ id }: { id: number }) {
                   <span className="text-[13px]">—</span>
                 )}
               </div>
+              {base.abilityName ? (
+                <div className="mt-4 rounded-lg p-4" style={{ border: `1px solid ${RARITY[rarity].color}66`, backgroundColor: `${RARITY[rarity].color}0D` }}>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                      <Sparkles size={16} style={{ color: RARITY[rarity].color }} aria-hidden="true" />
+                      <span className="text-[14px] font-medium" style={{ color: RARITY[rarity].color }}>{base.abilityName}</span>
+                    </div>
+                    <span className="text-[12px]" style={{ color: LABEL }}>Сила +{base.abilityPower ?? 0}%</span>
+                  </div>
+                  <p className="mt-2 text-[12px] leading-relaxed" style={{ color: LABEL }}>{base.abilityDescription}</p>
+                </div>
+              ) : null}
               <div className="mt-2 flex items-center gap-3">
                 <Crown size={16} strokeWidth={1.5} style={{ color: LABEL }} aria-hidden="true" />
                 <span className="text-[13px]" style={{ color: LABEL }}>

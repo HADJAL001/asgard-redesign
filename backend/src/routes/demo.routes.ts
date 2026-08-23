@@ -164,7 +164,7 @@ import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { logAudit } from "../lib/audit"
 import { fetchTreasuryTcForEmission, canEmitUnbackedSync } from "../lib/emission-guard"
 
-const DEMO_BONUS_TC = 50
+const DEMO_BONUS_TC = 1
 
 router.post("/convert", requireAuth, async (req: AuthRequest, res: Response) => {
   const userId = req.user!.userId
