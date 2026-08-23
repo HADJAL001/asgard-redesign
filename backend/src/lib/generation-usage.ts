@@ -12,6 +12,8 @@ function serializeMeter(snapshot: TelemetrySnapshot): string {
     aiMs: snapshot.aiMs,
     unmeasured: snapshot.unmeasured,
     failedCalls: snapshot.failed,
+    tokenLimit: snapshot.tokenLimit ?? null,
+    tokensRemaining: snapshot.tokensRemaining ?? null,
   })
 }
 

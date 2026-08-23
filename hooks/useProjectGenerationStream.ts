@@ -73,6 +73,7 @@ export type GenerationMeterEvent = {
   tokensOut: number
   tokensEstimated: number
   aiMs: number
+  tokenLimit: number | null
   at: number
 }
 
@@ -86,6 +87,7 @@ export type LiveMeter = {
   estimated: number
   /** Сумма времени сетевых вызовов. null — тиков ещё не было. */
   aiMs: number | null
+  tokenLimit: number | null
 }
 
 export function isTerminalStage(stage: GenerationStage): boolean {
@@ -127,6 +129,7 @@ type MeterFields = {
   tokensOut?: number
   tokensEstimated?: number
   aiMs?: number
+  tokenLimit?: number | null
 }
 
 /** Собирает расход из полей события. Возвращает предыдущее значение, если счётчика
@@ -144,6 +147,7 @@ function meterFrom(evt: MeterFields, prev: LiveMeter | null): LiveMeter | null {
     totalTokens: tokensIn + tokensOut,
     estimated: evt.tokensEstimated ?? 0,
     aiMs: evt.aiMs ?? prev?.aiMs ?? null,
+    tokenLimit: evt.tokenLimit ?? prev?.tokenLimit ?? null,
   }
 }
 

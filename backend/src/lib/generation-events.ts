@@ -94,6 +94,7 @@ export type GenerationMeterEvent = {
   tokensEstimated: number
   /** Сумма времени сетевых вызовов (без пауз между ними). */
   aiMs: number
+  tokenLimit: number | null
   at: number
 }
 
@@ -180,7 +181,7 @@ export function emitGenerationStage(evt: Omit<GenerationStageEvent, "type" | "at
  *  живой счётчик не имеет права уронить генерацию. */
 export function emitGenerationMeter(
   projectId: number,
-  meter: { calls: number; inputTokens: number; outputTokens: number; unmeasured: number; aiMs: number },
+  meter: { calls: number; inputTokens: number; outputTokens: number; unmeasured: number; aiMs: number; tokenLimit?: number | null },
 ) {
   const now = Date.now()
   const prev = lastMeterAt.get(projectId) ?? 0
@@ -195,6 +196,7 @@ export function emitGenerationMeter(
     tokensOut: meter.outputTokens,
     tokensEstimated: meter.unmeasured,
     aiMs: meter.aiMs,
+    tokenLimit: meter.tokenLimit ?? null,
     at: now,
   }
   generationEvents.emit(`gen:${projectId}`, evt)

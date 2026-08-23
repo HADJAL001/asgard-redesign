@@ -1,6 +1,6 @@
 import dotenv from "dotenv"
 import { captureError } from "../lib/sentry"
-import { recordAiCall, estimateTokens } from "../lib/generation-telemetry"
+import { recordAiCall, estimateTokens, reserveAiCallTokens } from "../lib/generation-telemetry"
 
 dotenv.config()
 
@@ -178,6 +178,10 @@ export async function callOpenAiCompatible<T>(
      (успех, HTTP-ошибка, исключение) — упавший вызов тоже стоил пользователю
      времени, и прятать его из счётчика было бы нечестно. */
   const startedAt = Date.now()
+  const releaseTokenReservation = reserveAiCallTokens(
+    estimateTokens(prompt) + estimateTokens(systemPrompt || ""),
+    maxTokens,
+  )
 
   try {
     const messages = systemPrompt
@@ -255,6 +259,8 @@ export async function callOpenAiCompatible<T>(
       ok: false,
     })
     return null
+  } finally {
+    releaseTokenReservation()
   }
 }
 
@@ -332,6 +338,11 @@ export async function callClaudeApi(
     return result
   }
 
+  const releaseTokenReservation = reserveAiCallTokens(
+    estimateTokens(prompt) + estimateTokens(systemPrompt || ""),
+    maxTokens,
+  )
+
   try {
     const res = await fetch(CLAUDE_API_URL, {
       method: "POST",
@@ -407,6 +418,8 @@ export async function callClaudeApi(
       ok: false,
     })
     return null
+  } finally {
+    releaseTokenReservation()
   }
 }
 

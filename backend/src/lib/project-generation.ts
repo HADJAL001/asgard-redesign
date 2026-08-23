@@ -18,7 +18,12 @@ import { allowsServerCode, DEFAULT_APP_PROFILE, FULLSTACK_DEPENDENCIES, normaliz
 import { bindAppDatabase } from "../services/app-database-binding"
 import { createNotification } from "./notifications"
 import { emitGenerationStage, emitGenerationMeter } from "./generation-events"
-import { withGenerationTelemetry, currentTelemetry, type TelemetrySnapshot } from "./generation-telemetry"
+import {
+  GenerationTokenBudgetExceededError,
+  withGenerationTelemetry,
+  currentTelemetry,
+  type TelemetrySnapshot,
+} from "./generation-telemetry"
 import {
   beginGenerationUsageRun,
   finishGenerationUsageRun,
@@ -433,6 +438,7 @@ function persistProjectUsageDelta(
         aiMs: (Number(meter.aiMs) || 0) + aiMs,
         unmeasured: (Number(meter.unmeasured) || 0) + unmeasured,
         failedCalls: (Number(meter.failedCalls) || 0) + failedCalls,
+        tokenLimit: current.tokenLimit ?? meter.tokenLimit ?? null,
       }
       db.prepare(
         `UPDATE projects
@@ -467,6 +473,7 @@ async function runAppGenerationJob(...args: Parameters<typeof runAppGenerationJo
   const projectId = args[1]
   const depth = args[7]
   const kind = args[10] ? "refinement" : "generation"
+  const tokenLimit = generationTokenLimit(depth, kind)
   const usageRunId = beginGenerationUsageRun({ projectId, userId, kind, depth })
   let previous: TelemetrySnapshot | null = null
   let latest: TelemetrySnapshot | null = null
@@ -486,6 +493,7 @@ async function runAppGenerationJob(...args: Parameters<typeof runAppGenerationJo
         emitGenerationMeter(projectId, snapshot)
       },
       persist,
+      { tokenLimit },
     )
     finishGenerationUsageRun(usageRunId, result ? "completed" : "failed", latest)
     return result
@@ -749,15 +757,20 @@ async function drainGenerationJobs(): Promise<void> {
           }
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : "generation worker failed"
-        const finalAttempt = job.attempts >= GENERATION_JOB_MAX_ATTEMPTS
+        const budgetExceeded = error instanceof GenerationTokenBudgetExceededError
+        const message = budgetExceeded
+          ? `Generation stopped at the ${error.limit.toLocaleString("en-US")} token safety limit`
+          : error instanceof Error ? error.message : "generation worker failed"
+        // A deterministic budget stop cannot become successful on an identical retry;
+        // retrying would only buy the same partial work several times.
+        const finalAttempt = budgetExceeded || job.attempts >= GENERATION_JOB_MAX_ATTEMPTS
         const availableAt = finalAttempt ? Date.now() : Date.now() + generationRetryDelayMs(job.attempts)
         const queueUpdate = db.prepare(
           `UPDATE project_generation_jobs
            SET status = CASE WHEN attempts < ? THEN 'queued' ELSE 'failed' END,
                available_at = ?, lease_until = NULL, lease_token = NULL, last_error = ?, updated_at = ?
            WHERE project_id = ? AND status = 'running' AND lease_token = ?`,
-        ).run(GENERATION_JOB_MAX_ATTEMPTS, availableAt, message, Date.now(), job.project_id, job.lease_token)
+        ).run(budgetExceeded ? job.attempts : GENERATION_JOB_MAX_ATTEMPTS, availableAt, message, Date.now(), job.project_id, job.lease_token)
         const stillOwned = queueUpdate.changes > 0
         if (stillOwned && finalAttempt) {
           db.prepare(`UPDATE projects SET status = ?, generation_error = ? WHERE id = ?`).run(
@@ -1400,6 +1413,7 @@ export function repairGeneratedProject(params: { userId: number; projectId: numb
             repairTelemetry = snapshot
             updateGenerationUsageRun(usageRunId, snapshot)
           },
+          { tokenLimit: generationTokenLimit("standard", "repair") },
         )
         repairTelemetry = measured.telemetry
         engineering = measured.result
@@ -1571,4 +1585,18 @@ export function refineGeneratedProject(params: {
   }
 
   return true
+}
+
+function generationTokenLimit(depth: GenerationDepth, kind: "generation" | "refinement" | "repair"): number | null {
+  const suffix = kind === "repair" ? "REPAIR" : depth.toUpperCase()
+  const raw = process.env[`GENERATION_TOKEN_HARD_LIMIT_${suffix}`]
+  const defaults: Record<string, number> = {
+    QUICK: 2_000_000,
+    STANDARD: 4_000_000,
+    DEEP: 8_000_000,
+    REPAIR: 2_000_000,
+  }
+  if (raw === "0" || raw?.toLowerCase() === "off") return null
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : defaults[suffix]
 }

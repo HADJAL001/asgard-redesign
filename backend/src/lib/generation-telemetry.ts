@@ -53,6 +53,8 @@ export type TelemetrySnapshot = {
   failed: number
   /** Разбивка по провайдерам — видно, кто сколько съел. */
   byProvider: Record<string, { calls: number; tokens: number }>
+  tokenLimit?: number | null
+  tokensRemaining?: number | null
 }
 
 type TelemetryContext = {
@@ -61,6 +63,17 @@ type TelemetryContext = {
   /** Необязательный слушатель: вызывается после каждого записанного вызова,
    *  чтобы живой счётчик в интерфейсе тикал по мере расхода, а не в конце. */
   onUpdate?: (snapshot: TelemetrySnapshot) => void
+  tokenLimit: number | null
+  reservedTokens: number
+}
+
+export class GenerationTokenBudgetExceededError extends Error {
+  readonly code = "GENERATION_TOKEN_BUDGET_EXCEEDED"
+
+  constructor(readonly limit: number, readonly spent: number, readonly requested: number) {
+    super(`Generation token budget exceeded: ${spent} spent/reserved, ${requested} requested, ${limit} limit`)
+    this.name = "GenerationTokenBudgetExceededError"
+  }
 }
 
 const storage = new AsyncLocalStorage<TelemetryContext>()
@@ -75,7 +88,7 @@ export function estimateTokens(text: string): number {
   return Math.ceil(cyrillic / 2 + rest / 4)
 }
 
-function emptySnapshot(startedAt: number): TelemetrySnapshot {
+function emptySnapshot(startedAt: number, tokenLimit: number | null = null): TelemetrySnapshot {
   return {
     calls: 0,
     inputTokens: 0,
@@ -86,11 +99,13 @@ function emptySnapshot(startedAt: number): TelemetrySnapshot {
     unmeasured: 0,
     failed: 0,
     byProvider: {},
+    tokenLimit,
+    tokensRemaining: tokenLimit,
   }
 }
 
 function summarize(ctx: TelemetryContext): TelemetrySnapshot {
-  const snapshot = emptySnapshot(ctx.startedAt)
+  const snapshot = emptySnapshot(ctx.startedAt, ctx.tokenLimit)
   for (const r of ctx.records) {
     snapshot.calls += 1
     snapshot.inputTokens += r.inputTokens
@@ -104,7 +119,28 @@ function summarize(ctx: TelemetryContext): TelemetrySnapshot {
     snapshot.byProvider[r.provider] = bucket
   }
   snapshot.totalTokens = snapshot.inputTokens + snapshot.outputTokens
+  snapshot.tokensRemaining = ctx.tokenLimit === null
+    ? null
+    : Math.max(0, ctx.tokenLimit - snapshot.totalTokens - ctx.reservedTokens)
   return snapshot
+}
+
+/** Reserve worst-case capacity synchronously before parallel provider calls start. */
+export function reserveAiCallTokens(inputTokens: number, maxOutputTokens: number): () => void {
+  const ctx = storage.getStore()
+  if (!ctx || ctx.tokenLimit === null) return () => {}
+  const requested = Math.max(0, Math.ceil(inputTokens)) + Math.max(0, Math.ceil(maxOutputTokens))
+  const spent = summarize(ctx).totalTokens + ctx.reservedTokens
+  if (spent + requested > ctx.tokenLimit) {
+    throw new GenerationTokenBudgetExceededError(ctx.tokenLimit, spent, requested)
+  }
+  ctx.reservedTokens += requested
+  let released = false
+  return () => {
+    if (released) return
+    released = true
+    ctx.reservedTokens = Math.max(0, ctx.reservedTokens - requested)
+  }
 }
 
 /**
@@ -119,8 +155,13 @@ export async function withGenerationTelemetry<T>(
   fn: () => Promise<T>,
   onUpdate?: (snapshot: TelemetrySnapshot) => void,
   onFinish?: (snapshot: TelemetrySnapshot) => void,
+  options?: { tokenLimit?: number | null },
 ): Promise<{ result: T; telemetry: TelemetrySnapshot }> {
-  const ctx: TelemetryContext = { startedAt: Date.now(), records: [], onUpdate }
+  const configuredLimit = options?.tokenLimit
+  const tokenLimit = typeof configuredLimit === "number" && Number.isFinite(configuredLimit) && configuredLimit > 0
+    ? Math.floor(configuredLimit)
+    : null
+  const ctx: TelemetryContext = { startedAt: Date.now(), records: [], onUpdate, tokenLimit, reservedTokens: 0 }
   try {
     const result = await storage.run(ctx, fn)
     return { result, telemetry: summarize(ctx) }

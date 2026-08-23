@@ -107,7 +107,7 @@ export function LiveGenerationMeter({
     })
     items.push({
       Icon: Coins,
-      text: `${approx ? "≈" : ""}${formatTokens(meter.totalTokens)}`,
+      text: `${approx ? "≈" : ""}${formatTokens(meter.totalTokens)}${meter.tokenLimit ? ` / ${formatTokens(meter.tokenLimit)}` : ""}`,
       title: approx
         ? `Токенов: примерно ${meter.totalTokens} — часть вызовов не вернула точный расход`
         : `Токенов: ${meter.totalTokens} (${meter.tokensIn} отправлено, ${meter.tokensOut} получено)`,
@@ -237,6 +237,7 @@ export function GenerationMeterCard({ meter }: { meter: GenerationMeter | null |
   const tokensIn = meter.tokensIn ?? 0
   const tokensOut = meter.tokensOut ?? 0
   const totalTokens = tokensIn + tokensOut
+  const tokenLimit = detail?.tokenLimit ?? null
   const repairedFiles = detail?.repairedFiles ?? 0
   const firstTry = meter.firstTry
 
@@ -293,7 +294,7 @@ export function GenerationMeterCard({ meter }: { meter: GenerationMeter | null |
           Icon={Coins}
           label="Токенов"
           value={`${approx ? "≈" : ""}${formatTokens(totalTokens)}`}
-          hint={`Отправлено ${tokensIn}, получено ${tokensOut}${
+          hint={`Отправлено ${tokensIn}, получено ${tokensOut}${tokenLimit ? ` · лимит ${formatTokens(tokenLimit)}` : ""}${
             approx ? ` · ${unmeasured} ${pluralCalls(unmeasured)} не вернули точный расход` : ""
           }`}
         />

@@ -604,6 +604,7 @@ export interface GenerationMeterDetail {
   /** Сколько вызовов не отдали точный usage — оговорка к точности цифры. */
   unmeasured?: number
   failedCalls?: number
+  tokenLimit?: number | null
   /** Сколько раундов ремонта потребовалось инженерному контуру. */
   repairRounds?: number
   repairedFiles?: number
