@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="72%">
+      <stop offset="0" stop-color="#20252d"/>
+      <stop offset="0.58" stop-color="#0d1015"/>
+      <stop offset="1" stop-color="#050608"/>
+    </radialGradient>
+    <linearGradient id="metal" x1="180" y1="150" x2="820" y2="870" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff1b8"/>
+      <stop offset="0.2" stop-color="#d9b454"/>
+      <stop offset="0.48" stop-color="#8f681d"/>
+      <stop offset="0.7" stop-color="#f2d681"/>
+      <stop offset="1" stop-color="#a77820"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="280" y1="220" x2="750" y2="800" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff8d8"/>
+      <stop offset="0.45" stop-color="#d2a43e"/>
+      <stop offset="1" stop-color="#6f4b12"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="22" result="blur"/>
+      <feOffset dy="18" result="offset"/>
+      <feColorMatrix in="offset" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .72 0"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <circle cx="512" cy="512" r="374" fill="none" stroke="#2e333b" stroke-width="3"/>
+  <circle cx="512" cy="512" r="342" fill="none" stroke="url(#metal)" stroke-width="18"/>
+  <g filter="url(#shadow)">
+    <path d="M512 222 770 386v252L512 802 254 638V386L512 222Z" fill="#0a0d12" stroke="url(#edge)" stroke-width="28" stroke-linejoin="round"/>
+    <path d="M512 306 678 414v196L512 718 346 610V414L512 306Z" fill="none" stroke="url(#metal)" stroke-width="46" stroke-linejoin="round"/>
+    <path d="M512 382 590 512 512 642 434 512 512 382Z" fill="url(#metal)"/>
+    <circle cx="512" cy="512" r="34" fill="#090b0f" stroke="#fff0b0" stroke-width="8"/>
+  </g>
+  <path d="M512 146v42M512 836v42M146 512h42M836 512h42" stroke="#d9b454" stroke-width="10" stroke-linecap="round"/>
+</svg>

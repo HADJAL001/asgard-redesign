@@ -2,9 +2,9 @@
   "expo": {
     "name": "OSGARD",
     "slug": "mobile",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icon-premium.png",
     "scheme": "osgard",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -28,13 +28,13 @@
     },
     "android": {
       "package": "com.osgard.app",
-      "versionCode": 1,
+      "versionCode": 11,
       "runtimeVersion": {
         "policy": "appVersion"
       },
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#0A1128"
+        "foregroundImage": "./assets/images/adaptive-icon-premium.png",
+        "backgroundColor": "#07090D"
       },
       "permissions": [
         "android.permission.INTERNET",
@@ -62,10 +62,10 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/splash-icon-premium.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#0A1128"
+          "backgroundColor": "#07090D"
         }
       ],
       "expo-secure-store",
@@ -93,8 +93,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/adaptive-icon.png",
-          "color": "#00F0FF",
+          "icon": "./assets/images/adaptive-icon-premium.png",
+          "color": "#D9B454",
           "sounds": []
         }
       ],
