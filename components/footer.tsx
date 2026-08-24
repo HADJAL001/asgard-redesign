@@ -1,4 +1,7 @@
 import Link from "next/link"
+import { ExternalLink, Smartphone } from "lucide-react"
+
+const RUSTORE_APP_URL = "https://www.rustore.ru/catalog/app/com.osgard.app"
 
 const FOOTER_LINKS = [
   {
@@ -87,6 +90,19 @@ export function Footer() {
             >
               Премиальная AI-платформа нового мира. Создавай артефакты, торгуй, развивайся в цифровой вселенной.
             </p>
+
+            <a
+              href={RUSTORE_APP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Скачать приложение OSGARD в RuStore"
+              className="mt-5 inline-flex h-10 items-center gap-2 rounded-md border px-3.5 text-[12px] font-semibold text-white transition-colors hover:border-[#C9A84C]/70 hover:bg-[#C9A84C]/10"
+              style={{ borderColor: "rgba(201,168,76,0.35)", background: "rgba(255,255,255,0.03)" }}
+            >
+              <Smartphone aria-hidden="true" size={16} strokeWidth={1.8} />
+              Скачать в RuStore
+              <ExternalLink aria-hidden="true" size={13} strokeWidth={1.8} className="opacity-60" />
+            </a>
 
             {/* Декоративный неон-градиент бар */}
             <div
