@@ -12,6 +12,7 @@ import {
   Shield,
   Award,
   Star,
+  Smartphone,
 } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { useAuth } from "@/lib/auth-store"
@@ -41,6 +42,8 @@ import {
 const GlobeScene = dynamic(() => import("@/components/landing/GlobeScene"), {
   ssr: false,
 })
+
+const RUSTORE_APP_URL = "https://www.rustore.ru/catalog/app/com.osgard.app"
 
 
 export function EternityLanding() {
@@ -219,7 +222,11 @@ export function EternityLanding() {
           OSG<InfinityIcon size={16} strokeWidth={2} className="site-nav-logo-glyph" aria-hidden="true" />RD
         </Link>
         <div className="site-nav-links">
-          <Link href="/login" className="site-nav-link">{t("landing.navLogin")}</Link>
+          <a href={RUSTORE_APP_URL} className="site-nav-link site-nav-link-rustore" target="_blank" rel="noopener noreferrer">
+            <Smartphone size={15} aria-hidden="true" />
+            <span>RuStore</span>
+          </a>
+          <Link href="/login" className="site-nav-link site-nav-link-login">{t("landing.navLogin")}</Link>
           <Link href="/register" className="site-nav-link site-nav-link-primary">{t("landing.navRegister")}</Link>
         </div>
       </header>
@@ -263,6 +270,15 @@ export function EternityLanding() {
               )}
             </button>
           </form>
+
+          <a href={RUSTORE_APP_URL} className="hero-rustore-link" target="_blank" rel="noopener noreferrer">
+            <span className="hero-rustore-icon"><Smartphone size={18} aria-hidden="true" /></span>
+            <span>
+              <strong>Скачать приложение OSGARD</strong>
+              <small>Доступно в RuStore</small>
+            </span>
+            <ArrowRight size={17} aria-hidden="true" />
+          </a>
 
           {/* Платформа не поняла заявку — спрашивает, а не выдумывает продукт.
               Раньше здесь была только красная вспышка поля: человек не узнавал
@@ -677,10 +693,21 @@ const CSS = `
   background: linear-gradient(135deg, var(--eg-gold-1), var(--eg-gold-3));
 }
 .eternity-page .site-nav-link-primary:hover { color: #0A0D14; box-shadow: 0 0 20px rgba(212, 175, 55, 0.35); }
+.eternity-page .site-nav-link-rustore {
+  display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px;
+  color: #F4D675; border: 1px solid rgba(244, 214, 117, 0.42); border-radius: 30px;
+  background: rgba(9, 12, 20, 0.58); transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.eternity-page .site-nav-link-rustore:hover {
+  color: #FFF3BC; border-color: rgba(255, 215, 0, 0.8); background: rgba(212, 175, 55, 0.12);
+}
 @media (max-width: 600px) {
   .eternity-page .site-nav { padding: 16px 20px; }
   .eternity-page .site-nav-logo { font-size: 17px; }
-  .eternity-page .site-nav-links { gap: 12px; }
+  .eternity-page .site-nav-links { gap: 8px; }
+  .eternity-page .site-nav-link-login { display: none; }
+  .eternity-page .site-nav-link-rustore { padding: 8px 11px; }
+  .eternity-page .site-nav-link-primary { padding: 8px 12px; }
 }
 
 .eternity-page .container {
@@ -759,6 +786,26 @@ const CSS = `
 .eternity-page .artifact-form button:hover::before { transform: translateX(120%); }
 .eternity-page .artifact-form button:hover::after { opacity: 0.8; transform: translateX(0); }
 .eternity-page .artifact-form button svg { stroke: #0A0D14; stroke-width: 2; position: relative; }
+
+.eternity-page .hero-rustore-link {
+  width: 100%; max-width: 560px; min-height: 58px; padding: 10px 14px;
+  display: flex; align-items: center; gap: 12px; color: #fff; text-decoration: none;
+  border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px;
+  background: rgba(7, 10, 17, 0.72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  animation: eternity-rise 1s ease-out 0.48s forwards; opacity: 0;
+  transition: border-color 0.25s ease, background 0.25s ease, transform 0.25s ease;
+}
+.eternity-page .hero-rustore-link:hover {
+  border-color: rgba(255, 215, 0, 0.72); background: rgba(212, 175, 55, 0.1); transform: translateY(-2px);
+}
+.eternity-page .hero-rustore-icon {
+  width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center;
+  color: #0A0D14; border-radius: 7px; background: linear-gradient(135deg, #FFD700, #D4AF37);
+}
+.eternity-page .hero-rustore-link > span:nth-child(2) { display: flex; flex: 1; min-width: 0; flex-direction: column; text-align: left; }
+.eternity-page .hero-rustore-link strong { font-size: 14px; font-weight: 600; line-height: 1.4; }
+.eternity-page .hero-rustore-link small { margin-top: 1px; color: #8F9DB0; font-size: 12px; line-height: 1.35; }
+.eternity-page .hero-rustore-link > svg { flex: 0 0 auto; color: #D4AF37; }
 
 .eternity-page .hero-clarify {
   width: 100%; max-width: 560px; margin-top: -4px;
