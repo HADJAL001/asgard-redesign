@@ -424,6 +424,17 @@
     "tierSapphire": "Sapphire",
     "tierDiamond": "Diamond"
   },
+  "rarestHall": {
+    "title": "Hall of the Rarest",
+    "subtitle": "Top artifacts ranked by honest craftsmanship (Proof-of-Craft), not by owner income.",
+    "loading": "Loading the hall…",
+    "nobodyFound": "No artifacts in the hall yet",
+    "craftScore": "Craft score {{score}}",
+    "holderUnknown": "Holder not disclosed",
+    "loadMore": "Show more",
+    "footerNote": "Honest ranking: legacy artifacts without a stored craft score don't participate.",
+    "backToHallOfFame": "Hall of Fame (by income)"
+  },
   "leaderboard": {
     "title": "Architect Leaderboard",
     "subtitle": "Top creators of the OSGARD ecosystem — by artifact sales income",

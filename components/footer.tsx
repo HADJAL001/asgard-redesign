@@ -18,6 +18,7 @@ const FOOTER_LINKS = [
     links: [
       { label: "Проекты", href: "/projects" },
       { label: "Зал Славы", href: "/hall-of-fame" },
+      { label: "Зал редчайших", href: "/rarest" },
       { label: "Лидеры", href: "/leaderboard" },
       { label: "Реферальная", href: "/referral" },
     ],
