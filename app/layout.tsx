@@ -1,40 +1,15 @@
 import type { Metadata, Viewport } from "next"
 import { headers } from "next/headers"
-import { Inter, Space_Grotesk, Cormorant_Garamond, Playfair_Display } from "next/font/google"
+import "@fontsource-variable/inter"
+import "@fontsource-variable/space-grotesk"
+import "@fontsource-variable/cormorant-garamond"
+import "@fontsource-variable/playfair-display"
 import "./globals.css"
 import { OsgardStoreProvider } from "@/lib/store/osgard-store"
 import { AuthProvider } from "@/lib/auth-store"
 import { I18nProvider } from "@/lib/i18n/use-translation"
 import { Footer } from "@/components/footer"
 import { AppShell } from "@/components/AppShell"
-
-
-const inter = Inter({
-  subsets: ["latin", "cyrillic"],
-  variable: "--font-inter",
-  display: "swap",
-  preload: false,
-})
-const space = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-space",
-  display: "swap",
-  preload: false,
-})
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin", "cyrillic"],
-  weight: ["500", "600", "700"],
-  variable: "--font-cormorant",
-  display: "swap",
-  preload: false,
-})
-const playfair = Playfair_Display({
-  subsets: ["latin", "cyrillic"],
-  weight: ["500", "600", "700"],
-  variable: "--font-playfair",
-  display: "swap",
-  preload: false,
-})
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://osgardnewworld.com"),
@@ -89,9 +64,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 
   return (
     <html lang="ru" className="bg-background">
-      <body
-        className={`${inter.variable} ${space.variable} ${cormorant.variable} ${playfair.variable} font-sans antialiased`}
-      >
+      <body className="font-sans antialiased">
         <I18nProvider>
           <AuthProvider>
             <OsgardStoreProvider>

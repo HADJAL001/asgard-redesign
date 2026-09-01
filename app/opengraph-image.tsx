@@ -18,12 +18,48 @@ const GOLD = "#D4AF37"
 const GOLD_SOFT = "#E9C868"
 
 const TIERS = [
-  { symbol: "○", color: "#9CA3AF" },
-  { symbol: "◇", color: "#34D399" },
-  { symbol: "◆", color: "#60A5FA" },
-  { symbol: "★", color: "#A78BFA" },
-  { symbol: "∞", color: GOLD },
-]
+  { mark: "ring", color: "#9CA3AF" },
+  { mark: "crystal-outline", color: "#34D399" },
+  { mark: "crystal", color: "#60A5FA" },
+  { mark: "star", color: "#A78BFA" },
+  { mark: "infinity", color: GOLD },
+] as const
+
+function TierMark({ mark, color }: (typeof TIERS)[number]) {
+  if (mark === "ring") {
+    return <div style={{ width: 22, height: 22, border: `3px solid ${color}`, borderRadius: 999 }} />
+  }
+
+  if (mark === "crystal-outline" || mark === "crystal") {
+    return (
+      <div
+        style={{
+          width: 21,
+          height: 21,
+          border: `3px solid ${color}`,
+          background: mark === "crystal" ? color : "transparent",
+          transform: "rotate(45deg)",
+        }}
+      />
+    )
+  }
+
+  if (mark === "star") {
+    return (
+      <div style={{ position: "relative", display: "flex", width: 28, height: 28 }}>
+        <div style={{ position: "absolute", left: 12, top: 0, width: 4, height: 28, borderRadius: 4, background: color }} />
+        <div style={{ position: "absolute", left: 0, top: 12, width: 28, height: 4, borderRadius: 4, background: color }} />
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", width: 35, height: 22 }}>
+      <div style={{ width: 21, height: 21, border: `3px solid ${color}`, borderRadius: 999 }} />
+      <div style={{ width: 21, height: 21, marginLeft: -7, border: `3px solid ${color}`, borderRadius: 999 }} />
+    </div>
+  )
+}
 
 export default function OpengraphImage() {
   return new ImageResponse(
@@ -106,7 +142,7 @@ export default function OpengraphImage() {
         <div style={{ display: "flex", alignItems: "center", gap: 22, marginTop: 46 }}>
           {TIERS.map((t) => (
             <div
-              key={t.symbol}
+              key={t.mark}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -120,7 +156,7 @@ export default function OpengraphImage() {
                 boxShadow: `0 0 22px ${t.color}55`,
               }}
             >
-              {t.symbol}
+              <TierMark {...t} />
             </div>
           ))}
         </div>

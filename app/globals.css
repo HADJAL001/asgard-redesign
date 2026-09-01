@@ -22,6 +22,10 @@
 
 :root {
   color-scheme: dark;
+  --font-inter: "Inter Variable", "Inter", sans-serif;
+  --font-space: "Space Grotesk Variable", "Space Grotesk", sans-serif;
+  --font-cormorant: "Cormorant Garamond Variable", "Cormorant Garamond", Georgia, serif;
+  --font-playfair: "Playfair Display Variable", "Playfair Display", Georgia, serif;
 
   /* ── OSGARD NEW WORLD palette ── */
   /* Платина: #E5E4E2 | Тёмно-синий: #0A1128 | Королевский синий: #1A2A6C */
