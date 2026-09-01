@@ -6,7 +6,17 @@ import { TesterAgent } from "./tester-agent"
 import { OptimizerAgent } from "./optimizer-agent"
 import { SecurityAgent } from "./security-agent"
 import { DeployAgent } from "./deploy.agent"
-import type { BackendArtifact, DeployArtifact, FrontendArtifact, GeneratedFile, OptimizedArtifact, ProjectSchema, SecurityReport, TestArtifact } from "./types"
+import { runIndependentQualityReviews } from "./quality-review-runner"
+import type {
+  BackendArtifact,
+  DeployArtifact,
+  FrontendArtifact,
+  GeneratedFile,
+  OptimizedArtifact,
+  ProjectSchema,
+  SecurityReport,
+  TestArtifact,
+} from "./types"
 
 /* ================================================================
    OSGARD · Мост между пайплайном Клода #2 (Analyst/Architect/
@@ -69,8 +79,11 @@ export async function runFullPipeline(description: string, taskId?: string): Pro
 
   const backend = await backendAgent.run({ schema, frontend }, taskId)
   const tests = await testerAgent.run({ frontend, backend }, taskId)
-  const optimized = await optimizerAgent.run({ schema, frontend, backend, tests }, taskId)
-  const security = await securityAgent.run({ schema, frontend, backend, tests }, taskId)
+  const [optimized, security] = await runIndependentQualityReviews(
+    { schema, frontend, backend, tests },
+    taskId,
+    { optimizer: optimizerAgent, security: securityAgent },
+  )
 
   const deployFiles = mergeFiles(frontend.files, backend.files, optimized.files, security.files)
   const deploy = await deployAgent.run({ files: deployFiles, projectName: slugify(schema.name) }, taskId)
