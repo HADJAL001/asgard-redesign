@@ -190,12 +190,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
     setError(null)
     setSubmitting(true)
     try {
-      // Платная глубина требует достаточного баланса — проверяем до запроса, чтобы не ловить 402.
-      if (insufficientCredits) {
-        setError(`Для создания проекта нужен 1 TimeCoin. Доступно: ${wallet.timecoin}.`)
-        setSubmitting(false)
-        return
-      }
+      // Баланс проверяет сервер атомарно: локальный store при холодной загрузке может ещё содержать ноль.
       // POST /projects/generate отвечает сразу (проект уже создан, status='generating'),
       // а реальные файлы приложения генерируются в фоне на сервере — опрашиваем статус.
       // Собственное описание пользователя (если есть) важнее темы — это его реальный
@@ -548,7 +543,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || insufficientCredits}
+              disabled={submitting}
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90 disabled:opacity-60"
               style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
             >
