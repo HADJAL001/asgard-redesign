@@ -244,21 +244,25 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
     />
 
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden p-2 sm:items-center sm:p-4"
       style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[560px] rounded-2xl p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="project-create-title"
+        className="flex max-h-[calc(100dvh-1rem)] w-full max-w-[560px] flex-col rounded-xl p-4 sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:p-6"
         style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-[18px] font-semibold">{t("projectWizard.title")}</h2>
+        <div className="flex shrink-0 items-center justify-between">
+          <h2 id="project-create-title" className="text-[18px] font-semibold">{t("projectWizard.title")}</h2>
           <button
             type="button"
             onClick={onClose}
+            aria-label={t("projectWizard.cancel")}
             className="flex size-8 items-center justify-center rounded-lg transition-colors"
             style={{ color: COLORS.label }}
             onMouseEnter={(e) => (e.currentTarget.style.color = COLORS.text)}
@@ -289,7 +293,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
         )}
 
         {/* Step content */}
-        <div className="mt-6 min-h-[220px]">
+        <div className="mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 sm:mt-6 sm:min-h-[220px]">
           {reveal ? (
             <ProjectArtifactReveal
               projectName={reveal.name}
@@ -517,7 +521,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
 
         {/* Footer buttons */}
         {!busy && (
-        <div className="mt-6 flex items-center justify-between gap-3">
+        <div className="mt-4 flex shrink-0 items-center justify-between gap-3 border-t pt-4 sm:mt-6" style={{ borderColor: COLORS.border }}>
           <button
             type="button"
             onClick={step === 1 ? onClose : goBack}
