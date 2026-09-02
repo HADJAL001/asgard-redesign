@@ -252,6 +252,9 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
         role="dialog"
         aria-modal="true"
         aria-labelledby="project-create-title"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") onClose()
+        }}
         className="flex max-h-[calc(100dvh-1rem)] w-full max-w-[560px] flex-col rounded-xl p-4 sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:p-6"
         style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
         onClick={(e) => e.stopPropagation()}
