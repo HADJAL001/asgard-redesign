@@ -208,6 +208,16 @@ export function ProjectsView() {
                      оставалось за мелкими вкладками. «Паспорт проекта» никуда
                      не делся — ссылка на него есть в шапке Мастерской. */
                   onClick={() => router.push(`/projects/${p.id}/workspace`)}
+                  onKeyDown={(e) => {
+                    if (e.target instanceof HTMLElement && e.target.closest("button")) return
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault()
+                      router.push(`/projects/${p.id}/workspace`)
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-labelledby={`project-card-title-${p.id}`}
                   className="premium-panel group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl p-5 transition-all duration-300"
                   style={{ border: `1px solid ${COLORS.border}` }}
                   onMouseEnter={(e) => {
@@ -256,7 +266,7 @@ export function ProjectsView() {
                     </button>
                   </div>
 
-                  <h3 className="relative mt-4 text-[16px] font-semibold tracking-tight">{p.name}</h3>
+                  <h3 id={`project-card-title-${p.id}`} className="relative mt-4 text-[16px] font-semibold tracking-tight">{p.name}</h3>
                   <p className="relative mt-1 line-clamp-2 text-[13px]" style={{ color: COLORS.label }}>
                     {p.description || t("projects.noDescription")}
                   </p>
