@@ -271,14 +271,15 @@ export function EternityLanding() {
             </button>
           </form>
 
-          <a href={RUSTORE_APP_URL} className="hero-rustore-link" target="_blank" rel="noopener noreferrer">
+          {/* RuStore is kept in the top navigation; the hero stays focused on creation. */}
+          {/* <a href={RUSTORE_APP_URL} className="hero-rustore-link" target="_blank" rel="noopener noreferrer">
             <span className="hero-rustore-icon"><Smartphone size={18} aria-hidden="true" /></span>
             <span>
               <strong>Скачать приложение OSGARD</strong>
               <small>Доступно в RuStore</small>
             </span>
             <ArrowRight size={17} aria-hidden="true" />
-          </a>
+          </a> */}
 
           {/* Платформа не поняла заявку — спрашивает, а не выдумывает продукт.
               Раньше здесь была только красная вспышка поля: человек не узнавал
@@ -300,7 +301,6 @@ export function EternityLanding() {
             <LivePulseBar variant="landing" />
           </div>
 
-          <WalleOnGlobe />
         </header>
 
         <section className="how-section">
@@ -331,6 +331,36 @@ export function EternityLanding() {
           <Reveal><h2>{t("landing.examplesTitle")}</h2></Reveal>
           <Reveal delay={0.05}><p className="examples-subtitle">{t("landing.examplesSubtitle")}</p></Reveal>
           <div className="examples-container">
+            <Reveal delay={0} className="example-card">
+              <a className="example-card-link" href="https://gardvpn.is" target="_blank" rel="noopener noreferrer" aria-label="GARDVPN.IS">
+                <div className="example-preview example-preview-1" />
+                <div className="example-body"><div className="example-icon-badge"><IconVPN size={26} /></div><div className="example-title">GARDVPN.IS</div><div className="example-desc">Private network access under your own brand.</div></div>
+                <ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
+              </a>
+            </Reveal>
+            <Reveal delay={0.12} className="example-card">
+              <a className="example-card-link" href="https://osgardos.com" target="_blank" rel="noopener noreferrer" aria-label="OSGARDOS.COM">
+                <div className="example-preview example-preview-2" /><div className="example-body"><div className="example-icon-badge"><IconDashboard size={26} /></div><div className="example-title">OSGARDOS.COM</div><div className="example-desc">A platform built for ambitious digital worlds.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
+              </a>
+            </Reveal>
+            <Reveal delay={0.24} className="example-card">
+              <a className="example-card-link" href="https://superday.run" target="_blank" rel="noopener noreferrer" aria-label="SUPERDAY.RUN">
+                <div className="example-preview example-preview-3" /><div className="example-body"><div className="example-icon-badge"><IconCreate size={26} /></div><div className="example-title">SUPERDAY.RUN</div><div className="example-desc">A focused product for everyday momentum.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
+              </a>
+            </Reveal>
+            <Reveal delay={0.36} className="example-card">
+              <a className="example-card-link" href="https://osgardvanguard.studio" target="_blank" rel="noopener noreferrer" aria-label="OSGARDVANGUARD.STUDIO">
+                <div className="example-preview example-preview-4" /><div className="example-body"><div className="example-icon-badge"><IconLegend size={26} /></div><div className="example-title">OSGARDVANGUARD.STUDIO</div><div className="example-desc">A studio for high-caliber digital products.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
+              </a>
+            </Reveal>
+            <Reveal delay={0.48} className="example-card">
+              <a className="example-card-link" href="https://senjorio.com" target="_blank" rel="noopener noreferrer" aria-label="SENJORIO.COM">
+                <div className="example-preview example-preview-5" /><div className="example-body"><div className="example-icon-badge"><IconTrade size={26} /></div><div className="example-title">SENJORIO.COM</div><div className="example-desc">A premium mobility service with a clear purpose.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
+              </a>
+            </Reveal>
+          </div>
+          {/* Legacy generic examples remain below only until the next cleanup pass. */}
+          <div className="examples-container" aria-hidden="true" style={{ display: "none" }}>
             <Reveal delay={0} className="example-card">
               <div className="example-preview example-preview-1" />
               <div className="example-body">
@@ -438,6 +468,9 @@ export function EternityLanding() {
 
         <section className="economy-section">
           <Reveal><h2>{t("landing.economyTitle")}</h2></Reveal>
+          <Reveal delay={0.05} className="economy-vision">
+            <p>TimeCoin — универсальная валюта экосистемы OSGARD. Артефакты получают ценность через качество, полезность и реальный спрос. Мы строим долгую историю доверия и масштаба — без обещаний гарантированной доходности.</p>
+          </Reveal>
           <div className="values-container">
             <Reveal delay={0} className="value-item">
               <IconTrade size={32} />
@@ -1172,6 +1205,11 @@ const CSS = `
 .eternity-page .example-card:hover {
   transform: translateY(-4px); border-color: rgba(212, 175, 55, 0.3); box-shadow: var(--eg-glow-gold);
 }
+.eternity-page .example-card-link { position: relative; display: block; height: 100%; color: inherit; text-decoration: none; }
+.eternity-page .example-link-arrow { position: absolute; right: 22px; bottom: 22px; color: #D4AF37; opacity: 0.7; transition: transform 0.25s ease, opacity 0.25s ease; }
+.eternity-page .example-card-link:hover .example-link-arrow { transform: translateX(4px); opacity: 1; }
+.eternity-page .example-card-link:focus-visible { outline: 2px solid #D4AF37; outline-offset: -2px; border-radius: inherit; }
+.eternity-page .economy-vision { max-width: 760px; margin: 16px auto 28px; padding: 18px 24px; border: 1px solid rgba(212,175,55,0.28); border-radius: 12px; background: linear-gradient(110deg, rgba(212,175,55,0.1), rgba(10,13,20,0.28)); color: #D8C98E; font-size: 15px; line-height: 1.65; letter-spacing: 0.02em; text-align: center; }
 .eternity-page .example-preview { height: 140px; width: 100%; }
 .eternity-page .example-preview-1 { background: radial-gradient(circle at 30% 30%, rgba(212,175,55,0.35), rgba(10,13,20,0.9) 70%); }
 .eternity-page .example-preview-2 { background: radial-gradient(circle at 70% 40%, rgba(106,90,205,0.35), rgba(10,13,20,0.9) 70%); }
