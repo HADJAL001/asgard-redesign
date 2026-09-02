@@ -16,7 +16,7 @@
    - Модалку с ProjectCreateWizard
    ================================================================ */
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Sparkles, FolderKanban, Boxes, TrendingUp, Coins, Loader2, Trash2, Wand2 } from "lucide-react"
 import { Navbar } from "./navbar"
@@ -27,22 +27,37 @@ import { useTranslation } from "@/lib/i18n/use-translation"
 import { ProjectCreateWizard } from "./project-create-wizard"
 import { PremiumBackground } from "./premium-bg"
 import { SectionHelp } from "./section-help"
+import { pendingProjectIds } from "@/lib/project-generation-recovery"
 
 export function ProjectsView() {
   const { t } = useTranslation()
   const router = useRouter()
-  const { projects, fetchProjects, deleteProject, loading, error } = useOsgardStore()
+  const { projects, fetchProjects, deleteProject, pollProjectStatus, loading, error } = useOsgardStore()
 
   const [wizardOpen, setWizardOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   /** Идея из композера «в один клик» — если заполнена, мастер запускает
    *  генерацию сразу (без шагов имени/темы), как в студии /dev. */
   const [idea, setIdea] = useState("")
+  const recoveringProjectIds = useRef(new Set<number>())
 
   useEffect(() => {
     fetchProjects({ skipAuthRedirect: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Generation is durable on the server; keep it moving even when the user reloads
+  // the projects page before opening the workspace.
+  useEffect(() => {
+    const pendingIds = pendingProjectIds(projects)
+    for (const id of pendingIds) {
+      if (recoveringProjectIds.current.has(id)) continue
+      recoveringProjectIds.current.add(id)
+      void pollProjectStatus(id).finally(() => {
+        recoveringProjectIds.current.delete(id)
+      })
+    }
+  }, [pollProjectStatus, projects])
 
   function openWizard() {
     setWizardOpen(true)
