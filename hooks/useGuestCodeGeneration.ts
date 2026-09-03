@@ -132,11 +132,13 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
         return
       }
 
+      let unsubscribe: (() => void) | null = null
       if (adapter.subscribeStream) {
-        unsubRef.current = adapter.subscribeStream(taskId, (p) => {
+        unsubscribe = adapter.subscribeStream(taskId, (p) => {
           if (cancelRef.current || generationId !== generationIdRef.current) return
           setState((s) => (s.phase === "running" || s.phase === "starting" ? { ...s, phase: "running", progress: p } : s))
         })
+        unsubRef.current = unsubscribe
       }
 
       const deadline = Date.now() + POLL_TIMEOUT_MS
@@ -153,6 +155,7 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
         try {
           polled = await adapter.poll(taskId)
         } catch (err) {
+          if (cancelRef.current || generationId !== generationIdRef.current) break
           const msg = err instanceof Error ? err.message : String(err)
           setState((s) => ({ ...s, phase: "error", error: msg }))
           break
@@ -172,8 +175,8 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
       }
 
-      if (unsubRef.current) {
-        unsubRef.current()
+      if (unsubscribe && unsubRef.current === unsubscribe) {
+        unsubscribe()
         unsubRef.current = null
       }
     },
