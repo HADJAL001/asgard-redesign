@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express"
 import { startGuestGeneration, getGuestTask, GuestGenerationBusyError } from "../services/guest-code-store"
 import { getClientIp } from "../lib/admin-audit"
+import { ensureRedisConnected, redisClient } from "../lib/redis"
 
 /* ================================================================
    OSGARD · Demo Code Routes — гостевая live-генерация КОДА (Part 2)
@@ -31,7 +32,7 @@ interface IpEntry {
 }
 const ipMap = new Map<string, IpEntry>()
 
-function checkIpLimit(ip: string): { allowed: boolean; remaining: number; resetAt: number } {
+function memoryCheckIpLimit(ip: string): { allowed: boolean; remaining: number; resetAt: number } {
   const now = Date.now()
 
   /* Попутно чистим протухшие записи, чтобы ipMap не рос бесконечно
@@ -52,8 +53,26 @@ function checkIpLimit(ip: string): { allowed: boolean; remaining: number; resetA
   return { allowed: true, remaining: IP_LIMIT - entry.count, resetAt: entry.resetAt }
 }
 
+async function checkIpLimit(ip: string): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
+  const key = `guest_code_limit:${ip}`
+  if (await ensureRedisConnected()) {
+    try {
+      const count = await redisClient!.incr(key)
+      if (count === 1) await redisClient!.pexpire(key, IP_WINDOW_MS)
+      const ttl = await redisClient!.pttl(key)
+      const resetAt = Date.now() + (ttl > 0 ? ttl : IP_WINDOW_MS)
+      return count > IP_LIMIT
+        ? { allowed: false, remaining: 0, resetAt }
+        : { allowed: true, remaining: IP_LIMIT - count, resetAt }
+    } catch (err) {
+      console.warn("[guest-code] redis limit failed, using memory fallback:", err instanceof Error ? err.message : err)
+    }
+  }
+  return memoryCheckIpLimit(ip)
+}
+
 /* ---------------- POST /demo/code/start ---------------- */
-router.post("/start", (req: Request, res: Response) => {
+router.post("/start", async (req: Request, res: Response) => {
   const { name, hint } = req.body || {}
 
   if (!name || typeof name !== "string" || !name.trim()) {
@@ -61,7 +80,7 @@ router.post("/start", (req: Request, res: Response) => {
   }
 
   const ip = getClientIp(req) || "unknown"
-  const { allowed, resetAt } = checkIpLimit(ip)
+  const { allowed, resetAt } = await checkIpLimit(ip)
   if (!allowed) {
     return res.status(429).json({
       error: "Лимит гостевых генераций кода исчерпан. Попробуйте через 24 часа или зарегистрируйтесь.",
