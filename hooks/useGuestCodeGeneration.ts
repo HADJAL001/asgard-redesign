@@ -71,6 +71,15 @@ export const DEFAULT_ADAPTER: GuestCodeAdapter = {
 
 const POLL_INTERVAL_MS = 1500
 const POLL_TIMEOUT_MS = 5 * 60 * 1000
+const ACTIVE_TASK_KEY = "osgard_guest_code_task"
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function rememberTask(taskId: string | null) {
+  try {
+    if (taskId) sessionStorage.setItem(ACTIVE_TASK_KEY, taskId)
+    else sessionStorage.removeItem(ACTIVE_TASK_KEY)
+  } catch { /* storage is optional */ }
+}
 
 type State = {
   phase: GuestGenPhase
@@ -103,6 +112,7 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
 
   const reset = useCallback(() => {
     cleanup()
+    rememberTask(null)
     cancelRef.current = false
     setState(INITIAL)
   }, [cleanup])
@@ -118,9 +128,14 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
 
       let taskId: string
       try {
-        const started = await adapter.start(input, controller.signal)
-        if (cancelRef.current || generationId !== generationIdRef.current) return
-        taskId = started.taskId
+        if (input.resumeTaskId) {
+          taskId = input.resumeTaskId
+        } else {
+          const started = await adapter.start(input, controller.signal)
+          if (cancelRef.current || generationId !== generationIdRef.current) return
+          taskId = started.taskId
+          rememberTask(taskId)
+        }
       } catch (err) {
         if (abortRef.current === controller) abortRef.current = null
         if (cancelRef.current || generationId !== generationIdRef.current) return
@@ -175,6 +190,7 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
             continue
           }
           const msg = err instanceof Error ? err.message : String(err)
+          rememberTask(null)
           setState((s) => ({ ...s, phase: "error", error: msg }))
           break
         }
@@ -182,10 +198,12 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
         if (cancelRef.current || generationId !== generationIdRef.current) break
 
         if (polled.status === "done" || polled.status === "completed") {
+          rememberTask(null)
           setState((s) => ({ ...s, phase: "done", result: polled.result ?? { files: [] }, progress: null }))
           break
         }
         if (polled.status === "error" || polled.status === "failed") {
+          rememberTask(null)
           setState((s) => ({ ...s, phase: "error", error: polled.error ?? "Ошибка генерации." }))
           break
         }
@@ -201,6 +219,21 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
     },
     [adapter, cleanup],
   )
+
+  useEffect(() => {
+    let cancelled = false
+    let taskId: string | null = null
+    try { taskId = sessionStorage.getItem(ACTIVE_TASK_KEY) } catch { /* storage is optional */ }
+    if (!taskId) return () => { cancelled = true }
+    if (!UUID_RE.test(taskId)) {
+      rememberTask(null)
+      return () => { cancelled = true }
+    }
+    Promise.resolve().then(() => {
+      if (!cancelled) void generate({ name: "", resumeTaskId: taskId! })
+    })
+    return () => { cancelled = true }
+  }, [generate])
 
   return {
     phase: state.phase,
