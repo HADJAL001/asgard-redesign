@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto"
 import { generateApp, validateGeneratedFiles, type AppGenerationResult } from "./app-generator"
 import { captureError } from "../lib/sentry"
+import { ensureRedisConnected, redisClient } from "../lib/redis"
 
 /* ================================================================
    OSGARD · Guest Code Store — анонимная генерация кода (Part 2)
@@ -35,6 +36,7 @@ const MAX_GUEST_FILE_BYTES = 512 * 1024
 const MAX_GUEST_TOTAL_BYTES = 2 * 1024 * 1024
 
 const TASK_TTL_MS = 30 * 60 * 1000 // 30 минут — результат живёт недолго, это демо
+const REDIS_TASK_PREFIX = "osgard:guest-code:task:"
 
 export function guestArchiveFilename(projectName: string, taskId: string): string {
   const slug = projectName
@@ -45,6 +47,19 @@ export function guestArchiveFilename(projectName: string, taskId: string): strin
     .replace(/^-+|-+$/g, "")
   const fallbackId = taskId.replace(/[^a-z0-9]/gi, "").slice(0, 8).toLowerCase() || "download"
   return `${slug || `osgard-project-${fallbackId}`}.zip`
+}
+
+function redisTaskKey(taskId: string): string {
+  return `${REDIS_TASK_PREFIX}${taskId}`
+}
+
+async function persistCompletedTask(taskId: string, task: GuestTask): Promise<void> {
+  if (task.status === "processing" || !(await ensureRedisConnected()) || !redisClient) return
+  try {
+    await redisClient.set(redisTaskKey(taskId), JSON.stringify(task), "PX", TASK_TTL_MS)
+  } catch (err) {
+    captureError("[guest-code] redis task persistence failed", err)
+  }
 }
 
 /* Глобальный потолок одновременных генераций: каждая — это дорогая цепочка
@@ -158,6 +173,7 @@ export function startGuestGeneration(name: string, hint?: string): string {
         throw new Error(`guest release gate rejected output: ${releaseErrors.slice(0, 5).join("; ")}`)
       }
       tasks.set(taskId, { status: "done", projectName: name, result, createdAt: Date.now() })
+      void persistCompletedTask(taskId, tasks.get(taskId)!)
     })
     .catch((err) => {
       captureError("[guest-code] generateApp failed", err)
@@ -167,12 +183,28 @@ export function startGuestGeneration(name: string, hint?: string): string {
         error: "Не удалось собрать проект. Попробуйте ещё раз через несколько минут.",
         createdAt: Date.now(),
       })
+      void persistCompletedTask(taskId, tasks.get(taskId)!)
     })
 
   return taskId
 }
 
-export function getGuestTask(taskId: string): GuestTask | undefined {
+export async function getGuestTask(taskId: string): Promise<GuestTask | undefined> {
   sweepExpired()
-  return tasks.get(taskId)
+  const local = tasks.get(taskId)
+  if (local) return local
+  if (!(await ensureRedisConnected()) || !redisClient) return undefined
+  try {
+    const raw = await redisClient.get(redisTaskKey(taskId))
+    if (!raw) return undefined
+    const parsed = JSON.parse(raw) as GuestTask
+    if (!parsed || !["done", "error"].includes(parsed.status) || typeof parsed.projectName !== "string") {
+      return undefined
+    }
+    tasks.set(taskId, parsed)
+    return parsed
+  } catch (err) {
+    captureError("[guest-code] redis task read failed", err)
+    return undefined
+  }
 }

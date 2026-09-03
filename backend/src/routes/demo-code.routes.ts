@@ -127,8 +127,8 @@ router.post("/start", async (req: Request, res: Response) => {
 router.get(
   "/:taskId/archive.zip",
   rateLimit(60_000, 10, (req) => `guest-code-archive:${getClientIp(req) || "unknown"}`),
-  (req: Request, res: Response) => {
-    const task = getGuestTask(req.params.taskId)
+  async (req: Request, res: Response) => {
+    const task = await getGuestTask(req.params.taskId)
     if (!task) {
       return res.status(404).json({ error: "Задача не найдена или устарела" })
     }
@@ -166,8 +166,8 @@ router.get(
 router.get(
   "/:taskId",
   rateLimit(60_000, 90, (req) => `guest-code-poll:${getClientIp(req) || "unknown"}`),
-  (req: Request, res: Response) => {
-  const task = getGuestTask(req.params.taskId)
+  async (req: Request, res: Response) => {
+  const task = await getGuestTask(req.params.taskId)
   if (!task) {
     return res.status(404).json({ error: "Задача не найдена или устарела" })
   }
