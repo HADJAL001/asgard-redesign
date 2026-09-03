@@ -17,7 +17,7 @@
    ================================================================ */
 
 import { useState } from "react"
-import { Download, Loader2, Sparkles, Info } from "lucide-react"
+import { Download, Loader2, RefreshCw, Sparkles, Info } from "lucide-react"
 import {
   useGuestCodeGeneration,
   type GuestCodeAdapter,
@@ -28,7 +28,7 @@ import { GuestLivePreview } from "./GuestLivePreview"
 type Tab = "code" | "preview"
 
 export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
-  const { phase, progress, result, error, isBusy, generate, reset } = useGuestCodeGeneration(adapter)
+  const { phase, progress, result, error, canResume, isBusy, generate, resume, reset } = useGuestCodeGeneration(adapter)
   const [name, setName] = useState("")
   const [hint, setHint] = useState("")
   const [tab, setTab] = useState<Tab>("code")
@@ -166,12 +166,36 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
           style={{
             padding: 16,
             borderRadius: 12,
-            border: "1px solid rgba(248,113,113,0.4)",
-            background: "rgba(248,113,113,0.08)",
+            border: canResume ? "1px solid rgba(251,191,36,0.4)" : "1px solid rgba(248,113,113,0.4)",
+            background: canResume ? "rgba(251,191,36,0.08)" : "rgba(248,113,113,0.08)",
             fontSize: 14,
           }}
         >
-          {error || "Что-то пошло не так при генерации."}
+          <div>{error || "Что-то пошло не так при генерации."}</div>
+          {canResume ? (
+            <button
+              type="button"
+              onClick={resume}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                marginTop: 12,
+                minHeight: 36,
+                padding: "7px 12px",
+                borderRadius: 7,
+                border: "1px solid rgba(251,191,36,0.5)",
+                background: "rgba(251,191,36,0.1)",
+                color: "#FCD34D",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              <RefreshCw size={15} aria-hidden="true" />
+              Продолжить проверку
+            </button>
+          ) : null}
         </div>
       )}
 

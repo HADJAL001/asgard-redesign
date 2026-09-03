@@ -86,9 +86,10 @@ type State = {
   progress: GuestGenProgress | null
   result: GuestGenResult | null
   error: string | null
+  recoverable: boolean
 }
 
-const INITIAL: State = { phase: "idle", progress: null, result: null, error: null }
+const INITIAL: State = { phase: "idle", progress: null, result: null, error: null, recoverable: false }
 
 export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPTER) {
   const [state, setState] = useState<State>(INITIAL)
@@ -96,6 +97,7 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
   const generationIdRef = useRef(0)
   const abortRef = useRef<AbortController | null>(null)
   const unsubRef = useRef<(() => void) | null>(null)
+  const activeTaskIdRef = useRef<string | null>(null)
 
   const cleanup = useCallback(() => {
     cancelRef.current = true
@@ -113,6 +115,7 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
   const reset = useCallback(() => {
     cleanup()
     rememberTask(null)
+    activeTaskIdRef.current = null
     cancelRef.current = false
     setState(INITIAL)
   }, [cleanup])
@@ -124,7 +127,7 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
       const controller = new AbortController()
       abortRef.current = controller
       cancelRef.current = false
-      setState({ phase: "starting", progress: null, result: null, error: null })
+      setState({ phase: "starting", progress: null, result: null, error: null, recoverable: false })
 
       let taskId: string
       try {
@@ -136,6 +139,7 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
           taskId = started.taskId
           rememberTask(taskId)
         }
+        activeTaskIdRef.current = taskId
       } catch (err) {
         if (abortRef.current === controller) abortRef.current = null
         if (cancelRef.current || generationId !== generationIdRef.current) return
@@ -146,10 +150,11 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
             progress: null,
             result: null,
             error: "Живая генерация кода ещё подключается — скоро будет доступна.",
+            recoverable: false,
           })
           return
         }
-        setState({ phase: "error", progress: null, result: null, error: msg })
+        setState({ phase: "error", progress: null, result: null, error: msg, recoverable: false })
         return
       }
 
@@ -169,7 +174,12 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
 
       while (!cancelRef.current && generationId === generationIdRef.current) {
         if (Date.now() > deadline) {
-          setState((s) => ({ ...s, phase: "error", error: "Генерация заняла слишком много времени." }))
+          setState((s) => ({
+            ...s,
+            phase: "error",
+            error: "Проверка заняла больше пяти минут. Генерация могла продолжиться на сервере.",
+            recoverable: true,
+          }))
           break
         }
 
@@ -189,8 +199,12 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
             await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS * consecutivePollErrors))
             continue
           }
-          const msg = err instanceof Error ? err.message : String(err)
-          setState((s) => ({ ...s, phase: "error", error: msg }))
+          setState((s) => ({
+            ...s,
+            phase: "error",
+            error: "Связь с генератором прервалась. Проект мог продолжить собираться на сервере.",
+            recoverable: true,
+          }))
           break
         }
 
@@ -198,17 +212,25 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
 
         if (polled.status === "done" || polled.status === "completed") {
           rememberTask(null)
+          activeTaskIdRef.current = null
           setState((s) => ({
             ...s,
             phase: "done",
             result: { ...(polled.result ?? { files: [] }), taskId },
             progress: null,
+            recoverable: false,
           }))
           break
         }
         if (polled.status === "error" || polled.status === "failed") {
           rememberTask(null)
-          setState((s) => ({ ...s, phase: "error", error: polled.error ?? "Ошибка генерации." }))
+          activeTaskIdRef.current = null
+          setState((s) => ({
+            ...s,
+            phase: "error",
+            error: polled.error ?? "Ошибка генерации.",
+            recoverable: false,
+          }))
           break
         }
 
@@ -223,6 +245,12 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
     },
     [adapter, cleanup],
   )
+
+  const resume = useCallback(() => {
+    const taskId = activeTaskIdRef.current
+    if (!taskId || state.phase !== "error" || !state.recoverable) return
+    void generate({ name: "", resumeTaskId: taskId })
+  }, [generate, state.phase, state.recoverable])
 
   useEffect(() => {
     let cancelled = false
@@ -244,8 +272,10 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
     progress: state.progress,
     result: state.result,
     error: state.error,
+    canResume: state.phase === "error" && state.recoverable,
     isBusy: state.phase === "starting" || state.phase === "running",
     generate,
+    resume,
     reset,
   }
 }
