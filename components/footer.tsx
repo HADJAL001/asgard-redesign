@@ -162,7 +162,7 @@ export function Footer() {
                 boxShadow: "0 0 6px #2D7DD2",
               }}
             />
-            <span>OSGARD ecosystem · TimeCoin внутри платформы</span>
+            <span>Создаём проекты вместе · TimeCoin внутри платформы</span>
           </div>
         </div>
       </div>
