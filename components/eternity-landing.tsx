@@ -926,6 +926,12 @@ const CSS = `
   .eternity-page .artifact-form { flex-direction: column; gap: 10px; }
   .eternity-page .artifact-form input,
   .eternity-page .artifact-form button { width: 100%; height: 44px; }
+  .eternity-page .hero-studio-link { max-width: 100%; text-align: left; }
+  .eternity-page .hero-studio-link small { line-height: 1.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eternity-page .hero-studio-link { transition: none; }
 }
 
 /* ─── Spinner на кнопке ─── */
