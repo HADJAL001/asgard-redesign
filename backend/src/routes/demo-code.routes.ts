@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express"
 import { startGuestGeneration, getGuestTask, GuestGenerationBusyError } from "../services/guest-code-store"
+import { getClientIp } from "../lib/admin-audit"
 
 /* ================================================================
    OSGARD · Demo Code Routes — гостевая live-генерация КОДА (Part 2)
@@ -30,14 +31,6 @@ interface IpEntry {
 }
 const ipMap = new Map<string, IpEntry>()
 
-function getClientIp(req: Request): string {
-  const forwarded = req.headers["x-forwarded-for"]
-  if (forwarded) {
-    return (Array.isArray(forwarded) ? forwarded[0] : forwarded).split(",")[0].trim()
-  }
-  return req.socket.remoteAddress || "unknown"
-}
-
 function checkIpLimit(ip: string): { allowed: boolean; remaining: number; resetAt: number } {
   const now = Date.now()
 
@@ -67,7 +60,7 @@ router.post("/start", (req: Request, res: Response) => {
     return res.status(400).json({ error: "Укажите название проекта" })
   }
 
-  const ip = getClientIp(req)
+  const ip = getClientIp(req) || "unknown"
   const { allowed, resetAt } = checkIpLimit(ip)
   if (!allowed) {
     return res.status(429).json({

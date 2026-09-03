@@ -30,12 +30,9 @@ type AuditedRequest = AuthRequest & { __adminAudited?: boolean }
    X-Forwarded-For — это исходный клиент. Фолбэк — req.ip/сокет. */
 export function getClientIp(req: Request): string | null {
   const xff = req.headers["x-forwarded-for"]
-  if (typeof xff === "string" && xff.length > 0) {
-    return xff.split(",")[0].trim()
-  }
-  if (Array.isArray(xff) && xff.length > 0) {
-    return String(xff[0]).split(",")[0].trim()
-  }
+  const raw = typeof xff === "string" ? xff : Array.isArray(xff) ? String(xff[0] ?? "") : ""
+  const forwarded = raw.split(",")[0].replace(/[\x00-\x20\x7f]/g, "").slice(0, 64)
+  if (forwarded) return forwarded
   return req.ip || req.socket?.remoteAddress || null
 }
 
