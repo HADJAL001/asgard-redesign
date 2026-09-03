@@ -13,6 +13,7 @@
 
 import { useMemo, useState } from "react"
 import dynamic from "next/dynamic"
+import { Check, Copy } from "lucide-react"
 import type { FileTree } from "@/lib/integrations/file-tree"
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react").then((m) => m.default), {
@@ -50,8 +51,20 @@ function languageFromPath(path: string): string {
 export function GuestCodeViewer({ files }: { files: FileTree }) {
   const sorted = useMemo(() => [...files].sort((a, b) => a.path.localeCompare(b.path)), [files])
   const [activePath, setActivePath] = useState<string | null>(sorted[0]?.path ?? null)
+  const [copied, setCopied] = useState(false)
 
   const active = sorted.find((f) => f.path === activePath) ?? sorted[0] ?? null
+
+  async function copyActiveFile() {
+    if (!active || !navigator.clipboard) return
+    try {
+      await navigator.clipboard.writeText(active.content)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1600)
+    } catch {
+      setCopied(false)
+    }
+  }
 
   if (sorted.length === 0) {
     return (
@@ -60,7 +73,7 @@ export function GuestCodeViewer({ files }: { files: FileTree }) {
   }
 
   return (
-    <div style={{ display: "flex", height: 420, border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, overflow: "hidden" }}>
+    <div className="guest-code-viewer" style={{ display: "flex", minHeight: 420, border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, overflow: "hidden" }}>
       {/* Дерево файлов */}
       <div
         style={{
@@ -102,7 +115,17 @@ export function GuestCodeViewer({ files }: { files: FileTree }) {
       </div>
 
       {/* Редактор */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
+        <button
+          type="button"
+          onClick={copyActiveFile}
+          disabled={!active || !navigator.clipboard}
+          aria-label={copied ? "Код скопирован" : "Скопировать код файла"}
+          title={copied ? "Скопировано" : "Скопировать файл"}
+          style={{ position: "absolute", zIndex: 2, top: 8, right: 10, display: "grid", placeItems: "center", width: 30, height: 30, border: "1px solid rgba(255,255,255,0.16)", borderRadius: 7, background: "rgba(10,10,15,0.82)", color: copied ? "#7CFFB2" : "#B9C8DA", cursor: "pointer" }}
+        >
+          {copied ? <Check size={15} /> : <Copy size={15} />}
+        </button>
         {active && (
           <MonacoEditor
             height="100%"
@@ -120,6 +143,7 @@ export function GuestCodeViewer({ files }: { files: FileTree }) {
           />
         )}
       </div>
+      <style>{`@media (max-width: 640px) { .guest-code-viewer { flex-direction: column; min-height: 0 !important; } .guest-code-viewer > div:first-child { flex: 0 0 auto !important; max-height: 148px; border-right: 0 !important; border-bottom: 1px solid rgba(255,255,255,0.1); } .guest-code-viewer > div:last-child { height: 360px; } }`}</style>
     </div>
   )
 }
