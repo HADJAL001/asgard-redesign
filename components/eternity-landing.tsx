@@ -22,8 +22,6 @@ import { savePendingGeneration } from "@/lib/pending-generation"
 import { startGuestSession } from "@/lib/guest-session"
 import { track } from "@/lib/analytics"
 import { Reveal } from "@/components/landing/Reveal"
-import { DemoProjectModal, type DemoSessionV2 } from "@/components/DemoProjectModal"
-import { IkeaModal } from "@/components/IkeaModal"
 import { LivePulseBar } from "@/components/live-pulse-bar"
 import {
   IconIdea,
@@ -49,10 +47,6 @@ export function EternityLanding() {
   const router = useRouter()
   const { isAuthenticated } = useAuth()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [demoOpen, setDemoOpen] = useState(false)
-  const [demoInitialName, setDemoInitialName] = useState("")
-  const [ikeaOpen, setIkeaOpen] = useState(false)
-  const [ikeaSession, setIkeaSession] = useState<DemoSessionV2 | null>(null)
   const [scrolled, setScrolled] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   /** Вопрос платформы, когда заявку не удалось прочитать (422 unclear_request). */
@@ -67,12 +61,6 @@ export function EternityLanding() {
     : locale === "kz"
       ? "Жұмыс істейтін жобалар жасаңыз, идеяларды тексеріңіз және адамдар қолданатын өнімдерді дамытыңыз."
       : "Создавайте рабочие проекты, проверяйте идеи и развивайте продукты, которыми люди действительно пользуются."
-
-  const handleLimitReached = useCallback((session: DemoSessionV2) => {
-    setDemoOpen(false)
-    setIkeaSession(session)
-    setIkeaOpen(true)
-  }, [])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24)
@@ -211,19 +199,6 @@ export function EternityLanding() {
       </div>
 
       {/* Гостевой demo-flow: реальная генерация проекта + артефактов + reveal */}
-      <DemoProjectModal
-        open={demoOpen}
-        onClose={() => setDemoOpen(false)}
-        onLimitReached={handleLimitReached}
-        initialName={demoInitialName}
-      />
-      <IkeaModal
-        open={ikeaOpen}
-        onClose={() => setIkeaOpen(false)}
-        session={ikeaSession}
-        onContinueDemo={() => setDemoOpen(true)}
-      />
-
       {/* Прозрачная шапка */}
       <header className={`site-nav${scrolled ? " scrolled" : ""}`}>
         <Link href="/" className="site-nav-logo" aria-label={t("landing.navHomeAria")}>
