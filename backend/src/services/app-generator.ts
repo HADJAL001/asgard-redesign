@@ -174,10 +174,18 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T)
 }
 
 /** Merge generated and platform-owned files into one canonical project tree. */
+export function isSafeProjectPath(path: string): boolean {
+  const normalized = path.replace(/^\/+/, "")
+  if (!normalized || normalized.length > 240 || normalized.includes("\\") || /[\x00-\x1f\x7f]/.test(normalized)) return false
+  if (/^[A-Za-z]:/.test(normalized)) return false
+  return normalized.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..")
+}
+
 export function mergeGeneratedFiles(files: GeneratedAppFile[]): GeneratedAppFile[] {
   const byPath = new Map<string, GeneratedAppFile>()
   for (const file of files) {
     const path = file.path.replace(/^\/+/, "")
+    if (!isSafeProjectPath(path)) continue
     byPath.set(path, { path, content: file.content })
   }
   return [...byPath.values()]
@@ -607,6 +615,7 @@ async function generateManifest(
 
   const entries: ManifestEntry[] = rawFiles
     .filter((f: any) => f && typeof f.path === "string" && typeof f.purpose === "string")
+    .filter((f: any) => isSafeProjectPath(f.path))
     .map((f: any) => ({ path: f.path.replace(/^\/+/, ""), purpose: f.purpose }))
     // utils/ и types/ намеренно разрешены: модель постоянно пишет
     // `import { cn } from "@/utils/cn"`, а прежний фильтр такой файл выбрасывал из
@@ -618,6 +627,7 @@ async function generateManifest(
         ? true
         : /^(app|components|hooks|lib|utils|types)\/[A-Za-z0-9_./\-\[\]]+\.tsx?$/.test(f.path),
     )
+    .filter((f: ManifestEntry) => isSafeProjectPath(f.path))
     .filter((f: ManifestEntry) => !RESERVED_PATHS.has(f.path.toLowerCase()))
     // The final size is enforced after mandatory fullstack entries are added.
 
