@@ -1,7 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 import type { AppGenerationResult } from "../services/app-generator"
-import { guestArchiveFilename, guestReleaseErrors } from "../services/guest-code-store"
+import { guestArchiveFilename, guestReleaseErrors, isGuestTaskId } from "../services/guest-code-store"
 
 function result(files: AppGenerationResult["files"]): AppGenerationResult {
   return { files, source: "fallback", brief: {} as AppGenerationResult["brief"] }
@@ -87,4 +87,10 @@ test("guest archive filename is safe and stable", () => {
   assert.equal(guestArchiveFilename("My Client Portal", "12345678-abcd"), "my-client-portal.zip")
   assert.equal(guestArchiveFilename("Проект \"Мечта\"\r\n.zip", "A1B2-C3D4"), "osgard-project-a1b2c3d4.zip")
   assert.equal(guestArchiveFilename("Проект мечты", "A1B2-C3D4"), "osgard-project-a1b2c3d4.zip")
+})
+
+test("guest task IDs accept only UUIDs before any Redis lookup", () => {
+  assert.equal(isGuestTaskId("002c6d83-5cb4-4f44-b1a9-8bbd226aba1d"), true)
+  assert.equal(isGuestTaskId("../../osgard:guest-code:task:secret"), false)
+  assert.equal(isGuestTaskId("not-a-task"), false)
 })

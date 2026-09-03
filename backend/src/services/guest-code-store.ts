@@ -37,6 +37,11 @@ const MAX_GUEST_TOTAL_BYTES = 2 * 1024 * 1024
 
 const TASK_TTL_MS = 30 * 60 * 1000 // 30 минут — результат живёт недолго, это демо
 const REDIS_TASK_PREFIX = "osgard:guest-code:task:"
+const GUEST_TASK_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+export function isGuestTaskId(value: string): boolean {
+  return GUEST_TASK_ID_RE.test(value)
+}
 
 export function guestArchiveFilename(projectName: string, taskId: string): string {
   const slug = projectName
@@ -190,6 +195,7 @@ export function startGuestGeneration(name: string, hint?: string): string {
 }
 
 export async function getGuestTask(taskId: string): Promise<GuestTask | undefined> {
+  if (!isGuestTaskId(taskId)) return undefined
   sweepExpired()
   const local = tasks.get(taskId)
   if (local) return local
