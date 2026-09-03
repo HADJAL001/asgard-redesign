@@ -13,7 +13,7 @@
 
 import { useMemo, useState } from "react"
 import dynamic from "next/dynamic"
-import { Check, Copy } from "lucide-react"
+import { Check, Copy, Download } from "lucide-react"
 import type { FileTree } from "@/lib/integrations/file-tree"
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react").then((m) => m.default), {
@@ -64,6 +64,17 @@ export function GuestCodeViewer({ files }: { files: FileTree }) {
     } catch {
       setCopied(false)
     }
+  }
+
+  function downloadActiveFile() {
+    if (!active) return
+    const blob = new Blob([active.content], { type: "text/plain;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = active.path.split("/").pop() || "project-file.txt"
+    anchor.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 0)
   }
 
   if (sorted.length === 0) {
@@ -125,6 +136,16 @@ export function GuestCodeViewer({ files }: { files: FileTree }) {
           style={{ position: "absolute", zIndex: 2, top: 8, right: 10, display: "grid", placeItems: "center", width: 30, height: 30, border: "1px solid rgba(255,255,255,0.16)", borderRadius: 7, background: "rgba(10,10,15,0.82)", color: copied ? "#7CFFB2" : "#B9C8DA", cursor: "pointer" }}
         >
           {copied ? <Check size={15} /> : <Copy size={15} />}
+        </button>
+        <button
+          type="button"
+          onClick={downloadActiveFile}
+          disabled={!active}
+          aria-label="Скачать выбранный файл"
+          title="Скачать файл"
+          style={{ position: "absolute", zIndex: 2, top: 8, right: 48, display: "grid", placeItems: "center", width: 30, height: 30, border: "1px solid rgba(255,255,255,0.16)", borderRadius: 7, background: "rgba(10,10,15,0.82)", color: "#B9C8DA", cursor: "pointer" }}
+        >
+          <Download size={15} />
         </button>
         {active && (
           <MonacoEditor
