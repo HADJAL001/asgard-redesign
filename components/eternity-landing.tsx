@@ -76,7 +76,7 @@ export function EternityLanding() {
   useEffect(() => {
     Promise.resolve().then(() => {
       setParticles(
-        Array.from({ length: 40 }).map(() => ({
+        Array.from({ length: window.matchMedia("(max-width: 600px)").matches ? 18 : 40 }).map(() => ({
           left: `${Math.random() * 100}vw`,
           top: `${Math.random() * 100}vh`,
           duration: `${Math.random() * 20 + 15}s`,
