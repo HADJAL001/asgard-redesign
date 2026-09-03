@@ -28,6 +28,7 @@ export type GuestTask = {
 }
 
 const tasks = new Map<string, GuestTask>()
+const MAX_RETAINED_TASKS = 50
 
 const TASK_TTL_MS = 30 * 60 * 1000 // 30 минут — результат живёт недолго, это демо
 
@@ -59,10 +60,23 @@ function sweepExpired() {
   }
 }
 
+function makeRoomForTask() {
+  while (tasks.size >= MAX_RETAINED_TASKS) {
+    let oldestCompleted: [string, GuestTask] | null = null
+    for (const entry of tasks.entries()) {
+      if (entry[1].status === "processing") continue
+      if (!oldestCompleted || entry[1].createdAt < oldestCompleted[1].createdAt) oldestCompleted = entry
+    }
+    if (!oldestCompleted) break
+    tasks.delete(oldestCompleted[0])
+  }
+}
+
 /** Запускает генерацию в фоне (fire-and-forget), сразу возвращает taskId.
  *  Бросает GuestGenerationBusyError, если превышен потолок одновременных. */
 export function startGuestGeneration(name: string, hint?: string): string {
   sweepExpired()
+  makeRoomForTask()
   if (countProcessing() >= MAX_CONCURRENT) {
     throw new GuestGenerationBusyError()
   }
