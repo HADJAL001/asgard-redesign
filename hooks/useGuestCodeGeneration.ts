@@ -84,10 +84,12 @@ const INITIAL: State = { phase: "idle", progress: null, result: null, error: nul
 export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPTER) {
   const [state, setState] = useState<State>(INITIAL)
   const cancelRef = useRef(false)
+  const generationIdRef = useRef(0)
   const unsubRef = useRef<(() => void) | null>(null)
 
   const cleanup = useCallback(() => {
     cancelRef.current = true
+    generationIdRef.current += 1
     if (unsubRef.current) {
       unsubRef.current()
       unsubRef.current = null
@@ -104,12 +106,14 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
 
   const generate = useCallback(
     async (input: GuestCodeInput) => {
+      const generationId = ++generationIdRef.current
       cancelRef.current = false
       setState({ phase: "starting", progress: null, result: null, error: null })
 
       let taskId: string
       try {
         const started = await adapter.start(input)
+        if (cancelRef.current || generationId !== generationIdRef.current) return
         taskId = started.taskId
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
@@ -122,21 +126,23 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
           })
           return
         }
+        if (generationId !== generationIdRef.current) return
         setState({ phase: "error", progress: null, result: null, error: msg })
         return
       }
 
       if (adapter.subscribeStream) {
         unsubRef.current = adapter.subscribeStream(taskId, (p) => {
-          if (cancelRef.current) return
+          if (cancelRef.current || generationId !== generationIdRef.current) return
           setState((s) => (s.phase === "running" || s.phase === "starting" ? { ...s, phase: "running", progress: p } : s))
         })
       }
 
       const deadline = Date.now() + POLL_TIMEOUT_MS
+      if (generationId !== generationIdRef.current) return
       setState((s) => ({ ...s, phase: "running" }))
 
-      while (!cancelRef.current) {
+      while (!cancelRef.current && generationId === generationIdRef.current) {
         if (Date.now() > deadline) {
           setState((s) => ({ ...s, phase: "error", error: "Генерация заняла слишком много времени." }))
           break
@@ -151,7 +157,7 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
           break
         }
 
-        if (cancelRef.current) break
+        if (cancelRef.current || generationId !== generationIdRef.current) break
 
         if (polled.status === "done" || polled.status === "completed") {
           setState((s) => ({ ...s, phase: "done", result: polled.result ?? { files: [] }, progress: null }))
