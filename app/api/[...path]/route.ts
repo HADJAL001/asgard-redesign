@@ -84,6 +84,7 @@ async function forwardToBackend(
     method,
     headers: forwardHeaders,
     body: method === "GET" || method === "HEAD" ? undefined : body,
+    signal: req.signal,
   })
 
   const contentType = upstream.headers.get("content-type") || "application/json"
@@ -430,6 +431,9 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
     if (upstream.status === 401) clearSessionCookies(res)
     return res
   } catch (err: unknown) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return new NextResponse(null, { status: 499 })
+    }
     console.error("Proxy error:", err)
     return NextResponse.json({ error: "Не удалось соединиться с сервером" }, { status: 502 })
   }
