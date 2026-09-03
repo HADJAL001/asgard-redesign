@@ -148,6 +148,7 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
       }
 
       const deadline = Date.now() + POLL_TIMEOUT_MS
+      let consecutivePollErrors = 0
       if (generationId !== generationIdRef.current) return
       setState((s) => ({ ...s, phase: "running" }))
 
@@ -160,8 +161,19 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
         let polled: { status: string; result?: GuestGenResult; error?: string }
         try {
           polled = await adapter.poll(taskId, controller.signal)
+          consecutivePollErrors = 0
         } catch (err) {
           if (cancelRef.current || generationId !== generationIdRef.current) break
+          consecutivePollErrors += 1
+          if (consecutivePollErrors < 3) {
+            setState((s) => ({
+              ...s,
+              phase: "running",
+              progress: { stage: "reconnecting", message: "Восстанавливаю связь с генератором..." },
+            }))
+            await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS * consecutivePollErrors))
+            continue
+          }
           const msg = err instanceof Error ? err.message : String(err)
           setState((s) => ({ ...s, phase: "error", error: msg }))
           break
