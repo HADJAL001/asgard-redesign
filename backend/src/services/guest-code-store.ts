@@ -29,6 +29,9 @@ export type GuestTask = {
 
 const tasks = new Map<string, GuestTask>()
 const MAX_RETAINED_TASKS = 50
+const MAX_GUEST_FILES = 64
+const MAX_GUEST_FILE_BYTES = 512 * 1024
+const MAX_GUEST_TOTAL_BYTES = 2 * 1024 * 1024
 
 const TASK_TTL_MS = 30 * 60 * 1000 // 30 минут — результат живёт недолго, это демо
 
@@ -72,6 +75,23 @@ function makeRoomForTask() {
   }
 }
 
+export function guestReleaseErrors(result: AppGenerationResult): string[] {
+  const errors = validateGeneratedFiles(result.files)
+  const paths = new Set(result.files.map((file) => file.path))
+  if (!paths.has("package.json")) errors.push("missing package.json")
+  if (!paths.has("app/page.tsx")) errors.push("missing app/page.tsx")
+  if (result.files.length > MAX_GUEST_FILES) errors.push("too many files")
+
+  let totalBytes = 0
+  for (const file of result.files) {
+    const bytes = Buffer.byteLength(file.content, "utf8")
+    totalBytes += bytes
+    if (bytes > MAX_GUEST_FILE_BYTES) errors.push(`file too large: ${file.path}`)
+  }
+  if (totalBytes > MAX_GUEST_TOTAL_BYTES) errors.push("project too large")
+  return errors
+}
+
 /** Запускает генерацию в фоне (fire-and-forget), сразу возвращает taskId.
  *  Бросает GuestGenerationBusyError, если превышен потолок одновременных. */
 export function startGuestGeneration(name: string, hint?: string): string {
@@ -85,10 +105,9 @@ export function startGuestGeneration(name: string, hint?: string): string {
 
   generateApp(name, hint)
     .then((result) => {
-      const paths = new Set(result.files.map((file) => file.path))
-      const syntaxErrors = validateGeneratedFiles(result.files)
-      if (!paths.has("package.json") || !paths.has("app/page.tsx") || syntaxErrors.length > 0) {
-        throw new Error(`guest release gate rejected output: missing scaffold or ${syntaxErrors.length} syntax errors`)
+      const releaseErrors = guestReleaseErrors(result)
+      if (releaseErrors.length > 0) {
+        throw new Error(`guest release gate rejected output: ${releaseErrors.slice(0, 5).join("; ")}`)
       }
       tasks.set(taskId, { status: "done", result, createdAt: Date.now() })
     })
