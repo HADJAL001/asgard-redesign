@@ -331,28 +331,28 @@ export function EternityLanding() {
             <Reveal delay={0} className="example-card">
               <a className="example-card-link" href="https://gardvpn.is" target="_blank" rel="noopener noreferrer" aria-label="GARDVPN.IS">
                 <div className="example-preview example-preview-1" />
-                <div className="example-body"><div className="example-icon-badge"><IconVPN size={26} /></div><div className="example-title">GARDVPN.IS</div><div className="example-desc">Private network access under your own brand.</div></div>
+                <div className="example-body"><div className="example-icon-badge"><IconVPN size={26} /></div><div className="example-title">GARDVPN.IS</div><div className="example-desc">{t("landing.example4Desc")}</div></div>
                 <ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
               </a>
             </Reveal>
             <Reveal delay={0.12} className="example-card">
               <a className="example-card-link" href="https://osgardos.com" target="_blank" rel="noopener noreferrer" aria-label="OSGARDOS.COM">
-                <div className="example-preview example-preview-2" /><div className="example-body"><div className="example-icon-badge"><IconDashboard size={26} /></div><div className="example-title">OSGARDOS.COM</div><div className="example-desc">A platform built for ambitious digital worlds.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
+                <div className="example-preview example-preview-2" /><div className="example-body"><div className="example-icon-badge"><IconDashboard size={26} /></div><div className="example-title">OSGARDOS.COM</div><div className="example-desc">{t("landing.example3Desc")}</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
               </a>
             </Reveal>
             <Reveal delay={0.24} className="example-card">
               <a className="example-card-link" href="https://superday.run" target="_blank" rel="noopener noreferrer" aria-label="SUPERDAY.RUN">
-                <div className="example-preview example-preview-3" /><div className="example-body"><div className="example-icon-badge"><IconCreate size={26} /></div><div className="example-title">SUPERDAY.RUN</div><div className="example-desc">A focused product for everyday momentum.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
+                <div className="example-preview example-preview-3" /><div className="example-body"><div className="example-icon-badge"><IconCreate size={26} /></div><div className="example-title">SUPERDAY.RUN</div><div className="example-desc">{t("landing.example2Desc")}</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
               </a>
             </Reveal>
             <Reveal delay={0.36} className="example-card">
               <a className="example-card-link" href="https://osgardvanguard.studio" target="_blank" rel="noopener noreferrer" aria-label="OSGARDVANGUARD.STUDIO">
-                <div className="example-preview example-preview-4" /><div className="example-body"><div className="example-icon-badge"><IconLegend size={26} /></div><div className="example-title">OSGARDVANGUARD.STUDIO</div><div className="example-desc">A studio for high-caliber digital products.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
+                <div className="example-preview example-preview-4" /><div className="example-body"><div className="example-icon-badge"><IconLegend size={26} /></div><div className="example-title">OSGARDVANGUARD.STUDIO</div><div className="example-desc">{t("landing.example1Desc")}</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
               </a>
             </Reveal>
             <Reveal delay={0.48} className="example-card">
               <a className="example-card-link" href="https://senjorio.com" target="_blank" rel="noopener noreferrer" aria-label="SENJORIO.COM">
-                <div className="example-preview example-preview-5" /><div className="example-body"><div className="example-icon-badge"><IconTrade size={26} /></div><div className="example-title">SENJORIO.COM</div><div className="example-desc">A premium mobility service with a clear purpose.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
+                <div className="example-preview example-preview-5" /><div className="example-body"><div className="example-icon-badge"><IconTrade size={26} /></div><div className="example-title">SENJORIO.COM</div><div className="example-desc">{t("landing.example5Desc")}</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
               </a>
             </Reveal>
           </div>
