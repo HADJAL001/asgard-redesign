@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation"
 import {
   Infinity as InfinityIcon,
   ArrowRight,
-  ArrowUpRight,
   Crown,
   Gem,
   Shield,
@@ -308,20 +307,6 @@ export function EternityLanding() {
             <LivePulseBar variant="landing" />
           </div>
 
-          <nav className="featured-projects" aria-label="Проекты OSGARD">
-            <div className="featured-projects-heading">
-              <span className="featured-projects-kicker">OSGARD ECOSYSTEM</span>
-              <span className="featured-projects-title">Наши проекты</span>
-            </div>
-            <div className="featured-projects-links">
-              <a href="https://gardvpn.is" target="_blank" rel="noopener noreferrer"><IconVPN size={15} aria-hidden="true" /><span>GARDVPN.IS</span><ArrowUpRight size={13} aria-hidden="true" /></a>
-              <a href="https://osgardos.com" target="_blank" rel="noopener noreferrer"><IconDashboard size={15} aria-hidden="true" /><span>OSGARDOS.COM</span><ArrowUpRight size={13} aria-hidden="true" /></a>
-              <a href="https://superday.run" target="_blank" rel="noopener noreferrer"><IconCreate size={15} aria-hidden="true" /><span>SUPERDAY.RUN</span><ArrowUpRight size={13} aria-hidden="true" /></a>
-              <a href="https://osgardvanguard.studio" target="_blank" rel="noopener noreferrer"><IconLegend size={15} aria-hidden="true" /><span>VANGUARD.STUDIO</span><ArrowUpRight size={13} aria-hidden="true" /></a>
-              <a href="https://senjorio.com" target="_blank" rel="noopener noreferrer"><IconTrade size={15} aria-hidden="true" /><span>SENJORIO.COM</span><ArrowUpRight size={13} aria-hidden="true" /></a>
-            </div>
-          </nav>
-
         </header>
 
         <section className="how-section">
@@ -354,29 +339,29 @@ export function EternityLanding() {
           <div className="examples-container">
             <Reveal delay={0} className="example-card">
               <a className="example-card-link" href="https://gardvpn.is" target="_blank" rel="noopener noreferrer" aria-label="GARDVPN.IS">
-                <div className="example-preview example-preview-1" />
+                <div className="example-preview example-preview-1" style={{ backgroundImage: "url('/projects/vpn.jpg')" }} />
                 <div className="example-body"><div className="example-icon-badge"><IconVPN size={26} /></div><div className="example-title">GARDVPN.IS</div><div className="example-desc">Приватный VPN-сервис для безопасного доступа и свободы в сети.</div></div>
                 <ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
               </a>
             </Reveal>
             <Reveal delay={0.12} className="example-card">
               <a className="example-card-link" href="https://osgardos.com" target="_blank" rel="noopener noreferrer" aria-label="OSGARDOS.COM">
-                <div className="example-preview example-preview-2" /><div className="example-body"><div className="example-icon-badge"><IconDashboard size={26} /></div><div className="example-title">OSGARDOS.COM</div><div className="example-desc">Операционная система и цифровая среда нового поколения.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
+                <div className="example-preview example-preview-2" style={{ backgroundImage: "url('/projects/os.jpg')" }} /><div className="example-body"><div className="example-icon-badge"><IconDashboard size={26} /></div><div className="example-title">OSGARDOS.COM</div><div className="example-desc">Операционная система и цифровая среда нового поколения.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
               </a>
             </Reveal>
             <Reveal delay={0.24} className="example-card">
               <a className="example-card-link" href="https://superday.run" target="_blank" rel="noopener noreferrer" aria-label="SUPERDAY.RUN">
-                <div className="example-preview example-preview-3" /><div className="example-body"><div className="example-icon-badge"><IconCreate size={26} /></div><div className="example-title">SUPERDAY.RUN</div><div className="example-desc">Приложение для ритма дня, действий и личного прогресса.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
+                <div className="example-preview example-preview-3" style={{ backgroundImage: "url('/projects/day.jpg')" }} /><div className="example-body"><div className="example-icon-badge"><IconCreate size={26} /></div><div className="example-title">SUPERDAY.RUN</div><div className="example-desc">Приложение для ритма дня, действий и личного прогресса.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
               </a>
             </Reveal>
             <Reveal delay={0.36} className="example-card">
               <a className="example-card-link" href="https://osgardvanguard.studio" target="_blank" rel="noopener noreferrer" aria-label="OSGARDVANGUARD.STUDIO">
-                <div className="example-preview example-preview-4" /><div className="example-body"><div className="example-icon-badge"><IconLegend size={26} /></div><div className="example-title">OSGARDVANGUARD.STUDIO</div><div className="example-desc">Студия, где идеи превращаются в сильные цифровые продукты.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
+                <div className="example-preview example-preview-4" style={{ backgroundImage: "url('/projects/studio.jpg')" }} /><div className="example-body"><div className="example-icon-badge"><IconLegend size={26} /></div><div className="example-title">OSGARDVANGUARD.STUDIO</div><div className="example-desc">Студия, где идеи превращаются в сильные цифровые продукты.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
               </a>
             </Reveal>
             <Reveal delay={0.48} className="example-card">
               <a className="example-card-link" href="https://senjorio.com" target="_blank" rel="noopener noreferrer" aria-label="SENJORIO.COM">
-                <div className="example-preview example-preview-5" /><div className="example-body"><div className="example-icon-badge"><IconTrade size={26} /></div><div className="example-title">SENJORIO.COM</div><div className="example-desc">Городская мобильность и такси с человеческим лицом.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
+                <div className="example-preview example-preview-5" style={{ backgroundImage: "url('/projects/taxi.jpg')" }} /><div className="example-body"><div className="example-icon-badge"><IconTrade size={26} /></div><div className="example-title">SENJORIO.COM</div><div className="example-desc">Городская мобильность и такси с человеческим лицом.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
               </a>
             </Reveal>
           </div>
@@ -804,18 +789,6 @@ const CSS = `
   border-radius: 12px; color: #DDEBFF; text-decoration: none;
   background: rgba(0, 212, 255, 0.045); transition: border-color 0.2s, background 0.2s;
 }
-.eternity-page .featured-projects {
-  width: 100%; max-width: 560px; margin-top: 2px; padding: 16px 18px;
-  border: 1px solid rgba(212, 175, 55, 0.24); border-radius: 14px;
-  background: rgba(8, 12, 22, 0.62); box-shadow: 0 12px 34px rgba(0,0,0,0.2);
-}
-.eternity-page .featured-projects-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.eternity-page .featured-projects-kicker { color: #D4AF37; font-size: 10px; letter-spacing: 0.16em; }
-.eternity-page .featured-projects-title { color: #fff; font-size: 14px; font-weight: 600; }
-.eternity-page .featured-projects-links { display: flex; flex-wrap: wrap; gap: 8px; }
-.eternity-page .featured-projects-links a { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border: 1px solid rgba(255,255,255,0.09); border-radius: 8px; color: #B9C5D8; font-size: 11px; text-decoration: none; transition: color .2s ease, border-color .2s ease, background .2s ease; }
-.eternity-page .featured-projects-links a:hover { color: #fff; border-color: rgba(212,175,55,0.5); background: rgba(212,175,55,0.1); }
-.eternity-page .featured-projects-links svg:first-child { color: #D4AF37; }
 .eternity-page .hero-studio-link:hover,
 .eternity-page .hero-studio-link:focus-visible {
   border-color: rgba(0, 212, 255, 0.65); background: rgba(0, 212, 255, 0.09); outline: none;
@@ -955,8 +928,6 @@ const CSS = `
   .eternity-page .artifact-form button { width: 100%; height: 44px; }
   .eternity-page .hero-studio-link { max-width: 100%; text-align: left; }
   .eternity-page .hero-studio-link small { line-height: 1.35; }
-  .eternity-page .featured-projects-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
-  .eternity-page .featured-projects-links a { flex: 1 1 calc(50% - 8px); justify-content: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1207,7 +1178,8 @@ const CSS = `
 .eternity-page .example-card-link:hover .example-link-arrow { transform: translateX(4px); opacity: 1; }
 .eternity-page .example-card-link:focus-visible { outline: 2px solid #D4AF37; outline-offset: -2px; border-radius: inherit; }
 .eternity-page .economy-vision { max-width: 760px; margin: 16px auto 28px; padding: 18px 24px; border: 1px solid rgba(212,175,55,0.28); border-radius: 12px; background: linear-gradient(110deg, rgba(212,175,55,0.1), rgba(10,13,20,0.28)); color: #D8C98E; font-size: 15px; line-height: 1.65; letter-spacing: 0.02em; text-align: center; }
-.eternity-page .example-preview { height: 140px; width: 100%; }
+.eternity-page .example-preview { height: 140px; width: 100%; background-size: cover; background-position: center; position: relative; }
+.eternity-page .example-preview::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(4,7,14,0.08), rgba(4,7,14,0.72)); }
 .eternity-page .example-preview-1 { background: radial-gradient(circle at 30% 30%, rgba(212,175,55,0.35), rgba(10,13,20,0.9) 70%); }
 .eternity-page .example-preview-2 { background: radial-gradient(circle at 70% 40%, rgba(106,90,205,0.35), rgba(10,13,20,0.9) 70%); }
 .eternity-page .example-preview-3 { background: radial-gradient(circle at 50% 70%, rgba(45,125,210,0.3), rgba(10,13,20,0.9) 70%); }
