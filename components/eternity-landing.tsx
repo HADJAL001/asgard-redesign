@@ -238,11 +238,11 @@ export function EternityLanding() {
           </h1>
           <div className="tc-badge">
             <InfinityIcon size={14} strokeWidth={1.4} aria-hidden="true" />
-            {t("landing.badgeText")}
+            СОЗДАВАЙ ПРОДУКТЫ С РЕАЛЬНОЙ ПОЛЬЗОЙ
             <span className="tc-badge-dot" aria-hidden="true" />
           </div>
           <p className="hero-subtitle">
-            {t("landing.heroSubtitleBefore")} <InfinityIcon className="ico gold" size={20} aria-hidden="true" /> {t("landing.heroSubtitleAfter")}
+            Создавай рабочие проекты, проверяй идеи и развивай продукты, которыми люди действительно пользуются.
           </p>
 
           {/* Миниатюрное окно ввода (всегда видимо) */}
