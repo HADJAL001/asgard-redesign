@@ -231,7 +231,7 @@ export function EternityLanding() {
           </p>
 
           {/* Миниатюрное окно ввода (всегда видимо) */}
-          <form className="artifact-form" onSubmit={handleSubmit}>
+          <form className="artifact-form" onSubmit={handleSubmit} aria-busy={submitting}>
             <input
               ref={inputRef}
               type="text"
@@ -247,7 +247,7 @@ export function EternityLanding() {
             <button type="submit" className={submitting ? "submitting" : undefined} disabled={submitting}>
               {submitting ? (
                 <>
-                  {t("landing.createBtn")} <span className="btn-spinner" aria-hidden="true" />
+                  {t("landing.creatingBtn")} <span className="btn-spinner" aria-hidden="true" />
                 </>
               ) : (
                 <>
