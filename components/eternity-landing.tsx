@@ -1154,7 +1154,7 @@ const CSS = `
   display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
   padding: 24px;
 }
-.eternity-page .example-title { font-size: 16px; font-weight: 600; color: #fff; letter-spacing: 0.5px; }
+.eternity-page .example-title { max-width: 100%; overflow-wrap: anywhere; font-size: 16px; font-weight: 600; color: #fff; letter-spacing: 0.5px; }
 .eternity-page .example-desc { font-size: 13px; color: #A0B0C8; line-height: 1.6; letter-spacing: 0.02em; }
 
 /* ─── «Сообщество» ─── */
