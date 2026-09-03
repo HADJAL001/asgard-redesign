@@ -250,9 +250,9 @@ export function EternityLanding() {
             <input
               ref={inputRef}
               type="text"
-              placeholder={t("landing.inputPlaceholder")}
+              placeholder="Расскажите идею - создайте проект, который нужен людям"
               autoComplete="off"
-              aria-label={t("landing.inputPlaceholder")}
+              aria-label="Расскажите идею - создайте проект, который нужен людям"
               aria-describedby={clarify ? "landing-clarify" : undefined}
               disabled={submitting}
             />
