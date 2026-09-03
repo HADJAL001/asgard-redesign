@@ -23,6 +23,14 @@ import { ensureRedisConnected, redisClient } from "../lib/redis"
 
 const router = Router()
 
+router.use((_req, res, next) => {
+  res.set({
+    "Cache-Control": "no-store, max-age=0",
+    Pragma: "no-cache",
+  })
+  next()
+})
+
 const IP_LIMIT = 5
 const IP_WINDOW_MS = 24 * 60 * 60 * 1000
 
