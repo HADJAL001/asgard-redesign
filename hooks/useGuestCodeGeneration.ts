@@ -123,6 +123,7 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
         taskId = started.taskId
       } catch (err) {
         if (abortRef.current === controller) abortRef.current = null
+        if (cancelRef.current || generationId !== generationIdRef.current) return
         const msg = err instanceof Error ? err.message : String(err)
         if (msg === NOT_IMPLEMENTED) {
           setState({
@@ -133,7 +134,6 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
           })
           return
         }
-        if (generationId !== generationIdRef.current) return
         setState({ phase: "error", progress: null, result: null, error: msg })
         return
       }
