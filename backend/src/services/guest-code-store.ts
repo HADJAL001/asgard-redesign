@@ -91,7 +91,7 @@ export function startGuestGeneration(name: string, hint?: string): string {
       captureError("[guest-code] generateApp failed", err)
       tasks.set(taskId, {
         status: "error",
-        error: err instanceof Error ? err.message : "Ошибка генерации",
+        error: "Не удалось собрать проект. Попробуйте ещё раз через несколько минут.",
         createdAt: Date.now(),
       })
     })
