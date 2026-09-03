@@ -28,11 +28,8 @@ import {
   IconIdea,
   IconCreate,
   IconLegend,
-  IconMarket,
-  IconDialogue,
   IconDashboard,
   IconVPN,
-  IconSocial,
   IconCommunity,
   IconTrade,
   IconEarn,
@@ -357,49 +354,6 @@ export function EternityLanding() {
               <a className="example-card-link" href="https://senjorio.com" target="_blank" rel="noopener noreferrer" aria-label="SENJORIO.COM">
                 <div className="example-preview example-preview-5" /><div className="example-body"><div className="example-icon-badge"><IconTrade size={26} /></div><div className="example-title">SENJORIO.COM</div><div className="example-desc">A premium mobility service with a clear purpose.</div></div><ArrowRight className="example-link-arrow" size={18} aria-hidden="true" />
               </a>
-            </Reveal>
-          </div>
-          {/* Legacy generic examples remain below only until the next cleanup pass. */}
-          <div className="examples-container" aria-hidden="true" style={{ display: "none" }}>
-            <Reveal delay={0} className="example-card">
-              <div className="example-preview example-preview-1" />
-              <div className="example-body">
-                <div className="example-icon-badge"><IconMarket size={26} /></div>
-                <div className="example-title">{t("landing.example1Title")}</div>
-                <div className="example-desc">{t("landing.example1Desc")}</div>
-              </div>
-            </Reveal>
-            <Reveal delay={0.12} className="example-card">
-              <div className="example-preview example-preview-2" />
-              <div className="example-body">
-                <div className="example-icon-badge"><IconDialogue size={26} /></div>
-                <div className="example-title">{t("landing.example2Title")}</div>
-                <div className="example-desc">{t("landing.example2Desc")}</div>
-              </div>
-            </Reveal>
-            <Reveal delay={0.24} className="example-card">
-              <div className="example-preview example-preview-3" />
-              <div className="example-body">
-                <div className="example-icon-badge"><IconDashboard size={26} /></div>
-                <div className="example-title">{t("landing.example3Title")}</div>
-                <div className="example-desc">{t("landing.example3Desc")}</div>
-              </div>
-            </Reveal>
-            <Reveal delay={0.36} className="example-card">
-              <div className="example-preview example-preview-4" />
-              <div className="example-body">
-                <div className="example-icon-badge"><IconVPN size={26} /></div>
-                <div className="example-title">{t("landing.example4Title")}</div>
-                <div className="example-desc">{t("landing.example4Desc")}</div>
-              </div>
-            </Reveal>
-            <Reveal delay={0.48} className="example-card">
-              <div className="example-preview example-preview-5" />
-              <div className="example-body">
-                <div className="example-icon-badge"><IconSocial size={26} /></div>
-                <div className="example-title">{t("landing.example5Title")}</div>
-                <div className="example-desc">{t("landing.example5Desc")}</div>
-              </div>
             </Reveal>
           </div>
         </section>
