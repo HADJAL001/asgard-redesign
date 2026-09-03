@@ -190,7 +190,6 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
             continue
           }
           const msg = err instanceof Error ? err.message : String(err)
-          rememberTask(null)
           setState((s) => ({ ...s, phase: "error", error: msg }))
           break
         }
