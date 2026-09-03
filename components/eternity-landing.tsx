@@ -57,11 +57,6 @@ export function EternityLanding() {
   const [submitting, setSubmitting] = useState(false)
   /** Вопрос платформы, когда заявку не удалось прочитать (422 unclear_request). */
   const [clarify, setClarify] = useState<{ question: string; received?: string } | null>(null)
-  const inputPrompt = locale === "en"
-    ? "Describe your project idea"
-    : locale === "kz"
-      ? "Жоба идеяңызды сипаттаңыз"
-      : "Опишите идею проекта"
   const heroValueBadge = locale === "en"
     ? "BUILD PRODUCTS THAT MATTER"
     : locale === "kz"
@@ -265,9 +260,9 @@ export function EternityLanding() {
             <input
               ref={inputRef}
               type="text"
-              placeholder={inputPrompt}
+              placeholder={t("landing.inputPlaceholder")}
               autoComplete="off"
-              aria-label={inputPrompt}
+              aria-label={t("landing.inputPlaceholder")}
               aria-describedby={clarify ? "landing-clarify" : undefined}
               disabled={submitting}
             />
