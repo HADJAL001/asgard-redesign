@@ -64,6 +64,7 @@
     "inputPlaceholder": "Describe your project idea",
     "createBtn": "Create project",
     "creatingBtn": "Creating…",
+    "createError": "Project creation could not start. Check your connection and try again.",
     "modalAria": "Artifact created",
     "modalClose": "Close",
     "modalTitle": "Request accepted!",

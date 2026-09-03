@@ -49,6 +49,7 @@ export function EternityLanding() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [scrolled, setScrolled] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [createError, setCreateError] = useState(false)
   /** Вопрос платформы, когда заявку не удалось прочитать (422 unclear_request). */
   const [clarify, setClarify] = useState<{ question: string; received?: string } | null>(null)
   const heroValueBadge = locale === "en"
@@ -108,6 +109,7 @@ export function EternityLanding() {
     const el = inputRef.current
     if (!el) return
     setClarify(null)
+    setCreateError(false)
     const query = el.value.trim()
     if (!query) {
       flashInputError()
@@ -168,9 +170,11 @@ export function EternityLanding() {
         return
       }
       if (res.unclearRequest) setClarify({ question: res.error || "", received: res.received })
+      else setCreateError(true)
       flashInputError()
       setSubmitting(false)
     } catch {
+      setCreateError(true)
       flashInputError()
       setSubmitting(false)
     }
@@ -241,7 +245,7 @@ export function EternityLanding() {
               enterKeyHint="go"
               autoComplete="off"
               aria-label={t("landing.inputPlaceholder")}
-              aria-describedby={clarify ? "landing-clarify" : undefined}
+              aria-describedby={clarify ? "landing-clarify" : createError ? "landing-create-error" : undefined}
               disabled={submitting}
             />
             <button type="submit" className={submitting ? "submitting" : undefined} disabled={submitting}>
@@ -280,6 +284,11 @@ export function EternityLanding() {
                   <span className="hero-clarify-received">Мы прочитали: «{clarify.received}»</span>
                 </>
               ) : null}
+            </p>
+          )}
+          {createError && !clarify && (
+            <p id="landing-create-error" role="alert" className="hero-clarify">
+              {t("landing.createError")}
             </p>
           )}
 
