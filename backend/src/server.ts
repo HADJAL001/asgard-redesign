@@ -172,7 +172,10 @@ app.use(
   express.raw({ type: "application/json" }),
 )
 
-app.use(express.json())
+/* Keep public JSON endpoints bounded so malformed or oversized payloads cannot
+   consume the process heap before a route-level validator runs. Stripe and
+   inbound webhook routes above intentionally keep their raw-body parsers. */
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "1mb" }))
 
 import { writeBackpressure, getWriteQueueStats } from "./middleware/write-backpressure"
 app.use(writeBackpressure)
