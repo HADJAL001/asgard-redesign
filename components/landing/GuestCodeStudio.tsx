@@ -44,7 +44,7 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
   return (
     <section
       aria-label="Гостевая студия сборки кода"
-      style={{ maxWidth: 960, margin: "0 auto", width: "100%", padding: "48px 24px" }}
+      style={{ maxWidth: 960, margin: "0 auto", width: "100%", padding: "48px 24px", boxSizing: "border-box" }}
     >
       <h2 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 6px" }}>Собери код прямо сейчас</h2>
       <p style={{ opacity: 0.6, margin: "0 0 24px", fontSize: 15 }}>
@@ -58,6 +58,8 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
           placeholder="Название проекта (например: «Лендинг для кофейни»)"
           disabled={isBusy}
           style={{
+            width: "100%",
+            boxSizing: "border-box",
             padding: "12px 14px",
             borderRadius: 10,
             border: "1px solid rgba(255,255,255,0.15)",
@@ -73,6 +75,8 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
           disabled={isBusy}
           rows={3}
           style={{
+            width: "100%",
+            boxSizing: "border-box",
             padding: "12px 14px",
             borderRadius: 10,
             border: "1px solid rgba(255,255,255,0.15)",
@@ -82,7 +86,7 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
             resize: "vertical",
           }}
         />
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button
             type="submit"
             disabled={!name.trim() || isBusy}
@@ -174,12 +178,15 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
       {/* Результат */}
       {phase === "done" && files.length > 0 && (
         <div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <div role="tablist" aria-label="Режим результата" style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             {(["code", "preview"] as Tab[]).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTab(t)}
+                role="tab"
+                aria-selected={tab === t}
+                aria-controls={`guest-studio-panel-${t}`}
                 style={{
                   padding: "8px 16px",
                   borderRadius: 8,
@@ -196,7 +203,9 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
             ))}
           </div>
 
-          {tab === "code" ? <GuestCodeViewer files={files} /> : <GuestLivePreview key={files.map((file) => `${file.path}:${file.content.length}`).join("|")} files={files} />}
+          <div id={`guest-studio-panel-${tab}`} role="tabpanel" aria-label={tab === "code" ? "Код проекта" : "Предпросмотр проекта"}>
+            {tab === "code" ? <GuestCodeViewer files={files} /> : <GuestLivePreview key={files.map((file) => `${file.path}:${file.content.length}`).join("|")} files={files} />}
+          </div>
         </div>
       )}
 
