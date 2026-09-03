@@ -10,12 +10,24 @@ interface RateRecord {
    Несколько инстансов backend (Railway) не шарят этот Map между собой, поэтому
    он остаётся резервным вариантом, а не основным. */
 const store = new Map<string, RateRecord>();
+const MAX_MEMORY_KEYS = 20_000;
+
+function makeMemoryRoom(now: number): void {
+  if (store.size < MAX_MEMORY_KEYS) return;
+  for (const [key, record] of store) {
+    if (record.resetTime < now) store.delete(key);
+  }
+  if (store.size < MAX_MEMORY_KEYS) return;
+  const oldest = store.keys().next().value;
+  if (oldest !== undefined) store.delete(oldest);
+}
 
 function memoryRateLimit(key: string, windowMs: number, max: number): boolean {
   const now = Date.now();
   const record = store.get(key);
 
   if (!record || record.resetTime < now) {
+    if (!record) makeMemoryRoom(now);
     store.set(key, { count: 1, resetTime: now + windowMs });
     return true;
   }
