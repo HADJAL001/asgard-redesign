@@ -30,7 +30,7 @@ export type GuestGenPhase =
   | "error"
   | "unavailable"
 
-export type GuestGenResult = { files: FileTree; source?: "ai" | "fallback" }
+export type GuestGenResult = { files: FileTree; source?: "ai" | "fallback"; taskId?: string }
 
 export type GuestGenProgress = { stage: string; message?: string; pct?: number }
 
@@ -198,7 +198,12 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
 
         if (polled.status === "done" || polled.status === "completed") {
           rememberTask(null)
-          setState((s) => ({ ...s, phase: "done", result: polled.result ?? { files: [] }, progress: null }))
+          setState((s) => ({
+            ...s,
+            phase: "done",
+            result: { ...(polled.result ?? { files: [] }), taskId },
+            progress: null,
+          }))
           break
         }
         if (polled.status === "error" || polled.status === "failed") {

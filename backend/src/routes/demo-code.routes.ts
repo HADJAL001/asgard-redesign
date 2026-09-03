@@ -1,7 +1,9 @@
 import { Router, Request, Response } from "express"
-import { startGuestGeneration, getGuestTask, GuestGenerationBusyError } from "../services/guest-code-store"
+import archiver from "archiver"
+import { startGuestGeneration, getGuestTask, guestArchiveFilename, GuestGenerationBusyError } from "../services/guest-code-store"
 import { getClientIp } from "../lib/admin-audit"
 import { ensureRedisConnected, redisClient } from "../lib/redis"
+import { captureError } from "../lib/sentry"
 import { rateLimit } from "../middleware/rateLimiter"
 
 /* ================================================================
@@ -13,6 +15,7 @@ import { rateLimit } from "../middleware/rateLimiter"
 
    POST /demo/code/start {name, hint}  → 202 {taskId}
    GET  /demo/code/:taskId             → {status, result?:{files}, error?}
+   GET  /demo/code/:taskId/archive.zip → runnable project archive
 
    Контракт совпадает с фронтовым hooks/useGuestCodeGeneration.ts.
    SSE-стрим пока не реализован — фронт-хук работает и через polling;
@@ -121,6 +124,45 @@ router.post("/start", async (req: Request, res: Response) => {
 })
 
 /* ---------------- GET /demo/code/:taskId ---------------- */
+router.get(
+  "/:taskId/archive.zip",
+  rateLimit(60_000, 10, (req) => `guest-code-archive:${getClientIp(req) || "unknown"}`),
+  (req: Request, res: Response) => {
+    const task = getGuestTask(req.params.taskId)
+    if (!task) {
+      return res.status(404).json({ error: "Задача не найдена или устарела" })
+    }
+    if (task.status !== "done" || !task.result) {
+      return res.status(409).json({ error: "Архив будет доступен после завершения генерации" })
+    }
+
+    res.set({
+      "Content-Type": "application/zip",
+      "Content-Disposition": `attachment; filename="${guestArchiveFilename(task.projectName, req.params.taskId)}"`,
+      "X-Content-Type-Options": "nosniff",
+    })
+
+    const archive = archiver("zip", { zlib: { level: 9 } })
+    let archiveFailed = false
+    const failArchive = (err: Error) => {
+      if (archiveFailed) return
+      archiveFailed = true
+      captureError("[guest-code] archive failed", err)
+      if (!res.headersSent) res.status(500).json({ error: "Не удалось собрать архив" })
+      else if (!res.destroyed) res.destroy(err)
+    }
+    archive.on("error", failArchive)
+    res.on("close", () => {
+      if (!res.writableEnded) archive.abort()
+    })
+    archive.pipe(res)
+    for (const file of task.result.files) {
+      archive.append(file.content, { name: file.path.replace(/^\/+/, "") })
+    }
+    archive.finalize().catch(failArchive)
+  },
+)
+
 router.get(
   "/:taskId",
   rateLimit(60_000, 90, (req) => `guest-code-poll:${getClientIp(req) || "unknown"}`),

@@ -1,7 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 import type { AppGenerationResult } from "../services/app-generator"
-import { guestReleaseErrors } from "../services/guest-code-store"
+import { guestArchiveFilename, guestReleaseErrors } from "../services/guest-code-store"
 
 function result(files: AppGenerationResult["files"]): AppGenerationResult {
   return { files, source: "fallback", brief: {} as AppGenerationResult["brief"] }
@@ -81,4 +81,10 @@ test("guest release rejects duplicate and case-colliding paths", () => {
   ]))
   assert.ok(errors.includes("duplicate file path: app/page.tsx"))
   assert.ok(errors.includes("case-colliding file paths: components/Card.tsx, components/card.tsx"))
+})
+
+test("guest archive filename is safe and stable", () => {
+  assert.equal(guestArchiveFilename("My Client Portal", "12345678-abcd"), "my-client-portal.zip")
+  assert.equal(guestArchiveFilename("Проект \"Мечта\"\r\n.zip", "A1B2-C3D4"), "osgard-project-a1b2c3d4.zip")
+  assert.equal(guestArchiveFilename("Проект мечты", "A1B2-C3D4"), "osgard-project-a1b2c3d4.zip")
 })

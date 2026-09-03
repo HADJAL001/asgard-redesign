@@ -17,7 +17,7 @@
    ================================================================ */
 
 import { useState } from "react"
-import { Loader2, Sparkles, Info } from "lucide-react"
+import { Download, Loader2, Sparkles, Info } from "lucide-react"
 import {
   useGuestCodeGeneration,
   type GuestCodeAdapter,
@@ -203,9 +203,34 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
               </button>
             ))}
           </div>
-          <span style={{ color: result?.source === "ai" ? "#7CFFB2" : "#A8B7CA", fontSize: 12 }}>
-            {result?.source === "ai" ? "Собрано AI-командой" : "Собрано резервным генератором"}
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ color: result?.source === "ai" ? "#7CFFB2" : "#A8B7CA", fontSize: 12 }}>
+              {result?.source === "ai" ? "Собрано AI-командой" : "Собрано резервным генератором"}
+            </span>
+            {result?.taskId ? (
+              <a
+                href={`/api/demo/code/${encodeURIComponent(result.taskId)}/archive.zip`}
+                download
+                aria-label="Скачать весь проект ZIP-архивом"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 7,
+                  minHeight: 34,
+                  padding: "6px 11px",
+                  border: "1px solid rgba(124,255,178,0.35)",
+                  borderRadius: 7,
+                  color: "#7CFFB2",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  textDecoration: "none",
+                }}
+              >
+                <Download size={15} aria-hidden="true" />
+                Скачать ZIP
+              </a>
+            ) : null}
+          </div>
           </div>
 
           <div id={`guest-studio-panel-${tab}`} role="tabpanel" aria-label={tab === "code" ? "Код проекта" : "Предпросмотр проекта"}>

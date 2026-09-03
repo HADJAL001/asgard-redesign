@@ -22,6 +22,7 @@ export type GuestTaskStatus = "processing" | "done" | "error"
 
 export type GuestTask = {
   status: GuestTaskStatus
+  projectName: string
   result?: AppGenerationResult
   error?: string
   createdAt: number
@@ -34,6 +35,17 @@ const MAX_GUEST_FILE_BYTES = 512 * 1024
 const MAX_GUEST_TOTAL_BYTES = 2 * 1024 * 1024
 
 const TASK_TTL_MS = 30 * 60 * 1000 // 30 минут — результат живёт недолго, это демо
+
+export function guestArchiveFilename(projectName: string, taskId: string): string {
+  const slug = projectName
+    .replace(/\.zip$/i, "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+  const fallbackId = taskId.replace(/[^a-z0-9]/gi, "").slice(0, 8).toLowerCase() || "download"
+  return `${slug || `osgard-project-${fallbackId}`}.zip`
+}
 
 /* Глобальный потолок одновременных генераций: каждая — это дорогая цепочка
    AI-вызовов. Без него всплеск гостевых запросов (в пределах IP-лимита, но с
@@ -137,7 +149,7 @@ export function startGuestGeneration(name: string, hint?: string): string {
     throw new GuestGenerationBusyError()
   }
   const taskId = randomUUID()
-  tasks.set(taskId, { status: "processing", createdAt: Date.now() })
+  tasks.set(taskId, { status: "processing", projectName: name, createdAt: Date.now() })
 
   generateApp(name, hint)
     .then((result) => {
@@ -145,12 +157,13 @@ export function startGuestGeneration(name: string, hint?: string): string {
       if (releaseErrors.length > 0) {
         throw new Error(`guest release gate rejected output: ${releaseErrors.slice(0, 5).join("; ")}`)
       }
-      tasks.set(taskId, { status: "done", result, createdAt: Date.now() })
+      tasks.set(taskId, { status: "done", projectName: name, result, createdAt: Date.now() })
     })
     .catch((err) => {
       captureError("[guest-code] generateApp failed", err)
       tasks.set(taskId, {
         status: "error",
+        projectName: name,
         error: "Не удалось собрать проект. Попробуйте ещё раз через несколько минут.",
         createdAt: Date.now(),
       })
