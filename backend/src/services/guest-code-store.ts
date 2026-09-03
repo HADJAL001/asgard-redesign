@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto"
-import { generateApp, type AppGenerationResult } from "./app-generator"
+import { generateApp, validateGeneratedFiles, type AppGenerationResult } from "./app-generator"
 import { captureError } from "../lib/sentry"
 
 /* ================================================================
@@ -85,6 +85,11 @@ export function startGuestGeneration(name: string, hint?: string): string {
 
   generateApp(name, hint)
     .then((result) => {
+      const paths = new Set(result.files.map((file) => file.path))
+      const syntaxErrors = validateGeneratedFiles(result.files)
+      if (!paths.has("package.json") || !paths.has("app/page.tsx") || syntaxErrors.length > 0) {
+        throw new Error(`guest release gate rejected output: missing scaffold or ${syntaxErrors.length} syntax errors`)
+      }
       tasks.set(taskId, { status: "done", result, createdAt: Date.now() })
     })
     .catch((err) => {
