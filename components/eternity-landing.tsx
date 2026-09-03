@@ -260,7 +260,10 @@ export function EternityLanding() {
             <input
               ref={inputRef}
               type="text"
+              name="projectIdea"
               placeholder={t("landing.inputPlaceholder")}
+              maxLength={500}
+              enterKeyHint="go"
               autoComplete="off"
               aria-label={t("landing.inputPlaceholder")}
               aria-describedby={clarify ? "landing-clarify" : undefined}
