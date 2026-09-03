@@ -7,9 +7,14 @@ function result(files: AppGenerationResult["files"]): AppGenerationResult {
   return { files, source: "fallback", brief: {} as AppGenerationResult["brief"] }
 }
 
+const packageJson = JSON.stringify({
+  scripts: { dev: "next dev" },
+  dependencies: { next: "^14.2.0", react: "^18.3.0", "react-dom": "^18.3.0" },
+})
+
 test("guest release accepts a minimal runnable project", () => {
   const errors = guestReleaseErrors(result([
-    { path: "package.json", content: '{"scripts":{"dev":"next dev"}}' },
+    { path: "package.json", content: packageJson },
     { path: "app/page.tsx", content: "export default function Page() { return <main /> }" },
   ]))
   assert.deepEqual(errors, [])
@@ -23,7 +28,7 @@ test("guest release requires the runnable scaffold", () => {
 
 test("guest release rejects oversized files", () => {
   const errors = guestReleaseErrors(result([
-    { path: "package.json", content: '{"scripts":{"dev":"next dev"}}' },
+    { path: "package.json", content: packageJson },
     { path: "app/page.tsx", content: "x".repeat(512 * 1024 + 1) },
   ]))
   assert.ok(errors.some((error) => error.startsWith("file too large:")))
@@ -34,7 +39,7 @@ test("guest release rejects projects that cannot start", () => {
     { path: "package.json", content: "{}" },
     { path: "app/page.tsx", content: "" },
   ]))
-  assert.ok(errors.includes("missing dev script"))
+  assert.ok(errors.includes("unsupported dev script"))
   assert.ok(errors.includes("empty app/page.tsx"))
 })
 
@@ -44,4 +49,36 @@ test("guest release rejects invalid package JSON", () => {
     { path: "app/page.tsx", content: "export default function Page() { return null }" },
   ]))
   assert.ok(errors.includes("invalid package.json"))
+})
+
+test("guest release rejects a dev script that cannot boot the WebContainer preview", () => {
+  const errors = guestReleaseErrors(result([
+    { path: "package.json", content: JSON.stringify({
+      scripts: { dev: "echo ready" },
+      dependencies: { next: "^14.2.0", react: "^18.3.0", "react-dom": "^18.3.0" },
+    }) },
+    { path: "app/page.tsx", content: "export default function Page() { return null }" },
+  ]))
+  assert.ok(errors.includes("unsupported dev script"))
+})
+
+test("guest release requires the Next and React runtime dependencies", () => {
+  const errors = guestReleaseErrors(result([
+    { path: "package.json", content: '{"scripts":{"dev":"next dev"},"dependencies":{"next":"^14.2.0"}}' },
+    { path: "app/page.tsx", content: "export default function Page() { return null }" },
+  ]))
+  assert.ok(errors.includes("missing runtime dependency: react"))
+  assert.ok(errors.includes("missing runtime dependency: react-dom"))
+})
+
+test("guest release rejects duplicate and case-colliding paths", () => {
+  const errors = guestReleaseErrors(result([
+    { path: "package.json", content: packageJson },
+    { path: "app/page.tsx", content: "export default function Page() { return null }" },
+    { path: "/app/page.tsx", content: "export default function Duplicate() { return null }" },
+    { path: "components/Card.tsx", content: "export function Card() { return null }" },
+    { path: "components/card.tsx", content: "export function OtherCard() { return null }" },
+  ]))
+  assert.ok(errors.includes("duplicate file path: app/page.tsx"))
+  assert.ok(errors.includes("case-colliding file paths: components/Card.tsx, components/card.tsx"))
 })

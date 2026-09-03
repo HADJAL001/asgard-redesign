@@ -77,14 +77,39 @@ function makeRoomForTask() {
 
 export function guestReleaseErrors(result: AppGenerationResult): string[] {
   const errors = validateGeneratedFiles(result.files)
-  const packageFile = result.files.find((file) => file.path === "package.json")
-  const pageFile = result.files.find((file) => file.path === "app/page.tsx")
+  const canonicalFiles = result.files.map((file) => ({ ...file, path: file.path.replace(/^\/+/, "") }))
+  const exactPaths = new Set<string>()
+  const caseFoldedPaths = new Map<string, string>()
+  for (const file of canonicalFiles) {
+    if (exactPaths.has(file.path)) errors.push(`duplicate file path: ${file.path}`)
+    exactPaths.add(file.path)
+
+    const foldedPath = file.path.toLocaleLowerCase("en-US")
+    const existingPath = caseFoldedPaths.get(foldedPath)
+    if (existingPath && existingPath !== file.path) {
+      errors.push(`case-colliding file paths: ${existingPath}, ${file.path}`)
+    } else {
+      caseFoldedPaths.set(foldedPath, file.path)
+    }
+  }
+
+  const packageFile = canonicalFiles.find((file) => file.path === "package.json")
+  const pageFile = canonicalFiles.find((file) => file.path === "app/page.tsx")
   if (!packageFile) {
     errors.push("missing package.json")
   } else {
     try {
       const parsed = JSON.parse(packageFile.content)
-      if (typeof parsed?.scripts?.dev !== "string" || !parsed.scripts.dev.trim()) errors.push("missing dev script")
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        errors.push("invalid package.json")
+      } else {
+        if (parsed.scripts?.dev !== "next dev") errors.push("unsupported dev script")
+        for (const dependency of ["next", "react", "react-dom"]) {
+          if (typeof parsed.dependencies?.[dependency] !== "string" || !parsed.dependencies[dependency].trim()) {
+            errors.push(`missing runtime dependency: ${dependency}`)
+          }
+        }
+      }
     } catch {
       errors.push("invalid package.json")
     }
