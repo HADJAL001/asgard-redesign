@@ -106,6 +106,7 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
 
   const generate = useCallback(
     async (input: GuestCodeInput) => {
+      cleanup()
       const generationId = ++generationIdRef.current
       cancelRef.current = false
       setState({ phase: "starting", progress: null, result: null, error: null })
@@ -176,7 +177,7 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
         unsubRef.current = null
       }
     },
-    [adapter],
+    [adapter, cleanup],
   )
 
   return {
