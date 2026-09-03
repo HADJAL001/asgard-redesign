@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express"
 import { startGuestGeneration, getGuestTask, GuestGenerationBusyError } from "../services/guest-code-store"
 import { getClientIp } from "../lib/admin-audit"
 import { ensureRedisConnected, redisClient } from "../lib/redis"
+import { rateLimit } from "../middleware/rateLimiter"
 
 /* ================================================================
    OSGARD · Demo Code Routes — гостевая live-генерация КОДА (Part 2)
@@ -120,7 +121,10 @@ router.post("/start", async (req: Request, res: Response) => {
 })
 
 /* ---------------- GET /demo/code/:taskId ---------------- */
-router.get("/:taskId", (req: Request, res: Response) => {
+router.get(
+  "/:taskId",
+  rateLimit(60_000, 90, (req) => `guest-code-poll:${getClientIp(req) || "unknown"}`),
+  (req: Request, res: Response) => {
   const task = getGuestTask(req.params.taskId)
   if (!task) {
     return res.status(404).json({ error: "Задача не найдена или устарела" })
@@ -131,6 +135,7 @@ router.get("/:taskId", (req: Request, res: Response) => {
     result: task.result ? { files: task.result.files, source: task.result.source } : undefined,
     error: task.error,
   })
-})
+  },
+)
 
 export default router
