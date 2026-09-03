@@ -77,9 +77,20 @@ function makeRoomForTask() {
 
 export function guestReleaseErrors(result: AppGenerationResult): string[] {
   const errors = validateGeneratedFiles(result.files)
-  const paths = new Set(result.files.map((file) => file.path))
-  if (!paths.has("package.json")) errors.push("missing package.json")
-  if (!paths.has("app/page.tsx")) errors.push("missing app/page.tsx")
+  const packageFile = result.files.find((file) => file.path === "package.json")
+  const pageFile = result.files.find((file) => file.path === "app/page.tsx")
+  if (!packageFile) {
+    errors.push("missing package.json")
+  } else {
+    try {
+      const parsed = JSON.parse(packageFile.content)
+      if (typeof parsed?.scripts?.dev !== "string" || !parsed.scripts.dev.trim()) errors.push("missing dev script")
+    } catch {
+      errors.push("invalid package.json")
+    }
+  }
+  if (!pageFile) errors.push("missing app/page.tsx")
+  else if (!pageFile.content.trim()) errors.push("empty app/page.tsx")
   if (result.files.length > MAX_GUEST_FILES) errors.push("too many files")
 
   let totalBytes = 0

@@ -9,7 +9,7 @@ function result(files: AppGenerationResult["files"]): AppGenerationResult {
 
 test("guest release accepts a minimal runnable project", () => {
   const errors = guestReleaseErrors(result([
-    { path: "package.json", content: "{}" },
+    { path: "package.json", content: '{"scripts":{"dev":"next dev"}}' },
     { path: "app/page.tsx", content: "export default function Page() { return <main /> }" },
   ]))
   assert.deepEqual(errors, [])
@@ -23,8 +23,25 @@ test("guest release requires the runnable scaffold", () => {
 
 test("guest release rejects oversized files", () => {
   const errors = guestReleaseErrors(result([
-    { path: "package.json", content: "{}" },
+    { path: "package.json", content: '{"scripts":{"dev":"next dev"}}' },
     { path: "app/page.tsx", content: "x".repeat(512 * 1024 + 1) },
   ]))
   assert.ok(errors.some((error) => error.startsWith("file too large:")))
+})
+
+test("guest release rejects projects that cannot start", () => {
+  const errors = guestReleaseErrors(result([
+    { path: "package.json", content: "{}" },
+    { path: "app/page.tsx", content: "" },
+  ]))
+  assert.ok(errors.includes("missing dev script"))
+  assert.ok(errors.includes("empty app/page.tsx"))
+})
+
+test("guest release rejects invalid package JSON", () => {
+  const errors = guestReleaseErrors(result([
+    { path: "package.json", content: "{" },
+    { path: "app/page.tsx", content: "export default function Page() { return null }" },
+  ]))
+  assert.ok(errors.includes("invalid package.json"))
 })
