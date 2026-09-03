@@ -445,25 +445,25 @@ export function EternityLanding() {
         </section>
 
         <section className="economy-section">
-          <Reveal><h2>{t("landing.economyTitle")}</h2></Reveal>
+          <Reveal><h2>Как проект получает ценность</h2></Reveal>
           <Reveal delay={0.05} className="economy-vision">
             <p>TimeCoin — универсальная валюта экосистемы OSGARD. Артефакты получают ценность через качество, полезность и реальный спрос. Мы строим долгую историю доверия и масштаба — без обещаний гарантированной доходности.</p>
           </Reveal>
           <div className="values-container">
             <Reveal delay={0} className="value-item">
               <IconTrade size={32} />
-              <div className="value-title">{t("landing.value1Title")}</div>
-              <div className="value-desc">{t("landing.value1Desc")}</div>
+              <div className="value-title">Понятное происхождение</div>
+              <div className="value-desc">История создания, версия и вклад автора сохраняются вместе с каждым результатом.</div>
             </Reveal>
             <Reveal delay={0.12} className="value-item">
               <IconEarn size={32} />
-              <div className="value-title">{t("landing.value2Title")}</div>
-              <div className="value-desc">{t("landing.value2Desc")}</div>
+              <div className="value-title">Практическая польза</div>
+              <div className="value-desc">Проект можно запустить, показать команде, доработать и использовать в настоящем деле.</div>
             </Reveal>
             <Reveal delay={0.24} className="value-item">
               <IconInvest size={32} />
-              <div className="value-title">{t("landing.value3Title")}</div>
-              <div className="value-desc">{t("landing.value3Desc")}</div>
+              <div className="value-title">Обмен внутри экосистемы</div>
+              <div className="value-desc">TimeCoin помогает учитывать вклад и обмениваться результатами внутри OSGARD. Это не обещание доходности.</div>
             </Reveal>
           </div>
         </section>
