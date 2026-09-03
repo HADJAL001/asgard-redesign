@@ -22,10 +22,11 @@ async function readError(r: Response, fallback: string): Promise<string> {
 }
 
 export const guestCodeAdapter: GuestCodeAdapter = {
-  async start({ name, hint }) {
+  async start({ name, hint }, signal) {
     const r = await fetch("/api/demo/code/start", {
       method: "POST",
       headers: { "content-type": "application/json" },
+      signal,
       body: JSON.stringify({ name, hint }),
     })
     if (!r.ok) {
@@ -36,8 +37,8 @@ export const guestCodeAdapter: GuestCodeAdapter = {
     return { taskId: d.taskId }
   },
 
-  async poll(taskId) {
-    const r = await fetch(`/api/demo/code/${encodeURIComponent(taskId)}`)
+  async poll(taskId, signal) {
+    const r = await fetch(`/api/demo/code/${encodeURIComponent(taskId)}`, { signal, cache: "no-store" })
     if (!r.ok) {
       throw new Error(await readError(r, "Не удалось получить статус генерации"))
     }

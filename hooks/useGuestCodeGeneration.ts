@@ -46,8 +46,8 @@ export type GuestCodeInput = {
 
 /** Адаптер к бэкенду. Реализуется, когда сессия A опубликует роуты. */
 export type GuestCodeAdapter = {
-  start: (input: GuestCodeInput) => Promise<{ taskId: string }>
-  poll: (taskId: string) => Promise<{ status: string; result?: GuestGenResult; error?: string }>
+  start: (input: GuestCodeInput, signal?: AbortSignal) => Promise<{ taskId: string }>
+  poll: (taskId: string, signal?: AbortSignal) => Promise<{ status: string; result?: GuestGenResult; error?: string }>
   /** Опциональный SSE-стрим прогресса; возвращает функцию отписки. */
   subscribeStream?: (
     taskId: string,
@@ -85,11 +85,14 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
   const [state, setState] = useState<State>(INITIAL)
   const cancelRef = useRef(false)
   const generationIdRef = useRef(0)
+  const abortRef = useRef<AbortController | null>(null)
   const unsubRef = useRef<(() => void) | null>(null)
 
   const cleanup = useCallback(() => {
     cancelRef.current = true
     generationIdRef.current += 1
+    abortRef.current?.abort()
+    abortRef.current = null
     if (unsubRef.current) {
       unsubRef.current()
       unsubRef.current = null
@@ -108,15 +111,18 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
     async (input: GuestCodeInput) => {
       cleanup()
       const generationId = ++generationIdRef.current
+      const controller = new AbortController()
+      abortRef.current = controller
       cancelRef.current = false
       setState({ phase: "starting", progress: null, result: null, error: null })
 
       let taskId: string
       try {
-        const started = await adapter.start(input)
+        const started = await adapter.start(input, controller.signal)
         if (cancelRef.current || generationId !== generationIdRef.current) return
         taskId = started.taskId
       } catch (err) {
+        if (abortRef.current === controller) abortRef.current = null
         const msg = err instanceof Error ? err.message : String(err)
         if (msg === NOT_IMPLEMENTED) {
           setState({
@@ -153,7 +159,7 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
 
         let polled: { status: string; result?: GuestGenResult; error?: string }
         try {
-          polled = await adapter.poll(taskId)
+          polled = await adapter.poll(taskId, controller.signal)
         } catch (err) {
           if (cancelRef.current || generationId !== generationIdRef.current) break
           const msg = err instanceof Error ? err.message : String(err)
@@ -179,6 +185,7 @@ export function useGuestCodeGeneration(adapter: GuestCodeAdapter = DEFAULT_ADAPT
         unsubscribe()
         unsubRef.current = null
       }
+      if (abortRef.current === controller) abortRef.current = null
     },
     [adapter, cleanup],
   )
