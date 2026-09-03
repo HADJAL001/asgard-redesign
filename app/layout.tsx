@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     default: "OSGARD NEW WORLD — Build beyond imagination",
     template: "%s | OSGARD NEW WORLD",
   },
-  description: "OSGARD NEW WORLD: премиальная AI-платформа нового мира — создавай, торгуй, развивайся в цифровой вселенной.",
+  description: "OSGARD NEW WORLD — AI-платформа, которая превращает идеи в рабочие проекты: бриф, код, preview и развитие продукта.",
   generator: "v0.app",
   alternates: {
     canonical: "https://osgardnewworld.com",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "OSGARD NEW WORLD",
-    description: "Премиальная AI-платформа нового мира",
+    description: "AI-платформа для создания и развития рабочих проектов",
     url: "https://osgardnewworld.com",
     siteName: "OSGARD NEW WORLD",
     locale: "ru_RU",
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "OSGARD NEW WORLD",
-    description: "Премиальная AI-платформа нового мира",
+    description: "AI-платформа для создания и развития рабочих проектов",
     site: "@osgardnewworld",
   },
 }

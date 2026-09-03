@@ -89,7 +89,7 @@ export function Footer() {
               className="mt-4 text-[13px] leading-relaxed"
               style={{ color: "rgba(229,228,226,0.45)", maxWidth: 240 }}
             >
-              Премиальная AI-платформа нового мира. Создавай артефакты, торгуй, развивайся в цифровой вселенной.
+              AI-платформа для превращения идей в рабочие проекты: от первого брифа до запуска, проверки и развития продукта.
             </p>
 
             <a
@@ -162,7 +162,7 @@ export function Footer() {
                 boxShadow: "0 0 6px #2D7DD2",
               }}
             />
-            <span>Powered by TimeCoin</span>
+            <span>OSGARD ecosystem · TimeCoin внутри платформы</span>
           </div>
         </div>
       </div>
