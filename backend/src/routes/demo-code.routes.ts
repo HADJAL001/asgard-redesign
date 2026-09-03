@@ -128,7 +128,7 @@ router.get("/:taskId", (req: Request, res: Response) => {
 
   res.json({
     status: task.status,
-    result: task.result ? { files: task.result.files } : undefined,
+    result: task.result ? { files: task.result.files, source: task.result.source } : undefined,
     error: task.error,
   })
 })

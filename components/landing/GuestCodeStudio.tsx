@@ -178,7 +178,8 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
       {/* Результат */}
       {phase === "done" && files.length > 0 && (
         <div>
-          <div role="tablist" aria-label="Режим результата" style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+          <div role="tablist" aria-label="Режим результата" style={{ display: "flex", gap: 8 }}>
             {(["code", "preview"] as Tab[]).map((t) => (
               <button
                 key={t}
@@ -201,6 +202,10 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
                 {t === "code" ? "Код" : "Превью"}
               </button>
             ))}
+          </div>
+          <span style={{ color: result?.source === "ai" ? "#7CFFB2" : "#A8B7CA", fontSize: 12 }}>
+            {result?.source === "ai" ? "Собрано AI-командой" : "Собрано резервным генератором"}
+          </span>
           </div>
 
           <div id={`guest-studio-panel-${tab}`} role="tabpanel" aria-label={tab === "code" ? "Код проекта" : "Предпросмотр проекта"}>

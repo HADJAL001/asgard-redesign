@@ -30,7 +30,7 @@ export type GuestGenPhase =
   | "error"
   | "unavailable"
 
-export type GuestGenResult = { files: FileTree }
+export type GuestGenResult = { files: FileTree; source?: "ai" | "fallback" }
 
 export type GuestGenProgress = { stage: string; message?: string; pct?: number }
 
