@@ -16,7 +16,7 @@
    не притворимся, что превью работает.
    ================================================================ */
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Loader2, Play, AlertTriangle } from "lucide-react"
 import type { FileTree } from "@/lib/integrations/file-tree"
 import { runInWebContainer } from "@/lib/integrations/webcontainer"
@@ -28,16 +28,20 @@ export function GuestLivePreview({ files }: { files: FileTree }) {
   const [state, setState] = useState<PreviewState>("idle")
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const runIdRef = useRef(0)
 
   async function handleRun() {
+    const runId = ++runIdRef.current
     setState("booting")
     setError(null)
     setPreviewUrl(null)
     try {
       const url = await runInWebContainer(files)
+      if (runId !== runIdRef.current) return
       setPreviewUrl(url)
       setState("ready")
     } catch (err) {
+      if (runId !== runIdRef.current) return
       captureError("[GuestLivePreview] runInWebContainer", err)
       setError(err instanceof Error ? err.message : "Не удалось поднять превью")
       setState("error")
@@ -46,7 +50,7 @@ export function GuestLivePreview({ files }: { files: FileTree }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <button
           type="button"
           onClick={handleRun}
@@ -99,7 +103,9 @@ export function GuestLivePreview({ files }: { files: FileTree }) {
           title="Живой предпросмотр"
           style={{
             width: "100%",
-            height: 420,
+            aspectRatio: "16 / 10",
+            minHeight: 280,
+            maxHeight: 560,
             border: "1px solid rgba(255,255,255,0.1)",
             borderRadius: 12,
             background: "#fff",

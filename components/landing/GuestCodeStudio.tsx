@@ -196,7 +196,7 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
             ))}
           </div>
 
-          {tab === "code" ? <GuestCodeViewer files={files} /> : <GuestLivePreview files={files} />}
+          {tab === "code" ? <GuestCodeViewer files={files} /> : <GuestLivePreview key={files.map((file) => `${file.path}:${file.content.length}`).join("|")} files={files} />}
         </div>
       )}
 
