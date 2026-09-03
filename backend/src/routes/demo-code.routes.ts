@@ -33,6 +33,7 @@ router.use((_req, res, next) => {
 
 const IP_LIMIT = 5
 const IP_WINDOW_MS = 24 * 60 * 60 * 1000
+const MAX_MEMORY_IPS = 10_000
 
 interface IpEntry {
   count: number
@@ -45,12 +46,18 @@ function memoryCheckIpLimit(ip: string): { allowed: boolean; remaining: number; 
 
   /* Попутно чистим протухшие записи, чтобы ipMap не рос бесконечно
      (без этого каждый уникальный IP оставался бы в памяти навсегда). */
-  for (const [key, e] of ipMap) {
-    if (e.resetAt < now) ipMap.delete(key)
+  if (ipMap.size >= MAX_MEMORY_IPS) {
+    for (const [key, value] of ipMap) {
+      if (value.resetAt < now) ipMap.delete(key)
+    }
   }
 
   let entry = ipMap.get(ip)
   if (!entry || entry.resetAt < now) {
+    if (!entry && ipMap.size >= MAX_MEMORY_IPS) {
+      const oldest = ipMap.keys().next().value
+      if (oldest !== undefined) ipMap.delete(oldest)
+    }
     entry = { count: 0, resetAt: now + IP_WINDOW_MS }
     ipMap.set(ip, entry)
   }
