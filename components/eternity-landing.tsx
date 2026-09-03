@@ -269,15 +269,6 @@ export function EternityLanding() {
             </button>
           </form>
 
-          <Link href="/studio" className="hero-studio-link">
-            <span className="hero-studio-icon"><IconCreate size={16} aria-hidden="true" /></span>
-            <span>
-              <strong>Собрать рабочий код сейчас</strong>
-              <small>Реальные файлы, код и preview без регистрации</small>
-            </span>
-            <ArrowRight size={16} aria-hidden="true" />
-          </Link>
-
           {/* RuStore is kept in the top navigation; the hero stays focused on creation. */}
           {/* <a href={RUSTORE_APP_URL} className="hero-rustore-link" target="_blank" rel="noopener noreferrer">
             <span className="hero-rustore-icon"><Smartphone size={18} aria-hidden="true" /></span>
@@ -784,24 +775,6 @@ const CSS = `
 .eternity-page .artifact-form button:hover::after { opacity: 0.8; transform: translateX(0); }
 .eternity-page .artifact-form button svg { stroke: #0A0D14; stroke-width: 2; position: relative; }
 
-.eternity-page .hero-studio-link {
-  display: flex; align-items: center; gap: 10px; width: 100%; max-width: 560px;
-  margin-top: 14px; padding: 10px 14px; border: 1px solid rgba(0, 212, 255, 0.2);
-  border-radius: 12px; color: #DDEBFF; text-decoration: none;
-  background: rgba(0, 212, 255, 0.045); transition: border-color 0.2s, background 0.2s;
-}
-.eternity-page .hero-studio-link:hover,
-.eternity-page .hero-studio-link:focus-visible {
-  border-color: rgba(0, 212, 255, 0.65); background: rgba(0, 212, 255, 0.09); outline: none;
-}
-.eternity-page .hero-studio-icon {
-  display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px;
-  border-radius: 8px; color: #00D4FF; background: rgba(0, 212, 255, 0.12);
-}
-.eternity-page .hero-studio-link span:nth-child(2) { display: grid; gap: 2px; min-width: 0; flex: 1; }
-.eternity-page .hero-studio-link strong { font-size: 13px; font-weight: 600; }
-.eternity-page .hero-studio-link small { color: #8093AD; font-size: 11px; }
-.eternity-page .hero-studio-link > svg { color: #00D4FF; flex: 0 0 auto; }
 
 .eternity-page .hero-clarify {
   width: 100%; max-width: 560px; margin-top: -4px;
@@ -927,12 +900,9 @@ const CSS = `
   .eternity-page .artifact-form { flex-direction: column; gap: 10px; }
   .eternity-page .artifact-form input,
   .eternity-page .artifact-form button { width: 100%; height: 44px; }
-  .eternity-page .hero-studio-link { max-width: 100%; text-align: left; }
-  .eternity-page .hero-studio-link small { line-height: 1.35; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .eternity-page .hero-studio-link { transition: none; }
 }
 
 /* ─── Spinner на кнопке ─── */
