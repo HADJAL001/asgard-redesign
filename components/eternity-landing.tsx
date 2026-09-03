@@ -45,7 +45,7 @@ const RUSTORE_APP_URL = "https://www.rustore.ru/catalog/app/com.osgard.app"
 
 
 export function EternityLanding() {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const router = useRouter()
   const { isAuthenticated } = useAuth()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -57,6 +57,21 @@ export function EternityLanding() {
   const [submitting, setSubmitting] = useState(false)
   /** Вопрос платформы, когда заявку не удалось прочитать (422 unclear_request). */
   const [clarify, setClarify] = useState<{ question: string; received?: string } | null>(null)
+  const inputPrompt = locale === "en"
+    ? "Share your idea - create a project people need"
+    : locale === "kz"
+      ? "Идеяңызды айтыңыз - адамдарға қажет жоба жасаңыз"
+      : "Расскажите идею - создайте проект, который нужен людям"
+  const heroValueBadge = locale === "en"
+    ? "BUILD PRODUCTS THAT MATTER"
+    : locale === "kz"
+      ? "НАҚТЫ ПАЙДАЛЫ ӨНІМДЕР ЖАСАҢЫЗ"
+      : "СОЗДАВАЙТЕ ПРОДУКТЫ С РЕАЛЬНОЙ ПОЛЬЗОЙ"
+  const heroValueSubtitle = locale === "en"
+    ? "Create working projects, validate ideas, and grow products people genuinely use."
+    : locale === "kz"
+      ? "Жұмыс істейтін жобалар жасаңыз, идеяларды тексеріңіз және адамдар қолданатын өнімдерді дамытыңыз."
+      : "Создавайте рабочие проекты, проверяйте идеи и развивайте продукты, которыми люди действительно пользуются."
 
   const handleLimitReached = useCallback((session: DemoSessionV2) => {
     setDemoOpen(false)
@@ -238,11 +253,11 @@ export function EternityLanding() {
           </h1>
           <div className="tc-badge">
             <InfinityIcon size={14} strokeWidth={1.4} aria-hidden="true" />
-            СОЗДАВАЙ ПРОДУКТЫ С РЕАЛЬНОЙ ПОЛЬЗОЙ
+            {heroValueBadge}
             <span className="tc-badge-dot" aria-hidden="true" />
           </div>
           <p className="hero-subtitle">
-            Создавай рабочие проекты, проверяй идеи и развивай продукты, которыми люди действительно пользуются.
+            {heroValueSubtitle}
           </p>
 
           {/* Миниатюрное окно ввода (всегда видимо) */}
@@ -250,9 +265,9 @@ export function EternityLanding() {
             <input
               ref={inputRef}
               type="text"
-              placeholder="Расскажите идею - создайте проект, который нужен людям"
+              placeholder={inputPrompt}
               autoComplete="off"
-              aria-label="Расскажите идею - создайте проект, который нужен людям"
+              aria-label={inputPrompt}
               aria-describedby={clarify ? "landing-clarify" : undefined}
               disabled={submitting}
             />
