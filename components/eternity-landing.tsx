@@ -58,10 +58,10 @@ export function EternityLanding() {
   /** Вопрос платформы, когда заявку не удалось прочитать (422 unclear_request). */
   const [clarify, setClarify] = useState<{ question: string; received?: string } | null>(null)
   const inputPrompt = locale === "en"
-    ? "Share your idea - create a project people need"
+    ? "Describe your project idea"
     : locale === "kz"
-      ? "Идеяңызды айтыңыз - адамдарға қажет жоба жасаңыз"
-      : "Расскажите идею - создайте проект, который нужен людям"
+      ? "Жоба идеяңызды сипаттаңыз"
+      : "Опишите идею проекта"
   const heroValueBadge = locale === "en"
     ? "BUILD PRODUCTS THAT MATTER"
     : locale === "kz"
