@@ -774,26 +774,6 @@ const CSS = `
 .eternity-page .artifact-form button:hover::after { opacity: 0.8; transform: translateX(0); }
 .eternity-page .artifact-form button svg { stroke: #0A0D14; stroke-width: 2; position: relative; }
 
-.eternity-page .hero-rustore-link {
-  width: 100%; max-width: 560px; min-height: 58px; padding: 10px 14px;
-  display: flex; align-items: center; gap: 12px; color: #fff; text-decoration: none;
-  border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px;
-  background: rgba(7, 10, 17, 0.72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  animation: eternity-rise 1s ease-out 0.48s forwards; opacity: 0;
-  transition: border-color 0.25s ease, background 0.25s ease, transform 0.25s ease;
-}
-.eternity-page .hero-rustore-link:hover {
-  border-color: rgba(255, 215, 0, 0.72); background: rgba(212, 175, 55, 0.1); transform: translateY(-2px);
-}
-.eternity-page .hero-rustore-icon {
-  width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center;
-  color: #0A0D14; border-radius: 7px; background: linear-gradient(135deg, #FFD700, #D4AF37);
-}
-.eternity-page .hero-rustore-link > span:nth-child(2) { display: flex; flex: 1; min-width: 0; flex-direction: column; text-align: left; }
-.eternity-page .hero-rustore-link strong { font-size: 14px; font-weight: 600; line-height: 1.4; }
-.eternity-page .hero-rustore-link small { margin-top: 1px; color: #8F9DB0; font-size: 12px; line-height: 1.35; }
-.eternity-page .hero-rustore-link > svg { flex: 0 0 auto; color: #D4AF37; }
-
 .eternity-page .hero-clarify {
   width: 100%; max-width: 560px; margin-top: -4px;
   font-size: 13px; font-weight: 400; color: #E8B84B; line-height: 1.5;
