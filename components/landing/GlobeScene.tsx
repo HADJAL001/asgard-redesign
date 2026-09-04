@@ -198,9 +198,9 @@ export default function GlobeScene() {
     let sceneActive = !document.hidden
 
     function animate() {
+      rafId = 0
       if (!sceneActive) return
       if (!reducedMotion) {
-        rafId = requestAnimationFrame(animate)
         const elapsed = clock.getElapsedTime()
         // Time-based movement stays smooth across monitors and makes the hero feel alive.
         earth.rotation.y = elapsed * 0.24
@@ -215,6 +215,7 @@ export default function GlobeScene() {
       }
 
       renderer.render(scene, camera)
+      if (!reducedMotion) rafId = requestAnimationFrame(animate)
     }
     animate()
 
@@ -222,9 +223,12 @@ export default function GlobeScene() {
       sceneActive = !document.hidden
       if (sceneActive) {
         clock.start()
-        animate()
+        if (!rafId) animate()
+      } else {
+        cancelAnimationFrame(rafId)
+        rafId = 0
+        clock.stop()
       }
-      else cancelAnimationFrame(rafId)
     }
 
     const onResize = () => {
