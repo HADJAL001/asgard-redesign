@@ -20,6 +20,7 @@ import { useAuth } from "@/lib/auth-store"
 import { generateProjectFromIdea } from "@/lib/project-generation"
 import { savePendingGeneration } from "@/lib/pending-generation"
 import { startGuestSession } from "@/lib/guest-session"
+import { buildProjectBrief, isProjectBriefComplete } from "@/lib/project-brief"
 import { track } from "@/lib/analytics"
 import { Reveal } from "@/components/landing/Reveal"
 import {
@@ -242,18 +243,12 @@ export function EternityLanding() {
   const handleBriefSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!briefIdea || submitting) return
-    const completeBrief = [
-      briefIdea,
-      `Аудитория: ${brief.audience.trim()}`,
-      `Результат: ${brief.outcome.trim()}`,
-      `Обязательные функции: ${brief.essentials.trim()}`,
-      brief.constraints.trim() ? `Ограничения: ${brief.constraints.trim()}` : "",
-    ].filter(Boolean).join("\n")
+    const completeBrief = buildProjectBrief(briefIdea, brief)
     setBriefIdea(null)
     void startGeneration(completeBrief)
   }
 
-  const briefReady = !!brief.audience.trim() && !!brief.outcome.trim() && !!brief.essentials.trim()
+  const briefReady = isProjectBriefComplete(brief)
 
   return (
     <div className="eternity-page">

@@ -28,6 +28,7 @@ import { useTranslation } from "@/lib/i18n/use-translation"
 import { apiClient } from "@/lib/api-client"
 import { UpgradeNudgeModal, useUpgradeNudge } from "./UpgradeNudgeModal"
 import { GenerationCostEstimate, depthCostBadge, useGenerationEstimate } from "./GenerationCostEstimate"
+import { buildProjectBrief, isProjectBriefComplete } from "@/lib/project-brief"
 
 type Theme = {
   id: string
@@ -129,7 +130,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
 
   const totalSteps = 3
   const progress = (step / totalSteps) * 100
-  const briefReady = !!brief.audience.trim() && !!brief.outcome.trim() && !!brief.essentials.trim()
+  const briefReady = isProjectBriefComplete(brief)
 
   function goNext() {
     setError(null)
@@ -160,13 +161,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
       // а реальные файлы приложения генерируются в фоне на сервере — опрашиваем статус.
       // Собственное описание пользователя (если есть) важнее темы — это его реальный
       // бриф для генерации, тема лишь fallback-подсказка.
-      const hint = [
-        description.trim() || theme?.hint || "",
-        `Аудитория: ${brief.audience.trim()}`,
-        `Результат: ${brief.outcome.trim()}`,
-        `Обязательные функции: ${brief.essentials.trim()}`,
-        brief.constraints.trim() ? `Ограничения: ${brief.constraints.trim()}` : "",
-      ].filter(Boolean).join("\n")
+      const hint = buildProjectBrief(description.trim() || theme?.hint || "", brief)
       const res = await generateProject(name.trim() || undefined, hint, depthId)
       if (res.success && res.project) {
         // Project generation is asynchronous. The workspace owns the live SSE

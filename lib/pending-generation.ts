@@ -1,3 +1,5 @@
+import { hasCompleteProjectBrief } from "@/lib/project-brief"
+
 /* ================================================================
    pending-generation — «отложенное намерение генерации» гостя
    ----------------------------------------------------------------
@@ -30,17 +32,6 @@ export interface PendingGeneration {
 }
 
 export const PENDING_GEN_KEY = "osgard_pending_gen"
-
-const REQUIRED_BRIEF_FIELDS = ["Аудитория", "Результат", "Обязательные функции"] as const
-
-/** Only a completed interview may cross the registration boundary and start work later. */
-export function hasCompleteProjectBrief(hint: string | undefined): boolean {
-  if (!hint) return false
-  return REQUIRED_BRIEF_FIELDS.every((field) => {
-    const match = hint.match(new RegExp(`(?:^|\\n)${field}:\\s*([^\\n]+)`, "u"))
-    return !!match?.[1]?.trim()
-  })
-}
 
 /** Сколько живёт намерение до автоматического протухания (30 минут). */
 export const PENDING_GEN_TTL_MS = 30 * 60 * 1000
