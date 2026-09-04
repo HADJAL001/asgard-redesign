@@ -67,6 +67,10 @@ import {
   type TxKind,
 } from "@/lib/tc-market"
 
+// Only the newest project-list request may publish its result. Several views can
+// mount close together during navigation and otherwise an older response can win.
+let projectsRequestVersion = 0
+
 /* ================================================================
    Типы
    ================================================================ */
@@ -1580,11 +1584,14 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
 
   /* ---- проекты: GET /projects/mine — список проектов текущего пользователя ---- */
   fetchProjects: async (opts) => {
+    const requestVersion = ++projectsRequestVersion
     set({ loading: true, error: null })
     try {
       const { projects } = await apiClient.get<{ projects: OsgardProject[] }>("/projects/mine", opts)
+      if (requestVersion !== projectsRequestVersion) return
       set({ projects, loading: false, error: null })
     } catch (err) {
+      if (requestVersion !== projectsRequestVersion) return
       set({ loading: false, error: extractErrorMessage(err, "Не удалось загрузить проекты") })
     }
   },
