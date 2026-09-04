@@ -67,7 +67,7 @@
     "createError": "Project creation could not start. Check your connection and try again.",
     "briefKicker": "Project brief",
     "briefTitle": "Let's clarify the project first",
-    "briefDescription": "Answer three questions. OSGARD will then build your app from the complete brief.",
+    "briefDescription": "Answer three required questions, then add any constraints if needed. OSGARD will build your app from the complete brief.",
     "briefAudienceLabel": "Who are you creating this product for?",
     "briefAudiencePlaceholder": "For example: small cafe owners",
     "briefOutcomeLabel": "What outcome should the user get?",
