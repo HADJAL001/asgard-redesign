@@ -38,6 +38,10 @@ export default function GlobeScene() {
     renderer.toneMappingExposure = 1.8
     container.appendChild(renderer.domElement)
 
+    const showFallback = () => {
+      container.style.background = "#020408 url('/earth-realistic.png') center 70% / min(80vw, 620px) auto no-repeat"
+    }
+
 
     const loader = new THREE.TextureLoader()
     const mapUrl = "/textures/earth/earth_atmos_2048.jpg"
@@ -240,6 +244,15 @@ export default function GlobeScene() {
       }
     }
 
+    const onContextLost = (event: Event) => {
+      event.preventDefault()
+      sceneActive = false
+      cancelAnimationFrame(rafId)
+      rafId = 0
+      clock.stop()
+      showFallback()
+    }
+
     const onResize = () => {
       const w = container.clientWidth
       const h = container.clientHeight
@@ -252,11 +265,13 @@ export default function GlobeScene() {
     }
     window.addEventListener("resize", onResize)
     document.addEventListener("visibilitychange", onVisibilityChange)
+    renderer.domElement.addEventListener("webglcontextlost", onContextLost, false)
 
     return () => {
       cancelAnimationFrame(rafId)
       window.removeEventListener("resize", onResize)
       document.removeEventListener("visibilitychange", onVisibilityChange)
+      renderer.domElement.removeEventListener("webglcontextlost", onContextLost, false)
       earthGeometry.dispose()
       earthMaterial.dispose()
       cloudGeometry.dispose()
