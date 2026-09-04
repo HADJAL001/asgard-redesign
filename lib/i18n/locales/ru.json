@@ -977,6 +977,7 @@
     "loading": "Открываю мастерскую…",
     "notFound": "Проект не найден",
     "backToProjects": "К проектам",
+    "backToWorkspace": "К мастерской",
     "statusGenerating": "OSGARD 4.0 пишет код",
     "statusReady": "Готово",
     "statusFailed": "Ошибка генерации",

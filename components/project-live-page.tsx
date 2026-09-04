@@ -30,14 +30,14 @@ export function ProjectLivePage({ projectId }: Props) {
       <main className="mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
         <button
           type="button"
-          onClick={() => router.push(`/projects/${projectId}`)}
+          onClick={() => router.push(`/projects/${projectId}/workspace`)}
           className="inline-flex items-center gap-2 text-[13px] transition-colors"
           style={{ color: COLORS.label }}
           onMouseEnter={(e) => (e.currentTarget.style.color = COLORS.text)}
           onMouseLeave={(e) => (e.currentTarget.style.color = COLORS.label)}
         >
           <ArrowLeft size={14} strokeWidth={1.75} />
-          {t("projectDetail.backToProject")}
+          {t("workspace.backToWorkspace")}
         </button>
 
         <h1 className="mt-4 text-[24px] font-semibold">{t("projectDetail.liveRunTab")}</h1>

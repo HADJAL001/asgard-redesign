@@ -964,6 +964,7 @@
     "loading": "Opening the workshop…",
     "notFound": "Project not found",
     "backToProjects": "Back to projects",
+    "backToWorkspace": "Back to workspace",
     "statusGenerating": "OSGARD 4.0 is writing code",
     "statusReady": "Ready",
     "statusFailed": "Generation failed",

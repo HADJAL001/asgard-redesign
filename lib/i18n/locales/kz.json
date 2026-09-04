@@ -964,6 +964,7 @@
     "loading": "Шеберхана ашылуда…",
     "notFound": "Жоба табылмады",
     "backToProjects": "Жобаларға",
+    "backToWorkspace": "Шеберханаға",
     "statusGenerating": "OSGARD 4.0 код жазып жатыр",
     "statusReady": "Дайын",
     "statusFailed": "Генерация қатесі",
