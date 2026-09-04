@@ -110,12 +110,17 @@ export function ProjectsView() {
         {/* Композер «в один клик»: идея → сразу генерация, без шагов имени/темы мастера. */}
         <form
           className="mt-6 flex flex-col gap-2 sm:flex-row"
+          aria-label="Быстрое создание проекта"
           onSubmit={(e) => {
             e.preventDefault()
             if (idea.trim()) setWizardOpen(true)
           }}
         >
+          <label htmlFor="projects-idea" className="sr-only">
+            {t("projects.ideaPlaceholder")}
+          </label>
           <input
+            id="projects-idea"
             type="text"
             value={idea}
             onChange={(e) => setIdea(e.target.value)}
