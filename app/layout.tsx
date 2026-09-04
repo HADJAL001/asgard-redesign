@@ -5,11 +5,11 @@ import "@fontsource-variable/space-grotesk"
 import "@fontsource-variable/cormorant-garamond"
 import "@fontsource-variable/playfair-display"
 import "./globals.css"
-import { OsgardStoreProvider } from "@/lib/store/osgard-store"
 import { AuthProvider } from "@/lib/auth-store"
 import { I18nProvider } from "@/lib/i18n/use-translation"
 import { Footer } from "@/components/footer"
 import { AppShell } from "@/components/AppShell"
+import { RouteStoreProvider } from "@/components/RouteStoreProvider"
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://osgardnewworld.com"),
@@ -67,12 +67,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className="font-sans antialiased">
         <I18nProvider>
           <AuthProvider>
-            <OsgardStoreProvider>
+            <RouteStoreProvider>
               <AppShell>
                 {children}
                 <Footer />
               </AppShell>
-            </OsgardStoreProvider>
+            </RouteStoreProvider>
           </AuthProvider>
         </I18nProvider>
 

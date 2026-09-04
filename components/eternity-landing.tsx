@@ -17,7 +17,7 @@ import {
 } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { useAuth } from "@/lib/auth-store"
-import { useOsgardStore } from "@/lib/store/osgard-store"
+import { generateProjectFromIdea } from "@/lib/project-generation"
 import { savePendingGeneration } from "@/lib/pending-generation"
 import { startGuestSession } from "@/lib/guest-session"
 import { track } from "@/lib/analytics"
@@ -169,7 +169,7 @@ export function EternityLanding() {
             router.push(`/projects/${guest.projectId}/workspace`)
             return
           }
-          const res = await useOsgardStore.getState().generateProject(undefined, query)
+          const res = await generateProjectFromIdea(query)
           if (res.success && res.project) {
             el.value = ""
             router.push(`/projects/${res.project.id}/workspace`)
@@ -198,7 +198,7 @@ export function EternityLanding() {
 
     setSubmitting(true)
     try {
-      const res = await useOsgardStore.getState().generateProject(undefined, query)
+      const res = await generateProjectFromIdea(query)
       if (res.success && res.project) {
         el.value = ""
         // Глубина по умолчанию — quick (бесплатно). Страница проекта покажет ход генерации.
