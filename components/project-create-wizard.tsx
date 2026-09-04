@@ -149,7 +149,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
      глубину не дороже той, что провалилась. */
   const makegoodRight = estimate?.makegood.available ? estimate.makegood : null
   const makegoodApplies = !!makegoodRight && depthCost <= makegoodRight.credits
-  const insufficientCredits = depthCost > wallet.credits
+  const insufficientCredits = !makegoodApplies && depthCost > wallet.credits
   const insufficientTimecoin = wallet.timecoin < 1
 
   const totalSteps = 3
@@ -460,7 +460,8 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                   <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
                     {depths.map((d) => {
                       const active = depthId === d.id
-                      const tooExpensive = d.credits > wallet.credits
+                      const coveredByMakegood = !!makegoodRight && d.credits <= makegoodRight.credits
+                      const tooExpensive = d.credits > wallet.credits && !coveredByMakegood
                       /* Ожидаемый расход прямо на карточке: сравнение вариантов должно
                          быть возможно ДО выбора, а не после списания. */
                       const costBadge = depthCostBadge(estimate?.estimates?.[d.id])
