@@ -23,8 +23,6 @@ const nextConfig = {
       { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
     ]
     return [
-      { source: "/studio", headers: coiHeaders },
-      { source: "/studio/:path*", headers: coiHeaders },
       // Сессия A · Live Run авторизованного проекта (компонент ProjectLiveRun).
       { source: "/projects/:id/live", headers: coiHeaders },
       /* Claude B · «Мастерская» проекта (ProjectWorkspaceView): код + живой
