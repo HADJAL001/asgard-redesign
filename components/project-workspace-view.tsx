@@ -1463,7 +1463,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                     aria-pressed={selected}
                     disabled={isGenerating || refining}
                     onClick={() => setRefineKind(kind)}
-                    className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-center text-[11px] font-medium leading-tight transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                     style={{
                       borderColor: selected ? "var(--elite-gold, #f5c451)" : COLORS.border,
                       background: selected ? "rgb(245 196 81 / 10%)" : "rgb(255 255 255 / 2%)",
@@ -1471,7 +1471,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                     }}
                   >
                     <ModeIcon size={13} strokeWidth={1.75} aria-hidden="true" />
-                    <span className="truncate">{t(labelKey)}</span>
+                    <span className="break-words">{t(labelKey)}</span>
                   </button>
                 )
               })}
@@ -1483,6 +1483,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
               disabled={isGenerating || refining}
               rows={3}
               placeholder={t("workspace.aiPlaceholder")}
+              aria-label={t("workspace.aiTitle")}
               className="premium-field mt-3 w-full resize-y rounded-xl px-3 py-2.5 text-[13px] outline-none disabled:opacity-60"
               onKeyDown={(e) => {
                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleRefine()
@@ -1500,7 +1501,12 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             </button>
 
             {refineNotice && (
-              <p className="mt-2 text-[12px]" style={{ color: refineNotice.ok ? COLORS.green : COLORS.red }}>
+              <p
+                className="mt-2 text-[12px]"
+                role={refineNotice.ok ? "status" : "alert"}
+                aria-live="polite"
+                style={{ color: refineNotice.ok ? COLORS.green : COLORS.red }}
+              >
                 {refineNotice.message}
               </p>
             )}
