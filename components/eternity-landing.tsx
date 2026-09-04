@@ -201,7 +201,7 @@ export function EternityLanding() {
         savePendingGeneration({ hint: query })
         el.value = ""
         setSubmitting(false)
-        router.push("/register")
+        router.push("/register?continue=project")
         return
       }
 

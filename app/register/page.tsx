@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect, type FormEvent } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Loader2, Gift } from "lucide-react"
+import { Loader2, Gift, Wand2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-store"
 import { getReferralCode } from "@/lib/referral"
 import { SocialLoginButtons } from "@/components/social-login-buttons"
@@ -22,7 +22,9 @@ const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/
 
 export default function RegisterPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { register } = useAuth()
+  const continuesProject = searchParams.get("continue") === "project"
 
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -85,6 +87,17 @@ export default function RegisterPage() {
             </span>
             <p className="text-[13px] leading-snug text-white/80">
               Тебя пригласили — при регистрации получишь <span className="font-semibold text-[#D4AF37]">+5&nbsp;∞</span> приветственный бонус.
+            </p>
+          </div>
+        )}
+
+        {continuesProject && (
+          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-cyan-300/25 bg-cyan-300/[0.06] px-4 py-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-300/40 text-cyan-200">
+              <Wand2 className="h-4 w-4" />
+            </span>
+            <p className="text-[13px] leading-snug text-white/80">
+              Идея сохранена. После создания аккаунта OSGARD продолжит собирать ваш проект.
             </p>
           </div>
         )}
