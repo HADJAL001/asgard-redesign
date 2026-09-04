@@ -831,7 +831,7 @@ export interface OsgardStoreState {
   /** GET /projects/mine — список проектов текущего пользователя. */
   fetchProjects: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   /** GET /projects/:id — один проект + его артефакты. */
-  fetchProject: (id: number, opts?: { skipAuthRedirect?: boolean }) => Promise<void>
+  fetchProject: (id: number, opts?: { skipAuthRedirect?: boolean }) => Promise<OsgardProject | null>
   /** POST /projects/generate — запускает асинхронную генерацию реального приложения (name, hint?, depth?).
    *  depth ("quick"|"standard"|"deep") выбирает глубину: quick бесплатна и идёт по дневной квоте,
    *  standard/deep списывают кредиты и включают полную AI-генерацию / bypass кеша соответственно.
@@ -1603,8 +1603,10 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
         projects: s.projects.map((p) => (p.id === id ? res.project : p)),
         error: null,
       }))
+      return res.project
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить проект") })
+      return null
     }
   },
 
@@ -1766,8 +1768,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     const startedAt = Date.now()
 
     while (true) {
-      await get().fetchProject(id)
-      const project = get().projects.find((p) => p.id === id) ?? get().currentProject
+      const project = await get().fetchProject(id)
       if (project && project.id === id && project.status !== "generating") {
         return project
       }
@@ -1862,8 +1863,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     const startedAt = Date.now()
 
     while (true) {
-      await get().fetchProject(id)
-      const project = get().projects.find((p) => p.id === id) ?? get().currentProject
+      const project = await get().fetchProject(id)
       if (project && project.id === id && project.deployStatus !== "deploying") {
         return project
       }
