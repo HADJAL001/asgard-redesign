@@ -721,7 +721,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             {isGenerating ? t("workspace.statusGenerating") : currentProject.status === "failed" ? t("workspace.statusFailed") : t("workspace.statusReady")}
           </span>
 
-          <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 lg:ml-auto lg:w-auto">
             {/* Явный мост к экономической витрине — «паспорт проекта» никуда не делся.
                 В студии разработчика его нет: витрина — это артефакты и доход,
                 то есть ровно то, чего в этом режиме не существует. Кому нужно —
