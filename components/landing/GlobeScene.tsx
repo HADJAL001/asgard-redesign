@@ -29,6 +29,7 @@ export default function GlobeScene() {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
     } catch {
       // Keep the local fallback visible when WebGL is unavailable or blocked.
+      container.style.background = "#020408 url('/earth-realistic.png') center 70% / min(80vw, 620px) auto no-repeat"
       return
     }
     renderer.setSize(width, height)
@@ -282,9 +283,7 @@ export default function GlobeScene() {
       id="three-container"
       ref={containerRef}
       aria-hidden="true"
-      style={{
-        background: "#020408 url('/earth-realistic.png') center 70% / min(80vw, 620px) auto no-repeat",
-      }}
+      style={{ background: "#020408" }}
     />
   )
 }
