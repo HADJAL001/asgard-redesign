@@ -24,3 +24,16 @@ test("the landing page interviews the creator before generation", async ({ page 
   await expect(next).toBeEnabled()
   expect(generationRequests).toBe(0)
 })
+
+test("the landing page hydrates cleanly for an English-language browser", async ({ browser }) => {
+  const context = await browser.newContext({ locale: "en-US" })
+  const page = await context.newPage()
+  const pageErrors: string[] = []
+  page.on("pageerror", (error) => pageErrors.push(error.message))
+
+  await page.goto("/")
+  await expect(page.locator("html")).toHaveAttribute("lang", "en")
+  expect(pageErrors.filter((message) => /hydration failed|server rendered text/i.test(message))).toEqual([])
+
+  await context.close()
+})
