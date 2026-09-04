@@ -22,23 +22,12 @@
 
 import { useEffect, useRef, useState } from "react"
 import { X, Wand2, PenLine, Loader2, ArrowRight, ArrowLeft, Check, Coins } from "lucide-react"
-import { useOsgardStore, type OsgardArtifact } from "@/lib/store/osgard-store"
-import { COLORS, RARITY, RARITY_CHAIN } from "@/lib/economy"
+import { useOsgardStore } from "@/lib/store/osgard-store"
+import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { apiClient } from "@/lib/api-client"
 import { UpgradeNudgeModal, useUpgradeNudge } from "./UpgradeNudgeModal"
-import { GenerationStages } from "./GenerationStages"
-import { ProjectArtifactReveal, type RevealRarityMeta } from "./ProjectArtifactReveal"
 import { GenerationCostEstimate, depthCostBadge, useGenerationEstimate } from "./GenerationCostEstimate"
-
-/** rarityMeta для reveal строится из реальной экономики — знание таксономии
- *  (mythic=фольга, legendary=сияние) живёт здесь, а не в переиспользуемом компоненте. */
-const REVEAL_RARITY_META: Record<string, RevealRarityMeta> = Object.fromEntries(
-  RARITY_CHAIN.map((k) => {
-    const r = RARITY[k]
-    return [k, { label: r.label, color: r.color, symbol: r.symbol, glow: k === "mythic", shine: k === "legendary" }]
-  }),
-)
 
 type Theme = {
   id: string
@@ -92,7 +81,7 @@ type Props = {
 
 export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "", autoStart = false }: Props) {
   const { t } = useTranslation()
-  const { generateProject, pollProjectStatus } = useOsgardStore()
+  const { generateProject } = useOsgardStore()
   const wallet = useOsgardStore((s) => s.wallet)
   const { nudgeOpen, closeNudge, trackGeneration, usageData } = useUpgradeNudge()
 
@@ -103,10 +92,6 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
   const [description, setDescription] = useState(initialDescription)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  /** true, пока идёт фоновая генерация файлов реального приложения (после создания проекта). */
-  const [generatingApp, setGeneratingApp] = useState(false)
-  /** Данные для ритуала раскрытия артефактов — заполняются, когда проект готов. */
-  const [reveal, setReveal] = useState<{ projectId: number; name: string; description?: string; artifacts: OsgardArtifact[] } | null>(null)
   /** Каталог глубин генерации + выбранная глубина (по умолчанию бесплатная quick). */
   const [depths, setDepths] = useState<DepthOption[]>([])
   const [depthId, setDepthId] = useState<DepthOption["id"]>("quick")
@@ -154,9 +139,9 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
 
   const totalSteps = 3
   const progress = (step / totalSteps) * 100
-  /** Мастер занят ритуалом (генерация или раскрытие), включая окно между
-   *  автостартом и появлением generatingApp — прячем шаги, прогресс-бар и футер. */
-  const busy = generatingApp || !!reveal || (autoStart && (submitting || !autoStarted))
+  /** При автозапуске кратко показываем, что идея передана генератору. После
+   *  ответа сервера сразу открывается мастерская, где виден живой прогресс. */
+  const busy = autoStart && (submitting || !autoStarted)
 
   // «Первый клик создаёт проект»: идея уже описана — не спрашиваем имя/тему,
   // запускаем генерацию сразу при открытии мастера.
@@ -199,33 +184,10 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
       const hint = description.trim() || theme?.hint
       const res = await generateProject(name.trim() || undefined, hint, depthId)
       if (res.success && res.project) {
-        setGeneratingApp(true)
-        const finalProject = await pollProjectStatus(res.project.id)
-        setGeneratingApp(false)
-
-        /* Трекаем генерацию для нуджа — вызываем после завершения */
+        // Project generation is asynchronous. The workspace owns the live SSE
+        // stream and recovery polling, so move there as soon as the project exists.
         trackGeneration()
-
-        if (finalProject?.status === "ready") {
-          // Момент магии: если вместе с проектом родились артефакты — показываем
-          // ритуал раскрытия, а не молча закрываем мастер. onDone продолжит в onCreated.
-          if (res.artifacts && res.artifacts.length > 0) {
-            setReveal({
-              projectId: finalProject.id,
-              name: finalProject.name,
-              description: finalProject.description,
-              artifacts: res.artifacts,
-            })
-          } else {
-            onCreated(finalProject.id)
-          }
-        } else if (finalProject?.status === "failed") {
-          setError(finalProject.generationError || t("projectWizard.generationFailed"))
-        } else {
-          // таймаут поллинга — проект всё ещё генерируется, но пользователь может
-          // перейти к нему и посмотреть прогресс на странице проекта
-          onCreated(res.project.id)
-        }
+        onCreated(res.project.id)
       } else {
         setError(res.error || t("projectWizard.errorGenerate"))
       }
@@ -301,26 +263,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
 
         {/* Step content */}
         <div className="mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 sm:mt-6 sm:min-h-[220px]">
-          {reveal ? (
-            <ProjectArtifactReveal
-              projectName={reveal.name}
-              projectDescription={reveal.description}
-              artifacts={reveal.artifacts}
-              rarityMeta={REVEAL_RARITY_META}
-              onDone={() => onCreated(reveal.projectId)}
-            />
-          ) : generatingApp ? (
-            <div>
-              <p className="flex items-center gap-2 text-[14px] font-medium" style={{ color: COLORS.text }}>
-                <Wand2 size={16} strokeWidth={1.75} style={{ color: COLORS.accent }} />
-                {t("projectWizard.aiWillGenerate", {
-                  name: name || "…",
-                  theme: theme?.label || t("projectWizard.noTheme"),
-                })}
-              </p>
-              <GenerationStages done={false} />
-            </div>
-          ) : autoStart && (submitting || !autoStarted) ? (
+          {autoStart && (submitting || !autoStarted) ? (
             <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
               <Loader2 size={22} className="animate-spin" style={{ color: COLORS.accent }} />
               <p className="text-[13px]" style={{ color: COLORS.label }}>
@@ -568,7 +511,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
               {submitting ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  {generatingApp ? t("projectWizard.generatingApp") : t("projectWizard.generating")}
+                  {t("projectWizard.generating")}
                 </>
               ) : (
                 <>
