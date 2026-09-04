@@ -49,7 +49,7 @@ function useWaveStyle(isListening: boolean, delay: number) {
       scale.value = 1;
       opacity.value = 0;
     }
-  }, [isListening, delay]);
+  }, [delay, isListening, opacity, scale]);
 
   return useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -64,7 +64,7 @@ function LevelBar({ volume, isListening, multiplier }: { volume: number; isListe
 
   useEffect(() => {
     level.value = withTiming(isListening ? Math.min(1, volume * multiplier) : 0, { duration: 120 });
-  }, [volume, isListening, multiplier]);
+  }, [isListening, level, multiplier, volume]);
 
   const style = useAnimatedStyle(() => ({
     height: 4 + level.value * 16,

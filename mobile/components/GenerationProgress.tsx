@@ -42,7 +42,7 @@ function ChargingRings({ color }: { color: string }) {
       cancelAnimation(rotateA);
       cancelAnimation(rotateB);
     };
-  }, []);
+  }, [rotateA, rotateB]);
 
   const styleA = useAnimatedStyle(() => ({ transform: [{ rotate: `${rotateA.value}deg` }] }));
   const styleB = useAnimatedStyle(() => ({ transform: [{ rotate: `${rotateB.value}deg` }] }));
@@ -69,7 +69,7 @@ function ForgeMote({ index, color }: { index: number; color: string }) {
 
   useEffect(() => {
     progress.value = withDelay(index * 90, withTiming(1, { duration: 500, easing: Easing.out(Easing.ease) }));
-  }, [index]);
+  }, [index, progress]);
 
   const driftX = index % 2 === 0 ? 10 : -10;
   const style = useAnimatedStyle(() => ({
@@ -142,7 +142,17 @@ export function GenerationProgress({ phase, rarity }: { phase: ForgePhase; rarit
       shock2Scale.value = withDelay(120, withTiming(1.7, { duration: 600, easing: Easing.out(Easing.ease) }));
       shock2Opacity.value = withDelay(120, withTiming(0, { duration: 600 }));
     }
-  }, [phase, reducedMotion]);
+  }, [
+    flashOpacity,
+    phase,
+    reducedMotion,
+    shakeX,
+    shakeY,
+    shock2Opacity,
+    shock2Scale,
+    shockOpacity,
+    shockScale,
+  ]);
 
   const shakeStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: shakeX.value }, { translateY: shakeY.value }],

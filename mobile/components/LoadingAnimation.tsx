@@ -42,7 +42,7 @@ export function LoadingAnimation({ label = 'Загрузка' }: { label?: strin
       cancelAnimation(rotation);
       cancelAnimation(shimmer);
     };
-  }, []);
+  }, [rotation, shimmer]);
 
   const logoStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],

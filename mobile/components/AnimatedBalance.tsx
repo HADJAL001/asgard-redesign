@@ -21,7 +21,7 @@ export function AnimatedBalance({ value, format, style, className }: AnimatedBal
 
   useEffect(() => {
     animated.value = withTiming(value, { duration: 650, easing: Easing.out(Easing.cubic) });
-  }, [value]);
+  }, [animated, value]);
 
   const updateText = useCallback((n: number) => setText(format(n)), [format]);
 
