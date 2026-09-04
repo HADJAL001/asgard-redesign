@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto"
+import { EventEmitter } from "node:events"
 import { generateApp, validateGeneratedFiles, type AppGenerationResult } from "./app-generator"
 import { captureError } from "../lib/sentry"
 import { ensureRedisConnected, redisClient } from "../lib/redis"
@@ -41,6 +42,22 @@ const GUEST_TASK_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-
 
 export function isGuestTaskId(value: string): boolean {
   return GUEST_TASK_ID_RE.test(value)
+}
+
+export type GuestGenerationProgress = {
+  type: "progress"
+  taskId: string
+  status: GuestTaskStatus
+  stage: "starting" | "generating" | "done" | "failed"
+  message: string
+  pct: number
+}
+
+export const guestCodeEvents = new EventEmitter()
+guestCodeEvents.setMaxListeners(0)
+
+function emitGuestProgress(event: GuestGenerationProgress) {
+  guestCodeEvents.emit(`guest-code:${event.taskId}`, event)
 }
 
 export function guestArchiveFilename(projectName: string, taskId: string): string {
@@ -170,6 +187,14 @@ export function startGuestGeneration(name: string, hint?: string): string {
   }
   const taskId = randomUUID()
   tasks.set(taskId, { status: "processing", projectName: name, createdAt: Date.now() })
+  emitGuestProgress({
+    type: "progress",
+    taskId,
+    status: "processing",
+    stage: "starting",
+    message: "Готовлю структуру проекта…",
+    pct: 10,
+  })
 
   generateApp(name, hint)
     .then((result) => {
@@ -178,6 +203,14 @@ export function startGuestGeneration(name: string, hint?: string): string {
         throw new Error(`guest release gate rejected output: ${releaseErrors.slice(0, 5).join("; ")}`)
       }
       tasks.set(taskId, { status: "done", projectName: name, result, createdAt: Date.now() })
+      emitGuestProgress({
+        type: "progress",
+        taskId,
+        status: "done",
+        stage: "done",
+        message: "Проект готов.",
+        pct: 100,
+      })
       void persistCompletedTask(taskId, tasks.get(taskId)!)
     })
     .catch((err) => {
@@ -187,6 +220,14 @@ export function startGuestGeneration(name: string, hint?: string): string {
         projectName: name,
         error: "Не удалось собрать проект. Попробуйте ещё раз через несколько минут.",
         createdAt: Date.now(),
+      })
+      emitGuestProgress({
+        type: "progress",
+        taskId,
+        status: "error",
+        stage: "failed",
+        message: "Не удалось собрать проект.",
+        pct: 100,
       })
       void persistCompletedTask(taskId, tasks.get(taskId)!)
     })

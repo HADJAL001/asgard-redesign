@@ -44,4 +44,19 @@ export const guestCodeAdapter: GuestCodeAdapter = {
     }
     return r.json()
   },
+
+  subscribeStream(taskId, onProgress) {
+    const source = new EventSource(`/api/demo/code/${encodeURIComponent(taskId)}/stream`)
+    source.onmessage = (event) => {
+      try {
+        const progress = JSON.parse(event.data) as { type?: string; stage?: string; message?: string; pct?: number; status?: string }
+        if (progress.type !== "progress" || !progress.stage) return
+        onProgress({ stage: progress.stage, message: progress.message, pct: progress.pct })
+        if (progress.status === "done" || progress.status === "error") source.close()
+      } catch {
+        // A malformed progress frame must not interrupt the polling fallback.
+      }
+    }
+    return () => source.close()
+  },
 }

@@ -1,6 +1,13 @@
 import { Router, Request, Response } from "express"
 import archiver from "archiver"
-import { startGuestGeneration, getGuestTask, guestArchiveFilename, GuestGenerationBusyError } from "../services/guest-code-store"
+import {
+  startGuestGeneration,
+  getGuestTask,
+  guestArchiveFilename,
+  guestCodeEvents,
+  type GuestGenerationProgress,
+  GuestGenerationBusyError,
+} from "../services/guest-code-store"
 import { getClientIp } from "../lib/admin-audit"
 import { ensureRedisConnected, redisClient } from "../lib/redis"
 import { captureError } from "../lib/sentry"
@@ -162,6 +169,50 @@ router.get(
     archive.finalize().catch(failArchive)
   },
 )
+
+/* GET /demo/code/:taskId/stream — public live status for one guest task. */
+router.get("/:taskId/stream", async (req: Request, res: Response) => {
+  const taskId = req.params.taskId
+  const task = await getGuestTask(taskId)
+  if (!task) return res.status(404).json({ error: "Задача не найдена или устарела" })
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  })
+  const send = (event: GuestGenerationProgress) => res.write(`data: ${JSON.stringify(event)}\n\n`)
+  const snapshot: GuestGenerationProgress = {
+    type: "progress",
+    taskId,
+    status: task.status,
+    stage: task.status === "done" ? "done" : task.status === "error" ? "failed" : "generating",
+    message: task.status === "processing" ? "Собираю проект…" : task.status === "done" ? "Проект готов." : "Не удалось собрать проект.",
+    pct: task.status === "processing" ? 35 : 100,
+  }
+  send(snapshot)
+  if (task.status !== "processing") return res.end()
+
+  const channel = `guest-code:${taskId}`
+  let cleanedUp = false
+  const heartbeat = setInterval(() => res.write(": ping\n\n"), 15_000)
+  const cleanup = () => {
+    if (cleanedUp) return
+    cleanedUp = true
+    clearInterval(heartbeat)
+    guestCodeEvents.off(channel, onProgress)
+  }
+  const onProgress = (event: GuestGenerationProgress) => {
+    send(event)
+    if (event.status !== "processing") {
+      cleanup()
+      res.end()
+    }
+  }
+  guestCodeEvents.on(channel, onProgress)
+  req.on("close", cleanup)
+})
 
 router.get(
   "/:taskId",
