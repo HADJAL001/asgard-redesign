@@ -11,7 +11,8 @@ import {
   sandboxBasePackageJson,
   scaffoldDepsFingerprint,
 } from '../lib/app-scaffold-deps';
-import { acceptedRepairContent, ensureManifestContracts, ensureManifestFiles, generateApp, generationPhase, mergeGeneratedFiles, type ManifestEntry } from '../services/app-generator';
+import { acceptedRepairContent, ensureManifestContracts, ensureManifestFiles, generateApp, generationPhase, mergeGeneratedFiles, staticTemplateFiles, type ManifestEntry } from '../services/app-generator';
+import { deriveDesignBrief } from '../lib/design-system';
 
 /* ================================================================
    OSGARD · Кэш node_modules для сборок — синхронность с генератором
@@ -96,6 +97,19 @@ test('platform-owned scaffold file replaces an AI duplicate exactly once', () =>
   assert.equal(files.filter((file) => file.path === 'lib/db.ts').length, 1);
   assert.equal(files.find((file) => file.path === 'lib/db.ts')?.content, 'platform implementation');
   assert.ok(files.some((file) => file.path === 'app/page.tsx'));
+});
+
+test('platform-owned legal pages replace AI duplicates in every generated scaffold', () => {
+  const scaffold = staticTemplateFiles('Контракт', deriveDesignBrief({ name: 'Контракт' }), '');
+  const merged = mergeGeneratedFiles([
+    { path: 'app/privacy/page.tsx', content: 'AI duplicate' },
+    ...scaffold,
+  ]);
+  for (const path of ['app/privacy/page.tsx', 'app/terms/page.tsx', 'app/pricing/page.tsx', 'app/support/page.tsx']) {
+    const file = merged.find((item) => item.path === path);
+    assert.ok(file, `legal scaffold missing ${path}`);
+    assert.notEqual(file!.content, 'AI duplicate');
+  }
 });
 
 test('missing provider output stays visible as an empty manifest file for repair', () => {

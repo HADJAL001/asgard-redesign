@@ -1259,11 +1259,70 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="stylesheet" href="${googleFontsHref(brief)}" />
       </head>
-      <body className="bg-canvas text-ink font-body antialiased">{children}</body>
+      <body className="bg-canvas text-ink font-body antialiased">
+        <div className="flex min-h-screen flex-col">
+          <div className="flex-1">{children}</div>
+          <footer className="border-t border-border bg-surface">
+            <nav aria-label="Документы и поддержка" className="ds-container flex flex-wrap items-center gap-x-ds-3 gap-y-ds-1 py-ds-3 text-sm text-ink-muted">
+              <a href="/privacy" className="hover:text-ink focus-visible:text-ink">Политика конфиденциальности</a>
+              <a href="/terms" className="hover:text-ink focus-visible:text-ink">Условия использования</a>
+              <a href="/pricing" className="hover:text-ink focus-visible:text-ink">Тарифы</a>
+              <a href="/support" className="hover:text-ink focus-visible:text-ink">Поддержка</a>
+            </nav>
+          </footer>
+        </div>
+      </body>
     </html>
   )
 }
 `
+}
+
+/** Legal-ready pages are platform-owned so an AI response cannot omit or replace
+ * disclosure routes needed before a product accepts users or payments. */
+export function renderLegalReadyFiles(name: string): Array<{ path: string; content: string }> {
+  const safeName = tsStringLiteral(name.trim() || "Продукт", 200)
+  const shell = (title: string, lead: string, body: string) => `const productName = ${safeName}
+
+export default function Page() {
+  return (
+    <main className="bg-canvas text-ink">
+      <article className="ds-container max-w-3xl py-ds-8">
+        <p className="font-mono text-xs uppercase tracking-[0.16em] text-ink-muted">Информация для пользователей</p>
+        <h1 className="mt-ds-2 font-display text-4xl sm:text-5xl">${title}</h1>
+        <p className="mt-ds-3 text-lg text-ink-muted">${lead}</p>
+        <div className="mt-ds-6 space-y-ds-4 leading-7 text-ink">
+${body}
+        </div>
+        <p className="mt-ds-6 border-t border-border pt-ds-3 text-sm text-ink-muted">Перед публикацией владелец ${"{productName}"} обязан проверить этот шаблон, указать фактические данные оператора и актуальные контакты.</p>
+      </article>
+    </main>
+  )
+}
+`
+
+  return [
+    {
+      path: "app/privacy/page.tsx",
+      content: shell("Политика конфиденциальности", "Как продукт обрабатывает данные пользователей.",
+        '          <section><h2 className="font-display text-2xl">Какие данные могут обрабатываться</h2><p className="mt-ds-1">{productName} обрабатывает только данные, необходимые для работы выбранных функций: сведения, которые пользователь вводит сам, и технические данные для безопасности и стабильности сервиса.</p></section>\n          <section><h2 className="font-display text-2xl">Цели и контроль</h2><p className="mt-ds-1">Данные используются для предоставления сервиса, поддержки, защиты от злоупотреблений и исполнения обязательств. Владелец продукта обязан описать подключённые сервисы, сроки хранения и порядок отзыва согласия до запуска.</p></section>\n          <section><h2 className="font-display text-2xl">Вопросы о данных</h2><p className="mt-ds-1">Для запроса доступа, исправления или удаления данных используйте канал поддержки, опубликованный на странице «Поддержка».</p></section>'),
+    },
+    {
+      path: "app/terms/page.tsx",
+      content: shell("Условия использования", "Правила доступа к продукту и ответственности сторон.",
+        '          <section><h2 className="font-display text-2xl">Использование сервиса</h2><p className="mt-ds-1">Пользователь использует {productName} законно, бережно и в пределах назначений продукта. Владелец продукта обязан опубликовать окончательную редакцию условий до открытия доступа для пользователей.</p></section>\n          <section><h2 className="font-display text-2xl">Доступ и изменения</h2><p className="mt-ds-1">Функции, ограничения и порядок уведомлений об изменениях должны быть описаны владельцем продукта понятным языком. Существенные изменения условий требуют публикации обновлённой редакции.</p></section>\n          <section><h2 className="font-display text-2xl">Контакты</h2><p className="mt-ds-1">Контакты оператора и порядок обращения по претензиям публикуются на странице «Поддержка».</p></section>'),
+    },
+    {
+      path: "app/pricing/page.tsx",
+      content: shell("Тарифы и оплата", "Актуальные условия должны быть понятны до оформления заказа.",
+        '          <section><h2 className="font-display text-2xl">Текущие тарифы</h2><p className="mt-ds-1">Владелец продукта должен разместить здесь действующие тарифы, валюту, период оплаты, состав каждого плана, налоги и доступные способы оплаты. Пока эти данные не настроены, платные функции не должны предлагаться к покупке.</p></section>\n          <section><h2 className="font-display text-2xl">До оплаты</h2><p className="mt-ds-1">Перед подтверждением заказа пользователь должен видеть итоговую сумму, периодичность списаний, условия продления, возврата и отмены. Кнопка оплаты должна вести только в настроенный платёжный поток.</p></section>\n          <section><h2 className="font-display text-2xl">Вопросы по оплате</h2><p className="mt-ds-1">Для вопросов о счёте, возврате или отмене используйте опубликованный канал поддержки.</p></section>'),
+    },
+    {
+      path: "app/support/page.tsx",
+      content: shell("Поддержка", "Куда обратиться по вопросам о продукте, данных и оплате.",
+        '          <section><h2 className="font-display text-2xl">Контакт владельца</h2><p className="mt-ds-1">До запуска замените этот текст на реальный канал связи: рабочий email, форму поддержки или иной проверяемый способ обращения. Не публикуйте вымышленные реквизиты или контакты.</p></section>\n          <section><h2 className="font-display text-2xl">Что указать в обращении</h2><p className="mt-ds-1">Опишите проблему, дату, используемую функцию и безопасный способ обратной связи. Не отправляйте пароли, коды подтверждения или платёжные данные в открытом виде.</p></section>\n          <section><h2 className="font-display text-2xl">Срок ответа</h2><p className="mt-ds-1">Владелец продукта должен указать фактический срок ответа и порядок обработки обращений до публикации продукта.</p></section>'),
+    },
+  ]
 }
 
 /** Фоллбэк-страница на случай, когда AI недоступен: даже она теперь на токенах. */
@@ -1303,6 +1362,7 @@ export function renderDesignSystemFiles(
     { path: "tailwind.config.ts", content: renderTailwindConfig(brief) },
     { path: "app/globals.css", content: renderGlobalsCss(brief) },
     { path: "app/layout.tsx", content: renderLayout(brief, name, description) },
+    ...renderLegalReadyFiles(name),
   ]
 }
 

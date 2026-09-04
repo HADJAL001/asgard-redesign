@@ -323,13 +323,41 @@ test('renderGlobalsCss: базовый слой, фокус и reduced-motion н
   assert.ok(css.includes('.ds-btn'), 'готовые примитивы компонентов');
 });
 
-test('renderDesignSystemFiles: ровно три файла с непустым содержимым', () => {
+test('renderDesignSystemFiles: дизайн и обязательные информационные страницы создаются платформой', () => {
   const files = renderDesignSystemFiles(deriveDesignBrief({ name: 'Проект' }), 'Проект', 'Описание');
   assert.deepEqual(
     files.map((f) => f.path).sort(),
-    ['app/globals.css', 'app/layout.tsx', 'tailwind.config.ts'],
+    ['app/globals.css', 'app/layout.tsx', 'app/pricing/page.tsx', 'app/privacy/page.tsx', 'app/support/page.tsx', 'app/terms/page.tsx', 'tailwind.config.ts'],
   );
   for (const f of files) assert.ok(f.content.length > 100, `${f.path} не пустой`);
+});
+
+test('renderLayout: footer keeps individual links to all user documents', () => {
+  const brief = deriveDesignBrief({ name: 'Проект' });
+  const layout = renderDesignSystemFiles(brief, 'Проект', '').find((file) => file.path === 'app/layout.tsx')!.content;
+  for (const path of ['/privacy', '/terms', '/pricing', '/support']) assert.ok(layout.includes(`href="${path}"`), `нет ссылки ${path}`);
+});
+
+test('legal-ready pages use owner placeholders and never claim network restriction bypass', () => {
+  const files = renderDesignSystemFiles(deriveDesignBrief({ name: 'VPN' }), 'VPN', '');
+  const legal = files.filter((file) => /^app\/(privacy|terms|pricing|support)\/page\.tsx$/.test(file.path));
+  assert.equal(legal.length, 4);
+  const text = legal.map((file) => file.content).join('\n').toLowerCase();
+  assert.ok(text.includes('до запуска'));
+  for (const banned of ['обход блокировок', 'цензур', 'тспу', 'dpi']) assert.ok(!text.includes(banned), `запрещённое обещание: ${banned}`);
+});
+
+test('legal-ready pages remain valid TSX for a hostile product name', () => {
+  const ts = require('typescript') as typeof import('typescript');
+  const files = renderDesignSystemFiles(deriveDesignBrief({ name: 'x' }), 'Название\\" с кавычкой', '');
+  for (const file of files.filter((item) => item.path.includes('/page.tsx'))) {
+    const diagnostics = ts.transpileModule(file.content, {
+      reportDiagnostics: true,
+      compilerOptions: { jsx: ts.JsxEmit.Preserve, module: ts.ModuleKind.ESNext },
+    }).diagnostics || [];
+    const errors = diagnostics.filter((diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error);
+    assert.equal(errors.length, 0, `${file.path} не парсится`);
+  }
 });
 
 test('renderLayout: шрифты подключаются <link>, а не next/font (сборка идёт без сети)', () => {

@@ -69,7 +69,7 @@ const APP_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60
 /** Bump whenever prompts, scaffold ownership, generation phases, or release
  * semantics change. Cached files are executable output, so the design-system
  * version alone is not a sufficient compatibility boundary. */
-export const APP_GENERATOR_CACHE_VERSION = 2
+export const APP_GENERATOR_CACHE_VERSION = 3
 export function appCacheKey(
   name: string,
   hint?: string,
@@ -829,6 +829,10 @@ ${lessons}
   рисуй её сам (\`const Icon = icon; <Icon />\`) — не как готовую разметку: тогда сосед
   передаст \`icon={Plus}\`, а не \`icon={<Plus />}\`, и типы совпадут.
 - Every visible button, link, form, menu, toggle, and row action must have a real handler and complete loading, error, and success states. Never ship a static pseudo-button.
+- Legal pages and their footer links are provided by the platform. Do not generate replacements for /privacy, /terms, /pricing, or /support and do not remove those links.
+- Never invent company names, registration numbers, addresses, personal contacts, payment providers, or legal compliance claims. When owner details are unavailable, use an explicit placeholder and state that it must be configured before launch.
+- For VPN or network-privacy products, describe legitimate privacy and connection-management features only. Do not promise or implement bypassing blocks, censorship, DPI, TSPU, filtering, or access restrictions.
+- If the product takes payments, show the current price, billing period, scope, taxes where applicable, cancellation and refund terms before the payment action. Do not show a payment action until its real payment flow is configured.
 ${renderRuntimeContract(profile)}
 - Уже реализованные нижележащие файлы приведены ниже. Сохраняй их SQL, типы, поля,
   API payloads и имена props буквально; не изобретай второй несовместимый контракт.
