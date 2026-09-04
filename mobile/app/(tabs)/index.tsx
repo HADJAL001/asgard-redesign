@@ -12,6 +12,7 @@ import { useProjectsQuery, PROJECTS_QUERY_KEY } from '@/hooks/useProjectsQuery';
 import { createProject, fetchGenerationDepths, type GenerationDepthOption } from '@/lib/projects-api';
 import { ApiError } from '@/lib/api-client';
 import { queryClient } from '@/lib/queryClient';
+import { buildProjectBrief, isProjectBriefComplete } from '@/lib/project-brief';
 
 type Depth = 'quick' | 'standard' | 'deep';
 
@@ -24,6 +25,8 @@ const FALLBACK_DEPTHS: GenerationDepthOption[] = [
 export default function CreateScreen() {
   const [name, setName] = useState('');
   const [hint, setHint] = useState('');
+  const [briefOpen, setBriefOpen] = useState(false);
+  const [brief, setBrief] = useState({ audience: '', outcome: '', essentials: '', constraints: '' });
   // Первый запуск должен совпадать с web: бесплатный quick, а не платный
   // standard. Более глубокую генерацию пользователь выбирает осознанно.
   const [depth, setDepth] = useState<Depth>('quick');
@@ -38,14 +41,22 @@ export default function CreateScreen() {
   });
   const active = projects?.find((project) => project.status === 'generating');
   const depths = generationDepths?.length ? generationDepths : FALLBACK_DEPTHS;
+  const briefReady = isProjectBriefComplete(brief);
+
+  const openBrief = useCallback(() => {
+    if (!hint.trim() || busy) return;
+    setError(null);
+    setBriefOpen(true);
+    Haptics.selectionAsync();
+  }, [busy, hint]);
 
   const submit = useCallback(async () => {
-    if (!hint.trim() || busy) return;
+    if (!hint.trim() || !briefReady || busy) return;
     setBusy(true);
     setError(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      const project = await createProject({ name, hint, depth });
+      const project = await createProject({ name, hint: buildProjectBrief(hint, brief), depth });
       await queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
       router.push(`/project/${project.id}`);
     } catch (e) {
@@ -53,7 +64,7 @@ export default function CreateScreen() {
     } finally {
       setBusy(false);
     }
-  }, [busy, depth, hint, name]);
+  }, [brief, briefReady, busy, depth, hint, name]);
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -61,7 +72,7 @@ export default function CreateScreen() {
         <View className="gap-1">
           <Text className="text-xs font-semibold uppercase tracking-[2px] text-accent">OSGARD NEW WORLD</Text>
           <Text className="text-3xl font-bold text-white">Создать проект</Text>
-          <Text className="text-sm leading-5 text-muted">Опишите проект и нажмите «Создать проект». OSGARD подготовит первый результат для дальнейшей работы.</Text>
+          <Text className="text-sm leading-5 text-muted">Опишите идею, затем ответьте на вопросы о пользователе и результате. Только после этого OSGARD начнет создание.</Text>
         </View>
 
         <View className="gap-3 rounded-2xl border border-accent/30 bg-card px-4 py-4">
@@ -87,6 +98,31 @@ export default function CreateScreen() {
           <TextInput value={name} onChangeText={setName} placeholder="Например, FocusFlow" placeholderTextColor="#77809A" maxLength={120} className="rounded-xl border border-border bg-card px-4 py-3 text-white" />
         </View>
 
+        {briefOpen && (
+          <View className="gap-4 rounded-2xl border border-accent/30 bg-card px-4 py-4">
+            <View className="gap-1">
+              <Text className="text-base font-semibold text-white">Уточним проект</Text>
+              <Text className="text-xs leading-5 text-muted">Ответы станут требованиями для первой версии приложения.</Text>
+            </View>
+            <View className="gap-2">
+              <Text className="text-sm font-semibold text-muted">Для кого вы создаете продукт?</Text>
+              <TextInput value={brief.audience} onChangeText={(audience) => setBrief((current) => ({ ...current, audience }))} placeholder="Например, владельцы небольших кафе" placeholderTextColor="#77809A" maxLength={240} className="rounded-xl border border-border bg-bg px-4 py-3 text-white" />
+            </View>
+            <View className="gap-2">
+              <Text className="text-sm font-semibold text-muted">Какой результат должен получить пользователь?</Text>
+              <TextInput value={brief.outcome} onChangeText={(outcome) => setBrief((current) => ({ ...current, outcome }))} placeholder="Например, оформить заказ за одну минуту" placeholderTextColor="#77809A" maxLength={240} className="rounded-xl border border-border bg-bg px-4 py-3 text-white" />
+            </View>
+            <View className="gap-2">
+              <Text className="text-sm font-semibold text-muted">Что обязательно должно быть в первой версии?</Text>
+              <TextInput value={brief.essentials} onChangeText={(essentials) => setBrief((current) => ({ ...current, essentials }))} placeholder="Например, каталог, корзина, оплата, уведомления" placeholderTextColor="#77809A" multiline numberOfLines={4} maxLength={600} className="min-h-[100px] rounded-xl border border-border bg-bg px-4 py-3 text-white" textAlignVertical="top" />
+            </View>
+            <View className="gap-2">
+              <Text className="text-sm font-semibold text-muted">Ограничения или пожелания (необязательно)</Text>
+              <TextInput value={brief.constraints} onChangeText={(constraints) => setBrief((current) => ({ ...current, constraints }))} placeholder="Например, только мобильная версия, светлый стиль" placeholderTextColor="#77809A" maxLength={400} className="rounded-xl border border-border bg-bg px-4 py-3 text-white" />
+            </View>
+          </View>
+        )}
+
         <View className="gap-2">
           <Text className="text-sm font-semibold text-muted">Опишите проект</Text>
           <View className="rounded-xl border border-border bg-card">
@@ -111,9 +147,9 @@ export default function CreateScreen() {
 
         {error && <View className="flex-row items-start gap-2 rounded-xl border border-down/40 bg-down/10 px-3 py-3"><XCircle size={17} color="#FB7185" /><Text className="flex-1 text-sm text-down">{error}</Text></View>}
 
-        <Pressable testID="project-generate-button" onPress={submit} disabled={!hint.trim() || busy} accessibilityRole="button" accessibilityState={{ disabled: !hint.trim() || busy }} className={`flex-row items-center justify-center gap-2 rounded-xl px-4 py-4 ${hint.trim() && !busy ? 'bg-accent' : 'bg-border'}`}>
-          <WandSparkles size={18} color={hint.trim() && !busy ? '#07111F' : '#77809A'} />
-          <Text className={`text-base font-bold ${hint.trim() && !busy ? 'text-bg' : 'text-muted'}`}>{busy ? 'Создаю проект…' : 'Создать проект'}</Text>
+        <Pressable testID="project-generate-button" onPress={briefOpen ? submit : openBrief} disabled={briefOpen ? !briefReady || busy : !hint.trim() || busy} accessibilityRole="button" accessibilityState={{ disabled: briefOpen ? !briefReady || busy : !hint.trim() || busy }} className={`flex-row items-center justify-center gap-2 rounded-xl px-4 py-4 ${(briefOpen ? briefReady : hint.trim()) && !busy ? 'bg-accent' : 'bg-border'}`}>
+          <WandSparkles size={18} color={(briefOpen ? briefReady : hint.trim()) && !busy ? '#07111F' : '#77809A'} />
+          <Text className={`text-base font-bold ${(briefOpen ? briefReady : hint.trim()) && !busy ? 'text-bg' : 'text-muted'}`}>{busy ? 'Создаю проект…' : briefOpen ? 'Начать создание' : 'Уточнить проект'}</Text>
         </Pressable>
 
         <View className="flex-row items-center gap-2 pb-4"><CheckCircle2 size={16} color="#34D399" /><Text className="flex-1 text-xs leading-4 text-muted">Оплата и лимит списываются только после готовности конвейера. Статус и расход токенов видны в карточке проекта.</Text></View>
