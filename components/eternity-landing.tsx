@@ -323,6 +323,7 @@ export function EternityLanding() {
 
   return (
     <div className="eternity-page">
+      <style>{CSS}</style>
       {/* Глобус и частицы */}
       <div id="globe-bg">
         {globeReady ? <GlobeScene /> : null}
@@ -619,7 +620,6 @@ export function EternityLanding() {
         </section>
       </div>
 
-      <style>{CSS}</style>
     </div>
   )
 }
