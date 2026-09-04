@@ -1110,13 +1110,20 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
         {/* Переключатель для узких экранов: код ↔ превью.
             Прячем вместе с кодом — выбирать между «кодом» и «приложением»
             там, где кода нет, значит предлагать несуществующий выбор. */}
-        <div className={`mt-4 grid-cols-2 gap-2 lg:hidden ${codeOpen ? "grid" : "hidden"}`}>
+        <div
+          className={`mt-4 grid-cols-2 gap-2 lg:hidden ${codeOpen ? "grid" : "hidden"}`}
+          role="tablist"
+          aria-label={`${t("workspace.paneCode")} / ${t("workspace.panePreview")}`}
+        >
 
           {(["code", "preview"] as Pane[]).map((p) => (
             <button
               key={p}
               type="button"
               onClick={() => setPane(p)}
+              role="tab"
+              aria-selected={pane === p}
+              aria-controls={`workspace-pane-${p}`}
               className="rounded-lg py-2 text-[12.5px] font-medium transition-colors"
               style={{
                 border: `1px solid ${pane === p ? COLORS.accent : COLORS.border}`,
@@ -1149,7 +1156,12 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
         {/* Файлы. Не `hidden`, а вовсе не смонтированы, когда код скрыт:
             иначе список и Monaco грузились бы ради экрана, где их не видно. */}
         {codeOpen && (
-        <aside className={`eg-surface overflow-hidden rounded-2xl ${pane === "code" ? "" : "hidden lg:block"}`}>
+        <aside
+          id="workspace-pane-code"
+          role="tabpanel"
+          aria-label={t("workspace.paneCode")}
+          className={`eg-surface overflow-hidden rounded-2xl ${pane === "code" ? "" : "hidden lg:block"}`}
+        >
           <div className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLORS.label, borderBottom: `1px solid ${COLORS.border}` }}>
             {t("workspace.filesTitle", { count: currentProjectFiles.length })}
           </div>
@@ -1302,7 +1314,12 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
         {/* Живой запуск + чат с Клодом.
             Когда код скрыт, эта колонка — весь экран, и прятать её на узких
             экранах по `pane` нельзя: скрывать было бы нечего в пользу чего. */}
-        <section className={`flex flex-col gap-4 ${!codeOpen || pane === "preview" ? "" : "hidden lg:flex"}`}>
+        <section
+          id="workspace-pane-preview"
+          role="tabpanel"
+          aria-label={t("workspace.panePreview")}
+          className={`flex flex-col gap-4 ${!codeOpen || pane === "preview" ? "" : "hidden lg:flex"}`}
+        >
           {/* Рождение приложения вместо инструментов, пока смотреть ещё не на
               что: генерация идёт или файлов нет. Это и есть «видно только как
               генерируется проект» из претензии основателя. */}
