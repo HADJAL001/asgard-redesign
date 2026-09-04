@@ -870,6 +870,8 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
         {/* ---- Что делать дальше: одно приоритетное действие вместо пяти карточек ---- */}
         <div
           className={`premium-panel mt-4 flex-wrap items-center gap-3 rounded-xl px-4 py-3 ${isDev ? "hidden" : "flex"}`}
+          role="status"
+          aria-live="polite"
         >
           {nextAction.tone === "error" ? (
             <ShieldAlert size={17} style={{ color: COLORS.red, flexShrink: 0 }} />
@@ -890,7 +892,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                     ? t("workspace.nextEyebrowDone")
                     : t("workspace.nextEyebrowAction")}
             </p>
-            <p className="truncate text-[13.5px] font-medium">{nextAction.text}</p>
+            <p className="break-words text-[13.5px] font-medium">{nextAction.text}</p>
           </div>
           {nextAction.action && (
             <button type="button" onClick={goToNextAction} className="btn-premium-gold shrink-0 rounded-lg px-4 py-2 text-[12.5px] font-medium">
