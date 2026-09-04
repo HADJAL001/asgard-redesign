@@ -149,9 +149,11 @@ export function EternityLanding() {
     const startGlobe = () => {
       const showGlobe = () => setGlobeReady(true)
       if (typeof idleWindow.requestIdleCallback === "function") {
-        idleCallback = idleWindow.requestIdleCallback(showGlobe, { timeout: 1_200 })
+        // The globe is the visual signature, but the brief input is the first
+        // interaction. Give hydration and the first paint a clear window first.
+        idleCallback = idleWindow.requestIdleCallback(showGlobe, { timeout: 4_000 })
       } else {
-        timer = window.setTimeout(showGlobe, 300)
+        timer = window.setTimeout(showGlobe, 4_000)
       }
     }
 

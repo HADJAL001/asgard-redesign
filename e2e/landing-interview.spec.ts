@@ -48,7 +48,7 @@ test("the landing globe renders and keeps moving", async ({ page }) => {
 
   await page.goto("/")
   const canvas = page.locator("#three-container canvas")
-  await expect(canvas).toBeVisible()
+  await expect(canvas).toBeVisible({ timeout: 6_000 })
 
   const firstFrame = await canvas.screenshot()
   await page.waitForTimeout(700)

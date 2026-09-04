@@ -44,16 +44,26 @@ export default function GlobeScene() {
 
 
     const loader = new THREE.TextureLoader()
-    const mapUrl = "/textures/earth/earth_atmos_2048.jpg"
-    const normalUrl = "/textures/earth/earth_normal_2048.jpg"
-    const specularUrl = "/textures/earth/earth_specular_2048.jpg"
-    const cloudUrl = "/textures/earth/earth_clouds_1024.png"
+    const textureTier = compactScene ? "compact" : "full"
+    const textures = textureTier === "compact"
+      ? {
+          map: "/textures/earth/earth_atmos_1024.jpg",
+          normal: "/textures/earth/earth_normal_1024.jpg",
+          specular: "/textures/earth/earth_specular_1024.jpg",
+          clouds: "/textures/earth/earth_clouds_512.png",
+        }
+      : {
+          map: "/textures/earth/earth_atmos_2048.jpg",
+          normal: "/textures/earth/earth_normal_2048.jpg",
+          specular: "/textures/earth/earth_specular_2048.jpg",
+          clouds: "/textures/earth/earth_clouds_1024.png",
+        }
 
-    const mapTexture = loader.load(mapUrl)
+    const mapTexture = loader.load(textures.map)
     mapTexture.anisotropy = 8
-    const normalTexture = loader.load(normalUrl)
-    const specularTexture = loader.load(specularUrl)
-    const cloudTexture = loader.load(cloudUrl)
+    const normalTexture = loader.load(textures.normal)
+    const specularTexture = loader.load(textures.specular)
+    const cloudTexture = loader.load(textures.clouds)
 
     const earthMaterial = new THREE.MeshPhysicalMaterial({
       map: mapTexture,
