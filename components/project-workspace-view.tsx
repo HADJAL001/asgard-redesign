@@ -989,10 +989,6 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
               )}
             </div>
 
-            {repairNotice && (
-              <p className="mt-2 text-[12px]" style={{ color: COLORS.amber }}>{repairNotice}</p>
-            )}
-
             {/* ---- Чек сборки: во что обошлась и вышло ли с первого раза ----
                  Первым в подробностях, до списка проверок: человека сначала
                  интересует цена и результат целиком, а уже потом — чем именно
@@ -1071,6 +1067,10 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
               </div>
             )}
           </div>
+        )}
+
+        {repairNotice && (
+          <p className="mt-3 text-[12px]" role="alert" style={{ color: COLORS.amber }}>{repairNotice}</p>
         )}
 
         {/* Ошибка генерации — единственное, что важнее конвейера */}
