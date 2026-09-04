@@ -1347,12 +1347,20 @@ export function renderFallbackPage(brief: DesignBrief, name: string, hint?: stri
 `
 }
 
-/** Пути файлов, которые ПОЛНОСТЬЮ принадлежат дизайн-системе. Их содержимое
- *  всегда перерисовывается из брифа — в том числе поверх файлов, пришедших из
- *  закэшированного шаблона (иначе старые проекты тянули бы пустой конфиг). */
-export const DESIGN_SYSTEM_PATHS = ["tailwind.config.ts", "app/globals.css", "app/layout.tsx"] as const
+/** Files fully owned by the platform design and legal scaffold. They are
+ * replaced together so cached or AI-provided duplicates cannot survive a
+ * retune and make the released app internally inconsistent. */
+export const DESIGN_SYSTEM_PATHS = [
+  "tailwind.config.ts",
+  "app/globals.css",
+  "app/layout.tsx",
+  "app/privacy/page.tsx",
+  "app/terms/page.tsx",
+  "app/pricing/page.tsx",
+  "app/support/page.tsx",
+] as const
 
-/** Три файла дизайн-системы одним вызовом — единая точка для генератора и адаптера шаблонов. */
+/** Platform-owned design and legal scaffold in one call for generation and retuning. */
 export function renderDesignSystemFiles(
   brief: DesignBrief,
   name: string,

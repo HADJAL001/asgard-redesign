@@ -55,7 +55,7 @@ export function EternityLanding() {
   const [globeReady, setGlobeReady] = useState(false)
   const [pulseReady, setPulseReady] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [createError, setCreateError] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
   /** Вопрос платформы, когда заявку не удалось прочитать (422 unclear_request). */
   const [clarify, setClarify] = useState<{ question: string; received?: string } | null>(null)
   const heroValueBadge = locale === "en"
@@ -145,7 +145,7 @@ export function EternityLanding() {
     const el = inputRef.current
     if (!el) return
     setClarify(null)
-    setCreateError(false)
+    setCreateError(null)
     const query = el.value.trim()
     if (!query) {
       flashInputError()
@@ -183,6 +183,13 @@ export function EternityLanding() {
             setSubmitting(false)
             return
           }
+          // The guest session is already valid at this point. Redirecting to
+          // registration would hide an actionable generator response and lose
+          // the person's place in the flow, so keep the brief in the field.
+          setCreateError(res.error || t("landing.createError"))
+          flashInputError()
+          setSubmitting(false)
+          return
         }
       } catch {
         /* падаем в fallback ниже */
@@ -206,11 +213,11 @@ export function EternityLanding() {
         return
       }
       if (res.unclearRequest) setClarify({ question: res.error || "", received: res.received })
-      else setCreateError(true)
+      else setCreateError(res.error || t("landing.createError"))
       flashInputError()
       setSubmitting(false)
     } catch {
-      setCreateError(true)
+      setCreateError(t("landing.createError"))
       flashInputError()
       setSubmitting(false)
     }
@@ -324,7 +331,7 @@ export function EternityLanding() {
           )}
           {createError && !clarify && (
             <p id="landing-create-error" role="alert" className="hero-clarify">
-              {t("landing.createError")}
+              {createError}
             </p>
           )}
 

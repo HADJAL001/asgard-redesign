@@ -5,6 +5,7 @@ import {
   TEXT_CONTRAST_MIN,
   clampBriefProposal,
   contrastRatio,
+  DESIGN_SYSTEM_PATHS,
   deriveDesignBrief,
   renderDesignSystemFiles,
 } from '../lib/design-system';
@@ -136,16 +137,26 @@ test('перенастройка: любой выбор пользователя
   }
 });
 
-test('перенастройка меняет ровно три файла дизайн-системы', () => {
+test('перенастройка заменяет весь platform-owned дизайн и legal scaffold', () => {
   const tuned = clampBriefProposal(brief, { archetype: 'gallery', scheme: 'light' });
   const rendered = renderDesignSystemFiles(tuned, 'Лавка', 'Описание');
 
   assert.deepEqual(
     rendered.map((f) => f.path).sort(),
-    ['app/globals.css', 'app/layout.tsx', 'tailwind.config.ts'],
-    'страницы и компоненты не переписываются',
+    [...DESIGN_SYSTEM_PATHS].sort(),
+    'пользовательские страницы и компоненты не переписываются, но обязательные legal-страницы всегда получают текущую дизайн-систему',
   );
-  assert.ok(rendered.every((f) => f.content.includes(tuned.palette.canvas) || f.content.includes(tuned.typography.body)));
+  const legalFiles = rendered.filter((file) => file.path.startsWith('app/') && file.path.endsWith('/page.tsx'));
+  const designFiles = rendered.filter((file) => !legalFiles.includes(file));
+  assert.equal(legalFiles.length, 4, 'в scaffold входят четыре обязательные legal-страницы');
+  assert.ok(
+    legalFiles.every((file) => file.content.includes('bg-canvas') && file.content.includes('font-display')),
+    'legal-страницы используют токены актуальной дизайн-системы',
+  );
+  assert.ok(
+    designFiles.every((file) => file.content.includes(tuned.palette.canvas) || file.content.includes(tuned.typography.body)),
+    'системные файлы содержат палитру или типографику выбранного брифа',
+  );
 });
 
 test('перенастройка детерминирована: тот же выбор — тот же результат', () => {
