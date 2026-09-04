@@ -205,15 +205,19 @@ export default function GlobeScene() {
     orbitGroup.rotation.x = 0.2
     orbitGroup.rotation.z = -0.1
 
-    const clock = new THREE.Clock()
+    // Timer is the supported Three.js clock. Connecting it also prevents a
+    // hidden tab from producing a large animation jump when it becomes visible.
+    const timer = new THREE.Timer()
+    timer.connect(document)
     let rafId = 0
     let sceneActive = !document.hidden
 
-    function animate() {
+    function animate(timestamp?: number) {
       rafId = 0
       if (!sceneActive) return
       if (!reducedMotion) {
-        const elapsed = clock.getElapsedTime()
+        timer.update(timestamp)
+        const elapsed = timer.getElapsed()
         // Time-based movement stays smooth across monitors and makes the hero feel alive.
         earth.rotation.y = elapsed * 0.24
         clouds.rotation.y = elapsed * 0.34
@@ -235,12 +239,11 @@ export default function GlobeScene() {
     const onVisibilityChange = () => {
       sceneActive = !document.hidden
       if (sceneActive) {
-        clock.start()
+        timer.reset()
         if (!rafId) animate()
       } else {
         cancelAnimationFrame(rafId)
         rafId = 0
-        clock.stop()
       }
     }
 
@@ -249,7 +252,6 @@ export default function GlobeScene() {
       sceneActive = false
       cancelAnimationFrame(rafId)
       rafId = 0
-      clock.stop()
       showFallback()
     }
 
@@ -272,6 +274,7 @@ export default function GlobeScene() {
       window.removeEventListener("resize", onResize)
       document.removeEventListener("visibilitychange", onVisibilityChange)
       renderer.domElement.removeEventListener("webglcontextlost", onContextLost, false)
+      timer.dispose()
       earthGeometry.dispose()
       earthMaterial.dispose()
       cloudGeometry.dispose()
