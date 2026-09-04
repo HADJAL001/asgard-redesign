@@ -42,7 +42,9 @@ async function cleanupDbFiles() {
   }
 }
 
-async function waitForHealth(timeoutMs = 20_000) {
+// Concurrent full-suite runs can start several tsx servers at once on Windows.
+// Allow the isolated registry server enough time to finish migrations.
+async function waitForHealth(timeoutMs = 45_000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     try {
