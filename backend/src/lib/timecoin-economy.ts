@@ -1,6 +1,13 @@
 export const TIMECOIN_USD_CENTS = 1_000
 export const PROJECT_CREATION_COST_TC = 1
 
+/** A guest receives one project through a separately enforced server-side cap.
+ * Its admission price must be zero because guest wallets intentionally start
+ * empty. All registered accounts use the public project price. */
+export function projectAdmissionCostTimecoin(isGuest: boolean): number {
+  return isGuest ? 0 : PROJECT_CREATION_COST_TC
+}
+
 export const TIMECOIN_PRICES = {
   artifactForge: 2,
   artifactEvolve: 0.25,

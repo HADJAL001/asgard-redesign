@@ -113,6 +113,15 @@ test("provisionGuest: заводит кошелёк-заглушку (0 кред
   const w = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(g.id) as any
   assert.ok(w, "кошелёк создан")
   assert.equal(w.credits, 0)
+  assert.equal(w.timecoin, 0, "первый проект гостя не может зависеть от баланса")
+})
+
+test("isGuestAccount: отличает гостя от обычного аккаунта для бесплатного первого проекта", () => {
+  const guest = svc.provisionGuest("1.2.3.4")
+  const real = realUser()
+  assert.equal(svc.isGuestAccount(guest.id), true)
+  assert.equal(svc.isGuestAccount(real), false)
+  assert.equal(svc.isGuestAccount(999999), false)
 })
 
 /* ---------------- findActiveGuestByIp ---------------- */

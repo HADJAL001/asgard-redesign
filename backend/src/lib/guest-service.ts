@@ -41,6 +41,16 @@ export function firstProjectOf(userId: number): { id: number } | undefined {
     .get(userId) as { id: number } | undefined
 }
 
+/** The guest identity is also the pricing boundary for the one free first
+ * project. Keep this query next to the hard-cap rule so both controls read the
+ * same authoritative user flag. */
+export function isGuestAccount(userId: number): boolean {
+  const row = db.prepare(`SELECT is_guest FROM users WHERE id = ?`).get(userId) as
+    | { is_guest?: number }
+    | undefined
+  return row?.is_guest === 1
+}
+
 /**
  * Хард-кап воронки: гость (is_guest=1) имеет право ровно на ОДИН проект.
  * Авторитетная серверная стена — клиентский UI и «1 гость на IP» уже ограничивают,
@@ -50,10 +60,7 @@ export function firstProjectOf(userId: number): { id: number } | undefined {
  * ДО любых квот/списаний. См. routes/guest.routes.ts, миграция 087.
  */
 export function guestProjectCapReached(userId: number): boolean {
-  const row = db.prepare(`SELECT is_guest FROM users WHERE id = ?`).get(userId) as
-    | { is_guest?: number }
-    | undefined
-  if (row?.is_guest !== 1) return false
+  if (!isGuestAccount(userId)) return false
   return !!db.prepare(`SELECT 1 FROM projects WHERE user_id = ? LIMIT 1`).get(userId)
 }
 

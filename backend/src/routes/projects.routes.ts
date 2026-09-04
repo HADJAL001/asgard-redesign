@@ -38,9 +38,9 @@ import {
   MAKEGOOD_REASON_TEXT,
 } from "../lib/generation-makegood"
 import { logAudit } from "../lib/audit"
-import { PROJECT_CREATION_COST_TC } from "../lib/timecoin-economy"
+import { projectAdmissionCostTimecoin } from "../lib/timecoin-economy"
 import { generationEvents, getRecentStages, type GenerationStreamEvent } from "../lib/generation-events"
-import { guestProjectCapReached } from "../lib/guest-service"
+import { guestProjectCapReached, isGuestAccount } from "../lib/guest-service"
 import {
   readEngineeringGate,
   deployNeedsAcknowledgement,
@@ -571,40 +571,47 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     })
   }
 
-  const chargedAt = Date.now()
-  const charged = db.transaction(() => {
-    const charge = db.prepare(
-      `UPDATE wallets SET timecoin = timecoin - ?, updated_at = ?
-        WHERE user_id = ? AND timecoin >= ?`,
-    ).run(PROJECT_CREATION_COST_TC, chargedAt, userId, PROJECT_CREATION_COST_TC)
-    if (charge.changes !== 1) return false
-    db.prepare(
-      `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-       VALUES (?, 'project_generation', ?, 'OSGARD', ?, 'timecoin', 'done')`,
-    ).run(userId, `Создание проекта: ${resolvedName}`, PROJECT_CREATION_COST_TC)
-    return true
-  })()
-  if (!charged) {
-    const available = (db.prepare(`SELECT timecoin FROM wallets WHERE user_id = ?`).get(userId) as
-      | { timecoin: number }
-      | undefined)?.timecoin ?? 0
-    return res.status(402).json({
-      error: `Для создания проекта нужен 1 TimeCoin. Доступно: ${available}.`,
-      code: "INSUFFICIENT_TIMECOIN",
-      required: PROJECT_CREATION_COST_TC,
-      available,
-    })
+  // A guest may create exactly one project (enforced above). That activation
+  // path is free: provisionGuest deliberately starts with a zero wallet.
+  // Registered accounts keep the normal TimeCoin admission charge.
+  const admissionCostTimecoin = projectAdmissionCostTimecoin(isGuestAccount(userId))
+  if (admissionCostTimecoin > 0) {
+    const chargedAt = Date.now()
+    const charged = db.transaction(() => {
+      const charge = db.prepare(
+        `UPDATE wallets SET timecoin = timecoin - ?, updated_at = ?
+          WHERE user_id = ? AND timecoin >= ?`,
+      ).run(admissionCostTimecoin, chargedAt, userId, admissionCostTimecoin)
+      if (charge.changes !== 1) return false
+      db.prepare(
+        `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
+         VALUES (?, 'project_generation', ?, 'OSGARD', ?, 'timecoin', 'done')`,
+      ).run(userId, `Создание проекта: ${resolvedName}`, admissionCostTimecoin)
+      return true
+    })()
+    if (!charged) {
+      const available = (db.prepare(`SELECT timecoin FROM wallets WHERE user_id = ?`).get(userId) as
+        | { timecoin: number }
+        | undefined)?.timecoin ?? 0
+      return res.status(402).json({
+        error: `Для создания проекта нужен 1 TimeCoin. Доступно: ${available}.`,
+        code: "INSUFFICIENT_TIMECOIN",
+        required: admissionCostTimecoin,
+        available,
+      })
+    }
+    logAudit(userId, "debit", admissionCostTimecoin, "project_generation", { depth, name: resolvedName, currency: "timecoin" })
   }
-  logAudit(userId, "debit", PROJECT_CREATION_COST_TC, "project_generation", { depth, name: resolvedName, currency: "timecoin" })
 
   const refundProjectCharge = () => {
+    if (admissionCostTimecoin === 0) return
     db.prepare(`UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`)
-      .run(PROJECT_CREATION_COST_TC, Date.now(), userId)
+      .run(admissionCostTimecoin, Date.now(), userId)
     db.prepare(
       `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
        VALUES (?, 'project_generation_refund', ?, 'OSGARD', ?, 'timecoin', 'done')`,
-    ).run(userId, `Возврат за проект: ${resolvedName}`, PROJECT_CREATION_COST_TC)
-    logAudit(userId, "credit", PROJECT_CREATION_COST_TC, "project_generation_refund", { depth, currency: "timecoin" })
+    ).run(userId, `Возврат за проект: ${resolvedName}`, admissionCostTimecoin)
+    logAudit(userId, "credit", admissionCostTimecoin, "project_generation_refund", { depth, currency: "timecoin" })
   }
 
   /* --- Бесплатная (quick) генерация: расход дневной квоты тарифа --- */
@@ -659,7 +666,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
         artifacts,
         depth,
         costCredits: 0,
-        costTimecoin: PROJECT_CREATION_COST_TC,
+        costTimecoin: admissionCostTimecoin,
         /* Клиент обязан сказать человеку, что запуск прошёл за счёт платформы: молчаливая
            компенсация неотличима от сбоя учёта. */
         makegoodApplied: makegoodId !== null,
@@ -700,7 +707,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
         artifacts,
         depth,
         costCredits: 0,
-        costTimecoin: PROJECT_CREATION_COST_TC,
+        costTimecoin: admissionCostTimecoin,
         makegoodApplied: true,
         aiConfigured: isProjectGenerationConfigured(),
       })
@@ -758,7 +765,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
         artifacts,
         depth,
         costCredits: cost,
-        costTimecoin: PROJECT_CREATION_COST_TC,
+        costTimecoin: admissionCostTimecoin,
         makegoodApplied: false,
         aiConfigured: isProjectGenerationConfigured(),
       })

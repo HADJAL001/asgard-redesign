@@ -2,6 +2,7 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import {
   PROJECT_CREATION_COST_TC,
+  projectAdmissionCostTimecoin,
   TIMECOIN_USD_CENTS,
   parseTimecoinQuantity,
   timecoinPurchaseCents,
@@ -14,6 +15,11 @@ test("TimeCoin has one canonical fiat and project price", () => {
   assert.equal(PROJECT_CREATION_COST_TC, 1)
   assert.equal(timecoinPurchaseCents(1), 1_000)
   assert.equal(timecoinPurchaseCents(100), 100_000)
+})
+
+test("guest activation has a zero TimeCoin admission price while registered projects keep the public price", () => {
+  assert.equal(projectAdmissionCostTimecoin(true), 0)
+  assert.equal(projectAdmissionCostTimecoin(false), PROJECT_CREATION_COST_TC)
 })
 
 test("paid operations stay proportional to one-project pricing", () => {
