@@ -64,3 +64,9 @@ test("the landing defers global assistant UI until the creator enters the produc
 
   await expect(page.getByRole("button", { name: /JARVIS/i })).toHaveCount(0)
 })
+
+test("the landing footer appears after the primary project flow is stable", async ({ page }) => {
+  await page.goto("/")
+
+  await expect(page.locator("footer")).toBeVisible()
+})

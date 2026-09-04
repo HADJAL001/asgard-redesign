@@ -8,6 +8,7 @@ import "./globals.css"
 import { AuthProvider } from "@/lib/auth-store"
 import { I18nProvider } from "@/lib/i18n/use-translation"
 import { Footer } from "@/components/footer"
+import { DeferredFooter } from "@/components/DeferredFooter"
 import { AppShell } from "@/components/AppShell"
 import { RouteStoreProvider } from "@/components/RouteStoreProvider"
 
@@ -71,7 +72,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               <AppShell>
                 {children}
               </AppShell>
-              <Footer />
+              <DeferredFooter>
+                <Footer />
+              </DeferredFooter>
             </RouteStoreProvider>
           </AuthProvider>
         </I18nProvider>
