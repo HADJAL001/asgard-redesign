@@ -37,3 +37,21 @@ test("the landing page hydrates cleanly for an English-language browser", async 
 
   await context.close()
 })
+
+test("the landing globe renders and keeps moving", async ({ page }) => {
+  const browserWarnings: string[] = []
+  page.on("console", (message) => {
+    if (message.type() === "warning") browserWarnings.push(message.text())
+  })
+
+  await page.goto("/")
+  const canvas = page.locator("#three-container canvas")
+  await expect(canvas).toBeVisible()
+
+  const firstFrame = await canvas.screenshot()
+  await page.waitForTimeout(700)
+  const secondFrame = await canvas.screenshot()
+
+  expect(firstFrame.equals(secondFrame)).toBe(false)
+  expect(browserWarnings.some((message) => message.includes("THREE.Clock"))).toBe(false)
+})
