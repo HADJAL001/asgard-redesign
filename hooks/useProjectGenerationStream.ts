@@ -90,6 +90,8 @@ export type LiveMeter = {
   tokenLimit: number | null
 }
 
+export type GenerationStreamConnection = "idle" | "connecting" | "live" | "reconnecting" | "paused"
+
 export function isTerminalStage(stage: GenerationStage): boolean {
   return stage === "ready" || stage === "failed"
 }
@@ -109,6 +111,8 @@ type StreamState = {
   meter: LiveMeter | null
   /** true на терминале ready, если приложение заработало без единого ремонта. */
   firstTry: boolean | null
+  /** Состояние канала прогресса. Серверный polling продолжает работать независимо от него. */
+  connection: GenerationStreamConnection
 }
 
 const INITIAL: StreamState = {
@@ -118,6 +122,7 @@ const INITIAL: StreamState = {
   done: false,
   meter: null,
   firstTry: null,
+  connection: "idle",
 }
 
 /** Поля счётчика в том виде, в каком они приходят и в стадии, и в тике.
@@ -207,6 +212,7 @@ export function useProjectGenerationStream(
           meter: meterFrom(evt, prev.meter),
           // firstTry приходит только на терминале ready; до него ответа нет.
           firstTry: evt.firstTry ?? prev.firstTry,
+          connection: prev.connection,
         }
       })
 
@@ -228,10 +234,12 @@ export function useProjectGenerationStream(
 
     const connect = () => {
       if (closed || terminated || paused) return
+      setState((prev) => ({ ...prev, connection: attempts > 0 ? "reconnecting" : "connecting" }))
       source = new EventSource(`/api/projects/${projectId}/stream`, { withCredentials: true })
 
       source.onopen = () => {
         attempts = 0
+        setState((prev) => ({ ...prev, connection: "live" }))
       }
 
       source.onmessage = (e) => {
@@ -256,6 +264,7 @@ export function useProjectGenerationStream(
         // Сервер закрывает поток после терминала — это НЕ ошибка, не реконнектимся.
         if (closed || terminated || paused) return
         attempts += 1
+        setState((prev) => ({ ...prev, connection: "reconnecting" }))
         // Back off quickly during outages and add jitter so many clients do not
         // reconnect in the same millisecond after a shared backend failure.
         const baseDelay = Math.min(30_000, 1000 * 2 ** Math.min(attempts - 1, 5))
@@ -271,6 +280,7 @@ export function useProjectGenerationStream(
         reconnectTimer = undefined
         source?.close()
         source = null
+        setState((prev) => ({ ...prev, connection: "paused" }))
         return
       }
       if (!source && !terminated) connect()

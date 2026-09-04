@@ -943,6 +943,15 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
               startedAt={genStream.stages[0]?.at ?? null}
               active={!genStream.done}
             />
+            {genStream.connection !== "live" ? (
+              <p className="mt-2 text-[12px]" style={{ color: COLORS.label }} role="status">
+                {genStream.connection === "paused"
+                  ? t("workspace.streamPaused")
+                  : genStream.connection === "reconnecting"
+                    ? t("workspace.streamReconnecting")
+                    : t("workspace.streamConnecting")}
+              </p>
+            ) : null}
           </div>
         ) : null}
 
