@@ -20,7 +20,7 @@
    Использует useOsgardStore(): generateProject()
    ================================================================ */
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { X, Wand2, PenLine, Loader2, ArrowRight, ArrowLeft, Check, Coins } from "lucide-react"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { COLORS } from "@/lib/economy"
@@ -71,15 +71,9 @@ type Props = {
    *  без этого текст пришлось бы вводить повторно. Необязателен: обычный
    *  режим вызывает мастер без него и работает ровно как раньше. */
   initialDescription?: string
-  /** Идея уже полностью описана — шаги 1-2 (имя, тема) пропускаются, генерация
-   *  запускается сразу при открытии мастера. Имя выводит бэкенд из описания
-   *  (lib/project-title.ts), спрашивать его отдельно незачем: «первый клик
-   *  создаёт проект». При ошибке мастер откатывается на обычные шаги, чтобы
-   *  человек мог продолжить вручную, а не упереться в тупик. */
-  autoStart?: boolean
 }
 
-export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "", autoStart = false }: Props) {
+export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "" }: Props) {
   const { t } = useTranslation()
   const { generateProject } = useOsgardStore()
   const wallet = useOsgardStore((s) => s.wallet)
@@ -90,14 +84,12 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
   const [theme, setTheme] = useState<Theme | null>(null)
   const [customThemeText, setCustomThemeText] = useState("")
   const [description, setDescription] = useState(initialDescription)
+  const [brief, setBrief] = useState({ audience: "", outcome: "", essentials: "", constraints: "" })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   /** Каталог глубин генерации + выбранная глубина (по умолчанию бесплатная quick). */
   const [depths, setDepths] = useState<DepthOption[]>([])
   const [depthId, setDepthId] = useState<DepthOption["id"]>("quick")
-  /** autoStart уже запущен (эффект стартует ровно один раз, включая React strict-mode). */
-  const [autoStarted, setAutoStarted] = useState(false)
-  const autoStartedRef = useRef(false)
 
   // Каталог глубин — реальные тарифы из бэкенда (не хардкод), подтягиваем один раз при монтировании.
   useEffect(() => {
@@ -118,14 +110,12 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
   const selectedDepth = depths.find((d) => d.id === depthId) ?? null
   const depthCost = selectedDepth?.credits ?? 0
 
-  /* Смета ДО запуска (POST /projects/generation-estimate). Считается по замыслу, поэтому
-     запрашивается только на шаге описания: раньше её просто нечем наполнить, а при
-     autoStart шага нет вовсе — там глубина бесплатная (quick), и запуск не может стоить
-     человеку кредитов. */
+  /* Смета ДО запуска (POST /projects/generation-estimate). Считается по замыслу,
+     поэтому запрашивается только на шаге описания, когда контекст уже заполнен. */
   const { estimate, loading: estimateLoading } = useGenerationEstimate({
     name: name.trim() || undefined,
     hint: description.trim() || theme?.hint,
-    enabled: step === 3 && !autoStart,
+    enabled: step === 3,
   })
 
   /* Право на перегенерацию за счёт платформы делает запуск бесплатным независимо от
@@ -139,22 +129,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
 
   const totalSteps = 3
   const progress = (step / totalSteps) * 100
-  /** При автозапуске кратко показываем, что идея передана генератору. После
-   *  ответа сервера сразу открывается мастерская, где виден живой прогресс. */
-  const busy = autoStart && (submitting || !autoStarted)
-
-  // «Первый клик создаёт проект»: идея уже описана — не спрашиваем имя/тему,
-  // запускаем генерацию сразу при открытии мастера.
-  useEffect(() => {
-    if (autoStart && !autoStartedRef.current) {
-      autoStartedRef.current = true
-      queueMicrotask(() => {
-        setAutoStarted(true)
-        void handleSubmit()
-      })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const briefReady = !!brief.audience.trim() && !!brief.outcome.trim() && !!brief.essentials.trim()
 
   function goNext() {
     setError(null)
@@ -173,6 +148,10 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
   }
 
   async function handleSubmit() {
+    if (!briefReady) {
+      setError(t("projectWizard.errorBriefRequired"))
+      return
+    }
     setError(null)
     setSubmitting(true)
     try {
@@ -181,7 +160,13 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
       // а реальные файлы приложения генерируются в фоне на сервере — опрашиваем статус.
       // Собственное описание пользователя (если есть) важнее темы — это его реальный
       // бриф для генерации, тема лишь fallback-подсказка.
-      const hint = description.trim() || theme?.hint
+      const hint = [
+        description.trim() || theme?.hint || "",
+        `Аудитория: ${brief.audience.trim()}`,
+        `Результат: ${brief.outcome.trim()}`,
+        `Обязательные функции: ${brief.essentials.trim()}`,
+        brief.constraints.trim() ? `Ограничения: ${brief.constraints.trim()}` : "",
+      ].filter(Boolean).join("\n")
       const res = await generateProject(name.trim() || undefined, hint, depthId)
       if (res.success && res.project) {
         // Project generation is asynchronous. The workspace owns the live SSE
@@ -216,7 +201,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
         aria-modal="true"
         aria-labelledby="project-create-title"
         onKeyDown={(event) => {
-          if (event.key === "Escape" && !busy) onClose()
+          if (event.key === "Escape" && !submitting) onClose()
         }}
         className="flex max-h-[calc(100dvh-1rem)] w-full max-w-[560px] flex-col rounded-xl p-4 sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:p-6"
         style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
@@ -228,12 +213,12 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
           <button
             type="button"
             onClick={() => {
-              if (!busy) onClose()
+              if (!submitting) onClose()
             }}
-            disabled={busy}
+            disabled={submitting}
             aria-label={t("projectWizard.cancel")}
             className="flex size-8 items-center justify-center rounded-lg transition-colors"
-            style={{ color: COLORS.label, opacity: busy ? 0.45 : 1 }}
+            style={{ color: COLORS.label, opacity: submitting ? 0.45 : 1 }}
             onMouseEnter={(e) => (e.currentTarget.style.color = COLORS.text)}
             onMouseLeave={(e) => (e.currentTarget.style.color = COLORS.label)}
           >
@@ -242,8 +227,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
         </div>
 
         {/* Progress bar */}
-        {!busy && (
-          <div className="mt-4">
+        <div className="mt-4">
             <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ backgroundColor: COLORS.border }}>
               <div
                 className="h-full rounded-full transition-all duration-300"
@@ -258,19 +242,10 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                 {step === 3 && t("projectWizard.step3Label")}
               </span>
             </div>
-          </div>
-        )}
+        </div>
 
         {/* Step content */}
         <div className="mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 sm:mt-6 sm:min-h-[220px]">
-          {autoStart && (submitting || !autoStarted) ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
-              <Loader2 size={22} className="animate-spin" style={{ color: COLORS.accent }} />
-              <p className="text-[13px]" style={{ color: COLORS.label }}>
-                {t("projectWizard.startingGeneration")}
-              </p>
-            </div>
-          ) : (
           <>
           {step === 1 && (
             <div>
@@ -389,6 +364,29 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                 {t("projectWizard.descriptionHint")}
               </p>
 
+              <div className="mt-5 border-t pt-5" style={{ borderColor: COLORS.border }}>
+                <p className="text-[13px] font-medium" style={{ color: COLORS.text }}>{t("projectWizard.briefTitle")}</p>
+                <p className="mt-1 text-[12px]" style={{ color: COLORS.label }}>{t("projectWizard.briefHint")}</p>
+                <div className="mt-4 grid gap-3">
+                  <label className="text-[12px] font-medium" style={{ color: COLORS.text }}>
+                    {t("projectWizard.audienceLabel")}
+                    <input value={brief.audience} onChange={(e) => setBrief((current) => ({ ...current, audience: e.target.value }))} placeholder={t("projectWizard.audiencePlaceholder")} maxLength={240} className="cal-input mt-1.5" />
+                  </label>
+                  <label className="text-[12px] font-medium" style={{ color: COLORS.text }}>
+                    {t("projectWizard.outcomeLabel")}
+                    <input value={brief.outcome} onChange={(e) => setBrief((current) => ({ ...current, outcome: e.target.value }))} placeholder={t("projectWizard.outcomePlaceholder")} maxLength={240} className="cal-input mt-1.5" />
+                  </label>
+                  <label className="text-[12px] font-medium" style={{ color: COLORS.text }}>
+                    {t("projectWizard.essentialsLabel")}
+                    <textarea value={brief.essentials} onChange={(e) => setBrief((current) => ({ ...current, essentials: e.target.value }))} placeholder={t("projectWizard.essentialsPlaceholder")} maxLength={600} rows={3} className="cal-input mt-1.5 resize-none" />
+                  </label>
+                  <label className="text-[12px] font-medium" style={{ color: COLORS.text }}>
+                    {t("projectWizard.constraintsLabel")}
+                    <input value={brief.constraints} onChange={(e) => setBrief((current) => ({ ...current, constraints: e.target.value }))} placeholder={t("projectWizard.constraintsPlaceholder")} maxLength={400} className="cal-input mt-1.5" />
+                  </label>
+                </div>
+              </div>
+
               {depths.length > 0 && (
                 <div className="mt-4">
                   <div className="flex items-center justify-between">
@@ -473,11 +471,9 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
             </p>
           )}
           </>
-          )}
         </div>
 
         {/* Footer buttons */}
-        {!busy && (
         <div className="mt-4 flex shrink-0 items-center justify-between gap-3 border-t pt-4 sm:mt-6" style={{ borderColor: COLORS.border }}>
           <button
             type="button"
@@ -504,7 +500,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || insufficientCredits || insufficientTimecoin}
+              disabled={submitting || !briefReady || insufficientCredits || insufficientTimecoin}
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90 disabled:opacity-60"
               style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
             >
@@ -522,7 +518,6 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
             </button>
           )}
         </div>
-        )}
       </div>
     </div>
     </>
