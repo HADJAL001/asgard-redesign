@@ -12,6 +12,11 @@ export default function GlobeScene() {
     if (!container) return
     const width = container.clientWidth
     const height = container.clientHeight
+    const compactScene = window.matchMedia("(max-width: 700px), (pointer: coarse)").matches
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    const quality = compactScene
+      ? { pixelRatio: 1.25, earthSegments: 56, cloudSegments: 40, atmosphereSegments: 32, stars: 900, distantStars: 450 }
+      : { pixelRatio: 2, earthSegments: 128, cloudSegments: 96, atmosphereSegments: 64, stars: 4000, distantStars: 2000 }
 
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x020408)
@@ -21,7 +26,7 @@ export default function GlobeScene() {
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
     renderer.setSize(width, height)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatio))
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 1.8
     container.appendChild(renderer.domElement)
@@ -55,7 +60,7 @@ export default function GlobeScene() {
       color: new THREE.Color(0xccddff),
     })
 
-    const earthGeometry = new THREE.SphereGeometry(1.26, 128, 128)
+    const earthGeometry = new THREE.SphereGeometry(1.26, quality.earthSegments, quality.earthSegments)
     const earth = new THREE.Mesh(earthGeometry, earthMaterial)
     const orbitGroup = new THREE.Group()
     orbitGroup.add(earth)
@@ -68,7 +73,7 @@ export default function GlobeScene() {
       depthWrite: false,
       side: THREE.DoubleSide,
     })
-    const cloudGeometry = new THREE.SphereGeometry(1.27, 96, 96)
+    const cloudGeometry = new THREE.SphereGeometry(1.27, quality.cloudSegments, quality.cloudSegments)
     const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial)
     orbitGroup.add(clouds)
 
@@ -94,7 +99,7 @@ export default function GlobeScene() {
       transparent: true,
       depthWrite: false,
     })
-    const atmosphereGeometry = new THREE.SphereGeometry(1.3, 64, 64)
+    const atmosphereGeometry = new THREE.SphereGeometry(1.3, quality.atmosphereSegments, quality.atmosphereSegments)
     const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial)
     orbitGroup.add(atmosphere)
 
@@ -115,7 +120,7 @@ export default function GlobeScene() {
     rimLight.position.set(-2, -6, -7)
     scene.add(rimLight)
 
-    const starCount = 4000
+    const starCount = quality.stars
     const starGeometry = new THREE.BufferGeometry()
     const positions = new Float32Array(starCount * 3)
     const colors = new Float32Array(starCount * 3)
@@ -162,7 +167,7 @@ export default function GlobeScene() {
     const stars = new THREE.Points(starGeometry, starMaterial)
     scene.add(stars)
 
-    const starCount2 = 2000
+    const starCount2 = quality.distantStars
     const starGeo2 = new THREE.BufferGeometry()
     const pos2 = new Float32Array(starCount2 * 3)
     for (let i = 0; i < starCount2; i++) {
@@ -195,18 +200,19 @@ export default function GlobeScene() {
 
     function animate() {
       if (!sceneActive) return
-      rafId = requestAnimationFrame(animate)
-      t2 += 0.01
-
-      earth.rotation.y += 0.0025
-      clouds.rotation.y += 0.0035
-      orbitGroup.rotation.y += 0.0012
-      const ox = Math.sin(t2 * 0.08) * 3.0
-      const oy = Math.cos(t2 * 0.064) * 1.8
-      orbitGroup.position.x = ox
-      orbitGroup.position.y = oy + Math.sin(t2 * 0.6) * 0.04
-      stars.rotation.y += 0.0001
-      stars2.rotation.y -= 0.00005
+      if (!reducedMotion) {
+        rafId = requestAnimationFrame(animate)
+        t2 += 0.01
+        earth.rotation.y += 0.0025
+        clouds.rotation.y += 0.0035
+        orbitGroup.rotation.y += 0.0012
+        const ox = Math.sin(t2 * 0.08) * 3.0
+        const oy = Math.cos(t2 * 0.064) * 1.8
+        orbitGroup.position.x = ox
+        orbitGroup.position.y = oy + Math.sin(t2 * 0.6) * 0.04
+        stars.rotation.y += 0.0001
+        stars2.rotation.y -= 0.00005
+      }
 
       renderer.render(scene, camera)
     }
@@ -224,6 +230,7 @@ export default function GlobeScene() {
       if (w > 0 && h > 0) {
         camera.aspect = w / h
         camera.updateProjectionMatrix()
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatio))
         renderer.setSize(w, h)
       }
     }
