@@ -1766,6 +1766,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     const intervalMs = opts?.intervalMs ?? 2000
     const timeoutMs = opts?.timeoutMs ?? 120000
     const startedAt = Date.now()
+    let attempts = 0
 
     while (true) {
       const project = await get().fetchProject(id)
@@ -1775,7 +1776,12 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       if (Date.now() - startedAt >= timeoutMs) {
         return project ?? null
       }
-      await new Promise((resolve) => setTimeout(resolve, intervalMs))
+      attempts += 1
+      // Keep the first retry fast, then reduce background traffic during long
+      // generations while retaining a bounded fallback when SSE is unavailable.
+      const delay = Math.min(10_000, intervalMs * 2 ** Math.min(attempts - 1, 3))
+      const remaining = timeoutMs - (Date.now() - startedAt)
+      await new Promise((resolve) => setTimeout(resolve, Math.min(delay, Math.max(0, remaining))))
     }
   },
 
