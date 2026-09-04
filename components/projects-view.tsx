@@ -253,7 +253,7 @@ export function ProjectsView() {
                       onClick={(e) => handleDelete(p.id, e)}
                       disabled={isDeleting}
                       title={t("projects.delete")}
-                      className="flex size-8 items-center justify-center rounded-lg opacity-0 transition-opacity group-hover:opacity-100 disabled:cursor-not-allowed"
+                      className="flex size-8 items-center justify-center rounded-lg opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 disabled:cursor-not-allowed"
                       style={{ border: `1px solid ${COLORS.border}`, color: COLORS.red }}
                     >
                       {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} strokeWidth={1.75} aria-hidden="true" />}
