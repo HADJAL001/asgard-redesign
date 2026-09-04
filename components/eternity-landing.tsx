@@ -22,7 +22,6 @@ import { savePendingGeneration } from "@/lib/pending-generation"
 import { startGuestSession } from "@/lib/guest-session"
 import { track } from "@/lib/analytics"
 import { Reveal } from "@/components/landing/Reveal"
-import { LivePulseBar } from "@/components/live-pulse-bar"
 import {
   IconIdea,
   IconCreate,
@@ -39,6 +38,11 @@ const GlobeScene = dynamic(() => import("@/components/landing/GlobeScene"), {
   ssr: false,
 })
 
+const LivePulseBar = dynamic(
+  () => import("@/components/live-pulse-bar").then((m) => m.LivePulseBar),
+  { ssr: false },
+)
+
 const RUSTORE_APP_URL = "https://www.rustore.ru/catalog/app/com.osgard.app"
 
 
@@ -49,6 +53,7 @@ export function EternityLanding() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [scrolled, setScrolled] = useState(false)
   const [globeReady, setGlobeReady] = useState(false)
+  const [pulseReady, setPulseReady] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [createError, setCreateError] = useState(false)
   /** Вопрос платформы, когда заявку не удалось прочитать (422 unclear_request). */
@@ -69,6 +74,19 @@ export function EternityLanding() {
     onScroll()
     window.addEventListener("scroll", onScroll, { passive: true })
     return () => window.removeEventListener("scroll", onScroll)
+  }, [])
+
+  useEffect(() => {
+    let timer: number | undefined
+    const startPulse = () => {
+      timer = window.setTimeout(() => setPulseReady(true), 1_500)
+    }
+    if (document.readyState === "complete") startPulse()
+    else window.addEventListener("load", startPulse, { once: true })
+    return () => {
+      window.removeEventListener("load", startPulse)
+      if (timer !== undefined) window.clearTimeout(timer)
+    }
   }, [])
 
   useEffect(() => {
@@ -311,7 +329,7 @@ export function EternityLanding() {
           )}
 
           <div className="hero-pulse">
-            <LivePulseBar variant="landing" />
+            {pulseReady ? <LivePulseBar variant="landing" /> : null}
           </div>
 
         </header>

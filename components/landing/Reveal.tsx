@@ -1,34 +1,43 @@
 "use client"
 
-import type { CSSProperties, ReactNode } from "react"
-import { motion, useReducedMotion, type HTMLMotionProps } from "framer-motion"
+import { useEffect, useRef, useState, type CSSProperties, type HTMLAttributes, type ReactNode } from "react"
 
-interface RevealProps extends HTMLMotionProps<"div"> {
+interface RevealProps extends HTMLAttributes<HTMLDivElement> {
   delay?: number
 }
 
 /** Scroll-triggered fade+rise wrapper; no-ops instantly under prefers-reduced-motion. */
 export function Reveal({ delay = 0, children, ...rest }: RevealProps) {
-  const reduce = useReducedMotion()
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
 
-  if (reduce) {
-    const { style, className } = rest
-    return (
-      <div style={style as CSSProperties | undefined} className={className}>
-        {children as ReactNode}
-      </div>
-    )
+  useEffect(() => {
+    const element = ref.current
+    if (!element || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setVisible(true)
+      return
+    }
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return
+      setVisible(true)
+      observer.disconnect()
+    }, { rootMargin: "0px 0px -80px" })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  const { style, className, ...htmlProps } = rest
+  const revealStyle: CSSProperties = {
+    ...style,
+    opacity: visible ? 1 : 0,
+    transform: visible ? "translateY(0)" : "translateY(28px)",
+    transition: `opacity 600ms cubic-bezier(.2,.8,.2,1) ${delay}s, transform 600ms cubic-bezier(.2,.8,.2,1) ${delay}s`,
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 28 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 0.6, delay, ease: [0.2, 0.8, 0.2, 1] }}
-      {...rest}
-    >
-      {children}
-    </motion.div>
+    <div ref={ref} style={revealStyle} className={className} {...htmlProps}>
+      {children as ReactNode}
+    </div>
   )
 }

@@ -15,11 +15,27 @@
    правилом `.dev-mode footer` в globals.css.
    ================================================================ */
 
+import dynamic from "next/dynamic"
+import { useEffect, useState } from "react"
 import { useDevMode } from "@/lib/dev-mode"
-import { JarvisFloatingWidget } from "../JarvisFloatingWidget"
+
+const JarvisFloatingWidget = dynamic(
+  () => import("../JarvisFloatingWidget").then((m) => m.JarvisFloatingWidget),
+  { ssr: false },
+)
 
 export function WorldOnlyLayers() {
   const { mode } = useDevMode()
-  if (mode === "dev") return null
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    const idle = window.requestIdleCallback?.(() => setReady(true), { timeout: 1_500 })
+    if (idle !== undefined) return () => window.cancelIdleCallback?.(idle)
+
+    const timer = window.setTimeout(() => setReady(true), 1_500)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  if (mode === "dev" || !ready) return null
   return <JarvisFloatingWidget />
 }

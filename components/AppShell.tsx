@@ -9,15 +9,19 @@
    - PaywallModal — модалка при попытке действия гостем
    ================================================================ */
 
+import dynamic from "next/dynamic"
 import { type ReactNode } from "react"
 import { ReadonlyModeProvider } from "@/lib/readonly-mode"
-import { PaywallModal } from "./PaywallModal"
-import { GlobalHotkeys } from "@/lib/use-hotkeys"
 import { AmbientBackdrop } from "./ambient-backdrop"
 import { DevModeProvider } from "@/lib/dev-mode"
-import { MatrixTransition } from "./dev-mode/MatrixTransition"
 import { AppShellContent } from "./dev-mode/AppShellContent"
-import { WorldOnlyLayers } from "./dev-mode/WorldOnlyLayers"
+
+// These overlays are useful after a person starts navigating, but do not belong
+// in the critical landing-page bundle.
+const PaywallModal = dynamic(() => import("./PaywallModal").then((m) => m.PaywallModal), { ssr: false })
+const GlobalHotkeys = dynamic(() => import("@/lib/use-hotkeys").then((m) => m.GlobalHotkeys), { ssr: false })
+const WorldOnlyLayers = dynamic(() => import("./dev-mode/WorldOnlyLayers").then((m) => m.WorldOnlyLayers), { ssr: false })
+const MatrixTransition = dynamic(() => import("./dev-mode/MatrixTransition").then((m) => m.MatrixTransition), { ssr: false })
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
