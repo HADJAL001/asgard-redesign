@@ -25,7 +25,7 @@ import { DailyRewardCard } from "./DailyRewardCard"
 import { apiClient } from "@/lib/api-client"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { useAuth } from "@/lib/auth-store"
-import { takePendingGeneration } from "@/lib/pending-generation"
+import { savePendingGeneration, takePendingGeneration } from "@/lib/pending-generation"
 import { formatTokens, badgeIcon } from "@/lib/economy"
 import { fmtTC } from "@/lib/tc-market"
 
@@ -105,9 +105,11 @@ export function DashboardView() {
           router.push(`/projects/${res.project.id}`)
           return
         }
+        savePendingGeneration({ name: intent.name, hint: intent.hint, depth: intent.depth })
         setAutoGenName(null)
         setAutoGenError(res.error || "Не удалось запустить генерацию проекта")
       } catch {
+        savePendingGeneration({ name: intent.name, hint: intent.hint, depth: intent.depth })
         setAutoGenName(null)
         setAutoGenError("Не удалось запустить генерацию проекта")
       }
