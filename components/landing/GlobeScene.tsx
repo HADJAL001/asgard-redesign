@@ -24,7 +24,13 @@ export default function GlobeScene() {
     const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 500)
     camera.position.set(0, 0.8, 10)
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
+    let renderer: THREE.WebGLRenderer
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
+    } catch {
+      // Keep the local fallback visible when WebGL is unavailable or blocked.
+      return
+    }
     renderer.setSize(width, height)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatio))
     renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -271,5 +277,14 @@ export default function GlobeScene() {
     }
   }, [])
 
-  return <div id="three-container" ref={containerRef} />
+  return (
+    <div
+      id="three-container"
+      ref={containerRef}
+      aria-hidden="true"
+      style={{
+        background: "#020408 url('/earth-realistic.png') center 70% / min(80vw, 620px) auto no-repeat",
+      }}
+    />
+  )
 }
