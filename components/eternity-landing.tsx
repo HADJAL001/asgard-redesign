@@ -52,6 +52,7 @@ export function EternityLanding() {
   const router = useRouter()
   const { isAuthenticated } = useAuth()
   const inputRef = useRef<HTMLInputElement>(null)
+  const briefDialogRef = useRef<HTMLFormElement>(null)
   const [scrolled, setScrolled] = useState(false)
   const [globeReady, setGlobeReady] = useState(false)
   const [pulseReady, setPulseReady] = useState(false)
@@ -78,6 +79,49 @@ export function EternityLanding() {
     window.addEventListener("scroll", onScroll, { passive: true })
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
+
+  useEffect(() => {
+    if (!briefIdea) return
+
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    const focusable = () => Array.from(
+      briefDialogRef.current?.querySelectorAll<HTMLElement>(
+        'input:not([disabled]), textarea:not([disabled]), button:not([disabled])',
+      ) ?? [],
+    )
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault()
+        setBriefIdea(null)
+        return
+      }
+      if (event.key !== "Tab") return
+
+      const controls = focusable()
+      if (!controls.length) return
+      const first = controls[0]
+      const last = controls[controls.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    requestAnimationFrame(() => focusable()[0]?.focus())
+    return () => {
+      window.removeEventListener("keydown", onKeyDown)
+      document.body.style.overflow = previousOverflow
+      previousFocus?.focus()
+    }
+  }, [briefIdea])
 
   useEffect(() => {
     let timer: number | undefined
@@ -275,19 +319,21 @@ export function EternityLanding() {
       {/* Гостевой demo-flow: реальная генерация проекта + артефактов + reveal */}
       {/* Прозрачная шапка */}
       {briefIdea && (
-        <div className="project-brief-overlay" role="presentation">
-          <form className="project-brief-card" onSubmit={handleBriefSubmit} role="dialog" aria-modal="true" aria-labelledby="project-brief-title">
+        <div className="project-brief-overlay" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !submitting) setBriefIdea(null)
+        }}>
+          <form ref={briefDialogRef} className="project-brief-card" onSubmit={handleBriefSubmit} role="dialog" aria-modal="true" aria-labelledby="project-brief-title" aria-describedby="project-brief-description">
             <div className="project-brief-kicker">Бриф проекта</div>
             <h2 id="project-brief-title">Сначала уточним задачу</h2>
-            <p>Ответьте на три вопроса. После этого OSGARD соберёт приложение по вашему полному брифу.</p>
+            <p id="project-brief-description">Ответьте на три вопроса. После этого OSGARD соберёт приложение по вашему полному брифу.</p>
             <label>Для кого вы создаёте продукт?
-              <input value={brief.audience} onChange={(e) => setBrief((current) => ({ ...current, audience: e.target.value }))} placeholder="Например: владельцы небольших кафе" maxLength={240} autoFocus />
+              <input value={brief.audience} onChange={(e) => setBrief((current) => ({ ...current, audience: e.target.value }))} placeholder="Например: владельцы небольших кафе" maxLength={240} required aria-required="true" />
             </label>
             <label>Какой результат должен получить пользователь?
-              <input value={brief.outcome} onChange={(e) => setBrief((current) => ({ ...current, outcome: e.target.value }))} placeholder="Например: оформить заказ за одну минуту" maxLength={240} />
+              <input value={brief.outcome} onChange={(e) => setBrief((current) => ({ ...current, outcome: e.target.value }))} placeholder="Например: оформить заказ за одну минуту" maxLength={240} required aria-required="true" />
             </label>
             <label>Какие функции обязательны в первой версии?
-              <textarea value={brief.essentials} onChange={(e) => setBrief((current) => ({ ...current, essentials: e.target.value }))} placeholder="Например: каталог, корзина, оплата, уведомления" maxLength={600} rows={3} />
+              <textarea value={brief.essentials} onChange={(e) => setBrief((current) => ({ ...current, essentials: e.target.value }))} placeholder="Например: каталог, корзина, оплата, уведомления" maxLength={600} rows={3} required aria-required="true" />
             </label>
             <label>Ограничения или пожелания <span>необязательно</span>
               <input value={brief.constraints} onChange={(e) => setBrief((current) => ({ ...current, constraints: e.target.value }))} placeholder="Например: только мобильная версия, светлый стиль" maxLength={400} />
