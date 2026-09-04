@@ -43,12 +43,18 @@ export function DevStudioView() {
   const { projects, fetchProjects, loading, error } = useOsgardStore()
   const [idea, setIdea] = useState("")
   const [wizardOpen, setWizardOpen] = useState(false)
+  const canCreateProject = idea.trim().length > 0
+
+  function startProjectCreation() {
+    if (!canCreateProject) return
+    setWizardOpen(true)
+  }
 
   /* ── Голос как полноценный вход, а не кнопка сбоку ──
      Раньше распознанное молча дописывалось в textarea: человек говорил
      и не понимал, услышали ли его и что именно разобрали. Теперь речь
      попадает в отдельную карточку-расшифровку с явным подтверждением
-     («Собрать») или правкой («Исправить»). Текст один и тот же — поле
+     («Создать проект») или правкой («Исправить»). Текст один и тот же — поле
      ввода остаётся источником правды, карточка лишь показывает, что
      пришло голосом, и предлагает следующий шаг. */
   const [heard, setHeard] = useState<string | null>(null)
@@ -138,7 +144,7 @@ export function DevStudioView() {
             <div className="mt-4 flex flex-wrap items-center gap-2.5">
               <button
                 type="button"
-                onClick={() => setWizardOpen(true)}
+                onClick={startProjectCreation}
                 className="dev-btn dev-btn--gold"
                 aria-label="Всё верно — перейти к созданию приложения"
               >
@@ -159,16 +165,17 @@ export function DevStudioView() {
         ) : null}
 
         {/* Пока расшифровка на экране, эта кнопка была бы вторым золотым
-            пятном и спорила бы с «Собрать» за внимание. */}
+            пятном и спорила бы с основным действием «Создать проект». */}
         {heard && !voice.isListening ? null : (
           <button
             type="button"
-            onClick={() => setWizardOpen(true)}
-            className="dev-btn dev-btn--gold mt-4"
-            aria-label="Создать проект — открыть мастер генерации приложения"
+            onClick={startProjectCreation}
+            disabled={!canCreateProject}
+            className="dev-btn dev-btn--gold mt-4 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Создать проект по описанию идеи"
           >
             <Sparkles size={16} strokeWidth={1.75} aria-hidden="true" />
-            Создать проект
+            {canCreateProject ? "Создать проект" : "Сначала опишите проект"}
           </button>
         )}
       </section>
