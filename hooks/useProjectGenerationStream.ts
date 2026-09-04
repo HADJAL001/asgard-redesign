@@ -226,6 +226,7 @@ export function useProjectGenerationStream(
     }
 
     const connect = () => {
+      if (closed || terminated) return
       source = new EventSource(`/api/projects/${projectId}/stream`, { withCredentials: true })
 
       source.onopen = () => {
@@ -254,7 +255,10 @@ export function useProjectGenerationStream(
         // Сервер закрывает поток после терминала — это НЕ ошибка, не реконнектимся.
         if (closed || terminated) return
         attempts += 1
-        const delay = Math.min(30_000, 1000 * attempts)
+        // Back off quickly during outages and add jitter so many clients do not
+        // reconnect in the same millisecond after a shared backend failure.
+        const baseDelay = Math.min(30_000, 1000 * 2 ** Math.min(attempts - 1, 5))
+        const delay = Math.round(baseDelay * (0.8 + Math.random() * 0.4))
         reconnectTimer = setTimeout(connect, delay)
       }
     }
