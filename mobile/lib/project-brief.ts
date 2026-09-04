@@ -5,8 +5,16 @@ export type ProjectBriefAnswers = {
   constraints?: string;
 };
 
+const MINIMUM_ANSWER_LENGTH = 3;
+
+export function isProjectBriefAnswerComplete(answer: string): boolean {
+  return Array.from(answer.trim()).length >= MINIMUM_ANSWER_LENGTH;
+}
+
 export function isProjectBriefComplete(brief: ProjectBriefAnswers): boolean {
-  return Boolean(brief.audience.trim() && brief.outcome.trim() && brief.essentials.trim());
+  return isProjectBriefAnswerComplete(brief.audience)
+    && isProjectBriefAnswerComplete(brief.outcome)
+    && isProjectBriefAnswerComplete(brief.essentials);
 }
 
 export function buildProjectBrief(idea: string, brief: ProjectBriefAnswers): string {

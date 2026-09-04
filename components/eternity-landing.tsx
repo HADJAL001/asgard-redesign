@@ -20,7 +20,7 @@ import { useAuth } from "@/lib/auth-store"
 import { generateProjectFromIdea } from "@/lib/project-generation"
 import { savePendingGeneration } from "@/lib/pending-generation"
 import { startGuestSession } from "@/lib/guest-session"
-import { buildProjectBrief, isProjectBriefComplete } from "@/lib/project-brief"
+import { buildProjectBrief, isProjectBriefAnswerComplete, isProjectBriefComplete } from "@/lib/project-brief"
 import { track } from "@/lib/analytics"
 import { Reveal } from "@/components/landing/Reveal"
 import {
@@ -302,7 +302,7 @@ export function EternityLanding() {
     e.preventDefault()
     if (!briefIdea || submitting) return
     if (briefStep < 3) {
-      if (!briefStepValue.trim()) return
+      if (!isProjectBriefAnswerComplete(briefStepValue)) return
       setBriefStep((current) => Math.min(3, current + 1))
       return
     }
@@ -363,7 +363,7 @@ export function EternityLanding() {
             </label>
             <div className="project-brief-actions">
               <button type="button" onClick={() => briefStep > 0 ? setBriefStep((current) => current - 1) : setBriefIdea(null)}>{briefStep > 0 ? t("projectWizard.back") : t("landing.briefBack")}</button>
-              <button type="submit" disabled={(briefStep < 3 && !briefStepValue.trim()) || (briefStep === 3 && !briefReady) || submitting}>{briefStep === 3 ? t("landing.briefStart") : t("projectWizard.next")} <ArrowRight size={17} aria-hidden="true" /></button>
+              <button type="submit" disabled={(briefStep < 3 && !isProjectBriefAnswerComplete(briefStepValue)) || (briefStep === 3 && !briefReady) || submitting}>{briefStep === 3 ? t("landing.briefStart") : t("projectWizard.next")} <ArrowRight size={17} aria-hidden="true" /></button>
             </div>
           </form>
         </div>

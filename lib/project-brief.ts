@@ -6,6 +6,11 @@ export type ProjectBriefAnswers = {
 }
 
 const REQUIRED_FIELDS = ["Аудитория", "Результат", "Обязательные функции"] as const
+const MINIMUM_ANSWER_LENGTH = 3
+
+export function isProjectBriefAnswerComplete(answer: string): boolean {
+  return Array.from(answer.trim()).length >= MINIMUM_ANSWER_LENGTH
+}
 
 function valueForField(brief: string, field: string): string | null {
   const match = brief.match(new RegExp(`(?:^|\\n)${field}:\\s*([^\\n]+)`, "u"))
@@ -13,7 +18,9 @@ function valueForField(brief: string, field: string): string | null {
 }
 
 export function isProjectBriefComplete(answers: ProjectBriefAnswers): boolean {
-  return !!answers.audience.trim() && !!answers.outcome.trim() && !!answers.essentials.trim()
+  return isProjectBriefAnswerComplete(answers.audience)
+    && isProjectBriefAnswerComplete(answers.outcome)
+    && isProjectBriefAnswerComplete(answers.essentials)
 }
 
 export function buildProjectBrief(idea: string, answers: ProjectBriefAnswers): string {

@@ -1,4 +1,4 @@
-import { buildProjectBrief, isProjectBriefComplete } from '../project-brief';
+import { buildProjectBrief, isProjectBriefAnswerComplete, isProjectBriefComplete } from '../project-brief';
 
 describe('project brief', () => {
   const answers = {
@@ -11,6 +11,9 @@ describe('project brief', () => {
   it('requires audience, outcome, and essentials before generation', () => {
     expect(isProjectBriefComplete(answers)).toBe(true);
     expect(isProjectBriefComplete({ ...answers, outcome: ' ' })).toBe(false);
+    expect(isProjectBriefComplete({ ...answers, outcome: 'ok' })).toBe(false);
+    expect(isProjectBriefAnswerComplete('goal')).toBe(true);
+    expect(isProjectBriefAnswerComplete('x')).toBe(false);
   });
 
   it('builds the same structured brief as the web platform', () => {

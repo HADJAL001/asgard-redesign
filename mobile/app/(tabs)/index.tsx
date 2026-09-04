@@ -12,7 +12,7 @@ import { useProjectsQuery, PROJECTS_QUERY_KEY } from '@/hooks/useProjectsQuery';
 import { createProject, fetchGenerationDepths, type GenerationDepthOption } from '@/lib/projects-api';
 import { ApiError } from '@/lib/api-client';
 import { queryClient } from '@/lib/queryClient';
-import { buildProjectBrief, isProjectBriefComplete } from '@/lib/project-brief';
+import { buildProjectBrief, isProjectBriefAnswerComplete, isProjectBriefComplete } from '@/lib/project-brief';
 
 type Depth = 'quick' | 'standard' | 'deep';
 
@@ -56,7 +56,7 @@ export default function CreateScreen() {
   }, [busy, hint]);
 
   const advanceBrief = useCallback(() => {
-    if (!briefStepValue.trim()) return;
+    if (!isProjectBriefAnswerComplete(briefStepValue)) return;
     setBriefStep((current) => Math.min(3, current + 1));
     Haptics.selectionAsync();
   }, [briefStepValue]);
@@ -160,9 +160,9 @@ export default function CreateScreen() {
 
         {error && <View className="flex-row items-start gap-2 rounded-xl border border-down/40 bg-down/10 px-3 py-3"><XCircle size={17} color="#FB7185" /><Text className="flex-1 text-sm text-down">{error}</Text></View>}
 
-        <Pressable testID="project-generate-button" onPress={briefOpen ? (isBriefLastStep ? submit : advanceBrief) : openBrief} disabled={briefOpen ? (isBriefLastStep ? !briefReady || busy : !briefStepValue.trim() || busy) : !hint.trim() || busy} accessibilityRole="button" accessibilityState={{ disabled: briefOpen ? (isBriefLastStep ? !briefReady || busy : !briefStepValue.trim() || busy) : !hint.trim() || busy }} className={`flex-row items-center justify-center gap-2 rounded-xl px-4 py-4 ${(briefOpen ? (isBriefLastStep ? briefReady : briefStepValue.trim()) : hint.trim()) && !busy ? 'bg-accent' : 'bg-border'}`}>
-          <WandSparkles size={18} color={(briefOpen ? (isBriefLastStep ? briefReady : briefStepValue.trim()) : hint.trim()) && !busy ? '#07111F' : '#77809A'} />
-          <Text className={`text-base font-bold ${(briefOpen ? (isBriefLastStep ? briefReady : briefStepValue.trim()) : hint.trim()) && !busy ? 'text-bg' : 'text-muted'}`}>{busy ? 'Создаю проект…' : briefOpen ? (isBriefLastStep ? 'Начать создание' : 'Далее') : 'Уточнить проект'}</Text>
+        <Pressable testID="project-generate-button" onPress={briefOpen ? (isBriefLastStep ? submit : advanceBrief) : openBrief} disabled={briefOpen ? (isBriefLastStep ? !briefReady || busy : !isProjectBriefAnswerComplete(briefStepValue) || busy) : !hint.trim() || busy} accessibilityRole="button" accessibilityState={{ disabled: briefOpen ? (isBriefLastStep ? !briefReady || busy : !isProjectBriefAnswerComplete(briefStepValue) || busy) : !hint.trim() || busy }} className={`flex-row items-center justify-center gap-2 rounded-xl px-4 py-4 ${(briefOpen ? (isBriefLastStep ? briefReady : isProjectBriefAnswerComplete(briefStepValue)) : hint.trim()) && !busy ? 'bg-accent' : 'bg-border'}`}>
+          <WandSparkles size={18} color={(briefOpen ? (isBriefLastStep ? briefReady : isProjectBriefAnswerComplete(briefStepValue)) : hint.trim()) && !busy ? '#07111F' : '#77809A'} />
+          <Text className={`text-base font-bold ${(briefOpen ? (isBriefLastStep ? briefReady : isProjectBriefAnswerComplete(briefStepValue)) : hint.trim()) && !busy ? 'text-bg' : 'text-muted'}`}>{busy ? 'Создаю проект…' : briefOpen ? (isBriefLastStep ? 'Начать создание' : 'Далее') : 'Уточнить проект'}</Text>
         </Pressable>
 
         <View className="flex-row items-center gap-2 pb-4"><CheckCircle2 size={16} color="#34D399" /><Text className="flex-1 text-xs leading-4 text-muted">Оплата и лимит списываются только после готовности конвейера. Статус и расход токенов видны в карточке проекта.</Text></View>

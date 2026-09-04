@@ -31,6 +31,10 @@ test("rendered project brief is explicitly data rather than prompt instructions"
 test("generation is blocked until the interview has all required answers", () => {
   assert.equal(hasCompleteProjectBrief("Приложение\nАудитория: команды"), false)
   assert.equal(
+    hasCompleteProjectBrief("Приложение\nАудитория: я\nРезультат: ок\nОбязательные функции: x"),
+    false,
+  )
+  assert.equal(
     hasCompleteProjectBrief("Приложение\nАудитория: команды\nРезультат: видеть задачи\nОбязательные функции: доска"),
     true,
   )

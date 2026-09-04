@@ -13,6 +13,8 @@ test("the landing page interviews the creator before generation", async ({ page 
   const brief = page.locator(".project-brief-card")
   const next = brief.locator(".project-brief-actions button").last()
   await expect(brief.locator(".project-brief-progress")).toHaveText("1 / 4")
+  await brief.locator("input").fill("я")
+  await expect(next).toBeDisabled()
   await brief.locator("input").fill("Владельцы небольших кафе")
   await next.click()
   await brief.locator("input").fill("Гость бронирует столик за минуту")

@@ -12,6 +12,7 @@ const FIELD_LABELS = {
   essentials: "Обязательные функции",
   constraints: "Ограничения",
 } as const
+const MINIMUM_ANSWER_LENGTH = 3
 
 function fieldValue(source: string, label: string): string | undefined {
   const match = source.match(new RegExp(`(?:^|\\n)${label}:\\s*([^\\n]+)`, "u"))
@@ -36,7 +37,11 @@ export function parseProductBrief(hint: string | undefined): ProductBrief | null
 /** Generation starts only after the three product-defining interview answers. */
 export function hasCompleteProjectBrief(hint: string | undefined): boolean {
   const brief = parseProductBrief(hint)
-  return Boolean(brief?.audience && brief.outcome && brief.essentials)
+  return Boolean(
+    brief?.audience && Array.from(brief.audience).length >= MINIMUM_ANSWER_LENGTH
+    && brief.outcome && Array.from(brief.outcome).length >= MINIMUM_ANSWER_LENGTH
+    && brief.essentials && Array.from(brief.essentials).length >= MINIMUM_ANSWER_LENGTH,
+  )
 }
 
 /** Keeps user input as data, never as higher-priority generator instructions. */
