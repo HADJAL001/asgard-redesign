@@ -450,7 +450,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                     </label>
                     <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: COLORS.label }}>
                       <Coins size={12} strokeWidth={1.75} />
-                      Баланс: {wallet.timecoin} TimeCoin
+                      {t("projectWizard.balance", { balance: wallet.timecoin })}
                     </span>
                   </div>
                   <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -483,7 +483,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                             style={{ color: d.credits > 0 ? COLORS.amber : COLORS.green }}
                           >
                             <Coins size={11} strokeWidth={2} />
-                            1 TimeCoin
+                            {d.credits > 0 ? t("projectWizard.depthCost", { cost: d.credits }) : t("projectWizard.depthFree")}
                           </span>
                           {costBadge && (
                             <span className="text-[10px]" style={{ color: COLORS.label }}>
