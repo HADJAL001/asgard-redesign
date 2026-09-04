@@ -141,8 +141,18 @@ export function EternityLanding() {
     // Keep the project's visual signature, but reserve initial main-thread time
     // for the page title and the project-creation field.
     let timer: number | undefined
+    let idleCallback: number | undefined
+    const idleWindow = window as unknown as {
+      requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+      cancelIdleCallback?: (handle: number) => void
+    }
     const startGlobe = () => {
-      timer = window.setTimeout(() => setGlobeReady(true), 300)
+      const showGlobe = () => setGlobeReady(true)
+      if (typeof idleWindow.requestIdleCallback === "function") {
+        idleCallback = idleWindow.requestIdleCallback(showGlobe, { timeout: 1_200 })
+      } else {
+        timer = window.setTimeout(showGlobe, 300)
+      }
     }
 
     if (document.readyState === "complete") startGlobe()
@@ -151,6 +161,7 @@ export function EternityLanding() {
     return () => {
       window.removeEventListener("load", startGlobe)
       if (timer !== undefined) window.clearTimeout(timer)
+      if (idleCallback !== undefined) idleWindow.cancelIdleCallback?.(idleCallback)
     }
   }, [])
 
