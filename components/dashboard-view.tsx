@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   FolderKanban,
@@ -25,7 +25,7 @@ import { DailyRewardCard } from "./DailyRewardCard"
 import { apiClient } from "@/lib/api-client"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { useAuth } from "@/lib/auth-store"
-import { savePendingGeneration, takePendingGeneration } from "@/lib/pending-generation"
+import { savePendingGeneration, takePendingGeneration, type PendingGeneration } from "@/lib/pending-generation"
 import { formatTokens, badgeIcon } from "@/lib/economy"
 import { fmtTC } from "@/lib/tc-market"
 
@@ -88,7 +88,27 @@ export function DashboardView() {
      takePendingGeneration() → в StrictMode/повторном заходе не сработает дважды. */
   const [autoGenName, setAutoGenName] = useState<string | null>(null)
   const [autoGenError, setAutoGenError] = useState<string | null>(null)
+  const [autoGenIntent, setAutoGenIntent] = useState<PendingGeneration | null>(null)
   const pendingRanRef = useRef(false)
+
+  const runPendingGeneration = useCallback(async (intent: PendingGeneration) => {
+    setAutoGenError(null)
+    setAutoGenName(intent.name || intent.hint || null)
+    try {
+      const res = await generateProject(intent.name, intent.hint, intent.depth)
+      if (res.success && res.project) {
+        router.push(`/projects/${res.project.id}`)
+        return
+      }
+      savePendingGeneration({ name: intent.name, hint: intent.hint, depth: intent.depth })
+      setAutoGenName(null)
+      setAutoGenError(res.error || "Не удалось запустить генерацию проекта")
+    } catch {
+      savePendingGeneration({ name: intent.name, hint: intent.hint, depth: intent.depth })
+      setAutoGenName(null)
+      setAutoGenError("Не удалось запустить генерацию проекта")
+    }
+  }, [generateProject, router])
 
   useEffect(() => {
     if (pendingRanRef.current) return
@@ -96,26 +116,11 @@ export function DashboardView() {
     const intent = takePendingGeneration()
     if (!intent) return
     pendingRanRef.current = true
+    Promise.resolve().then(() => setAutoGenIntent(intent))
+    // The effect consumes an external localStorage intent and intentionally starts one async action.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAutoGenName(intent.name || intent.hint || null)
-    ;(async () => {
-      try {
-        const res = await generateProject(intent.name, intent.hint, intent.depth)
-        if (res.success && res.project) {
-          router.push(`/projects/${res.project.id}`)
-          return
-        }
-        savePendingGeneration({ name: intent.name, hint: intent.hint, depth: intent.depth })
-        setAutoGenName(null)
-        setAutoGenError(res.error || "Не удалось запустить генерацию проекта")
-      } catch {
-        savePendingGeneration({ name: intent.name, hint: intent.hint, depth: intent.depth })
-        setAutoGenName(null)
-        setAutoGenError("Не удалось запустить генерацию проекта")
-      }
-    })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated])
+    void runPendingGeneration(intent)
+  }, [isAuthenticated, runPendingGeneration])
 
   useEffect(() => {
     let cancelled = false
@@ -266,11 +271,11 @@ export function DashboardView() {
             </div>
             <button
               type="button"
-              onClick={() => router.push("/projects")}
+              onClick={() => autoGenIntent && void runPendingGeneration(autoGenIntent)}
               className="shrink-0 rounded-lg px-3 py-1.5 text-[12px] font-medium"
               style={{ border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
             >
-              Создать вручную
+              Повторить
             </button>
             <button
               onClick={() => setAutoGenError(null)}
