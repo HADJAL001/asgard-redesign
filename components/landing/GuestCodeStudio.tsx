@@ -1,14 +1,13 @@
 "use client"
 
 /* ================================================================
-   OSGARD · GuestCodeStudio — гостевая студия сборки кода
+   OSGARD · GuestCodeStudio — гостевая студия создания проекта
    ----------------------------------------------------------------
    Компонует форму → статус генерации → Monaco-вьюер → живой
    предпросмотр (WebContainer). Точка входа Part 2 плана.
 
    НЕ смонтирована в eternity-landing.tsx (тот в работе у сессии A).
-   Готова к вставке как <GuestCodeStudio /> под отдельным CTA
-   «Собрать код прямо сейчас» после ✅ Фазы 3.
+   Экран принимает идею проекта и показывает созданный результат.
 
    Backend анонимного пайплайна делает сессия A. Пока API нет,
    useGuestCodeGeneration (DEFAULT_ADAPTER) честно показывает статус
@@ -43,19 +42,20 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
 
   return (
     <section
-      aria-label="Гостевая студия сборки кода"
+      aria-label="Создание проекта из идеи"
       style={{ maxWidth: 960, margin: "0 auto", width: "100%", padding: "48px 24px", boxSizing: "border-box" }}
     >
-      <h2 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 6px" }}>Собери код прямо сейчас</h2>
+      <h2 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 6px" }}>Создайте проект из идеи</h2>
       <p style={{ opacity: 0.6, margin: "0 0 24px", fontSize: 15 }}>
-        Опиши идею — ДЖАРВИС сгенерирует реальный проект, который можно тут же посмотреть и запустить.
+        Опишите замысел, а OSGARD подготовит структуру проекта, рабочие файлы и первый результат для проверки.
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Название проекта (например: «Лендинг для кофейни»)"
+          placeholder="Название проекта, например: «Лендинг для кофейни»"
+          aria-label="Название проекта"
           disabled={isBusy}
           style={{
             width: "100%",
@@ -71,7 +71,8 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
         <textarea
           value={hint}
           onChange={(e) => setHint(e.target.value)}
-          placeholder="Детали (необязательно): что должно быть на странице, стиль, функции…"
+          placeholder="Что должен делать проект? Добавьте функции, аудиторию и желаемый стиль"
+          aria-label="Описание проекта"
           disabled={isBusy}
           rows={3}
           style={{
@@ -105,7 +106,7 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
             }}
           >
             {isBusy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            {isBusy ? "Генерирую…" : "Сгенерировать"}
+            {isBusy ? "Создаю проект…" : "Создать проект"}
           </button>
           {(phase === "done" || phase === "error" || phase === "unavailable") && (
             <button
