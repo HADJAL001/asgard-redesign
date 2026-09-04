@@ -79,9 +79,9 @@ export function DevStudioView() {
     <>
       {/* ── Главное действие ── */}
       <section className="pt-6 md:pt-10">
-        <h1 className="dev-title text-[30px] leading-tight md:text-[38px]">Что построим?</h1>
+        <h1 className="dev-title text-[30px] leading-tight md:text-[38px]">Какой проект создаём?</h1>
         <p className="mt-2 text-[14px]" style={{ color: "rgb(148 163 184 / 90%)" }}>
-          Опишите приложение словами — голосом или текстом. Агенты соберут настоящий код.
+          Опишите идею голосом или текстом — OSGARD создаст проект и подготовит его к развитию.
         </p>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-start">
@@ -142,7 +142,7 @@ export function DevStudioView() {
                 className="dev-btn dev-btn--gold"
                 aria-label="Всё верно — перейти к созданию приложения"
               >
-                Собрать
+                Создать проект
                 <ArrowRight size={15} strokeWidth={1.75} aria-hidden="true" />
               </button>
               <button
