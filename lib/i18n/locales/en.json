@@ -666,9 +666,9 @@
     "cancel": "Cancel",
     "back": "Back",
     "next": "Next",
-    "generate": "Generate",
-    "generating": "Generating…",
-    "generatingApp": "AI is generating a full application… this can take a couple of minutes",
+    "generate": "Create project",
+    "generating": "Creating project…",
+    "generatingApp": "Creating a working project… this can take a couple of minutes",
     "startingGeneration": "Starting generation from your idea…",
     "generationFailed": "Failed to generate application files",
     "errorGenerate": "Failed to generate project"
