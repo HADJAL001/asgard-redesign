@@ -717,6 +717,9 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     | undefined
   if (!wallet) return res.status(402).json({ error: "Кошелёк не найден", code: "NO_WALLET" })
   if (wallet.credits < cost) {
+    // The TimeCoin admission charge happens before the depth-specific credit check.
+    // Return it before rejecting so an unavailable paid depth never costs the user.
+    refundProjectCharge()
     return res.status(402).json({
       error: `Недостаточно кредитов для глубины «${depthCfg.label}». Требуется ${cost}, доступно ${wallet.credits}.`,
       code: "INSUFFICIENT_CREDITS",
