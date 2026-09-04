@@ -139,6 +139,10 @@ export function ProjectsView() {
           </button>
         </form>
 
+        <p className="sr-only" role="status" aria-live="polite">
+          {loading ? t("projects.loading") : ""}
+        </p>
+
         {/* Summary */}
         <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
           {[
