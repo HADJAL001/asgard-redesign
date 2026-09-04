@@ -1,20 +1,12 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { PageLoader } from "@/components/osgard-loader"
 import { useEffect } from "react"
 import { Infinity as InfinityIcon } from "lucide-react"
 
 import { useAuth } from "@/lib/auth-store"
 import { captureReferralCode } from "@/lib/referral"
-
-const EternityLanding = dynamic(
-  () => import("@/components/eternity-landing").then((m) => m.EternityLanding),
-  {
-    loading: () => <PageLoader />,
-    ssr: false,
-  }
-)
+import { EternityLanding } from "@/components/eternity-landing"
 
 const PlatformMap = dynamic(
   () => import("@/components/platform-map/PlatformMap").then((m) => m.PlatformMap),
