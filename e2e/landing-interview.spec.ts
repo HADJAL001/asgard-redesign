@@ -57,3 +57,10 @@ test("the landing globe renders and keeps moving", async ({ page }) => {
   expect(firstFrame.equals(secondFrame)).toBe(false)
   expect(browserWarnings.some((message) => message.includes("THREE.Clock"))).toBe(false)
 })
+
+test("the landing defers global assistant UI until the creator enters the product", async ({ page }) => {
+  await page.goto("/")
+  await page.waitForTimeout(1_700)
+
+  await expect(page.getByRole("button", { name: /JARVIS/i })).toHaveCount(0)
+})

@@ -16,6 +16,7 @@
    ================================================================ */
 
 import dynamic from "next/dynamic"
+import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { useDevMode } from "@/lib/dev-mode"
 
@@ -26,6 +27,7 @@ const JarvisFloatingWidget = dynamic(
 
 export function WorldOnlyLayers() {
   const { mode } = useDevMode()
+  const pathname = usePathname()
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -36,6 +38,6 @@ export function WorldOnlyLayers() {
     return () => window.clearTimeout(timer)
   }, [])
 
-  if (mode === "dev" || !ready) return null
+  if (mode === "dev" || pathname === "/" || !ready) return null
   return <JarvisFloatingWidget />
 }
