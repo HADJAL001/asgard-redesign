@@ -233,15 +233,62 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
 
   /* Живой лог рождения/доработки приложения. На терминальной стадии тянем
      свежий проект, файлы, ленту правок и свежий вердикт — экран оживает без релоада. */
-  const onGenerationDone = useCallback(() => {
-    fetchProject(projectId, { skipAuthRedirect: true })
-    fetchProjectFiles(projectId, { skipAuthRedirect: true })
-    fetchProjectRefinements(projectId)
-    fetchProjectEngineering(projectId)
+  const onGenerationDone = useCallback(async () => {
+    await Promise.all([
+      fetchProject(projectId, { skipAuthRedirect: true }),
+      fetchProjectFiles(projectId, { skipAuthRedirect: true }),
+      fetchProjectRefinements(projectId),
+      fetchProjectEngineering(projectId),
+    ])
     setRepairing(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
   const genStream = useProjectGenerationStream(projectId, isGenerating, onGenerationDone)
+
+  /* SSE gives the immediate narrative, but it is a transport enhancement, not
+     the source of truth. Keep a low-frequency status sync while a job runs so
+     a proxy/network interruption cannot leave the workspace on "Generating"
+     after the server has already reached ready or failed. */
+  useEffect(() => {
+    if (!isGenerating) return
+
+    let cancelled = false
+    let startTimer: ReturnType<typeof setTimeout> | undefined
+    let retryTimer: ReturnType<typeof setTimeout> | undefined
+
+    const wait = (ms: number, timer: "start" | "retry") =>
+      new Promise<void>((resolve) => {
+        const done = () => resolve()
+        if (timer === "start") startTimer = setTimeout(done, ms)
+        else retryTimer = setTimeout(done, ms)
+      })
+
+    const syncTerminalState = async () => {
+      // Let SSE deliver its buffered stages first; polling then acts only as
+      // a resilient confirmation channel.
+      await wait(8_000, "start")
+      while (!cancelled) {
+        const project = await pollProjectStatus(projectId)
+        if (cancelled) return
+
+        if (project && project.status !== "generating") {
+          await onGenerationDone()
+          return
+        }
+
+        // A valid long-running generation may exceed one polling window.
+        // Restart the bounded poll rather than silently abandoning it.
+        await wait(5_000, "retry")
+      }
+    }
+
+    void syncTerminalState()
+    return () => {
+      cancelled = true
+      if (startTimer) clearTimeout(startTimer)
+      if (retryTimer) clearTimeout(retryTimer)
+    }
+  }, [isGenerating, onGenerationDone, pollProjectStatus, projectId])
 
   /* Выбор файла: держим валидный выбор при любом обновлении списка. */
   useEffect(() => {
