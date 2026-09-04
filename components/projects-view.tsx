@@ -157,7 +157,7 @@ export function ProjectsView() {
 
         {/* Loading */}
         {loading && projects.length === 0 && (
-          <div className="mt-16 flex flex-col items-center gap-3 text-center">
+          <div className="mt-16 flex flex-col items-center gap-3 text-center" role="status" aria-live="polite">
             <Loader2 size={28} className="animate-spin" style={{ color: COLORS.accent }} />
             <p className="text-[14px]" style={{ color: COLORS.label }}>{t("projects.loading")}</p>
           </div>
