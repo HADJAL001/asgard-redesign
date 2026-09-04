@@ -8,7 +8,8 @@
     "dev:all": "concurrently --kill-others-on-fail --names \"frontend,backend\" --prefix-colors \"cyan,yellow\" \"next dev\" \"cd backend && npm run dev\"",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

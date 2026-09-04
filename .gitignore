@@ -25,6 +25,8 @@ backend/out/
 
 # Playwright MCP debug artifacts (console logs, page snapshots/screenshots)
 .playwright-mcp/
+playwright-report/
+test-results/
 
 # Ad-hoc dev/test run logs and TypeScript incremental build cache
 *.log

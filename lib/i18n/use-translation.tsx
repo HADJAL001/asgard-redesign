@@ -39,18 +39,23 @@ type I18nContextValue = {
 const I18nContext = createContext<I18nContextValue | null>(null)
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() =>
-    typeof window === "undefined" ? "ru" : detectLocale(),
-  )
+  // Keep the first client render identical to SSR. Reading browser storage or
+  // navigator.language here would produce a hydration mismatch for non-RU browsers.
+  const [locale, setLocaleState] = useState<Locale>("ru")
 
   useEffect(() => {
+    const localeFrame = window.requestAnimationFrame(() => setLocaleState(detectLocale()))
+
     function handleChange(e: Event) {
       const detail = (e as CustomEvent<Locale>).detail
       if (detail) setLocaleState(detail)
     }
 
     window.addEventListener(LANG_CHANGE_EVENT, handleChange)
-    return () => window.removeEventListener(LANG_CHANGE_EVENT, handleChange)
+    return () => {
+      window.cancelAnimationFrame(localeFrame)
+      window.removeEventListener(LANG_CHANGE_EVENT, handleChange)
+    }
   }, [])
 
   useEffect(() => {
