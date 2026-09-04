@@ -3,7 +3,7 @@ jest.mock('@/lib/api-client', () => ({
 }));
 
 import { apiClient } from '@/lib/api-client';
-import { createProject } from '../projects-api';
+import { createProject, fetchGenerationDepths } from '../projects-api';
 
 const mockedApiClient = apiClient as jest.Mocked<typeof apiClient>;
 
@@ -33,5 +33,13 @@ describe('projects-api', () => {
       depth: 'deep',
       profile: 'static',
     });
+  });
+
+  it('loads the public generation depth catalogue from the backend', async () => {
+    const depths = [{ id: 'quick', label: 'Быстрая', description: 'В квоте', credits: 0, countsAgainstQuota: true }];
+    mockedApiClient.get.mockResolvedValue({ depths });
+
+    await expect(fetchGenerationDepths()).resolves.toBe(depths);
+    expect(mockedApiClient.get).toHaveBeenCalledWith('/projects/generation-depths');
   });
 });

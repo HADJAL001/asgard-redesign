@@ -1,6 +1,14 @@
 import { apiClient } from '@/lib/api-client';
 import type { OsgardProject, ProjectFile, ProjectRefinement } from '@/types/project';
 
+export type GenerationDepthOption = {
+  id: 'quick' | 'standard' | 'deep';
+  label: string;
+  description: string;
+  credits: number;
+  countsAgainstQuota: boolean;
+};
+
 export async function fetchProjects(): Promise<OsgardProject[]> {
   const data = await apiClient.get<{ projects: OsgardProject[] }>('/projects/mine');
   return data.projects;
@@ -24,6 +32,11 @@ export async function createProject(input: {
     profile: 'static',
   });
   return data.project;
+}
+
+export async function fetchGenerationDepths(): Promise<GenerationDepthOption[]> {
+  const data = await apiClient.get<{ depths: GenerationDepthOption[] }>('/projects/generation-depths');
+  return data.depths;
 }
 
 export async function fetchProjectFiles(id: number): Promise<ProjectFile[]> {
