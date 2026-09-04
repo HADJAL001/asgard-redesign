@@ -60,18 +60,18 @@ type DepthOption = {
 }
 
 const THEMES: Theme[] = [
-  { id: "scifi", label: "Sci-Fi", hint: "научно-фантастическая вселенная, космос, технологии будущего", badge: "rocket" },
-  { id: "fantasy", label: "Fantasy", hint: "фэнтезийный мир, магия, мифические существа", badge: "wand" },
-  { id: "cyberpunk", label: "Cyberpunk", hint: "киберпанк, неон, мегаполисы, хакеры, импланты", badge: "cpu" },
-  { id: "mythology", label: "Mythology", hint: "древняя мифология, боги и герои, легенды", badge: "crown" },
-  { id: "steampunk", label: "Steampunk", hint: "стимпанк, паровые механизмы, викторианская эпоха", badge: "cog" },
-  { id: "postapoc", label: "Post-Apocalypse", hint: "постапокалипсис, выживание, руины цивилизации", badge: "skull" },
-  { id: "horror", label: "Horror", hint: "мистический хоррор, потусторонние сущности, страх и напряжение", badge: "eye" },
-  { id: "pirates", label: "Pirates", hint: "пиратские приключения, океаны, сокровища, абордажи", badge: "compass" },
-  { id: "superhero", label: "Superhero", hint: "супергерои, суперспособности, спасение мира", badge: "shieldcheck" },
-  { id: "noir", label: "Noir", hint: "детектив-нуар, расследования, тайны большого города", badge: "target" },
-  { id: "western", label: "Western", hint: "дикий запад, ковбои, перестрелки, золотая лихорадка", badge: "trophy" },
-  { id: "atlantis", label: "Atlantis", hint: "затонувшая цивилизация, подводный мир, древние артефакты", badge: "gem" },
+  { id: "website", label: "Сайт", hint: "современный сайт с понятной структурой, адаптивной вёрсткой и целевым действием", badge: "rocket" },
+  { id: "webapp", label: "Веб-приложение", hint: "веб-приложение с интерфейсом, состояниями и полезными сценариями для пользователя", badge: "cpu" },
+  { id: "mobile", label: "Мобильное приложение", hint: "мобильное приложение с простым и удобным сценарием использования", badge: "smartphone" },
+  { id: "marketplace", label: "Маркетплейс", hint: "маркетплейс с каталогом, карточками предложений и пользовательскими действиями", badge: "shoppingbag" },
+  { id: "dashboard", label: "Личный кабинет", hint: "рабочий кабинет с данными, статусами, фильтрами и быстрыми действиями", badge: "layoutdashboard" },
+  { id: "community", label: "Сообщество", hint: "платформа сообщества с профилями, публикациями и взаимодействием участников", badge: "users" },
+  { id: "booking", label: "Запись и бронирование", hint: "сервис записи с выбором услуги, времени, подтверждением и уведомлениями", badge: "calendarcheck" },
+  { id: "store", label: "Интернет-магазин", hint: "магазин с каталогом, корзиной, оформлением заказа и понятной витриной", badge: "store" },
+  { id: "education", label: "Обучение", hint: "образовательный продукт с уроками, прогрессом и практическими заданиями", badge: "graduationcap" },
+  { id: "productivity", label: "Рабочий сервис", hint: "сервис для командной работы, задач, процессов и контроля результата", badge: "briefcasebusiness" },
+  { id: "content", label: "Медиа-проект", hint: "контентная платформа с публикациями, рубриками и удобным чтением", badge: "newspaper" },
+  { id: "product", label: "Другая идея", hint: "нестандартный цифровой продукт под конкретную задачу и аудиторию", badge: "sparkles" },
 ]
 
 type Props = {
