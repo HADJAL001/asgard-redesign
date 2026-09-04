@@ -20,6 +20,7 @@ export interface GuestStartResult {
   hasProject?: boolean
   projectId?: number | null
   message?: string
+  code?: string
 }
 
 /** Открывает гостевую cookie-сессию. Идемпотентно на стороне сервера:
@@ -33,7 +34,11 @@ export async function startGuestSession(): Promise<GuestStartResult> {
     })
     const data = await r.json().catch(() => null)
     if (!r.ok) {
-      return { ok: false, message: data?.error || "Не удалось создать гостевую сессию" }
+      return {
+        ok: false,
+        message: data?.error || "Не удалось создать гостевую сессию",
+        code: typeof data?.code === "string" ? data.code : undefined,
+      }
     }
     return {
       ok: true,

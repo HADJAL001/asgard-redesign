@@ -155,12 +155,14 @@ export function EternityLanding() {
     // Гость: поднимаем НАСТОЯЩУЮ гостевую сессию (cookie, JWT в JS не попадает) и
     // тут же генерируем реальный проект — первое впечатление без стены регистрации.
     // Проект переедет на аккаунт при регистрации (guest/claim). Если гостевую
-    // сессию поднять не удалось (сеть/лимит по IP) — деградируем к прежнему пути:
-    // сохраняем намерение и уводим на регистрацию.
+    // сессию поднять не удалось из-за лимита по IP — сохраняем намерение и
+    // предлагаем регистрацию. Временная ошибка не должна маскироваться переходом.
     if (!isAuthenticated) {
       setSubmitting(true)
+      let guestResult: Awaited<ReturnType<typeof startGuestSession>> | null = null
       try {
         const guest = await startGuestSession()
+        guestResult = guest
         if (guest.ok) {
           track("guest_generate_start", { existing: !!guest.existing })
           // Уже есть гостевой проект по этому IP — не плодим второй, ведём к нему.
@@ -194,12 +196,18 @@ export function EternityLanding() {
       } catch {
         /* падаем в fallback ниже */
       }
-      // Fallback: гостевую генерацию поднять не вышло — прежний конверсионный путь.
-      // Идея — бриф (hint), не имя: имя выведет бэкенд из неё же (lib/project-title.ts).
-      savePendingGeneration({ hint: query })
-      el.value = ""
+      if (guestResult?.code === "GUEST_LIMIT") {
+        // Идея — бриф (hint), не имя: имя выведет бэкенд из неё же.
+        savePendingGeneration({ hint: query })
+        el.value = ""
+        setSubmitting(false)
+        router.push("/register")
+        return
+      }
+
+      setCreateError(guestResult?.message || t("landing.createError"))
+      flashInputError()
       setSubmitting(false)
-      router.push("/register")
       return
     }
 
