@@ -131,7 +131,7 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
 
       {/* Статус */}
       {isBusy && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, opacity: 0.8, marginBottom: 16 }}>
+        <div role="status" aria-live="polite" style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, opacity: 0.8, marginBottom: 16 }}>
           <Loader2 size={16} className="animate-spin" />
           <span>
             {progress?.message || progress?.stage || "Готовлю проект…"}
@@ -142,6 +142,8 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
 
       {phase === "unavailable" && (
         <div
+          role="status"
+          aria-live="polite"
           style={{
             display: "flex",
             alignItems: "flex-start",
@@ -165,6 +167,7 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
 
       {phase === "error" && (
         <div
+          role="alert"
           style={{
             padding: 16,
             borderRadius: 12,
