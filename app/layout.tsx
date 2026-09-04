@@ -70,8 +70,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             <RouteStoreProvider>
               <AppShell>
                 {children}
-                <Footer />
               </AppShell>
+              <Footer />
             </RouteStoreProvider>
           </AuthProvider>
         </I18nProvider>
