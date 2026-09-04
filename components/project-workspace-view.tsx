@@ -320,20 +320,24 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     if (repairing || isGenerating) return
     setRepairing(true)
     setRepairNotice(null)
-    const res = await repairProject(projectId)
-    if (res.success) {
-      setShowReport(true)
-      /* Ждём завершения контура опросом статуса, а НЕ только терминальной стадией SSE.
-         Причина — реальная гонка, пойманная на живом стенде: механический ремонт без AI
-         успевает закончиться раньше, чем клиент перечитает проект, — статус уже 'ready',
-         поток стадий не включается вовсе, и шаг конвейера навсегда застревал в «идёт
-         проверка». Опрос отрабатывает оба случая: и мгновенный, и долгий (AI-раунды). */
-      await pollProjectStatus(projectId)
-      await fetchProjectEngineering(projectId)
-      setRepairing(false)
-    } else {
-      // 429 — дорогая ручка под лимитом, 409 — идёт генерация. Говорим человеку правду.
-      setRepairNotice(res.error || t("workspace.repairFailed"))
+    try {
+      const res = await repairProject(projectId)
+      if (res.success) {
+        setShowReport(true)
+        /* Ждём завершения контура опросом статуса, а НЕ только терминальной стадией SSE.
+           Причина — реальная гонка, пойманная на живом стенде: механический ремонт без AI
+           успевает закончиться раньше, чем клиент перечитает проект, — статус уже 'ready',
+           поток стадий не включается вовсе, и шаг конвейера навсегда застревал в «идёт
+           проверка». Опрос отрабатывает оба случая: и мгновенный, и долгий (AI-раунды). */
+        await pollProjectStatus(projectId)
+        await fetchProjectEngineering(projectId)
+      } else {
+        // 429 — дорогая ручка под лимитом, 409 — идёт генерация. Говорим человеку правду.
+        setRepairNotice(res.error || t("workspace.repairFailed"))
+      }
+    } catch {
+      setRepairNotice(t("workspace.repairFailed"))
+    } finally {
       setRepairing(false)
     }
   }, [fetchProjectEngineering, isGenerating, pollProjectStatus, projectId, repairProject, repairing, t])
