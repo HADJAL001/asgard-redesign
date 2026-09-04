@@ -451,7 +451,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                     </label>
                     <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: COLORS.label }}>
                       <Coins size={12} strokeWidth={1.75} />
-                      {t("projectWizard.balance", { balance: wallet.timecoin })}
+                      {t("projectWizard.balance", { balance: wallet.credits })}
                     </span>
                   </div>
                   <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -466,11 +466,12 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                           key={d.id}
                           type="button"
                           onClick={() => setDepthId(d.id)}
+                          disabled={tooExpensive}
                           className="flex flex-col items-start gap-1 rounded-lg p-3 text-left transition-colors"
                           style={{
                             border: `1px solid ${active ? COLORS.accent : COLORS.border}`,
                             backgroundColor: active ? "rgba(0,212,255,0.06)" : "transparent",
-                            opacity: tooExpensive && !active ? 0.55 : 1,
+                            opacity: tooExpensive ? 0.55 : 1,
                           }}
                         >
                           <span className="text-[13px] font-medium" style={{ color: active ? COLORS.accent : COLORS.text }}>
