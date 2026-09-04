@@ -191,8 +191,10 @@ export default function GlobeScene() {
 
     let t2 = 0
     let rafId = 0
+    let sceneActive = !document.hidden
 
     function animate() {
+      if (!sceneActive) return
       rafId = requestAnimationFrame(animate)
       t2 += 0.01
 
@@ -210,6 +212,12 @@ export default function GlobeScene() {
     }
     animate()
 
+    const onVisibilityChange = () => {
+      sceneActive = !document.hidden
+      if (sceneActive) animate()
+      else cancelAnimationFrame(rafId)
+    }
+
     const onResize = () => {
       const w = container.clientWidth
       const h = container.clientHeight
@@ -220,10 +228,26 @@ export default function GlobeScene() {
       }
     }
     window.addEventListener("resize", onResize)
+    document.addEventListener("visibilitychange", onVisibilityChange)
 
     return () => {
       cancelAnimationFrame(rafId)
       window.removeEventListener("resize", onResize)
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+      earthGeometry.dispose()
+      earthMaterial.dispose()
+      cloudGeometry.dispose()
+      cloudMaterial.dispose()
+      atmosphereGeometry.dispose()
+      atmosphereMaterial.dispose()
+      starGeometry.dispose()
+      starMaterial.dispose()
+      starGeo2.dispose()
+      starMat2.dispose()
+      mapTexture.dispose()
+      normalTexture.dispose()
+      specularTexture.dispose()
+      cloudTexture.dispose()
       renderer.dispose()
       if (renderer.domElement.parentNode === container) {
         container.removeChild(renderer.domElement)
