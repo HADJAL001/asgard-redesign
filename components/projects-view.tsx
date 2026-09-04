@@ -169,7 +169,7 @@ export function ProjectsView() {
 
         {/* Error */}
         {error && !loading && (
-          <p className="mt-6 text-[13px]" role="status" style={{ color: COLORS.red }}>
+          <p className="mt-6 text-[13px]" role="alert" style={{ color: COLORS.red }}>
             {error}
           </p>
         )}
