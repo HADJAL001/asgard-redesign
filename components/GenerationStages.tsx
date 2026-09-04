@@ -15,17 +15,17 @@
 
 import { useEffect, useState } from "react"
 import { motion, useReducedMotion } from "framer-motion"
-import { Check, Loader2, Sparkles, Compass, Boxes, Hammer, ShieldCheck, type LucideIcon } from "lucide-react"
+import { Check, Loader2, Sparkles, Compass, Boxes, LayoutPanelTop, ShieldCheck, type LucideIcon } from "lucide-react"
 import { COLORS } from "@/lib/economy"
 
 type Stage = { id: string; label: string; Icon: LucideIcon }
 
 const STAGES: Stage[] = [
-  { id: "theme", label: "Анализирую замысел", Icon: Compass },
-  { id: "arch", label: "Проектирую архитектуру", Icon: Boxes },
-  { id: "code", label: "Пишу код приложения", Icon: Sparkles },
-  { id: "forge", label: "Кую стартовые артефакты", Icon: Hammer },
-  { id: "polish", label: "Полирую детали", Icon: ShieldCheck },
+  { id: "brief", label: "Анализирую задачу", Icon: Compass },
+  { id: "plan", label: "Планирую структуру продукта", Icon: Boxes },
+  { id: "build", label: "Собираю интерфейс и функции", Icon: LayoutPanelTop },
+  { id: "validate", label: "Проверяю результат", Icon: ShieldCheck },
+  { id: "workspace", label: "Готовлю рабочее пространство", Icon: Sparkles },
 ]
 
 /** Пока не готово — держим предпоследний этап, чтобы последний загорелся
@@ -45,7 +45,7 @@ export function GenerationStages({ done, stepMs = 2200 }: { done: boolean; stepM
   }, [done, reduce, stepMs])
 
   return (
-    <div className="mt-4 flex flex-col gap-1.5">
+    <div className="mt-4 flex flex-col gap-1.5" role="status" aria-live="polite" aria-label="Ход создания проекта">
       {STAGES.map((stage, i) => {
         const isDone = done || i < active
         const isActive = !done && i === active
