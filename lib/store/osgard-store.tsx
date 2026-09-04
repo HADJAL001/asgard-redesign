@@ -1580,11 +1580,12 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
 
   /* ---- проекты: GET /projects/mine — список проектов текущего пользователя ---- */
   fetchProjects: async (opts) => {
+    set({ loading: true, error: null })
     try {
       const { projects } = await apiClient.get<{ projects: OsgardProject[] }>("/projects/mine", opts)
-      set({ projects, error: null })
+      set({ projects, loading: false, error: null })
     } catch (err) {
-      set({ error: extractErrorMessage(err, "Не удалось загрузить проекты") })
+      set({ loading: false, error: extractErrorMessage(err, "Не удалось загрузить проекты") })
     }
   },
 
