@@ -97,7 +97,7 @@ export function DashboardView() {
     try {
       const res = await generateProject(intent.name, intent.hint, intent.depth)
       if (res.success && res.project) {
-        router.push(`/projects/${res.project.id}`)
+        router.push(`/projects/${res.project.id}/workspace`)
         return
       }
       savePendingGeneration({ name: intent.name, hint: intent.hint, depth: intent.depth })
@@ -382,7 +382,7 @@ export function DashboardView() {
                   return (
                     <li
                       key={p.id}
-                      onClick={() => router.push(`/projects/${p.id}`)}
+                      onClick={() => router.push(`/projects/${p.id}/workspace`)}
                       className="flex cursor-pointer items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
                     >
                       <div className="flex min-w-0 items-center gap-3">
