@@ -205,6 +205,9 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
      получает его открытым сразу после гидратации и не жмёт кнопку каждый
      раз. */
   const [codeOpen, setCodeOpen] = useState(false)
+  // SSE and status polling may both observe the same terminal generation state.
+  // Keep one refresh per project so those signals converge without duplicate I/O.
+  const generationRefreshRef = useRef<{ projectId: number; promise: Promise<void> } | null>(null)
   useEffect(() => {
     let cancelled = false
     queueMicrotask(() => {
@@ -234,13 +237,28 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   /* Живой лог рождения/доработки приложения. На терминальной стадии тянем
      свежий проект, файлы, ленту правок и свежий вердикт — экран оживает без релоада. */
   const onGenerationDone = useCallback(async () => {
-    await Promise.all([
+    const existingRefresh = generationRefreshRef.current
+    if (existingRefresh?.projectId === projectId) {
+      return existingRefresh.promise
+    }
+
+    const refreshPromise = Promise.all([
       fetchProject(projectId, { skipAuthRedirect: true }),
       fetchProjectFiles(projectId, { skipAuthRedirect: true }),
       fetchProjectRefinements(projectId),
       fetchProjectEngineering(projectId),
     ])
-    setRepairing(false)
+      .then(() => {
+        setRepairing(false)
+      })
+      .finally(() => {
+        if (generationRefreshRef.current?.promise === refreshPromise) {
+          generationRefreshRef.current = null
+        }
+      })
+
+    generationRefreshRef.current = { projectId, promise: refreshPromise }
+    return refreshPromise
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
   const genStream = useProjectGenerationStream(projectId, isGenerating, onGenerationDone)
