@@ -48,6 +48,7 @@ export function EternityLanding() {
   const { isAuthenticated } = useAuth()
   const inputRef = useRef<HTMLInputElement>(null)
   const [scrolled, setScrolled] = useState(false)
+  const [globeReady, setGlobeReady] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [createError, setCreateError] = useState(false)
   /** Вопрос платформы, когда заявку не удалось прочитать (422 unclear_request). */
@@ -68,6 +69,23 @@ export function EternityLanding() {
     onScroll()
     window.addEventListener("scroll", onScroll, { passive: true })
     return () => window.removeEventListener("scroll", onScroll)
+  }, [])
+
+  useEffect(() => {
+    // Keep the project's visual signature, but reserve initial main-thread time
+    // for the page title and the project-creation field.
+    let timer: number | undefined
+    const startGlobe = () => {
+      timer = window.setTimeout(() => setGlobeReady(true), 300)
+    }
+
+    if (document.readyState === "complete") startGlobe()
+    else window.addEventListener("load", startGlobe, { once: true })
+
+    return () => {
+      window.removeEventListener("load", startGlobe)
+      if (timer !== undefined) window.clearTimeout(timer)
+    }
   }, [])
 
   const [particles, setParticles] = useState<
@@ -184,7 +202,7 @@ export function EternityLanding() {
     <div className="eternity-page">
       {/* Глобус и частицы */}
       <div id="globe-bg">
-        <GlobeScene />
+        {globeReady ? <GlobeScene /> : null}
         <div id="globe-vignette" aria-hidden="true" />
       </div>
       <div id="particles">
