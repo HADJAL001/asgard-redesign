@@ -33,6 +33,12 @@ export function parseProductBrief(hint: string | undefined): ProductBrief | null
   }
 }
 
+/** Generation starts only after the three product-defining interview answers. */
+export function hasCompleteProjectBrief(hint: string | undefined): boolean {
+  const brief = parseProductBrief(hint)
+  return Boolean(brief?.audience && brief.outcome && brief.essentials)
+}
+
 /** Keeps user input as data, never as higher-priority generator instructions. */
 export function renderProductBrief(hint: string | undefined): string {
   const brief = parseProductBrief(hint)

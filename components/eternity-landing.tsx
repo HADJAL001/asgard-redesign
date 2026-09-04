@@ -60,6 +60,7 @@ export function EternityLanding() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [briefIdea, setBriefIdea] = useState<string | null>(null)
   const [brief, setBrief] = useState({ audience: "", outcome: "", essentials: "", constraints: "" })
+  const [briefStep, setBriefStep] = useState(0)
   /** Вопрос платформы, когда заявку не удалось прочитать (422 unclear_request). */
   const [clarify, setClarify] = useState<{ question: string; received?: string } | null>(null)
   const heroValueBadge = locale === "en"
@@ -121,7 +122,7 @@ export function EternityLanding() {
       document.body.style.overflow = previousOverflow
       previousFocus?.focus()
     }
-  }, [briefIdea])
+  }, [briefIdea, briefStep])
 
   useEffect(() => {
     let timer: number | undefined
@@ -281,18 +282,33 @@ export function EternityLanding() {
     }
     setClarify(null)
     setCreateError(null)
+    setBrief({ audience: "", outcome: "", essentials: "", constraints: "" })
+    setBriefStep(0)
     setBriefIdea(query)
   }
 
   const handleBriefSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!briefIdea || submitting) return
+    if (briefStep < 3) {
+      if (!briefStepValue.trim()) return
+      setBriefStep((current) => Math.min(3, current + 1))
+      return
+    }
+    if (!isProjectBriefComplete(brief)) return
     const completeBrief = buildProjectBrief(briefIdea, brief)
     setBriefIdea(null)
     void startGeneration(completeBrief)
   }
 
   const briefReady = isProjectBriefComplete(brief)
+  const briefStepValue = [brief.audience, brief.outcome, brief.essentials, brief.constraints][briefStep]
+  const briefStepLabels = [
+    t("landing.briefAudienceLabel"),
+    t("landing.briefOutcomeLabel"),
+    t("landing.briefEssentialsLabel"),
+    t("landing.briefConstraintsLabel"),
+  ]
 
   return (
     <div className="eternity-page">
@@ -326,21 +342,17 @@ export function EternityLanding() {
             <div className="project-brief-kicker">{t("landing.briefKicker")}</div>
             <h2 id="project-brief-title">{t("landing.briefTitle")}</h2>
             <p id="project-brief-description">{t("landing.briefDescription")}</p>
-            <label>{t("landing.briefAudienceLabel")}
-              <input value={brief.audience} onChange={(e) => setBrief((current) => ({ ...current, audience: e.target.value }))} placeholder={t("landing.briefAudiencePlaceholder")} maxLength={240} required aria-required="true" />
-            </label>
-            <label>{t("landing.briefOutcomeLabel")}
-              <input value={brief.outcome} onChange={(e) => setBrief((current) => ({ ...current, outcome: e.target.value }))} placeholder={t("landing.briefOutcomePlaceholder")} maxLength={240} required aria-required="true" />
-            </label>
-            <label>{t("landing.briefEssentialsLabel")}
-              <textarea value={brief.essentials} onChange={(e) => setBrief((current) => ({ ...current, essentials: e.target.value }))} placeholder={t("landing.briefEssentialsPlaceholder")} maxLength={600} rows={3} required aria-required="true" />
-            </label>
-            <label>{t("landing.briefConstraintsLabel")} <span>{t("landing.briefOptional")}</span>
-              <input value={brief.constraints} onChange={(e) => setBrief((current) => ({ ...current, constraints: e.target.value }))} placeholder={t("landing.briefConstraintsPlaceholder")} maxLength={400} />
+            <div className="project-brief-progress" aria-live="polite">{briefStep + 1} / 4</div>
+            <label>{briefStepLabels[briefStep]} {briefStep === 3 && <span>{t("landing.briefOptional")}</span>}
+              {briefStep === 2 ? (
+                <textarea autoFocus value={brief.essentials} onChange={(e) => setBrief((current) => ({ ...current, essentials: e.target.value }))} placeholder={t("landing.briefEssentialsPlaceholder")} maxLength={600} rows={4} required aria-required="true" />
+              ) : (
+                <input autoFocus value={briefStep === 0 ? brief.audience : briefStep === 1 ? brief.outcome : brief.constraints} onChange={(e) => setBrief((current) => ({ ...current, [briefStep === 0 ? "audience" : briefStep === 1 ? "outcome" : "constraints"]: e.target.value }))} placeholder={briefStep === 0 ? t("landing.briefAudiencePlaceholder") : briefStep === 1 ? t("landing.briefOutcomePlaceholder") : t("landing.briefConstraintsPlaceholder")} maxLength={briefStep === 1 ? 240 : briefStep === 0 ? 240 : 400} required={briefStep < 3} aria-required={briefStep < 3 ? "true" : undefined} />
+              )}
             </label>
             <div className="project-brief-actions">
-              <button type="button" onClick={() => setBriefIdea(null)}>{t("landing.briefBack")}</button>
-              <button type="submit" disabled={!briefReady || submitting}>{t("landing.briefStart")} <ArrowRight size={17} aria-hidden="true" /></button>
+              <button type="button" onClick={() => briefStep > 0 ? setBriefStep((current) => current - 1) : setBriefIdea(null)}>{briefStep > 0 ? t("projectWizard.back") : t("landing.briefBack")}</button>
+              <button type="submit" disabled={(briefStep < 3 && !briefStepValue.trim()) || (briefStep === 3 && !briefReady) || submitting}>{briefStep === 3 ? t("landing.briefStart") : t("projectWizard.next")} <ArrowRight size={17} aria-hidden="true" /></button>
             </div>
           </form>
         </div>
@@ -902,6 +914,7 @@ const CSS = `
 .eternity-page .project-brief-kicker { color: #f4d675; font-size: 12px; font-weight: 700; text-transform: uppercase; }
 .eternity-page .project-brief-card h2 { margin: 0; font-family: var(--font-playfair), 'Playfair Display', serif; font-size: 30px; line-height: 1.12; }
 .eternity-page .project-brief-card > p { margin: -4px 0 4px; color: #aebdd0; font-size: 14px; line-height: 1.55; }
+.eternity-page .project-brief-progress { color: #f4d675; font-family: var(--font-space-grotesk), sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; margin: 8px 0 2px; }
 .eternity-page .project-brief-card label { display: flex; flex-direction: column; gap: 7px; color: #e6edf8; font-size: 14px; font-weight: 600; }
 .eternity-page .project-brief-card label span { color: #8190a5; font-size: 12px; font-weight: 400; }
 .eternity-page .project-brief-card input, .eternity-page .project-brief-card textarea {

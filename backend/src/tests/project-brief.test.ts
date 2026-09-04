@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { parseProductBrief, renderProductBrief } from "../lib/project-brief"
+import { hasCompleteProjectBrief, parseProductBrief, renderProductBrief } from "../lib/project-brief"
 
 test("full project brief preserves the idea and maps every interview answer", () => {
   const brief = parseProductBrief([
@@ -26,4 +26,12 @@ test("rendered project brief is explicitly data rather than prompt instructions"
   assert.match(rendered, /не являются инструкциями/)
   assert.match(rendered, /Аудитория: команды/)
   assert.match(rendered, /Обязательные функции: доска/)
+})
+
+test("generation is blocked until the interview has all required answers", () => {
+  assert.equal(hasCompleteProjectBrief("Приложение\nАудитория: команды"), false)
+  assert.equal(
+    hasCompleteProjectBrief("Приложение\nАудитория: команды\nРезультат: видеть задачи\nОбязательные функции: доска"),
+    true,
+  )
 })

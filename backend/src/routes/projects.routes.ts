@@ -59,6 +59,7 @@ import {
 import { normalizeRefinementKind } from "../lib/refinement-kinds"
 import { resolveProjectTitle } from "../lib/project-title"
 import { assessRequestClarity } from "../lib/request-clarity"
+import { hasCompleteProjectBrief } from "../lib/project-brief"
 
 const router = Router()
 
@@ -525,6 +526,13 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
   const hasHint = !!safeHint?.trim()
   if (!hasName && !hasHint) {
     return res.status(400).json({ error: "Опишите идею или укажите название проекта" })
+  }
+
+  if (!hasCompleteProjectBrief(safeHint)) {
+    return res.status(422).json({
+      error: "Сначала ответьте на вопросы о целевой аудитории, результате и обязательных функциях проекта.",
+      code: "PROJECT_BRIEF_REQUIRED",
+    })
   }
 
   /* Третий ответ, кроме «сгенерировал» и «ошибка»: ВОПРОС. Заявка, из которой
