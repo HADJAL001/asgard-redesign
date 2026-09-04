@@ -1049,6 +1049,8 @@
     "stepCompilerUnverified": "проверка не проводилась",
     "repair": "Починить",
     "repairFailed": "Не удалось запустить проверку",
+    "retryGeneration": "Попробовать снова",
+    "retryFailed": "Не удалось повторить создание проекта",
     "verdictPassed": "Приложение проверено: {{count}} из {{total}} проверок пройдены",
     "verdictRepaired": "Дефекты найдены и исправлены платформой: {{count}}",
     "verdictBroken": "Проверка нашла нерешённые дефекты: {{count}}",

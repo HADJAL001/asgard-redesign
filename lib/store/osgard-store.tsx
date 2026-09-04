@@ -884,6 +884,7 @@ export interface OsgardStoreState {
   currentProjectEngineering: ProjectEngineering | null
   /** POST /projects/:id/repair — повторный прогон контура по сохранённым файлам (202). */
   repairProject: (id: number) => Promise<{ success: boolean; error?: string }>
+  retryFailedProject: (id: number) => Promise<{ success: boolean; error?: string }>
 
   /* ---- TC Wallet: балансы резерва и пользователя ---- */
   /** Баланс резервного пула TC на Solana (в TC). null — не загружен. */
@@ -1766,6 +1767,20 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     } catch (err) {
       // 429 — лимит дорогой ручки, 409 — проект сейчас генерируется. Отдаём как есть.
       return { success: false, error: extractErrorMessage(err, "Не удалось запустить проверку") }
+    }
+  },
+
+  retryFailedProject: async (id) => {
+    try {
+      const res = await apiClient.post<{ project: OsgardProject }>(`/projects/${id}/retry`)
+      set((s) => ({
+        projects: s.projects.map((p) => (p.id === id ? res.project : p)),
+        currentProject: s.currentProject?.id === id ? res.project : s.currentProject,
+        error: null,
+      }))
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: extractErrorMessage(err, "Не удалось повторить создание проекта") }
     }
   },
 

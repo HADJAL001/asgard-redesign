@@ -1344,6 +1344,46 @@ export function createGeneratedProject(params: {
   return { project, artifacts, projectId }
 }
 
+/** Restarts a failed first generation without a duplicate project or charge. */
+export function retryFailedProjectGeneration(params: { userId: number; projectId: number }): boolean {
+  const project = db
+    .prepare(`SELECT id, name, description, status, generation_depth, app_profile FROM projects WHERE id = ? AND user_id = ?`)
+    .get(params.projectId, params.userId) as
+    | { id: number; name: string; description: string | null; status: string; generation_depth?: string | null; app_profile?: string | null }
+    | undefined
+  if (!project || project.status !== "failed") return false
+
+  const hasFiles = db.prepare(`SELECT 1 FROM project_files WHERE project_id = ? LIMIT 1`).get(project.id)
+  if (hasFiles) return false
+
+  const depth = resolveDepth(project.generation_depth)
+  const profile = normalizeAppProfile(project.app_profile)
+  const { safeHint, theme, keywords, template } = planGeneration({
+    name: project.name,
+    hint: project.description ?? undefined,
+    depth,
+    profile,
+  })
+  const quick = template
+    ? { description: template.description || project.description || project.name, badge: template.badge || "sparkles", artifacts: template.artifactTypes }
+    : localFallbackGeneration(project.name, safeHint)
+
+  db.prepare(`UPDATE projects SET status = 'generating', generation_error = NULL WHERE id = ?`).run(project.id)
+  enqueueGenerationJob({
+    userId: params.userId,
+    projectId: project.id,
+    name: project.name,
+    hint: safeHint,
+    quick,
+    templateId: template?.id ?? null,
+    bypassCache: GENERATION_DEPTHS[depth].bypassCache,
+    depth,
+    design: { theme, keywords },
+    profile,
+  })
+  return true
+}
+
 /**
  * Повторный прогон инженерного контура по УЖЕ СОХРАНЁННЫМ файлам проекта.
  * Генерация с нуля не запускается: замысел, дизайн-система и артефакты остаются

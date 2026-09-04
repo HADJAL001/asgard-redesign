@@ -21,6 +21,7 @@ import {
   planGeneration,
   refineGeneratedProject,
   repairGeneratedProject,
+  retryFailedProjectGeneration,
 } from "../lib/project-generation"
 import { rateLimit } from "../middleware/rateLimiter"
 import { GENERATION_DEPTHS, resolveDepth, serializeDepths, type GenerationDepth } from "../lib/generation-depths"
@@ -1098,6 +1099,23 @@ router.post(
 
     const updated = db.prepare(`SELECT ${PROJECT_SELECT_COLUMNS} FROM projects WHERE id = ?`).get(projectId)
     return res.status(202).json({ project: updated })
+  }),
+)
+
+router.post(
+  "/:id/retry",
+  requireAuth,
+  rateLimit(10 * 60 * 1000, 3, (req) => `generation-retry:${(req as AuthRequest).user?.userId ?? req.ip}`),
+  asyncHandler(async (req: AuthRequest, res) => {
+    const projectId = Number(req.params.id)
+    if (!Number.isInteger(projectId) || projectId <= 0) {
+      return res.status(400).json({ error: "Некорректный id проекта" })
+    }
+    if (!retryFailedProjectGeneration({ userId: req.user!.userId, projectId })) {
+      return res.status(409).json({ error: "Этот проект нельзя запустить повторно: используйте доработку или проверку файлов" })
+    }
+    const project = db.prepare(`SELECT ${PROJECT_SELECT_COLUMNS} FROM projects WHERE id = ?`).get(projectId)
+    return res.status(202).json({ project })
   }),
 )
 

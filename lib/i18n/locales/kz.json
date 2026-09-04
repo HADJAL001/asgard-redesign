@@ -1036,6 +1036,8 @@
     "stepCompilerUnverified": "тексеру жүргізілген жоқ",
     "repair": "Жөндеу",
     "repairFailed": "Тексеруді бастау мүмкін болмады",
+    "retryGeneration": "Қайта көру",
+    "retryFailed": "Жобаны қайта жасауды бастау мүмкін болмады",
     "verdictPassed": "Қосымша тексерілді: {{total}} тексерудің {{count}} өтті",
     "verdictRepaired": "Платформа тапқан және түзеткен ақаулар: {{count}}",
     "verdictBroken": "Тексеру шешілмеген ақауларды тапты: {{count}}",

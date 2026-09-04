@@ -1036,6 +1036,8 @@
     "stepCompilerUnverified": "not verified yet",
     "repair": "Repair",
     "repairFailed": "Could not start the check",
+    "retryGeneration": "Try again",
+    "retryFailed": "Could not restart project creation",
     "verdictPassed": "Application verified: {{count}} of {{total}} checks passed",
     "verdictRepaired": "Defects found and repaired by the platform: {{count}}",
     "verdictBroken": "The check found unresolved defects: {{count}}",

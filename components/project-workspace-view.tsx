@@ -135,6 +135,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     deployProject,
     fetchProjectEngineering,
     repairProject,
+    retryFailedProject,
     pollProjectStatus,
     currentProjectEngineering,
     pollDeployStatus,
@@ -153,6 +154,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
 
   /* ---- инженерный вердикт: чем доказана работоспособность приложения ---- */
   const [repairing, setRepairing] = useState(false)
+  const [retryingGeneration, setRetryingGeneration] = useState(false)
   const [repairNotice, setRepairNotice] = useState<string | null>(null)
   const [showReport, setShowReport] = useState(false)
 
@@ -341,6 +343,18 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
       setRepairing(false)
     }
   }, [fetchProjectEngineering, isGenerating, pollProjectStatus, projectId, repairProject, repairing, t])
+
+  const handleRetryGeneration = useCallback(async () => {
+    if (retryingGeneration || isGenerating) return
+    setRetryingGeneration(true)
+    setRepairNotice(null)
+    try {
+      const res = await retryFailedProject(projectId)
+      if (!res.success) setRepairNotice(res.error || t("workspace.retryFailed"))
+    } finally {
+      setRetryingGeneration(false)
+    }
+  }, [isGenerating, projectId, retryFailedProject, retryingGeneration, t])
 
   const handleRun = useCallback(async () => {
     if (currentProjectFiles.length === 0 || runState === "starting") return
@@ -1082,14 +1096,14 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             <p className="min-w-0 flex-1 whitespace-pre-wrap text-[12.5px]">{currentProject.generationError}</p>
             <button
               type="button"
-              onClick={handleRepair}
-              disabled={repairing || isGenerating || currentProjectFiles.length === 0}
+              onClick={currentProjectFiles.length === 0 ? handleRetryGeneration : handleRepair}
+              disabled={repairing || retryingGeneration || isGenerating}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
               style={{ border: `1px solid ${COLORS.red}`, color: COLORS.text }}
-              title={t("workspace.repair")}
+              title={currentProjectFiles.length === 0 ? t("workspace.retryGeneration") : t("workspace.repair")}
             >
-              {repairing ? <Loader2 size={13} className="animate-spin" /> : <Wrench size={13} strokeWidth={1.75} />}
-              {t("workspace.repair")}
+              {repairing || retryingGeneration ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} strokeWidth={1.75} />}
+              {currentProjectFiles.length === 0 ? t("workspace.retryGeneration") : t("workspace.repair")}
             </button>
           </div>
         )}
