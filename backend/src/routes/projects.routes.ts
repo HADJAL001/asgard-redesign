@@ -1182,6 +1182,15 @@ router.get("/:id/stream", requireAuth, (req: AuthRequest, res) => {
   const channel = `gen:${id}`
   /* Канал несёт и стадии, и тики живого счётчика расхода (type:"meter").
      Тик стадию не меняет и поток не закрывает — закрываемся только на терминале. */
+  let cleanedUp = false
+  const cleanup = () => {
+    if (cleanedUp) return
+    cleanedUp = true
+    clearInterval(heartbeat)
+    generationEvents.off(channel, onStage)
+    activeGenerationSseConnections = Math.max(0, activeGenerationSseConnections - 1)
+  }
+
   const onStage = (evt: GenerationStreamEvent) => {
     send(evt)
     if (evt.type === "stage" && (evt.stage === "ready" || evt.stage === "failed")) {
@@ -1191,11 +1200,6 @@ router.get("/:id/stream", requireAuth, (req: AuthRequest, res) => {
   }
 
   const heartbeat = setInterval(() => res.write(": ping\n\n"), 15_000)
-  const cleanup = () => {
-    clearInterval(heartbeat)
-    generationEvents.off(channel, onStage)
-    activeGenerationSseConnections--
-  }
 
   activeGenerationSseConnections++
   generationEvents.on(channel, onStage)
