@@ -149,7 +149,8 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
      глубину не дороже той, что провалилась. */
   const makegoodRight = estimate?.makegood.available ? estimate.makegood : null
   const makegoodApplies = !!makegoodRight && depthCost <= makegoodRight.credits
-  const insufficientCredits = wallet.timecoin < 1
+  const insufficientCredits = depthCost > wallet.credits
+  const insufficientTimecoin = wallet.timecoin < 1
 
   const totalSteps = 3
   const progress = (step / totalSteps) * 100
@@ -456,7 +457,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                   <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
                     {depths.map((d) => {
                       const active = depthId === d.id
-                      const tooExpensive = wallet.timecoin < 1
+                      const tooExpensive = d.credits > wallet.credits
                       /* Ожидаемый расход прямо на карточке: сравнение вариантов должно
                          быть возможно ДО выбора, а не после списания. */
                       const costBadge = depthCostBadge(estimate?.estimates?.[d.id])
@@ -494,9 +495,14 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                       )
                     })}
                   </div>
+                  {insufficientTimecoin && (
+                    <p className="mt-2 text-[12px]" style={{ color: COLORS.red }}>
+                      {t("projectWizard.insufficientTimecoin", { balance: wallet.timecoin })}
+                    </p>
+                  )}
                   {insufficientCredits && (
                     <p className="mt-2 text-[12px]" style={{ color: COLORS.red }}>
-                      Для создания проекта нужен 1 TimeCoin. Доступно: {wallet.timecoin}.
+                      {t("projectWizard.insufficientCredits", { cost: depthCost, balance: wallet.credits })}
                     </p>
                   )}
                 </div>
@@ -550,7 +556,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || insufficientCredits || insufficientTimecoin}
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90 disabled:opacity-60"
               style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
             >

@@ -675,6 +675,7 @@
     "depthFree": "Бесплатно",
     "balance": "Баланс: {{balance}} кр.",
     "insufficientCredits": "Недостаточно кредитов: нужно {{cost}}, на балансе {{balance}}",
+    "insufficientTimecoin": "Для запуска проекта нужен 1 TimeCoin. На балансе: {{balance}}",
     "noTheme": "без темы",
     "cancel": "Отмена",
     "back": "Назад",

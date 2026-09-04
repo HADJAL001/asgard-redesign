@@ -662,6 +662,7 @@
     "depthFree": "Тегін",
     "balance": "Баланс: {{balance}} кр.",
     "insufficientCredits": "Кредит жеткіліксіз: {{cost}} қажет, баланста {{balance}}",
+    "insufficientTimecoin": "Жобаны бастау үшін 1 TimeCoin қажет. Баланс: {{balance}}",
     "noTheme": "тақырыпсыз",
     "cancel": "Бас тарту",
     "back": "Артқа",

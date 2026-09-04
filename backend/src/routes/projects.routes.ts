@@ -711,7 +711,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     }
   }
 
-  const cost = 0
+  const cost = depthCfg.credits
   const wallet = db.prepare(`SELECT credits FROM wallets WHERE user_id = ?`).get(userId) as
     | { credits: number }
     | undefined

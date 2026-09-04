@@ -662,6 +662,7 @@
     "depthFree": "Free",
     "balance": "Balance: {{balance}} cr.",
     "insufficientCredits": "Not enough credits: need {{cost}}, you have {{balance}}",
+    "insufficientTimecoin": "1 TimeCoin is required to start a project. Balance: {{balance}}",
     "noTheme": "no theme",
     "cancel": "Cancel",
     "back": "Back",
