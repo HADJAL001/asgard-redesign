@@ -192,6 +192,7 @@ export function useProjectGenerationStream(
     let attempts = 0
     let closed = false
     let terminated = false
+    let paused = typeof document !== "undefined" && document.visibilityState === "hidden"
 
     const applyStage = (evt: GenerationStageEvent) => {
       setState((prev) => {
@@ -226,7 +227,7 @@ export function useProjectGenerationStream(
     }
 
     const connect = () => {
-      if (closed || terminated) return
+      if (closed || terminated || paused) return
       source = new EventSource(`/api/projects/${projectId}/stream`, { withCredentials: true })
 
       source.onopen = () => {
@@ -253,7 +254,7 @@ export function useProjectGenerationStream(
         source?.close()
         source = null
         // Сервер закрывает поток после терминала — это НЕ ошибка, не реконнектимся.
-        if (closed || terminated) return
+        if (closed || terminated || paused) return
         attempts += 1
         // Back off quickly during outages and add jitter so many clients do not
         // reconnect in the same millisecond after a shared backend failure.
@@ -263,10 +264,24 @@ export function useProjectGenerationStream(
       }
     }
 
+    const handleVisibilityChange = () => {
+      paused = document.visibilityState === "hidden"
+      if (paused) {
+        if (reconnectTimer) clearTimeout(reconnectTimer)
+        reconnectTimer = undefined
+        source?.close()
+        source = null
+        return
+      }
+      if (!source && !terminated) connect()
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
     connect()
 
     return () => {
       closed = true
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
       if (reconnectTimer) clearTimeout(reconnectTimer)
       source?.close()
       source = null
