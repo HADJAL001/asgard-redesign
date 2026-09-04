@@ -45,9 +45,9 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
       aria-label="Создание проекта из идеи"
       style={{ maxWidth: 960, margin: "0 auto", width: "100%", padding: "48px 24px", boxSizing: "border-box" }}
     >
-      <h2 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 6px" }}>Опишите идею — создайте проект</h2>
+      <h2 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 6px" }}>Опишите проект — OSGARD начнёт создание</h2>
       <p style={{ opacity: 0.6, margin: "0 0 24px", fontSize: 15 }}>
-        Напишите, что хотите создать, а OSGARD превратит вашу идею в настоящий проект с понятным первым результатом.
+        Расскажите, что нужно создать и для кого. Нажмите «Создать проект» — OSGARD подготовит первый результат и план дальнейшего развития.
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
@@ -154,9 +154,9 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
         >
           <Info size={18} color="#00D4FF" style={{ flexShrink: 0, marginTop: 1 }} />
           <div>
-            <strong>Живая генерация кода скоро подключится.</strong>
+            <strong>Создание проекта пока недоступно.</strong>
             <div style={{ opacity: 0.75, marginTop: 4 }}>
-              {error || "Мы дорабатываем анонимный пайплайн. Пока можно попробовать демо-вселенную выше."}
+              {error || "Попробуйте ещё раз позже или создайте проект через главную форму."}
             </div>
           </div>
         </div>
