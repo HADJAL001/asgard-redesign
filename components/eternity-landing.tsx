@@ -130,13 +130,13 @@ export function EternityLanding() {
           // Уже есть гостевой проект по этому IP — не плодим второй, ведём к нему.
           if (guest.existing && guest.hasProject && guest.projectId) {
             el.value = ""
-            router.push(`/projects/${guest.projectId}`)
+            router.push(`/projects/${guest.projectId}/workspace`)
             return
           }
           const res = await useOsgardStore.getState().generateProject(undefined, query)
           if (res.success && res.project) {
             el.value = ""
-            router.push(`/projects/${res.project.id}`)
+            router.push(`/projects/${res.project.id}/workspace`)
             return
           }
           /* Заявку не поняли — это не повод гнать гостя на регистрацию: там его
@@ -166,7 +166,7 @@ export function EternityLanding() {
       if (res.success && res.project) {
         el.value = ""
         // Глубина по умолчанию — quick (бесплатно). Страница проекта покажет ход генерации.
-        router.push(`/projects/${res.project.id}`)
+        router.push(`/projects/${res.project.id}/workspace`)
         return
       }
       if (res.unclearRequest) setClarify({ question: res.error || "", received: res.received })
