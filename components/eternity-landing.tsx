@@ -286,16 +286,16 @@ export function EternityLanding() {
             <h2 id="project-brief-title">Сначала уточним задачу</h2>
             <p>Ответьте на три вопроса. После этого OSGARD соберёт приложение по вашему полному брифу.</p>
             <label>Для кого вы создаёте продукт?
-              <input value={brief.audience} onChange={(e) => setBrief((current) => ({ ...current, audience: e.target.value }))} placeholder="Например: владельцы небольших кафе" autoFocus />
+              <input value={brief.audience} onChange={(e) => setBrief((current) => ({ ...current, audience: e.target.value }))} placeholder="Например: владельцы небольших кафе" maxLength={240} autoFocus />
             </label>
             <label>Какой результат должен получить пользователь?
-              <input value={brief.outcome} onChange={(e) => setBrief((current) => ({ ...current, outcome: e.target.value }))} placeholder="Например: оформить заказ за одну минуту" />
+              <input value={brief.outcome} onChange={(e) => setBrief((current) => ({ ...current, outcome: e.target.value }))} placeholder="Например: оформить заказ за одну минуту" maxLength={240} />
             </label>
             <label>Какие функции обязательны в первой версии?
-              <textarea value={brief.essentials} onChange={(e) => setBrief((current) => ({ ...current, essentials: e.target.value }))} placeholder="Например: каталог, корзина, оплата, уведомления" rows={3} />
+              <textarea value={brief.essentials} onChange={(e) => setBrief((current) => ({ ...current, essentials: e.target.value }))} placeholder="Например: каталог, корзина, оплата, уведомления" maxLength={600} rows={3} />
             </label>
             <label>Ограничения или пожелания <span>необязательно</span>
-              <input value={brief.constraints} onChange={(e) => setBrief((current) => ({ ...current, constraints: e.target.value }))} placeholder="Например: только мобильная версия, светлый стиль" />
+              <input value={brief.constraints} onChange={(e) => setBrief((current) => ({ ...current, constraints: e.target.value }))} placeholder="Например: только мобильная версия, светлый стиль" maxLength={400} />
             </label>
             <div className="project-brief-actions">
               <button type="button" onClick={() => setBriefIdea(null)}>Вернуться к идее</button>
