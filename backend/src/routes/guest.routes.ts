@@ -146,23 +146,18 @@ router.post("/claim", requireAuth, async (req: AuthRequest, res: Response) => {
   const realUserId = req.user!.userId
   const { guestToken } = req.body || {}
 
-  // Идентифицируем гостя двумя путями (что раньше сработает):
-  //   1) guestToken — точная привязка (прокси подставляет его из httpOnly
-  //      cookie osgard_guest; JWT в JS не попадает — консистентно с auth);
-  //   2) IP-fallback — если токена нет (другая вкладка/чистка cookie), берём
-  //      активного непривязанного гостя с этого IP. Так claim не теряется.
+  // Гость идентифицируется только точным guestToken: прокси подставляет его
+  // из httpOnly cookie osgard_guest, поэтому JWT не попадает в JavaScript.
+  // IP нельзя использовать как fallback: в общей сети другой человек с тем же
+  // адресом мог бы забрать чужой незарегистрированный проект.
   let guestUserId: number | undefined
   if (guestToken && typeof guestToken === "string") {
     try {
       const payload = jwt.verify(guestToken, process.env.JWT_SECRET || "default_secret") as { userId?: number }
       if (payload?.userId) guestUserId = payload.userId
     } catch {
-      /* протухший/битый токен — попробуем IP-fallback ниже */
+      /* протухший или битый токен не даёт права на перенос проекта */
     }
-  }
-  if (!guestUserId) {
-    const byIp = findActiveGuestByIp(getClientIp(req))
-    if (byIp) guestUserId = byIp.id
   }
   if (!guestUserId) {
     // Нечего переносить (гостя не было) — это НЕ ошибка регистрации.
