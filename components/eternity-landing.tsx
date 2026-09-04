@@ -56,6 +56,8 @@ export function EternityLanding() {
   const [pulseReady, setPulseReady] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [briefIdea, setBriefIdea] = useState<string | null>(null)
+  const [brief, setBrief] = useState({ audience: "", outcome: "", essentials: "", constraints: "" })
   /** Вопрос платформы, когда заявку не удалось прочитать (422 unclear_request). */
   const [clarify, setClarify] = useState<{ question: string; received?: string } | null>(null)
   const heroValueBadge = locale === "en"
@@ -139,18 +141,11 @@ export function EternityLanding() {
                      показывается статус 'generating' и результат.
      Гость        → сохраняем намерение (pending-generation) и уводим на регистрацию; после
                      входа дашборд сам заберёт намерение и запустит генерацию. */
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const startGeneration = async (query: string) => {
     if (submitting) return
     const el = inputRef.current
-    if (!el) return
     setClarify(null)
     setCreateError(null)
-    const query = el.value.trim()
-    if (!query) {
-      flashInputError()
-      return
-    }
 
     // Гость: поднимаем НАСТОЯЩУЮ гостевую сессию (cookie, JWT в JS не попадает) и
     // тут же генерируем реальный проект — первое впечатление без стены регистрации.
@@ -167,13 +162,13 @@ export function EternityLanding() {
           track("guest_generate_start", { existing: !!guest.existing })
           // Уже есть гостевой проект по этому IP — не плодим второй, ведём к нему.
           if (guest.existing && guest.hasProject && guest.projectId) {
-            el.value = ""
+            if (el) el.value = ""
             router.push(`/projects/${guest.projectId}/workspace`)
             return
           }
           const res = await generateProjectFromIdea(query)
           if (res.success && res.project) {
-            el.value = ""
+            if (el) el.value = ""
             router.push(`/projects/${res.project.id}/workspace`)
             return
           }
@@ -199,7 +194,7 @@ export function EternityLanding() {
       if (guestResult?.code === "GUEST_LIMIT") {
         // Идея — бриф (hint), не имя: имя выведет бэкенд из неё же.
         savePendingGeneration({ hint: query })
-        el.value = ""
+        if (el) el.value = ""
         setSubmitting(false)
         router.push("/register?continue=project")
         return
@@ -215,7 +210,7 @@ export function EternityLanding() {
     try {
       const res = await generateProjectFromIdea(query)
       if (res.success && res.project) {
-        el.value = ""
+        if (el) el.value = ""
         // Глубина по умолчанию — quick (бесплатно). Страница проекта покажет ход генерации.
         router.push(`/projects/${res.project.id}/workspace`)
         return
@@ -230,6 +225,35 @@ export function EternityLanding() {
       setSubmitting(false)
     }
   }
+
+  const handleIdeaSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (submitting) return
+    const query = inputRef.current?.value.trim() ?? ""
+    if (!query) {
+      flashInputError()
+      return
+    }
+    setClarify(null)
+    setCreateError(null)
+    setBriefIdea(query)
+  }
+
+  const handleBriefSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!briefIdea || submitting) return
+    const completeBrief = [
+      briefIdea,
+      `Аудитория: ${brief.audience.trim()}`,
+      `Результат: ${brief.outcome.trim()}`,
+      `Обязательные функции: ${brief.essentials.trim()}`,
+      brief.constraints.trim() ? `Ограничения: ${brief.constraints.trim()}` : "",
+    ].filter(Boolean).join("\n")
+    setBriefIdea(null)
+    void startGeneration(completeBrief)
+  }
+
+  const briefReady = !!brief.audience.trim() && !!brief.outcome.trim() && !!brief.essentials.trim()
 
   return (
     <div className="eternity-page">
@@ -255,6 +279,32 @@ export function EternityLanding() {
 
       {/* Гостевой demo-flow: реальная генерация проекта + артефактов + reveal */}
       {/* Прозрачная шапка */}
+      {briefIdea && (
+        <div className="project-brief-overlay" role="presentation">
+          <form className="project-brief-card" onSubmit={handleBriefSubmit} role="dialog" aria-modal="true" aria-labelledby="project-brief-title">
+            <div className="project-brief-kicker">Бриф проекта</div>
+            <h2 id="project-brief-title">Сначала уточним задачу</h2>
+            <p>Ответьте на три вопроса. После этого OSGARD соберёт приложение по вашему полному брифу.</p>
+            <label>Для кого вы создаёте продукт?
+              <input value={brief.audience} onChange={(e) => setBrief((current) => ({ ...current, audience: e.target.value }))} placeholder="Например: владельцы небольших кафе" autoFocus />
+            </label>
+            <label>Какой результат должен получить пользователь?
+              <input value={brief.outcome} onChange={(e) => setBrief((current) => ({ ...current, outcome: e.target.value }))} placeholder="Например: оформить заказ за одну минуту" />
+            </label>
+            <label>Какие функции обязательны в первой версии?
+              <textarea value={brief.essentials} onChange={(e) => setBrief((current) => ({ ...current, essentials: e.target.value }))} placeholder="Например: каталог, корзина, оплата, уведомления" rows={3} />
+            </label>
+            <label>Ограничения или пожелания <span>необязательно</span>
+              <input value={brief.constraints} onChange={(e) => setBrief((current) => ({ ...current, constraints: e.target.value }))} placeholder="Например: только мобильная версия, светлый стиль" />
+            </label>
+            <div className="project-brief-actions">
+              <button type="button" onClick={() => setBriefIdea(null)}>Вернуться к идее</button>
+              <button type="submit" disabled={!briefReady || submitting}>Начать создание <ArrowRight size={17} aria-hidden="true" /></button>
+            </div>
+          </form>
+        </div>
+      )}
+
       <header className={`site-nav${scrolled ? " scrolled" : ""}`}>
         <Link href="/" className="site-nav-logo" aria-label={t("landing.navHomeAria")}>
           OSG<InfinityIcon size={16} strokeWidth={2} className="site-nav-logo-glyph" aria-hidden="true" />RD
@@ -286,7 +336,7 @@ export function EternityLanding() {
           </p>
 
           {/* Миниатюрное окно ввода (всегда видимо) */}
-          <form className="artifact-form" onSubmit={handleSubmit} aria-busy={submitting}>
+          <form className="artifact-form" onSubmit={handleIdeaSubmit} aria-busy={submitting}>
             <input
               ref={inputRef}
               type="text"
@@ -306,7 +356,7 @@ export function EternityLanding() {
                 </>
               ) : (
                 <>
-                  {t("landing.createBtn")} <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
+                  Уточнить проект <ArrowRight size={18} strokeWidth={2} aria-hidden="true" />
                 </>
               )}
             </button>
@@ -794,6 +844,41 @@ const CSS = `
   .eternity-page .artifact-form { flex-direction: column; gap: 10px; }
   .eternity-page .artifact-form input,
   .eternity-page .artifact-form button { width: 100%; height: 44px; }
+}
+
+.eternity-page .project-brief-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; place-items: center; padding: 24px;
+  background: rgba(2, 4, 8, 0.78);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.eternity-page .project-brief-card {
+  width: min(100%, 620px); max-height: calc(100dvh - 48px); overflow: auto;
+  display: flex; flex-direction: column; gap: 14px; padding: 28px;
+  background: #0a101b; border: 1px solid rgba(212, 175, 55, 0.28); border-radius: 12px;
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.58);
+}
+.eternity-page .project-brief-kicker { color: #f4d675; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.eternity-page .project-brief-card h2 { margin: 0; font-family: var(--font-playfair), 'Playfair Display', serif; font-size: 30px; line-height: 1.12; }
+.eternity-page .project-brief-card > p { margin: -4px 0 4px; color: #aebdd0; font-size: 14px; line-height: 1.55; }
+.eternity-page .project-brief-card label { display: flex; flex-direction: column; gap: 7px; color: #e6edf8; font-size: 14px; font-weight: 600; }
+.eternity-page .project-brief-card label span { color: #8190a5; font-size: 12px; font-weight: 400; }
+.eternity-page .project-brief-card input, .eternity-page .project-brief-card textarea {
+  width: 100%; border: 1px solid rgba(255,255,255,0.14); border-radius: 7px; padding: 11px 12px;
+  background: rgba(255,255,255,0.04); color: #fff; font: inherit; font-weight: 400; outline: none; resize: vertical;
+}
+.eternity-page .project-brief-card input:focus, .eternity-page .project-brief-card textarea:focus { border-color: #f4d675; box-shadow: 0 0 0 3px rgba(244,214,117,0.1); }
+.eternity-page .project-brief-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+.eternity-page .project-brief-actions button { min-height: 42px; border-radius: 7px; padding: 9px 14px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.eternity-page .project-brief-actions button:first-child { border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #d4deea; }
+.eternity-page .project-brief-actions button:last-child { display: inline-flex; align-items: center; gap: 7px; border: 0; background: #f4d675; color: #0a0d14; }
+.eternity-page .project-brief-actions button:disabled { opacity: 0.42; cursor: not-allowed; }
+@media (max-width: 600px) {
+  .eternity-page .project-brief-overlay { align-items: end; padding: 10px; }
+  .eternity-page .project-brief-card { max-height: calc(100dvh - 20px); padding: 22px 18px; border-radius: 10px; }
+  .eternity-page .project-brief-card h2 { font-size: 25px; }
+  .eternity-page .project-brief-actions { flex-direction: column-reverse; }
+  .eternity-page .project-brief-actions button { width: 100%; justify-content: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {
