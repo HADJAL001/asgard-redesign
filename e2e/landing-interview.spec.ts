@@ -66,7 +66,8 @@ test("the landing defers global assistant UI until the creator enters the produc
 })
 
 test("the landing footer appears after the primary project flow is stable", async ({ page }) => {
-  await page.goto("/")
+  const response = await page.goto("/")
 
+  expect(await response?.text()).not.toContain("<footer")
   await expect(page.locator("footer")).toBeVisible()
 })
