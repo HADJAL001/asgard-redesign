@@ -82,11 +82,11 @@ export function ProjectsView() {
         title="Мой мир — проекты"
         what="Здесь живут ваши проекты — реальные приложения, сгенерированные ИИ. Клик по карточке открывает Мастерскую: слева файлы и редактор кода, справа живой запуск приложения прямо в браузере, снизу чат с Клодом для доработок."
         goals={[
-          { goal: "Создать проект с ИИ", steps: ["Нажмите «Создать с AI»", "Опишите идею словами", "ИИ сгенерирует настоящий код и артефакты"] },
+          { goal: "Создать проект с ИИ", steps: ["Опишите идею в поле создания", "Нажмите «Создать проект»", "ИИ подготовит рабочий проект и артефакты"] },
           { goal: "Попасть внутрь проекта", steps: ["Кликните по карточке — откроется Мастерская", "Конвейер сверху показывает: Замысел → OSGARD 4.0 пишет код → Компилятор → Запуск → Деплой", "Кнопка «Запустить» поднимает приложение прямо во вкладке браузера"] },
         ]}
         tour={[
-          { target: "projects-create-ai", title: "Создать с AI", text: "Главная кнопка: опишите любую идею — VPN, маркетплейс, игру — ИИ соберёт реальный проект." },
+          { target: "projects-create-ai", title: "Создать проект", text: "Опишите любую идею — VPN, маркетплейс или игру — и OSGARD подготовит рабочий проект." },
           { title: "Карточки проектов", text: "Клик по карточке ведёт ВНУТРЬ проекта — в Мастерскую: код, живой запуск и доработка словами на одном экране." },
         ]}
       />
@@ -105,18 +105,6 @@ export function ProjectsView() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              data-tour="projects-create-ai"
-              onClick={openWizard}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90"
-              style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
-            >
-              <Sparkles size={16} strokeWidth={1.75} aria-hidden="true" />
-              {t("projects.createAiBtn")}
-            </button>
-          </div>
         </div>
 
         {/* Композер «в один клик»: идея → сразу генерация, без шагов имени/темы мастера. */}
@@ -136,6 +124,7 @@ export function ProjectsView() {
           />
           <button
             type="submit"
+            data-tour="projects-create-ai"
             disabled={!idea.trim()}
             className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
@@ -189,7 +178,7 @@ export function ProjectsView() {
                 style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
               >
                 <Sparkles size={16} strokeWidth={1.75} aria-hidden="true" />
-                {t("projects.createAiBtn")}
+                {t("projects.ideaSubmit")}
               </button>
             </div>
           </div>
