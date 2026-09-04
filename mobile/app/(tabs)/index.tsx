@@ -23,7 +23,9 @@ const DEPTHS: { value: Depth; label: string; note: string }[] = [
 export default function CreateScreen() {
   const [name, setName] = useState('');
   const [hint, setHint] = useState('');
-  const [depth, setDepth] = useState<Depth>('standard');
+  // Первый запуск должен совпадать с web: бесплатный quick, а не платный
+  // standard. Более глубокую генерацию пользователь выбирает осознанно.
+  const [depth, setDepth] = useState<Depth>('quick');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const voice = useVoiceInput((transcript) => setHint((prev) => (prev ? `${prev} ${transcript}` : transcript)));

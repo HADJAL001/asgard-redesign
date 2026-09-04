@@ -1,0 +1,37 @@
+jest.mock('@/lib/api-client', () => ({
+  apiClient: { get: jest.fn(), post: jest.fn() },
+}));
+
+import { apiClient } from '@/lib/api-client';
+import { createProject } from '../projects-api';
+
+const mockedApiClient = apiClient as jest.Mocked<typeof apiClient>;
+
+describe('projects-api', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedApiClient.post.mockResolvedValue({ project: { id: 1, name: 'FocusFlow', status: 'generating' } });
+  });
+
+  it('uses the free quick depth when the user did not choose a paid depth', async () => {
+    await createProject({ hint: 'Приложение для планирования задач' });
+
+    expect(mockedApiClient.post).toHaveBeenCalledWith('/projects/generate', {
+      name: undefined,
+      hint: 'Приложение для планирования задач',
+      depth: 'quick',
+      profile: 'static',
+    });
+  });
+
+  it('preserves an explicitly selected generation depth', async () => {
+    await createProject({ name: 'FocusFlow', hint: 'Задачи команды', depth: 'deep' });
+
+    expect(mockedApiClient.post).toHaveBeenCalledWith('/projects/generate', {
+      name: 'FocusFlow',
+      hint: 'Задачи команды',
+      depth: 'deep',
+      profile: 'static',
+    });
+  });
+});

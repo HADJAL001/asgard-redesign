@@ -19,7 +19,8 @@ export async function createProject(input: {
   const data = await apiClient.post<{ project: OsgardProject }>('/projects/generate', {
     name: input.name?.trim() || undefined,
     hint: input.hint.trim(),
-    depth: input.depth ?? 'standard',
+    // Сохраняем тот же безопасный default, что у web-мастера и backend.
+    depth: input.depth ?? 'quick',
     profile: 'static',
   });
   return data.project;
