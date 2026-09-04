@@ -1071,9 +1071,20 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
 
         {/* Ошибка генерации — единственное, что важнее конвейера */}
         {currentProject.status === "failed" && currentProject.generationError && (
-          <div className="mt-3 flex items-start gap-3 rounded-xl px-4 py-3" style={{ backgroundColor: "rgba(248,113,113,0.06)", border: `1px solid ${COLORS.red}` }}>
+          <div className="mt-3 flex flex-wrap items-start gap-3 rounded-xl px-4 py-3" style={{ backgroundColor: "rgba(248,113,113,0.06)", border: `1px solid ${COLORS.red}` }}>
             <AlertTriangle size={16} style={{ color: COLORS.red, flexShrink: 0, marginTop: 2 }} />
-            <p className="whitespace-pre-wrap text-[12.5px]">{currentProject.generationError}</p>
+            <p className="min-w-0 flex-1 whitespace-pre-wrap text-[12.5px]">{currentProject.generationError}</p>
+            <button
+              type="button"
+              onClick={handleRepair}
+              disabled={repairing || isGenerating || currentProjectFiles.length === 0}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ border: `1px solid ${COLORS.red}`, color: COLORS.text }}
+              title={t("workspace.repair")}
+            >
+              {repairing ? <Loader2 size={13} className="animate-spin" /> : <Wrench size={13} strokeWidth={1.75} />}
+              {t("workspace.repair")}
+            </button>
           </div>
         )}
         {currentProject.deployStatus === "deployed" && currentProject.liveUrl && (
