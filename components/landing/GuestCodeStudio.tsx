@@ -30,7 +30,8 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
   const { phase, progress, result, error, canResume, isBusy, generate, resume, reset } = useGuestCodeGeneration(adapter)
   const [name, setName] = useState("")
   const [hint, setHint] = useState("")
-  const [tab, setTab] = useState<Tab>("code")
+  // The first useful proof is the product preview; source remains one click away.
+  const [tab, setTab] = useState<Tab>("preview")
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
