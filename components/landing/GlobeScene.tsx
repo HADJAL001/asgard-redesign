@@ -33,11 +33,10 @@ export default function GlobeScene() {
 
 
     const loader = new THREE.TextureLoader()
-    loader.setCrossOrigin("anonymous")
-    const mapUrl = "https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg"
-    const normalUrl = "https://threejs.org/examples/textures/planets/earth_normal_2048.jpg"
-    const specularUrl = "https://threejs.org/examples/textures/planets/earth_specular_2048.jpg"
-    const cloudUrl = "https://threejs.org/examples/textures/planets/earth_clouds_1024.png"
+    const mapUrl = "/textures/earth/earth_atmos_2048.jpg"
+    const normalUrl = "/textures/earth/earth_normal_2048.jpg"
+    const specularUrl = "/textures/earth/earth_specular_2048.jpg"
+    const cloudUrl = "/textures/earth/earth_clouds_1024.png"
 
     const mapTexture = loader.load(mapUrl)
     mapTexture.anisotropy = 8
