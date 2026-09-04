@@ -45,9 +45,9 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
       aria-label="Создание проекта из идеи"
       style={{ maxWidth: 960, margin: "0 auto", width: "100%", padding: "48px 24px", boxSizing: "border-box" }}
     >
-      <h2 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 6px" }}>Создайте проект из идеи</h2>
+      <h2 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 6px" }}>Опишите идею — создайте проект</h2>
       <p style={{ opacity: 0.6, margin: "0 0 24px", fontSize: 15 }}>
-        Опишите замысел, а OSGARD подготовит структуру проекта, рабочие файлы и первый результат для проверки.
+        Напишите, что хотите создать, а OSGARD превратит вашу идею в настоящий проект с понятным первым результатом.
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
@@ -71,7 +71,7 @@ export function GuestCodeStudio({ adapter }: { adapter?: GuestCodeAdapter }) {
         <textarea
           value={hint}
           onChange={(e) => setHint(e.target.value)}
-          placeholder="Что должен делать проект? Добавьте функции, аудиторию и желаемый стиль"
+          placeholder="Опишите проект: цель, функции, аудиторию и желаемый результат"
           aria-label="Описание проекта"
           disabled={isBusy}
           rows={3}

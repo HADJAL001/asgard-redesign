@@ -254,7 +254,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
         aria-modal="true"
         aria-labelledby="project-create-title"
         onKeyDown={(event) => {
-          if (event.key === "Escape") onClose()
+          if (event.key === "Escape" && !busy) onClose()
         }}
         className="flex max-h-[calc(100dvh-1rem)] w-full max-w-[560px] flex-col rounded-xl p-4 sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:p-6"
         style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
@@ -265,10 +265,13 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
           <h2 id="project-create-title" className="text-[18px] font-semibold">{t("projectWizard.title")}</h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => {
+              if (!busy) onClose()
+            }}
+            disabled={busy}
             aria-label={t("projectWizard.cancel")}
             className="flex size-8 items-center justify-center rounded-lg transition-colors"
-            style={{ color: COLORS.label }}
+            style={{ color: COLORS.label, opacity: busy ? 0.45 : 1 }}
             onMouseEnter={(e) => (e.currentTarget.style.color = COLORS.text)}
             onMouseLeave={(e) => (e.currentTarget.style.color = COLORS.label)}
           >
