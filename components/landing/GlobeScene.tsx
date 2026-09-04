@@ -194,7 +194,7 @@ export default function GlobeScene() {
     orbitGroup.rotation.x = 0.2
     orbitGroup.rotation.z = -0.1
 
-    let t2 = 0
+    const clock = new THREE.Clock()
     let rafId = 0
     let sceneActive = !document.hidden
 
@@ -202,16 +202,17 @@ export default function GlobeScene() {
       if (!sceneActive) return
       if (!reducedMotion) {
         rafId = requestAnimationFrame(animate)
-        t2 += 0.01
-        earth.rotation.y += 0.0025
-        clouds.rotation.y += 0.0035
-        orbitGroup.rotation.y += 0.0012
-        const ox = Math.sin(t2 * 0.08) * 3.0
-        const oy = Math.cos(t2 * 0.064) * 1.8
+        const elapsed = clock.getElapsedTime()
+        // Time-based movement stays smooth across monitors and makes the hero feel alive.
+        earth.rotation.y = elapsed * 0.24
+        clouds.rotation.y = elapsed * 0.34
+        orbitGroup.rotation.y = elapsed * 0.1
+        const ox = Math.sin(elapsed * 0.2) * 0.34
+        const oy = Math.cos(elapsed * 0.16) * 0.2
         orbitGroup.position.x = ox
-        orbitGroup.position.y = oy + Math.sin(t2 * 0.6) * 0.04
-        stars.rotation.y += 0.0001
-        stars2.rotation.y -= 0.00005
+        orbitGroup.position.y = oy + Math.sin(elapsed * 1.2) * 0.025
+        stars.rotation.y = elapsed * 0.008
+        stars2.rotation.y = -elapsed * 0.004
       }
 
       renderer.render(scene, camera)
@@ -220,7 +221,10 @@ export default function GlobeScene() {
 
     const onVisibilityChange = () => {
       sceneActive = !document.hidden
-      if (sceneActive) animate()
+      if (sceneActive) {
+        clock.start()
+        animate()
+      }
       else cancelAnimationFrame(rafId)
     }
 
