@@ -21,6 +21,8 @@ import type { FileTree } from "./file-tree"
    ================================================================ */
 
 let containerPromise: Promise<import("@webcontainer/api").WebContainer> | null = null
+let devProcess: import("@webcontainer/api").WebContainerProcess | null = null
+let unsubscribeServerReady: (() => void) | null = null
 /** Поднят ли уже dev-сервер в текущем контейнере (см. runInWebContainer).
  *  Нужен, чтобы «Мастерская» знала, можно ли доставить правку горячо. */
 let devServerUp = false
@@ -72,6 +74,13 @@ export async function runInWebContainer(files: FileTree): Promise<string> {
   }
 
   const container = await getContainer()
+  // WebContainer is shared per browser tab. Replace the previous preview process
+  // before mounting the next project so repeated runs do not accumulate servers.
+  unsubscribeServerReady?.()
+  unsubscribeServerReady = null
+  devProcess?.kill()
+  devProcess = null
+  devServerUp = false
   await container.mount(toWebContainerTree(files))
 
   const install = await container.spawn("npm", ["install"])
@@ -80,18 +89,24 @@ export async function runInWebContainer(files: FileTree): Promise<string> {
     throw new Error(`npm install завершился с кодом ${installExitCode}`)
   }
 
-  const devProcess = await container.spawn("npm", ["run", "dev"])
+  const nextDevProcess = await container.spawn("npm", ["run", "dev"], { output: false })
+  devProcess = nextDevProcess
 
   return new Promise<string>((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("WebContainer не поднял dev-сервер за 60с")), 60_000)
 
-    container.on("server-ready", (_port, url) => {
+    unsubscribeServerReady = container.on("server-ready", (_port, url) => {
+      if (devProcess !== nextDevProcess) return
       clearTimeout(timeout)
+      unsubscribeServerReady?.()
+      unsubscribeServerReady = null
       devServerUp = true
       resolve(url)
     })
 
-    devProcess.exit.then((code) => {
+    nextDevProcess.exit.then((code) => {
+      if (devProcess !== nextDevProcess) return
+      devProcess = null
       devServerUp = false
       if (code !== 0) {
         clearTimeout(timeout)
