@@ -706,7 +706,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
             {isDev ? "К проектам студии" : t("workspace.backToProjects")}
           </button>
 
-          <h1 className="text-[19px] font-semibold leading-tight">{currentProject.name}</h1>
+          <h1 className="min-w-0 max-w-full break-words text-[19px] font-semibold leading-tight">{currentProject.name}</h1>
 
           {/* Бейдж статуса — в студии его роль взяла строка состояния ниже.
               Именно он спорил с баннером: «Готово» рядом с «Нужно починить». */}
