@@ -286,7 +286,7 @@ import walliRoutes from "./routes/walli.routes"
 import demoRoutes from "./routes/demo.routes"
 import guestRoutes from "./routes/guest.routes"
 import demoCodeRoutes from "./routes/demo-code.routes"
-import yookassaRoutes from "./routes/yookassa.routes"
+import plategaRoutes from "./routes/platega.routes"
 import adminRoutes from "./routes/admin.routes"
 import billingDashboardRoutes from "./routes/billing-dashboard.routes"
 import promoRoutes from "./routes/promo.routes"
@@ -322,7 +322,6 @@ import { runArtifactFusionMigration } from "./migrations/078_artifact_fusion"
 import { RefreshTokenService } from "./lib/refresh-tokens"
 import { scheduleBackups } from "./lib/db-backup"
 import { scheduleGuestReaper } from "./lib/guest-reaper"
-import "./migrations/075_yookassa_payments"
 import "./migrations/069_economy_map_reward"
 import "./migrations/070_secret_room"
 import "./migrations/071_market_drops"
@@ -360,6 +359,7 @@ import "./migrations/105_timecoin_purchases"
 import "./migrations/106_artifact_abilities"
 import "./migrations/107_timecoin_rebalance"
 import "./migrations/108_billing_reconciliation"
+import "./migrations/109_platega_payments"
 import { scheduleBillingReconciliation } from "./services/billing-reconciliation.service"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
@@ -591,7 +591,7 @@ app.use("/posts", communityRoutes)
 app.use("/api/tc", tcRoutes)
 app.use("/walli", walliRoutes)
 app.use("/demo/code", demoCodeRoutes)
-app.use("/yookassa", yookassaRoutes)
+app.use("/platega", plategaRoutes)
 app.use("/demo", demoRoutes)
 app.use("/guest", guestRoutes)
 app.use("/admin", adminRoutes)

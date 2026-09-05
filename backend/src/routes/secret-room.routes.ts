@@ -11,7 +11,7 @@ import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 
    Эндпоинты /unlock, /friend-slots/buy и платный /members представляют
    ГРАНТ после успешной оплаты — сюда подключается вебхук платёжки
-   (Stripe/YooKassa) как источник истины по факту оплаты.
+    (Stripe) как источник истины по факту оплаты.
    ================================================================ */
 
 const router = Router()
