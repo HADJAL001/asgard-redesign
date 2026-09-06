@@ -57,13 +57,13 @@ test("planner chain falls through when the first provider returns non-JSON", asy
   assert.deepEqual(calls, ["claude", "kimi"])
 })
 
-test("coder fallback accepts Kimi output after DeepSeek is unavailable", async () => {
+test("coder fallback accepts Kimi output after DeepSeek is unavailable or invalid", async () => {
   const calls: string[] = []
   const result = await firstAcceptedProviderResponse(
     [
       async () => {
         calls.push("deepseek")
-        return null
+        return "not a fenced source file"
       },
       async () => {
         calls.push("kimi")
@@ -72,6 +72,7 @@ test("coder fallback accepts Kimi output after DeepSeek is unavailable", async (
     ],
     "code",
     100,
+    (response) => response.startsWith("```tsx"),
   )
   assert.match(result || "", /export default function App/)
   assert.deepEqual(calls, ["deepseek", "kimi"])

@@ -238,9 +238,14 @@ export function callPlanner(prompt: string, maxTokens: number): Promise<string |
   )
 }
 
-/** DeepSeek implements first; Kimi completes the same plan when it is down. */
-export function callCoder(prompt: string, maxTokens: number): Promise<string | null> {
-  return firstAcceptedProviderResponse(CODER_CHAIN, prompt, maxTokens)
+/** DeepSeek implements first; Kimi completes the same plan when it is down or
+ * returns a body that the caller's file contract rejects. */
+export function callCoder(
+  prompt: string,
+  maxTokens: number,
+  accepts: (response: string) => boolean = (response) => response.trim().length > 0,
+): Promise<string | null> {
+  return firstAcceptedProviderResponse(CODER_CHAIN, prompt, maxTokens, accepts)
 }
 
 /** Review is independent from the DeepSeek coding role. */
@@ -880,17 +885,20 @@ async function generateFileContent(
     return syntaxErrors.length === 0 ? code : null
   }
 
-  const first = readCode(await callCoder(prompt, 6000))
+  const requestCode = (request: string, maxTokens: number) =>
+    callCoder(request, maxTokens, (response) => readCode(response) !== null)
+
+  const first = readCode(await requestCode(prompt, 6000))
   if (first) return first
 
   /* V4 can spend its whole answer on a large component even with thinking
      disabled. One compact retry salvages only that file and keeps the rest of
      the generation intact; it is deliberately not an unbounded repair loop. */
   const compactPrompt = `${prompt}\n\nCOMPACT RETRY: keep this file under ${lineLimit} lines. Extract repeated UI into the other listed files. Return only compilable code; do not explain anything.`
-  const second = readCode(await callCoder(compactPrompt, 4500))
+  const second = readCode(await requestCode(compactPrompt, 4500))
   if (second) return second
   const minimalPrompt = `${compactPrompt}\n\nFINAL RETRY: implement the smallest COMPLETE version of this file under ${Math.min(lineLimit, 320)} lines. Close every syntax construct and preserve the declared contracts.`
-  return readCode(await callCoder(minimalPrompt, 3200))
+  return readCode(await requestCode(minimalPrompt, 3200))
 }
 
 export function generationPhase(path: string, profile: AppProfile = DEFAULT_APP_PROFILE): number {
@@ -989,10 +997,12 @@ export async function repairFileWithAi(params: {
     })
     // Repairs are implementation work: DeepSeek applies deterministic/compiler
     // findings, then Claude/Kimi independently review the resulting full project.
-    const first = acceptedRepairContent(params.path, await callCoder(prompt, 8000))
+    const requestRepair = (request: string, maxTokens: number) =>
+      callCoder(request, maxTokens, (response) => acceptedRepairContent(params.path, response) !== null)
+    const first = acceptedRepairContent(params.path, await requestRepair(prompt, 8000))
     if (first) return first
     const compactPrompt = `${prompt}\n\nCOMPACT RETRY: return a COMPLETE compilable file under ${MAX_FILE_LINES} lines. Close every string, JSX tag, block, and function. Preserve all cross-file contracts.`
-    return acceptedRepairContent(params.path, await callCoder(compactPrompt, 5000))
+    return acceptedRepairContent(params.path, await requestRepair(compactPrompt, 5000))
   } catch (err) {
     captureError("[app-generator] AI-ремонт файла не удался:", err)
     return null

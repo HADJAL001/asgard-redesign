@@ -279,6 +279,10 @@ export async function refineExistingApp(params: {
           plan,
         }),
         10_000,
+        (candidate) => {
+          const code = extractCodeBlock(candidate)
+          return Boolean(code && code.trim().length >= 20)
+        },
       )
       const content = response ? extractCodeBlock(response) : null
       if (!content || content.trim().length < 20) {
