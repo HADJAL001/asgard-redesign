@@ -142,7 +142,9 @@ export default function RootLayout() {
         if (!onBiometricLock) router.replace('/biometric-lock');
         return;
       }
-      if (inAuthGroup || onOnboarding || onGuestHome || onBiometricLock) {
+      // GuestHome performs its own replace with the entered idea as route params.
+      // Redirecting it here races that transition and can discard the project brief.
+      if (inAuthGroup || onOnboarding || (!isGuest && onGuestHome) || onBiometricLock) {
         router.replace('/(tabs)');
       }
       return;
@@ -158,6 +160,7 @@ export default function RootLayout() {
     segments,
     hasSeenOnboarding,
     isAuthenticated,
+    isGuest,
     biometricEnabled,
     unlockedThisSession,
     justLoggedIn,

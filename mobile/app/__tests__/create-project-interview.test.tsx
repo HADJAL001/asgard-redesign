@@ -5,7 +5,7 @@ import { TextInput, View } from 'react-native';
 import CreateScreen from '../(tabs)/index';
 import { createProject } from '@/lib/projects-api';
 
-jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useLocalSearchParams: () => ({}) }));
 jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(),
   impactAsync: jest.fn(),
