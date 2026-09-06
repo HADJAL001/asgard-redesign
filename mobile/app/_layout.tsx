@@ -59,6 +59,7 @@ export default function RootLayout() {
 
   const hydrateGuest = useGuestStore((s) => s.hydrate);
   const isGuestHydrated = useGuestStore((s) => s.isHydrated);
+  const migrateGuest = useGuestStore((s) => s.migrateToAccount);
 
   const hydrateArchive = useArchiveStore((s) => s.hydrate);
   const isArchiveHydrated = useArchiveStore((s) => s.isHydrated);
@@ -98,6 +99,14 @@ export default function RootLayout() {
       setupPushNotifications();
     }
   }, [isAuthenticated, isGuest]);
+
+  // A failed claim deliberately keeps the guest token. Retry it once a real
+  // session is restored so a transient network failure cannot strand a project.
+  useEffect(() => {
+    if (isAuthenticated && !isGuest) {
+      void migrateGuest();
+    }
+  }, [isAuthenticated, isGuest, migrateGuest]);
 
   // Переход на целевой экран по клику на push-уведомление.
   const responseListener = useRef<ReturnType<typeof Notifications.addNotificationResponseReceivedListener>>();

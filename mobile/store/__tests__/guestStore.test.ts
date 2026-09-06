@@ -46,4 +46,17 @@ describe('guestStore', () => {
     expect(mockedApiClient.post).toHaveBeenCalledWith('/guest/claim', { guestToken: 'guest-token' });
     expect(mockedClearGuestClaimToken).not.toHaveBeenCalled();
   });
+
+  it('can retry a preserved guest project transfer', async () => {
+    mockedGetGuestClaimToken.mockResolvedValue('guest-token');
+    mockedApiClient.post
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ ok: true, projectsMoved: 1, artifactsMoved: 0 });
+
+    await useGuestStore.getState().migrateToAccount();
+    await useGuestStore.getState().migrateToAccount();
+
+    expect(mockedApiClient.post).toHaveBeenCalledTimes(2);
+    expect(mockedClearGuestClaimToken).toHaveBeenCalledTimes(1);
+  });
 });
