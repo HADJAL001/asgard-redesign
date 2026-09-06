@@ -678,6 +678,8 @@ export interface DeployActionResult {
    *  engineering_broken). Не «сломался деплой», а «нечего публиковать»:
    *  интерфейс обязан предложить ремонт, а не повтор той же кнопки. */
   blockedByEngineering?: boolean
+  /** Machine-readable public release requirement returned by the API. */
+  releaseBlockCode?: "build_not_verified" | "build_broken" | "design_not_verified" | "design_below_standard"
   /** Сколько нерешённых дефектов насчитала инженерная проверка. */
   defects?: number
 }
@@ -1874,7 +1876,13 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       return { success: true, project: res.project }
     } catch (err) {
       const message = extractErrorMessage(err, "Не удалось запустить деплой")
-      const blocked = extractErrorCode(err) === "engineering_broken"
+      const errorCode = extractErrorCode(err)
+      const blocked = errorCode === "engineering_broken" || [
+        "build_not_verified",
+        "build_broken",
+        "design_not_verified",
+        "design_below_standard",
+      ].includes(errorCode ?? "")
       const defects =
         err instanceof ApiError && typeof (err.data as { defects?: unknown } | undefined)?.defects === "number"
           ? ((err.data as { defects: number }).defects)
@@ -1882,7 +1890,15 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       /* Отказ по вердикту — не сбой платформы: в глобальную полосу ошибок его не
          кладём, о нём говорит сам экран проекта рядом с кнопкой. */
       set({ loading: false, error: blocked ? null : message })
-      return { success: false, error: message, blockedByEngineering: blocked, defects }
+      return {
+        success: false,
+        error: message,
+        blockedByEngineering: blocked,
+        releaseBlockCode: errorCode === "build_not_verified" || errorCode === "build_broken" || errorCode === "design_not_verified" || errorCode === "design_below_standard"
+          ? errorCode
+          : undefined,
+        defects,
+      }
     }
   },
 

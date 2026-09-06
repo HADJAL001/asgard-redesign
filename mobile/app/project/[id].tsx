@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { CheckCircle2, CircleAlert, CircleDashed, Coins, ExternalLink, FileCode2, GitBranch, Rocket, Sparkles, Wrench } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
 
 import { apiClient, ApiError } from '@/lib/api-client';
-import { deployProject, fetchProject, fetchProjectFiles, fetchProjectRefinements, publishProjectToGithub, refineProject, repairProject, verifyProjectBuild } from '@/lib/projects-api';
+import { deployProject, fetchProject, fetchProjectFiles, fetchProjectRefinements, publishProjectToGithub, refineProject, repairProject } from '@/lib/projects-api';
 import { PROJECTS_QUERY_KEY } from '@/hooks/useProjectsQuery';
 import { queryClient } from '@/lib/queryClient';
 
@@ -44,14 +44,8 @@ export default function ProjectDetailScreen() {
     if (!project || contourBusy || project.status === 'generating') return;
     setContourBusy(true); setError(null); setActionNotice(null);
     try {
-      if (project.status === 'ready') {
-        const result = await verifyProjectBuild(project.id);
-        if (!result.ok) throw new Error(result.logs ? `Сборка не прошла: ${result.logs.slice(-240)}` : 'Сборка не прошла проверку');
-        setActionNotice('Проверка сборки завершена успешно.');
-      } else {
-        await repairProject(project.id);
-        setActionNotice('Контур исправления запущен. Статус обновится автоматически.');
-      }
+      await repairProject(project.id);
+      setActionNotice('Инженерная проверка и ремонт запущены. Статус обновится автоматически.');
       await projectQuery.refetch();
     } catch (e) { setError(e instanceof ApiError ? e.message : 'Не удалось запустить проверку проекта'); }
     finally { setContourBusy(false); }
@@ -68,20 +62,19 @@ export default function ProjectDetailScreen() {
     finally { setPublishingGithub(false); }
   };
 
-  const startDeploy = async (acknowledgeBroken = false) => {
+  const startDeploy = async () => {
     if (!project || deploying || project.status !== 'ready') return;
     setDeploying(true); setError(null); setActionNotice(null);
     try {
-      const result = await deployProject(project.id, acknowledgeBroken);
+      const result = await deployProject(project.id);
       setActionNotice(result.deployTargetLabel ? `Публикация запущена: ${result.deployTargetLabel}.` : 'Публикация запущена.');
       await projectQuery.refetch();
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        Alert.alert('Проверка нашла дефекты', 'Публикация возможна только после осознанного подтверждения.', [
-          { text: 'Отмена', style: 'cancel' },
-          { text: 'Опубликовать всё равно', style: 'destructive', onPress: () => void startDeploy(true) },
-        ]);
-      } else setError(e instanceof ApiError ? e.message : 'Не удалось запустить публикацию');
+        Alert.alert('Публикация пока недоступна', e.message);
+        return;
+      }
+      setError(e instanceof ApiError ? e.message : 'Не удалось запустить публикацию');
     } finally { setDeploying(false); }
   };
 

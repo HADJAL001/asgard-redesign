@@ -30,7 +30,6 @@ import { ProjectFileEditor } from "./project-file-editor"
 import { ProjectDesignPanel } from "./project-design-panel"
 import { ProjectEngineeringPanel } from "./project-engineering-panel"
 import { ForgeCeremony } from "./forge-ceremony"
-import { ConfirmModal } from "./ui/confirm-modal"
 import { useOsgardStore, type RefinementKind } from "@/lib/store/osgard-store"
 import { useAuth } from "@/lib/auth-store"
 import { COLORS, badgeIcon, RARITY, ARTIFACT_TYPES, STAT_META, type ArtifactType, type Rarity } from "@/lib/economy"
@@ -111,8 +110,10 @@ export function ProjectDetailView({ projectId }: Props) {
   const [deployRequestError, setDeployRequestError] = useState<string | null>(null)
   /* Отказ публикации по инженерному вердикту держим отдельно от прочих ошибок
      деплоя: у него другой смысл («чинить», а не «повторить») и своё действие. */
-  const [deployBlocked, setDeployBlocked] = useState<{ message: string; defects: number } | null>(null)
-  const [confirmBrokenDeploy, setConfirmBrokenDeploy] = useState(false)
+  const [deployBlocked, setDeployBlocked] = useState<{
+    message: string
+    code?: "build_not_verified" | "build_broken" | "design_not_verified" | "design_below_standard"
+  } | null>(null)
 
   // Вкладка «Доработки»: промпт, флаг отправки и инлайн-уведомление (успех/ошибка).
   const [refinePrompt, setRefinePrompt] = useState("")
@@ -189,25 +190,24 @@ export function ProjectDetailView({ projectId }: Props) {
     }
   }
 
-  async function handleDeploy(opts?: { acknowledgeBroken?: boolean }) {
+  async function handleDeploy() {
     setDeploying(true)
     setDeployRequestError(null)
     setDeployBlocked(null)
     try {
-      const res = await deployProject(projectId, opts)
+      const res = await deployProject(projectId)
       if (res.success) {
         await pollDeployStatus(projectId)
       } else if (res.blockedByEngineering) {
         /* Не «сбой деплоя», а отказ по инженерному вердикту: приложение не
            собирается (backend/src/lib/engineering-gate). Разница важна —
            повтор той же кнопки ничего не изменит, нужен ремонт. */
-        setDeployBlocked({ message: res.error || "", defects: res.defects ?? 0 })
+        setDeployBlocked({ message: res.error || "", code: res.releaseBlockCode })
       } else {
         setDeployRequestError(res.error || t("projectDetail.deployRequestFailed"))
       }
     } finally {
       setDeploying(false)
-      setConfirmBrokenDeploy(false)
     }
   }
 
@@ -450,33 +450,18 @@ export function ProjectDetailView({ projectId }: Props) {
             <p className="min-w-0 flex-1 whitespace-pre-wrap text-[13px]">{deployBlocked.message}</p>
             <button
               type="button"
-              onClick={() => setTab("engineering")}
+              onClick={() => setTab(
+                deployBlocked.code === "design_not_verified" || deployBlocked.code === "design_below_standard"
+                  ? "design"
+                  : "engineering",
+              )}
               className="rounded-lg px-3 py-1.5 text-[12.5px] font-medium"
               style={{ border: `1px solid ${COLORS.border}`, color: COLORS.text }}
             >
               Открыть разбор
             </button>
-            <button
-              type="button"
-              onClick={() => setConfirmBrokenDeploy(true)}
-              className="self-center text-[12px] underline underline-offset-2"
-              style={{ color: COLORS.label }}
-            >
-              {t("workspace.deployAnyway")}
-            </button>
           </div>
         )}
-        <ConfirmModal
-          open={confirmBrokenDeploy}
-          onCancel={() => setConfirmBrokenDeploy(false)}
-          onConfirm={() => handleDeploy({ acknowledgeBroken: true })}
-          title={t("workspace.deployAnywayTitle")}
-          message={t("workspace.deployAnywayMessage", { count: deployBlocked?.defects ?? 0 })}
-          confirmLabel={t("workspace.deployAnywayConfirm")}
-          cancelLabel={t("workspace.cancel")}
-          loading={deploying}
-          danger
-        />
         {publishResult && (
           <div
             className="mt-6 flex items-center gap-3 rounded-xl px-4 py-3"
