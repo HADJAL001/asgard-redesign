@@ -2,15 +2,17 @@ jest.mock('@/lib/api-client', () => ({
   apiClient: { get: jest.fn(), post: jest.fn() },
   getAccessToken: jest.fn(),
   setTokens: jest.fn(),
+  setGuestClaimToken: jest.fn(),
   clearTokens: jest.fn(),
 }));
 
-import { apiClient, clearTokens, getAccessToken, setTokens } from '@/lib/api-client';
+import { apiClient, clearTokens, getAccessToken, setGuestClaimToken, setTokens } from '@/lib/api-client';
 import { useAuthStore } from '../authStore';
 
 const mockedApiClient = apiClient as jest.Mocked<typeof apiClient>;
 const mockedGetAccessToken = getAccessToken as jest.Mock;
 const mockedSetTokens = setTokens as jest.Mock;
+const mockedSetGuestClaimToken = setGuestClaimToken as jest.Mock;
 const mockedClearTokens = clearTokens as jest.Mock;
 
 function resetStore() {
@@ -31,6 +33,20 @@ describe('authStore', () => {
 
     expect(result).toEqual({ ok: true });
     expect(mockedSetTokens).toHaveBeenCalledWith('a', 'r');
+    expect(useAuthStore.getState().user).toEqual(user);
+    expect(useAuthStore.getState().isAuthenticated).toBe(true);
+  });
+
+  it('starts a real guest session and retains its claim token', async () => {
+    const user = { id: 7, username: 'guest_7', isGuest: true };
+    mockedApiClient.post.mockResolvedValue({ token: 'guest-token', user, existing: false, hasProject: false, projectId: null });
+
+    const result = await useAuthStore.getState().startGuest();
+
+    expect(result).toEqual({ ok: true });
+    expect(mockedApiClient.post).toHaveBeenCalledWith('/guest/start', undefined, { auth: false });
+    expect(mockedSetTokens).toHaveBeenCalledWith('guest-token', '');
+    expect(mockedSetGuestClaimToken).toHaveBeenCalledWith('guest-token');
     expect(useAuthStore.getState().user).toEqual(user);
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
   });

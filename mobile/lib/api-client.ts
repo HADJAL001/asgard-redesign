@@ -4,6 +4,7 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3003';
 
 const ACCESS_TOKEN_KEY = 'osgard_access_token';
 const REFRESH_TOKEN_KEY = 'osgard_refresh_token';
+const GUEST_CLAIM_TOKEN_KEY = 'osgard_guest_claim_token';
 
 export async function getAccessToken() {
   return SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
@@ -21,6 +22,19 @@ export async function setTokens(accessToken: string, refreshToken: string) {
 export async function clearTokens() {
   await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
   await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+}
+
+// Retained while registration replaces the active guest session.
+export async function setGuestClaimToken(token: string) {
+  await SecureStore.setItemAsync(GUEST_CLAIM_TOKEN_KEY, token);
+}
+
+export async function getGuestClaimToken() {
+  return SecureStore.getItemAsync(GUEST_CLAIM_TOKEN_KEY);
+}
+
+export async function clearGuestClaimToken() {
+  await SecureStore.deleteItemAsync(GUEST_CLAIM_TOKEN_KEY);
 }
 
 export class ApiError extends Error {

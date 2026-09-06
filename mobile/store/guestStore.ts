@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
-import { apiClient } from '@/lib/api-client';
+import { apiClient, clearGuestClaimToken, getGuestClaimToken } from '@/lib/api-client';
 
 const GUEST_GENERATIONS_KEY = 'osgard_guest_generations_used';
 const GUEST_PROJECTS_KEY = 'osgard_guest_demo_projects';
@@ -67,11 +67,20 @@ export const useGuestStore = create<GuestState>((set, get) => ({
     if (demoProjects.length > 0) {
       try {
         await apiClient.post('/demo/convert', { projects: demoProjects });
+        await get().reset();
       } catch {
         // Best-effort: перенос демо-данных не критичен для успеха регистрации/входа.
       }
     }
-    await get().reset();
+    const guestToken = await getGuestClaimToken();
+    if (!guestToken) return;
+
+    try {
+      await apiClient.post('/guest/claim', { guestToken });
+      await clearGuestClaimToken();
+    } catch {
+      // Keep the ownership token so the project transfer can be retried.
+    }
   },
 
   reset: async () => {

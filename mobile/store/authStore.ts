@@ -1,11 +1,19 @@
 import { create } from 'zustand';
-import { apiClient, clearTokens, getAccessToken, getRefreshToken, setTokens } from '@/lib/api-client';
+import {
+  apiClient,
+  clearTokens,
+  getAccessToken,
+  getRefreshToken,
+  setGuestClaimToken,
+  setTokens,
+} from '@/lib/api-client';
 
 export type OsgardUser = {
   id: number;
   username: string;
   email?: string;
   referralCode?: string;
+  isGuest?: boolean;
 };
 
 type AuthState = {
@@ -18,6 +26,7 @@ type AuthState = {
    *  чтобы не показывать biometric-lock сразу после обычного входа. */
   justLoggedIn: boolean;
   hydrate: () => Promise<void>;
+  startGuest: () => Promise<{ ok: boolean; message?: string }>;
   /** twofaCode — TOTP или резервный код; передаётся на втором шаге, когда бэкенд
    *  вернул twofaRequired на первом (только пароль). */
   login: (
@@ -40,6 +49,13 @@ type AuthState = {
 type AuthResponse = { success: boolean; token: string; refreshToken: string; user: OsgardUser };
 // Ответ логина, когда включена 2FA и код ещё не предъявлен (токены не выданы).
 type TwofaChallenge = { success: false; twofaRequired: true };
+type GuestStartResponse = {
+  token: string;
+  user: OsgardUser;
+  existing: boolean;
+  hasProject: boolean;
+  projectId: number | null;
+};
 
 // Бэкенд матчит вход по конкретному полю (email -> findByEmail, иначе -> findByUsername),
 // поэтому на клиенте нужно определить, что именно ввёл пользователь в единое поле логина.
@@ -63,6 +79,17 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch {
       await clearTokens();
       set({ user: null, isAuthenticated: false, isHydrated: true, justLoggedIn: false });
+    }
+  },
+
+  startGuest: async () => {
+    try {
+      const data = await apiClient.post<GuestStartResponse>('/guest/start', undefined, { auth: false });
+      await Promise.all([setTokens(data.token, ''), setGuestClaimToken(data.token)]);
+      set({ user: data.user, isAuthenticated: true, isHydrated: true, justLoggedIn: true });
+      return { ok: true };
+    } catch (e: any) {
+      return { ok: false, message: e.message ?? 'Не удалось начать гостевую сессию' };
     }
   },
 

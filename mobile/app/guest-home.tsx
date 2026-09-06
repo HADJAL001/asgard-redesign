@@ -2,116 +2,69 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Sparkles } from 'lucide-react-native';
+import { ArrowRight, Sparkles } from 'lucide-react-native';
 
-import { useGuestStore, GUEST_FREE_GENERATIONS } from '@/store/guestStore';
-import { generateDemoProject, type DemoGenerateResponse } from '@/lib/demo-api';
-import { ApiError } from '@/lib/api-client';
+import { useAuthStore } from '@/store/authStore';
 
 export default function GuestHomeScreen() {
   const [name, setName] = useState('');
   const [hint, setHint] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<DemoGenerateResponse | null>(null);
+  const startGuest = useAuthStore((state) => state.startGuest);
 
-  const generationsUsed = useGuestStore((s) => s.generationsUsed);
-  const canGenerate = useGuestStore((s) => s.canGenerate());
-  const recordGeneration = useGuestStore((s) => s.recordGeneration);
+  const canSubmit = name.trim().length > 0 && hint.trim().length > 0 && !loading;
 
-  const remaining = Math.max(0, GUEST_FREE_GENERATIONS - generationsUsed);
-  const canSubmit = canGenerate && name.trim().length > 0 && !loading;
-
-  const handleGenerate = async () => {
+  const beginProject = async () => {
     if (!canSubmit) return;
     setLoading(true);
     setError(null);
-    try {
-      const data = await generateDemoProject(name.trim(), hint.trim() || undefined);
-      setResult(data);
-      await recordGeneration({
-        name: data.project.name,
-        description: data.project.description,
-        badge: data.project.badge,
-        artifacts: data.artifacts,
-      });
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Не удалось сгенерировать вселенную');
-    } finally {
-      setLoading(false);
+    const result = await startGuest();
+    setLoading(false);
+    if (!result.ok) {
+      setError(result.message ?? 'Не удалось начать гостевую сессию');
+      return;
     }
+    router.replace({ pathname: '/(tabs)', params: { name: name.trim(), hint: hint.trim() } });
   };
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} keyboardShouldPersistTaps="handled">
-        <View className="gap-1">
-          <Text className="text-2xl font-bold text-white">Гостевой режим</Text>
-          <Text className="text-muted">
-            Осталось бесплатных генераций: {remaining}/{GUEST_FREE_GENERATIONS}
+      <ScrollView contentContainerStyle={{ padding: 20, gap: 18 }} keyboardShouldPersistTaps="handled">
+        <View className="gap-2">
+          <Text className="text-xs font-semibold uppercase tracking-[2px] text-accent">OSGARD NEW WORLD</Text>
+          <Text className="text-3xl font-bold text-white">Создайте первый проект</Text>
+          <Text className="text-sm leading-5 text-muted">
+            Начните без регистрации. OSGARD уточнит задачу в интервью и только затем соберёт настоящий проект.
           </Text>
         </View>
 
-        {canGenerate ? (
-          <View className="gap-3">
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="Название вселенной"
-              placeholderTextColor="#8A8A9A"
-              className="rounded-xl border border-border bg-card px-4 py-3 text-white"
-            />
-            <TextInput
-              value={hint}
-              onChangeText={setHint}
-              placeholder="Подсказка (необязательно)"
-              placeholderTextColor="#8A8A9A"
-              multiline
-              numberOfLines={3}
-              className="min-h-[80px] rounded-xl border border-border bg-card px-4 py-3 text-white"
-              textAlignVertical="top"
-            />
-            {error && <Text className="text-sm text-down">{error}</Text>}
-            <Pressable
-              onPress={handleGenerate}
-              disabled={!canSubmit}
-              className={`flex-row items-center justify-center gap-2 rounded-xl px-4 py-4 ${
-                canSubmit ? 'bg-accent' : 'bg-border'
-              }`}
-            >
-              <Sparkles size={18} color={canSubmit ? '#0A0A0F' : '#8A8A9A'} />
-              <Text className={`text-base font-bold ${canSubmit ? 'text-bg' : 'text-muted'}`}>
-                {loading ? 'Генерируем…' : 'Сгенерировать'}
-              </Text>
-            </Pressable>
+        <View className="gap-3 rounded-2xl border border-accent/30 bg-card p-4">
+          <View className="flex-row items-center gap-2">
+            <Sparkles size={18} color="#00F0FF" />
+            <Text className="text-base font-semibold text-white">Ваш проект остаётся вашим</Text>
           </View>
-        ) : (
-          <View className="gap-3 rounded-xl border border-border bg-card p-4">
-            <Text className="text-base text-white">
-              Бесплатные генерации закончились. Зарегистрируйтесь, чтобы продолжить — все ваши
-              демо-вселенные перенесутся на новый аккаунт.
-            </Text>
-            <Pressable
-              onPress={() => router.push('/(auth)/register')}
-              className="items-center rounded-xl bg-accent px-4 py-3"
-            >
-              <Text className="text-base font-bold text-bg">Зарегистрироваться</Text>
-            </Pressable>
-          </View>
-        )}
+          <Text className="text-sm leading-5 text-muted">
+            После регистрации проект и результаты работы будут перенесены в ваш постоянный аккаунт.
+          </Text>
+        </View>
 
-        {result && (
-          <View className="gap-2 rounded-xl border border-border bg-card p-4">
-            <Text className="text-lg font-bold text-white">{result.project.name}</Text>
-            <Text className="text-sm text-muted">{result.project.description}</Text>
-            {result.artifacts.map((artifact) => (
-              <View key={artifact.id} className="flex-row items-center justify-between border-t border-border pt-2">
-                <Text className="text-white">{artifact.name}</Text>
-                <Text className="text-muted">{artifact.rarity}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+        <View className="gap-2">
+          <Text className="text-sm font-semibold text-muted">Название</Text>
+          <TextInput value={name} onChangeText={setName} placeholder="Например, FocusFlow" placeholderTextColor="#77809A" maxLength={120} className="rounded-xl border border-border bg-card px-4 py-3 text-white" />
+        </View>
+
+        <View className="gap-2">
+          <Text className="text-sm font-semibold text-muted">Идея проекта</Text>
+          <TextInput value={hint} onChangeText={setHint} placeholder="Для кого продукт, какую задачу решает и что должно получиться" placeholderTextColor="#77809A" multiline numberOfLines={6} maxLength={2000} className="min-h-[140px] rounded-xl border border-border bg-card px-4 py-3 text-white" textAlignVertical="top" />
+        </View>
+
+        {error ? <Text className="text-sm text-down">{error}</Text> : null}
+
+        <Pressable onPress={beginProject} disabled={!canSubmit} accessibilityRole="button" accessibilityState={{ disabled: !canSubmit }} className={`flex-row items-center justify-center gap-2 rounded-xl px-4 py-4 ${canSubmit ? 'bg-accent' : 'bg-border'}`}>
+          <Text className={`text-base font-bold ${canSubmit ? 'text-bg' : 'text-muted'}`}>{loading ? 'Подготавливаем проект...' : 'Перейти к интервью'}</Text>
+          <ArrowRight size={18} color={canSubmit ? '#07111F' : '#77809A'} />
+        </Pressable>
 
         <Pressable onPress={() => router.push('/(auth)/login')}>
           <Text className="text-center text-sm text-muted">Уже есть аккаунт? Войти</Text>

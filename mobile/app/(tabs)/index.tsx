@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { CheckCircle2, CircleDashed, Layers3, WandSparkles, XCircle } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
@@ -23,6 +23,7 @@ const FALLBACK_DEPTHS: GenerationDepthOption[] = [
 ];
 
 export default function CreateScreen() {
+  const params = useLocalSearchParams<{ name?: string; hint?: string }>();
   const [name, setName] = useState('');
   const [hint, setHint] = useState('');
   const [briefOpen, setBriefOpen] = useState(false);
@@ -45,6 +46,11 @@ export default function CreateScreen() {
   const briefReady = isProjectBriefComplete(brief);
   const isBriefLastStep = briefStep === 3;
   const briefStepValue = [brief.audience, brief.outcome, brief.essentials, brief.constraints][briefStep];
+
+  useEffect(() => {
+    if (typeof params.name === 'string' && params.name.trim()) setName(params.name.trim());
+    if (typeof params.hint === 'string' && params.hint.trim()) setHint(params.hint.trim());
+  }, [params.hint, params.name]);
 
   const openBrief = useCallback(() => {
     if (!hint.trim() || busy) return;
