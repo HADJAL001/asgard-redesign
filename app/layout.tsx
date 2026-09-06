@@ -64,7 +64,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   await headers()
 
   return (
-    <html lang="ru" className="bg-background">
+    <html lang="ru" className="bg-background" data-scroll-behavior="smooth">
       <body className="font-sans antialiased">
         <I18nProvider>
           <AuthProvider>
