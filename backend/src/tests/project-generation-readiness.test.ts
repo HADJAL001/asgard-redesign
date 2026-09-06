@@ -1,6 +1,10 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { firstAcceptedProviderResponse, resolveProjectGenerationReadiness } from "../services/app-generator"
+import {
+  firstAcceptedProviderResponse,
+  resolveProjectGenerationReadiness,
+  toPublicProjectGenerationReadiness,
+} from "../services/app-generator"
 
 test("project generation requires a coder plus Claude or Kimi reasoning", () => {
   assert.deepEqual(
@@ -55,6 +59,22 @@ test("planner chain falls through when the first provider returns non-JSON", asy
 
   assert.equal(result, '{"files":[]}')
   assert.deepEqual(calls, ["claude", "kimi"])
+})
+
+test("public readiness does not disclose provider topology or failure reasons", () => {
+  const publicReadiness = toPublicProjectGenerationReadiness({
+    ready: false,
+    roles: { planner: true, coder: false, reviewer: true },
+    missing: ["coder"],
+    checkedAt: 123,
+    providers: {
+      deepSeek: { configured: true, available: false, reason: "provider_timeout" },
+      claude: { configured: true, available: true },
+      kimi: { configured: false, available: false, reason: "key_missing" },
+    },
+  })
+
+  assert.deepEqual(publicReadiness, { ready: false, checkedAt: 123 })
 })
 
 test("coder fallback accepts Kimi output after DeepSeek is unavailable or invalid", async () => {

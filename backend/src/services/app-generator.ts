@@ -267,6 +267,18 @@ export type ProjectGenerationReadiness = {
   providers?: { deepSeek: ProviderProbe; claude: ProviderProbe; kimi: ProviderProbe }
 }
 
+export type PublicProjectGenerationReadiness = Pick<ProjectGenerationReadiness, "ready" | "checkedAt">
+
+/** Provider topology and probe failure reasons are internal operational data. */
+export function toPublicProjectGenerationReadiness(
+  readiness: ProjectGenerationReadiness,
+): PublicProjectGenerationReadiness {
+  return {
+    ready: readiness.ready,
+    ...(readiness.checkedAt === undefined ? {} : { checkedAt: readiness.checkedAt }),
+  }
+}
+
 /** Pure resolver kept separate so the strict provider contract is easy to test. */
 export function resolveProjectGenerationReadiness(config: {
   deepSeek: boolean

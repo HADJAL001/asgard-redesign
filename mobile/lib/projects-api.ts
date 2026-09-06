@@ -11,8 +11,6 @@ export type GenerationDepthOption = {
 
 export type ProjectGenerationReadiness = {
   ready: boolean;
-  roles: { planner: boolean; coder: boolean; reviewer: boolean };
-  missing: ('planner' | 'coder' | 'reviewer')[];
   checkedAt?: number;
 };
 

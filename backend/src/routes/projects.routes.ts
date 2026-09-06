@@ -7,6 +7,7 @@ import {
   getProjectGenerationReadiness,
   getVerifiedProjectGenerationReadiness,
   isProjectGenerationConfigured,
+  toPublicProjectGenerationReadiness,
   validateGeneratedFiles,
   GeneratedAppFile,
 } from "../services/app-generator"
@@ -121,7 +122,7 @@ router.get("/generation-depths", requireAuth, (_req: AuthRequest, res) => {
 
 /* Готовность именно проектного конвейера, а не наличие любого AI-ключа. */
 router.get("/generation-readiness", requireAuth, asyncHandler(async (_req: AuthRequest, res) => {
-  res.json(await getVerifiedProjectGenerationReadiness())
+  res.json(toPublicProjectGenerationReadiness(await getVerifiedProjectGenerationReadiness()))
 }))
 
 /* ---------------- POST /projects/generation-estimate — смета ДО запуска ----------------
@@ -577,7 +578,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
       error:
         "Конвейер генерации не готов: для кода нужен OSGARD 4.0, для плана и независимой проверки — OSGARD 5.0 или OSGARD 4.8. Лимит и кредиты не списаны.",
       code: "GENERATION_PROVIDERS_UNAVAILABLE",
-      readiness: verifiedReadiness,
+      readiness: toPublicProjectGenerationReadiness(verifiedReadiness),
     })
   }
 
@@ -832,7 +833,7 @@ router.post("/:id/refine", requireAuth, asyncHandler(async (req: AuthRequest, re
       error:
         "Конвейер доработки не готов: для кода нужен OSGARD 4.0, для плана и независимой проверки — OSGARD 5.0 или OSGARD 4.8. Доработка и списание не начаты.",
       code: "GENERATION_PROVIDERS_UNAVAILABLE",
-      readiness: verifiedReadiness,
+      readiness: toPublicProjectGenerationReadiness(verifiedReadiness),
     })
   }
 
