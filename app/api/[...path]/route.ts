@@ -28,6 +28,10 @@ const ACCESS_MAX_AGE = 20 * 60 // 20 минут (access-токен живёт 15
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60 // 7 дней
 const GUEST_MAX_AGE = 24 * 60 * 60 // 24 часа (совпадает с TTL гостевого токена на бэкенде)
 
+// The backend guest JWT is valid for seven days. The durable claim cookie must
+// have the same lifetime, otherwise a valid project can no longer be claimed.
+const GUEST_CLAIM_MAX_AGE = 7 * 24 * 60 * 60
+
 function cookieOptions(maxAge: number) {
   return {
     httpOnly: true,
@@ -164,8 +168,8 @@ async function handleGuestStart(pathStr: string, req: NextRequest) {
   const { token, ...rest } = upstream.json
   const res = NextResponse.json(rest, { status: upstream.status })
   // Гостю не нужен refresh — только короткоживущий access + стойкая guest-кука.
-  res.cookies.set(ACCESS_COOKIE, token, cookieOptions(GUEST_MAX_AGE))
-  res.cookies.set(GUEST_COOKIE, token, cookieOptions(GUEST_MAX_AGE))
+  res.cookies.set(ACCESS_COOKIE, token, cookieOptions(GUEST_CLAIM_MAX_AGE))
+  res.cookies.set(GUEST_COOKIE, token, cookieOptions(GUEST_CLAIM_MAX_AGE))
   return res
 }
 
@@ -181,7 +185,7 @@ async function handleGuestClaim(pathStr: string, req: NextRequest) {
     bodyOverride: JSON.stringify({ guestToken: guestToken ?? null }),
   })
   const res = buildUpstreamResponse(upstream)
-  if (upstream.status === 200) {
+  if (upstream.status === 200 && upstream.json?.ok === true) {
     res.cookies.set(GUEST_COOKIE, "", { ...cookieOptions(0) })
   }
   return res

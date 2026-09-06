@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { apiClient, ApiError, getStoredUser, setStoredUser } from "./api-client"
 import { convertDemoSession } from "./demo-client"
@@ -101,6 +101,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return false
     return !getStoredUser<User>()
   })
+  const claimedGuestForUserId = useRef<number | null>(null)
+
+  // A cookie-restored session bypasses login/register. Retry the durable guest
+  // claim for that account so a transient failure cannot strand its project.
+  useEffect(() => {
+    if (!user || claimedGuestForUserId.current === user.id) return
+    claimedGuestForUserId.current = user.id
+    void runGuestClaim()
+  }, [user])
 
   /* Восстанавливаем сессию: cookie есть на сервере — /auth/me её примет. */
   useEffect(() => {
@@ -163,7 +172,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStoredUser(data.user)
       setUser(data.user)
       await runDemoConversion()
-      await runGuestClaim()
       return { ok: true }
     } catch (err: any) {
       return { ok: false, message: err?.message || "Не удалось выполнить вход" }
@@ -186,7 +194,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStoredUser(data.user)
       setUser(data.user)
       await runDemoConversion()
-      await runGuestClaim()
       return { ok: true }
     } catch (err: any) {
       return { ok: false, message: err?.message || "Не удалось зарегистрироваться" }
@@ -203,7 +210,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStoredUser(data.user)
       setUser(data.user)
       await runDemoConversion()
-      await runGuestClaim()
       return { ok: true }
     } catch (err: any) {
       return { ok: false, message: err?.message || "Не удалось выполнить вход" }
@@ -214,6 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     apiClient.post("/auth/logout", undefined, { skipAuthRedirect: true }).catch(() => {})
     setStoredUser(null)
     setUser(null)
+    claimedGuestForUserId.current = null
     if (typeof window !== "undefined") {
       window.location.href = "/login"
     }
