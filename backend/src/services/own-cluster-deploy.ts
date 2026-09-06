@@ -5,7 +5,7 @@ import path from "node:path"
 import os from "node:os"
 import db from "../lib/db"
 import { captureError } from "../lib/sentry"
-import { recordRealBuildFailure } from "../lib/engineering-gate"
+import { recordClusterBuildSuccess, recordRealBuildFailure } from "../lib/engineering-gate"
 
 /* ================================================================
    OSGARD · Деплой сгенерированных приложений на СВОЮ инфраструктуру
@@ -554,6 +554,8 @@ export async function runOwnClusterDeployJob(projectId: number) {
     // его только после успешного завершения, чтобы в UI не появилась ссылка на
     // приложение, которое не поднялось.
     await waitForDeployment(cfg, slug, started.deployment_id)
+
+    recordClusterBuildSuccess(projectId, { status: "live" })
 
     const liveUrl = `https://${started.host || `${slug}.${cfg.baseDomain}`}`
     db.prepare(

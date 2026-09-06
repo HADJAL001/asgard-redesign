@@ -56,6 +56,9 @@ test('release readiness requires sandbox build evidence and premium design score
   const ready = insertProject({ verdict: 'passed', report: { verifiedBy: 'sandbox' }, designScore: 80 });
   assert.deepEqual(gate.readReleaseReadiness(ready), { ready: true, code: null, message: null });
 
+  const clusterReady = insertProject({ verdict: 'passed', report: { verifiedBy: 'cluster-build' }, designScore: 80 });
+  assert.deepEqual(gate.readReleaseReadiness(clusterReady), { ready: true, code: null, message: null });
+
   const broken = insertProject({ verdict: 'broken', report: { verifiedBy: 'sandbox' }, designScore: 100 });
   assert.equal(gate.readReleaseReadiness(broken).code, 'build_broken');
 });
@@ -66,6 +69,17 @@ function insertProject(input: { verdict?: string | null; report?: unknown; desig
     .run(input.verdict ?? null, input.report === undefined ? null : JSON.stringify(input.report), input.designScore ?? null);
   return Number(info.lastInsertRowid);
 }
+
+test('cluster build success becomes durable release evidence', () => {
+  const id = insertProject({ verdict: 'unverified', report: { verifiedBy: 'static' }, designScore: 90 });
+  gate.recordClusterBuildSuccess(id, { status: 'live', at: 1_700_000_000_001 });
+
+  const row = db.prepare(`SELECT build_status, build_report, build_verified_at FROM projects WHERE id = ?`).get(id);
+  assert.equal(row.build_status, 'passed');
+  assert.equal(row.build_verified_at, 1_700_000_000_001);
+  assert.deepEqual(JSON.parse(row.build_report).clusterBuild, { ok: true, status: 'live', at: 1_700_000_000_001 });
+  assert.deepEqual(gate.readReleaseReadiness(id), { ready: true, code: null, message: null });
+});
 
 test('broken: гейт видит вердикт, число дефектов и правила', () => {
   const id = insertProject({

@@ -1351,9 +1351,15 @@ const deployProjectHandler = asyncHandler(async (req: AuthRequest, res) => {
      деплой 82). Публикация остаётся возможной — но осознанной: клиент обязан
      прислать acknowledgeBroken:true, то есть человек увидел причину и решил
      сам. См. lib/engineering-gate.ts. */
+  const decision = resolveDeployTarget()
+  if (decision.target === "none") {
+    return res.status(400).json({ error: `Деплой невозможен: ${decision.reason}` })
+  }
+
   const gate = readEngineeringGate(id)
   const release = readReleaseReadiness(id)
-  if (!release.ready) {
+  const clusterWillVerifyBuild = decision.target === "own-cluster" && release.code === "build_not_verified"
+  if (!release.ready && !clusterWillVerifyBuild) {
     return res.status(409).json({
       error: release.message,
       code: release.code,
@@ -1368,11 +1374,6 @@ const deployProjectHandler = asyncHandler(async (req: AuthRequest, res) => {
       defects: gate.errorDefects,
       rules: gate.rules,
     })
-  }
-
-  const decision = resolveDeployTarget()
-  if (decision.target === "none") {
-    return res.status(400).json({ error: `Деплой невозможен: ${decision.reason}` })
   }
 
   if (project.deploy_status === "deploying") {

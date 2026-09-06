@@ -4,7 +4,7 @@ OSGARD can publish a generated project only when engineering and design evidence
 
 ## Required evidence
 
-1. A successful `next build` in the isolated sandbox. The project record must have `build_status` of `passed` or `repaired` and `build_report.verifiedBy` equal to `sandbox`.
+1. A successful `next build` in the isolated sandbox or a successful OSGARD-cluster Docker build followed by a live health check. The project record must have `build_status` of `passed` or `repaired` and `build_report.verifiedBy` equal to `sandbox` or `cluster-build`.
 2. A completed design review with `design_score >= 80`.
 
 Static analysis, an empty status, and an unverified project are deliberately insufficient. A broken build is never publishable and cannot be overridden by a client request.
@@ -15,4 +15,6 @@ Static analysis, an empty status, and an unverified project are deliberately ins
 
 The sandbox needs an isolated build worker with Docker. Set `OSGARD_VERIFY_BUILD=1` on the generation/build worker and provide Docker to that worker. The public Railway API should route verification work to this worker or use a queue; it must never manufacture a successful sandbox verdict when Docker is unavailable.
 
-Until this worker is provisioned, projects can still be created but public publication returns `409` with a precise reason: `build_not_verified`, `build_broken`, `design_not_verified`, or `design_below_standard`. This keeps the published-product promise honest.
+When the own OSGARD cluster is configured, an unverified project that has passed design review may enter only that internal build-and-deploy pipeline. The pipeline does not expose a URL until its Docker build and health check report `live`, then records `cluster-build` evidence. Netlify and any other path without this proof remain blocked.
+
+Without either a sandbox worker or the own cluster, public publication returns `409` with a precise reason: `build_not_verified`, `build_broken`, `design_not_verified`, or `design_below_standard`. This keeps the published-product promise honest.

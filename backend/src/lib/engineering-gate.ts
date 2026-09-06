@@ -96,14 +96,14 @@ export function readReleaseReadiness(projectId: number): ReleaseReadiness {
     ).get(projectId) as { buildStatus: string | null; buildReport: string | null; designScore: number | null } | undefined
     if (!row) return { ready: false, code: "build_not_verified", message: "Проект не найден" }
     if (row.buildStatus === "broken") return { ready: false, code: "build_broken", message: "Сборка проекта не проходит. Сначала запустите ремонт." }
-    let verifiedBy: string | undefined
-    try { verifiedBy = row.buildReport ? JSON.parse(row.buildReport)?.verifiedBy : undefined } catch { /* invalid report is not proof */ }
-    if (!(["passed", "repaired"].includes(row.buildStatus ?? "") && verifiedBy === "sandbox")) {
-      return { ready: false, code: "build_not_verified", message: "Перед публикацией нужна успешная реальная сборка в изолированной среде." }
-    }
     if (typeof row.designScore !== "number") return { ready: false, code: "design_not_verified", message: "Перед публикацией нужна проверка дизайна проекта." }
     if (row.designScore < PREMIUM_DESIGN_MINIMUM) {
       return { ready: false, code: "design_below_standard", message: `Дизайн набрал ${row.designScore}/100. Для публикации требуется не менее ${PREMIUM_DESIGN_MINIMUM}/100.` }
+    }
+    let verifiedBy: string | undefined
+    try { verifiedBy = row.buildReport ? JSON.parse(row.buildReport)?.verifiedBy : undefined } catch { /* invalid report is not proof */ }
+    if (!(["passed", "repaired"].includes(row.buildStatus ?? "") && (verifiedBy === "sandbox" || verifiedBy === "cluster-build"))) {
+      return { ready: false, code: "build_not_verified", message: "Перед публикацией нужна успешная реальная сборка в изолированной среде." }
     }
     return { ready: true, code: null, message: null }
   } catch {
@@ -168,5 +168,31 @@ export function recordRealBuildFailure(
   } catch (err) {
     // Схема без колонок 091 либо гонка с генерацией — деплой из-за этого не падает.
     captureError("[engineering-gate] не удалось записать вердикт по реальной сборке:", err)
+  }
+}
+
+/** Stores the cluster's successful Docker build and live health check as release evidence. */
+export function recordClusterBuildSuccess(projectId: number, input: { status: string; at?: number }): void {
+  const at = input.at ?? Date.now()
+  try {
+    const row = db.prepare(`SELECT build_report as buildReport FROM projects WHERE id = ?`).get(projectId) as
+      | { buildReport: string | null }
+      | undefined
+    let report: Record<string, unknown> = {}
+    if (row?.buildReport) {
+      try {
+        const parsed = JSON.parse(row.buildReport)
+        if (parsed && typeof parsed === "object") report = parsed as Record<string, unknown>
+      } catch {
+        report = {}
+      }
+    }
+    report.verifiedBy = "cluster-build"
+    report.clusterBuild = { ok: true, status: input.status, at }
+    db.prepare(
+      `UPDATE projects SET build_status = 'passed', build_report = ?, build_verified_at = ? WHERE id = ?`,
+    ).run(JSON.stringify(report), at, projectId)
+  } catch (err) {
+    captureError("[engineering-gate] failed to record cluster build verdict:", err)
   }
 }
