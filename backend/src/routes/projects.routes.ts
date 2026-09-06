@@ -43,6 +43,7 @@ import { generationEvents, getRecentStages, type GenerationStreamEvent } from ".
 import { guestProjectCapReached, isGuestAccount } from "../lib/guest-service"
 import {
   readEngineeringGate,
+  readReleaseReadiness,
   deployNeedsAcknowledgement,
   describeBrokenGate,
 } from "../lib/engineering-gate"
@@ -1351,6 +1352,14 @@ const deployProjectHandler = asyncHandler(async (req: AuthRequest, res) => {
      прислать acknowledgeBroken:true, то есть человек увидел причину и решил
      сам. См. lib/engineering-gate.ts. */
   const gate = readEngineeringGate(id)
+  const release = readReleaseReadiness(id)
+  if (!release.ready) {
+    return res.status(409).json({
+      error: release.message,
+      code: release.code,
+      gate,
+    })
+  }
   if (deployNeedsAcknowledgement(gate) && req.body?.acknowledgeBroken !== true) {
     return res.status(409).json({
       error: describeBrokenGate(gate),
@@ -1410,6 +1419,40 @@ router.post("/:id/verify-build", requireAuth, asyncHandler(async (req: AuthReque
     logLabel: `verify-build-${id}`,
     profile: normalizeAppProfile(project.app_profile),
   })
+  if (!result.skipped) {
+    const now = Date.now()
+    db.prepare(
+      `UPDATE projects
+       SET build_status = ?, build_report = ?, build_verified_at = ?
+       WHERE id = ?`,
+    ).run(
+      result.ok ? "passed" : "broken",
+      JSON.stringify({
+        verifiedBy: "sandbox",
+        checks: [{
+          key: "sandbox-build",
+          label: "Реальная сборка",
+          passed: result.ok,
+          errors: result.ok ? 0 : 1,
+          detail: result.logs.slice(-4000),
+        }],
+        defects: result.ok ? [] : [{
+          rule: "sandbox-build",
+          severity: "error",
+          file: "project",
+          message: result.logs.slice(-2000),
+        }],
+        sandbox: {
+          ok: result.ok,
+          skipped: result.skipped,
+          timedOut: result.timedOut,
+          durationMs: result.durationMs,
+        },
+      }),
+      now,
+      id,
+    )
+  }
   res.json({
     ok: result.ok,
     skipped: result.skipped,

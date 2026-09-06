@@ -37,6 +37,14 @@ export type EngineeringGate = {
   rules: string[]
 }
 
+export type ReleaseReadiness = {
+  ready: boolean
+  code: "build_not_verified" | "build_broken" | "design_not_verified" | "design_below_standard" | null
+  message: string | null
+}
+
+export const PREMIUM_DESIGN_MINIMUM = 80
+
 const EMPTY_GATE: EngineeringGate = { verdict: null, errorDefects: 0, rules: [] }
 
 /** Читает сохранённый инженерный вердикт проекта. Никогда не бросает. */
@@ -78,6 +86,29 @@ export function readEngineeringGate(projectId: number): EngineeringGate {
  */
 export function deployNeedsAcknowledgement(gate: EngineeringGate): boolean {
   return gate.verdict === "broken"
+}
+
+/** A public release is allowed only after a real build and premium design review. */
+export function readReleaseReadiness(projectId: number): ReleaseReadiness {
+  try {
+    const row = db.prepare(
+      `SELECT build_status as buildStatus, build_report as buildReport, design_score as designScore FROM projects WHERE id = ?`,
+    ).get(projectId) as { buildStatus: string | null; buildReport: string | null; designScore: number | null } | undefined
+    if (!row) return { ready: false, code: "build_not_verified", message: "Проект не найден" }
+    if (row.buildStatus === "broken") return { ready: false, code: "build_broken", message: "Сборка проекта не проходит. Сначала запустите ремонт." }
+    let verifiedBy: string | undefined
+    try { verifiedBy = row.buildReport ? JSON.parse(row.buildReport)?.verifiedBy : undefined } catch { /* invalid report is not proof */ }
+    if (!(["passed", "repaired"].includes(row.buildStatus ?? "") && verifiedBy === "sandbox")) {
+      return { ready: false, code: "build_not_verified", message: "Перед публикацией нужна успешная реальная сборка в изолированной среде." }
+    }
+    if (typeof row.designScore !== "number") return { ready: false, code: "design_not_verified", message: "Перед публикацией нужна проверка дизайна проекта." }
+    if (row.designScore < PREMIUM_DESIGN_MINIMUM) {
+      return { ready: false, code: "design_below_standard", message: `Дизайн набрал ${row.designScore}/100. Для публикации требуется не менее ${PREMIUM_DESIGN_MINIMUM}/100.` }
+    }
+    return { ready: true, code: null, message: null }
+  } catch {
+    return { ready: false, code: "build_not_verified", message: "Проверка готовности к публикации недоступна." }
+  }
 }
 
 /** Человеческая причина отказа — тот же язык, что в сводке вердикта. */

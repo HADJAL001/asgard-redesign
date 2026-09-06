@@ -31,17 +31,39 @@ before(async () => {
       status TEXT NOT NULL DEFAULT 'ready',
       build_status TEXT,
       build_report TEXT,
-      build_verified_at INTEGER
+      build_verified_at INTEGER,
+      design_score REAL
     );
   `);
 
   gate = await import('../lib/engineering-gate');
 });
 
-function insertProject(input: { verdict?: string | null; report?: unknown }): number {
+test('release readiness requires sandbox build evidence and premium design score', () => {
+  const staticOnly = insertProject({ verdict: 'passed', report: { verifiedBy: 'static' }, designScore: 90 });
+  assert.deepEqual(gate.readReleaseReadiness(staticOnly), {
+    ready: false,
+    code: 'build_not_verified',
+    message: 'Перед публикацией нужна успешная реальная сборка в изолированной среде.',
+  });
+
+  const noDesign = insertProject({ verdict: 'passed', report: { verifiedBy: 'sandbox' } });
+  assert.equal(gate.readReleaseReadiness(noDesign).code, 'design_not_verified');
+
+  const weakDesign = insertProject({ verdict: 'passed', report: { verifiedBy: 'sandbox' }, designScore: 79 });
+  assert.equal(gate.readReleaseReadiness(weakDesign).code, 'design_below_standard');
+
+  const ready = insertProject({ verdict: 'passed', report: { verifiedBy: 'sandbox' }, designScore: 80 });
+  assert.deepEqual(gate.readReleaseReadiness(ready), { ready: true, code: null, message: null });
+
+  const broken = insertProject({ verdict: 'broken', report: { verifiedBy: 'sandbox' }, designScore: 100 });
+  assert.equal(gate.readReleaseReadiness(broken).code, 'build_broken');
+});
+
+function insertProject(input: { verdict?: string | null; report?: unknown; designScore?: number | null }): number {
   const info = db
-    .prepare(`INSERT INTO projects (user_id, name, build_status, build_report) VALUES (1, 'app', ?, ?)`)
-    .run(input.verdict ?? null, input.report === undefined ? null : JSON.stringify(input.report));
+    .prepare(`INSERT INTO projects (user_id, name, build_status, build_report, design_score) VALUES (1, 'app', ?, ?, ?)`)
+    .run(input.verdict ?? null, input.report === undefined ? null : JSON.stringify(input.report), input.designScore ?? null);
   return Number(info.lastInsertRowid);
 }
 
