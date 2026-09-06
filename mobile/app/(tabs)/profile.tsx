@@ -109,6 +109,12 @@ export default function ProfileScreen() {
     router.replace('/(auth)/login');
   };
 
+  const keepGuestProject = async () => {
+    setLoggingOut(true);
+    await logout();
+    router.replace('/(auth)/register');
+  };
+
   if (leaderboardLoading) {
     return <Spinner fullscreen />;
   }
@@ -153,6 +159,20 @@ export default function ProfileScreen() {
             </View>
           </Card>
         </Animated.View>
+
+        {user?.isGuest ? (
+          <Card className="gap-3 border border-accent/40">
+            <View className="gap-1">
+              <Text className="text-lg font-bold text-white">Сохраните проект</Text>
+              <Text className="text-sm leading-5 text-muted">
+                Создайте аккаунт, чтобы закрепить текущий проект и продолжить работу с ним на любом устройстве.
+              </Text>
+            </View>
+            <Button onPress={keepGuestProject} loading={loggingOut}>
+              Создать аккаунт
+            </Button>
+          </Card>
+        ) : null}
 
         {rarestArtifact ? (
           <Card className="gap-2">

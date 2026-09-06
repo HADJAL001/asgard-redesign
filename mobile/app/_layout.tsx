@@ -45,6 +45,7 @@ export default function RootLayout() {
   const hydrateAuth = useAuthStore((s) => s.hydrate);
   const isAuthHydrated = useAuthStore((s) => s.isHydrated);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isGuest = useAuthStore((s) => s.user?.isGuest === true);
   const justLoggedIn = useAuthStore((s) => s.justLoggedIn);
 
   const hydrateOnboarding = useOnboardingStore((s) => s.hydrate);
@@ -93,10 +94,10 @@ export default function RootLayout() {
   // Регистрация push-токена возможна только после того, как известен пользователь
   // (эндпоинт /push/register требует авторизации).
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !isGuest) {
       setupPushNotifications();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isGuest]);
 
   // Переход на целевой экран по клику на push-уведомление.
   const responseListener = useRef<ReturnType<typeof Notifications.addNotificationResponseReceivedListener>>();
