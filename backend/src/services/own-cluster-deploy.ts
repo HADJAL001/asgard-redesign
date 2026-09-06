@@ -46,6 +46,10 @@ const execFileAsync = promisify(execFile)
 
 const GIT_TIMEOUT_MS = 5 * 60 * 1000
 const POLL_INTERVAL_MS = 3_000
+/** Bound every control-plane and Forgejo request. A configured but unreachable
+ * infrastructure must fail the job promptly instead of relying on the much
+ * longer runtime socket timeout. */
+export const CLUSTER_REQUEST_TIMEOUT_MS = 15_000
 /** Сборка образа + старт + внутренняя и внешняя проверка здоровья. Боевые
  *  деплои SUPER DAY укладываются в секунды, но первый деплой нового
  *  приложения тянет базовые образы и npm install. */
@@ -282,6 +286,7 @@ async function forgejoFetch(
 ) {
   return fetch(`${cfg.forgejoUrl}/api/v1${pathname}`, {
     method: init.method || "GET",
+    signal: AbortSignal.timeout(CLUSTER_REQUEST_TIMEOUT_MS),
     headers: {
       Authorization: `token ${cfg.forgejoToken}`,
       "content-type": "application/json",
@@ -393,6 +398,7 @@ async function clusterFetch(
 ) {
   return fetch(`${cfg.apiUrl}${pathname}`, {
     method: init.method || "GET",
+    signal: AbortSignal.timeout(CLUSTER_REQUEST_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${cfg.apiToken}`,
       "content-type": "application/json",

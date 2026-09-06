@@ -38,11 +38,19 @@ import {
   GENERATED_DOCKERFILE,
   GENERATED_NGINX_CONF,
   CLUSTER_INTERNAL_PORT,
+  CLUSTER_REQUEST_TIMEOUT_MS,
   type OwnClusterConfig,
 } from "../services/own-cluster-deploy"
 import { resolveDeployTarget, isNetlifyFallbackAllowed } from "../services/deploy-target"
 
 const CLUSTER_SLUG_RE = /^[a-z0-9-]+$/
+
+test("внешние запросы деплоя имеют короткий и явный лимит", () => {
+  assert.equal(CLUSTER_REQUEST_TIMEOUT_MS, 15_000)
+  const source = fs.readFileSync(path.join(__dirname, "..", "services", "own-cluster-deploy.ts"), "utf-8")
+  assert.match(source, /forgejoUrl}\/api\/v1\$\{pathname\}[\s\S]*signal: AbortSignal\.timeout\(CLUSTER_REQUEST_TIMEOUT_MS\)/)
+  assert.match(source, /apiUrl}\$\{pathname\}[\s\S]*signal: AbortSignal\.timeout\(CLUSTER_REQUEST_TIMEOUT_MS\)/)
+})
 
 test("слаг приложения годен и как поддомен, и как имя репозитория", () => {
   const cases: Array<[string, number]> = [
