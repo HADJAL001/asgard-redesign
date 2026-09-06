@@ -25,6 +25,10 @@ Do not commit user-owned landing changes or local screenshots without first revi
 
 ## Recent published commits
 
+- `a3052f0` Project-code generation falls back from DeepSeek to Kimi; Kimi can now satisfy planner, coder, and reviewer readiness.
+- `0e6d3a9` Publishing performs a read-only own-cluster preflight before a project is marked `deploying`.
+- `e3f6e12` Every Forgejo/control-plane request has a 15-second deadline.
+- `7e2da1e` Web guest claims persist for seven days and retry after cookie-session restoration.
 - `3ac0cc6` Guest project claim token lifetime is seven days; backend deployment verified online.
 - `8771f0c` Mobile route guard preserves the guest's entered project brief for the interview.
 - `8078b93` Mobile retries a retained guest-project claim after a transient failure.
@@ -34,6 +38,17 @@ Do not commit user-owned landing changes or local screenshots without first revi
 - `61f1c7a` Own-cluster deploy records successful Docker build and live health proof.
 - `8cefd91` Release quality gate requires verified build and premium design review.
 
+## Latest operational evidence
+
+Verified on 2026-09-06:
+
+- Railway backend is online; `/health` returned `200`, database healthy, write queue empty.
+- Kimi model catalogue authenticated successfully (`200`). Kimi is the live fallback for planning, review, and code generation.
+- Claude model-catalogue probe returned `401`. Do not rotate or replace `CLAUDE_API_KEY` without explicit owner approval; inspect the endpoint, key, and provider account first. The generation API will reject an unavailable pipeline before quota or credits are charged.
+- All required own-cluster and Forgejo variable names are present in Railway, but read-only checks from the work machine timed out. Do not claim the cluster is live until `preflightOwnCluster()` succeeds from Railway or a real approved deployment reaches `live`.
+
+The deploy route now returns `503 infrastructure_unavailable` before changing a project to `deploying` when either required own-infrastructure service cannot be reached. It never creates repositories or cluster projects during that check.
+
 ## Verification commands
 
 ```powershell
@@ -42,6 +57,7 @@ Set-Location A:\HADJAL\osgard-work\osgard-project-platform\backend
 npm run build
 npx tsx --test src/tests/guest-funnel.test.ts src/tests/guest-reaper.test.ts
 npx tsx --test src/tests/engineering-gate.test.ts src/tests/own-cluster-deploy.test.ts
+npx tsx --test src/tests/project-generation-readiness.test.ts
 
 # Web
 Set-Location A:\HADJAL\osgard-work\osgard-project-platform
@@ -59,6 +75,8 @@ Invoke-WebRequest https://osgardnewworld.com -UseBasicParsing
 Invoke-WebRequest https://asgard-backend-production.up.railway.app/health -UseBasicParsing
 railway status
 ```
+
+To inspect Railway configuration, never print raw variable values. Read only names/statuses in memory and report boolean availability. Provider catalogue probes are read-only and must emit only a status code, never URLs with credentials, headers, or response bodies.
 
 ## Publishing safely
 
