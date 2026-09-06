@@ -43,6 +43,7 @@ Do not commit user-owned landing changes or local screenshots without first revi
 Verified on 2026-09-06:
 
 - Railway backend is online; `/health` returned `200`, database healthy, write queue empty.
+- Railway production currently has no `SENTRY_DSN`. Health monitoring remains active, but server exceptions are not sent to Sentry until an owner-provisioned DSN is added as a Railway variable. Do not create an external Sentry account or add a secret without owner approval.
 - Kimi model catalogue authenticated successfully (`200`). Kimi is the live fallback for planning, review, and code generation.
 - Claude model-catalogue probe returned `401`. Do not rotate or replace `CLAUDE_API_KEY` without explicit owner approval; inspect the endpoint, key, and provider account first. The generation API will reject an unavailable pipeline before quota or credits are charged.
 - All required own-cluster and Forgejo variable names are present in Railway, but read-only checks from the work machine timed out. Do not claim the cluster is live until `preflightOwnCluster()` succeeds from Railway or a real approved deployment reaches `live`.
