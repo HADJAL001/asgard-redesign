@@ -3,7 +3,7 @@ jest.mock('@/lib/api-client', () => ({
 }));
 
 import { apiClient } from '@/lib/api-client';
-import { createProject, fetchGenerationDepths } from '../projects-api';
+import { createProject, fetchGenerationDepths, fetchProjectGenerationReadiness } from '../projects-api';
 
 const mockedApiClient = apiClient as jest.Mocked<typeof apiClient>;
 
@@ -41,5 +41,13 @@ describe('projects-api', () => {
 
     await expect(fetchGenerationDepths()).resolves.toBe(depths);
     expect(mockedApiClient.get).toHaveBeenCalledWith('/projects/generation-depths');
+  });
+
+  it('loads verified generation readiness before the user starts a project', async () => {
+    const readiness = { ready: true, roles: { planner: true, coder: true, reviewer: true }, missing: [] };
+    mockedApiClient.get.mockResolvedValue(readiness);
+
+    await expect(fetchProjectGenerationReadiness()).resolves.toBe(readiness);
+    expect(mockedApiClient.get).toHaveBeenCalledWith('/projects/generation-readiness');
   });
 });

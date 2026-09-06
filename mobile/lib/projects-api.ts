@@ -9,6 +9,13 @@ export type GenerationDepthOption = {
   countsAgainstQuota: boolean;
 };
 
+export type ProjectGenerationReadiness = {
+  ready: boolean;
+  roles: { planner: boolean; coder: boolean; reviewer: boolean };
+  missing: ('planner' | 'coder' | 'reviewer')[];
+  checkedAt?: number;
+};
+
 export async function fetchProjects(): Promise<OsgardProject[]> {
   const data = await apiClient.get<{ projects: OsgardProject[] }>('/projects/mine');
   return data.projects;
@@ -37,6 +44,10 @@ export async function createProject(input: {
 export async function fetchGenerationDepths(): Promise<GenerationDepthOption[]> {
   const data = await apiClient.get<{ depths: GenerationDepthOption[] }>('/projects/generation-depths');
   return data.depths;
+}
+
+export async function fetchProjectGenerationReadiness(): Promise<ProjectGenerationReadiness> {
+  return apiClient.get<ProjectGenerationReadiness>('/projects/generation-readiness');
 }
 
 export async function fetchProjectFiles(id: number): Promise<ProjectFile[]> {

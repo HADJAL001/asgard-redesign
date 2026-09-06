@@ -1,6 +1,6 @@
 import React from 'react';
 import renderer, { act } from 'react-test-renderer';
-import { TextInput, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 
 import CreateScreen from '../(tabs)/index';
 import { createProject } from '@/lib/projects-api';
@@ -12,7 +12,7 @@ jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(),
   ImpactFeedbackStyle: { Light: 'light' },
 }));
-jest.mock('@tanstack/react-query', () => ({ useQuery: () => ({ data: [] }) }));
+jest.mock('@tanstack/react-query', () => ({ useQuery: jest.fn(() => ({ data: [] })) }));
 jest.mock('@/hooks/useVoiceInput', () => ({
   useVoiceInput: () => ({ isListening: false, error: null, volume: 0, language: 'ru-RU', start: jest.fn(), stop: jest.fn(), cycleLanguage: jest.fn() }),
 }));
@@ -35,6 +35,7 @@ jest.mock('@/lib/projects-api', () => ({
 }));
 
 const mockedCreateProject = createProject as jest.MockedFunction<typeof createProject>;
+const mockedUseQuery = (jest.requireMock('@tanstack/react-query') as { useQuery: jest.Mock }).useQuery;
 
 function primaryAction(screen: renderer.ReactTestRenderer) {
   return screen.root.findByProps({ testID: 'project-generate-button' });
@@ -49,6 +50,7 @@ function activeBriefInput(screen: renderer.ReactTestRenderer) {
 describe('mobile project interview', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedUseQuery.mockReturnValue({ data: [] });
     mockedCreateProject.mockResolvedValue({ id: 42 } as Awaited<ReturnType<typeof createProject>>);
   });
 
@@ -117,8 +119,29 @@ describe('mobile project interview', () => {
       await primaryAction(screen!).props.onPress();
     });
 
-    expect(screen!.root.findAllByType('Text').map((node) => node.props.children).flat()).toContain(
+    expect(screen!.root.findAllByType(Text).map((node) => node.props.children).flat()).toContain(
       'AI-команда временно недоступна. Проект не был начат, списаний нет. Попробуйте позже.',
     );
+  });
+
+  it('blocks the interview before it starts when the verified AI pipeline is unavailable', async () => {
+    mockedUseQuery.mockImplementation(({ queryKey }: { queryKey: string[] }) => ({
+      data: queryKey[0] === 'project-generation-readiness'
+        ? { ready: false, roles: { planner: true, coder: false, reviewer: true }, missing: ['coder'] }
+        : [],
+    }));
+    let screen: renderer.ReactTestRenderer;
+    await act(async () => {
+      screen = renderer.create(<CreateScreen />);
+    });
+
+    const ideaInput = screen!.root.findByProps({ testID: 'project-prompt-input' });
+    act(() => ideaInput.props.onChangeText('Сервис бронирования столиков'));
+
+    expect(primaryAction(screen!).props.disabled).toBe(true);
+    expect(screen!.root.findAllByType(Text).map((node) => node.props.children).flat()).toContain(
+      'AI-команда временно недоступна. Создание проекта будет доступно после восстановления конвейера.',
+    );
+    expect(mockedCreateProject).not.toHaveBeenCalled();
   });
 });

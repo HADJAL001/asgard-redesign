@@ -9,7 +9,12 @@ import { useQuery } from '@tanstack/react-query';
 import { VoiceInputButton } from '@/components/VoiceInputButton';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { useProjectsQuery, PROJECTS_QUERY_KEY } from '@/hooks/useProjectsQuery';
-import { createProject, fetchGenerationDepths, type GenerationDepthOption } from '@/lib/projects-api';
+import {
+  createProject,
+  fetchGenerationDepths,
+  fetchProjectGenerationReadiness,
+  type GenerationDepthOption,
+} from '@/lib/projects-api';
 import { ApiError } from '@/lib/api-client';
 import { queryClient } from '@/lib/queryClient';
 import { buildProjectBrief, isProjectBriefAnswerComplete, isProjectBriefComplete } from '@/lib/project-brief';
@@ -41,11 +46,21 @@ export default function CreateScreen() {
     queryFn: fetchGenerationDepths,
     staleTime: 60_000,
   });
+  const { data: generationReadiness } = useQuery({
+    queryKey: ['project-generation-readiness'],
+    queryFn: fetchProjectGenerationReadiness,
+    staleTime: 60_000,
+    retry: 1,
+  });
   const active = projects?.find((project) => project.status === 'generating');
   const depths = generationDepths?.length ? generationDepths : FALLBACK_DEPTHS;
+  const generationUnavailable = generationReadiness?.ready === false;
   const briefReady = isProjectBriefComplete(brief);
   const isBriefLastStep = briefStep === 3;
   const briefStepValue = [brief.audience, brief.outcome, brief.essentials, brief.constraints][briefStep];
+  const primaryActionDisabled = generationUnavailable || (briefOpen
+    ? (isBriefLastStep ? !briefReady || busy : !isProjectBriefAnswerComplete(briefStepValue) || busy)
+    : !hint.trim() || busy);
 
   useEffect(() => {
     if (typeof params.name === 'string' && params.name.trim()) setName(params.name.trim());
@@ -54,12 +69,16 @@ export default function CreateScreen() {
 
   const openBrief = useCallback(() => {
     if (!hint.trim() || busy) return;
+    if (generationUnavailable) {
+      setError('AI-команда временно недоступна. Проект не был начат, списаний нет. Попробуйте позже.');
+      return;
+    }
     setError(null);
     setBrief({ audience: '', outcome: '', essentials: '', constraints: '' });
     setBriefStep(0);
     setBriefOpen(true);
     Haptics.selectionAsync();
-  }, [busy, hint]);
+  }, [busy, generationUnavailable, hint]);
 
   const advanceBrief = useCallback(() => {
     if (!isProjectBriefAnswerComplete(briefStepValue)) return;
@@ -168,11 +187,12 @@ export default function CreateScreen() {
           </View>
         </View>
 
+        {generationUnavailable && !error && <View className="flex-row items-start gap-2 rounded-xl border border-down/40 bg-down/10 px-3 py-3"><XCircle size={17} color="#FB7185" /><Text className="flex-1 text-sm text-down">AI-команда временно недоступна. Создание проекта будет доступно после восстановления конвейера.</Text></View>}
         {error && <View className="flex-row items-start gap-2 rounded-xl border border-down/40 bg-down/10 px-3 py-3"><XCircle size={17} color="#FB7185" /><Text className="flex-1 text-sm text-down">{error}</Text></View>}
 
-        <Pressable testID="project-generate-button" onPress={briefOpen ? (isBriefLastStep ? submit : advanceBrief) : openBrief} disabled={briefOpen ? (isBriefLastStep ? !briefReady || busy : !isProjectBriefAnswerComplete(briefStepValue) || busy) : !hint.trim() || busy} accessibilityRole="button" accessibilityState={{ disabled: briefOpen ? (isBriefLastStep ? !briefReady || busy : !isProjectBriefAnswerComplete(briefStepValue) || busy) : !hint.trim() || busy }} className={`flex-row items-center justify-center gap-2 rounded-xl px-4 py-4 ${(briefOpen ? (isBriefLastStep ? briefReady : isProjectBriefAnswerComplete(briefStepValue)) : hint.trim()) && !busy ? 'bg-accent' : 'bg-border'}`}>
-          <WandSparkles size={18} color={(briefOpen ? (isBriefLastStep ? briefReady : isProjectBriefAnswerComplete(briefStepValue)) : hint.trim()) && !busy ? '#07111F' : '#77809A'} />
-          <Text className={`text-base font-bold ${(briefOpen ? (isBriefLastStep ? briefReady : isProjectBriefAnswerComplete(briefStepValue)) : hint.trim()) && !busy ? 'text-bg' : 'text-muted'}`}>{busy ? 'Создаю проект…' : briefOpen ? (isBriefLastStep ? 'Начать создание' : 'Далее') : 'Уточнить проект'}</Text>
+        <Pressable testID="project-generate-button" onPress={briefOpen ? (isBriefLastStep ? submit : advanceBrief) : openBrief} disabled={primaryActionDisabled} accessibilityRole="button" accessibilityState={{ disabled: primaryActionDisabled }} className={`flex-row items-center justify-center gap-2 rounded-xl px-4 py-4 ${!primaryActionDisabled ? 'bg-accent' : 'bg-border'}`}>
+          <WandSparkles size={18} color={!primaryActionDisabled ? '#07111F' : '#77809A'} />
+          <Text className={`text-base font-bold ${!primaryActionDisabled ? 'text-bg' : 'text-muted'}`}>{busy ? 'Создаю проект…' : briefOpen ? (isBriefLastStep ? 'Начать создание' : 'Далее') : 'Уточнить проект'}</Text>
         </Pressable>
 
         <View className="flex-row items-center gap-2 pb-4"><CheckCircle2 size={16} color="#34D399" /><Text className="flex-1 text-xs leading-4 text-muted">Оплата и лимит списываются только после готовности конвейера. Статус и расход токенов видны в карточке проекта.</Text></View>
