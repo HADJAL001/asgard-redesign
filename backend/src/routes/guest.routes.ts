@@ -37,7 +37,9 @@ const router = Router()
    своему проекту в течение окна. Тот же секрет/формат {userId}, что и у
    access-токена, поэтому authMiddleware.verifyAccessToken принимает его
    без изменений. */
-const GUEST_TOKEN_TTL = "24h"
+// A guest project is retained for seven days. Its session must remain valid for
+// the same period so the creator can return and claim the real work.
+const GUEST_TOKEN_TTL = "7d"
 const GUEST_WINDOW_MS = 24 * 60 * 60 * 1000
 
 /* Burst-защита: даже при сбросе состояния — не больше N созданий гостя с
