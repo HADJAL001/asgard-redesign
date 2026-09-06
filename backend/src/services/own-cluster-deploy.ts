@@ -283,8 +283,9 @@ async function forgejoFetch(
   cfg: OwnClusterConfig,
   pathname: string,
   init: { method?: string; body?: unknown } = {},
+  fetcher: typeof fetch = fetch,
 ) {
-  return fetch(`${cfg.forgejoUrl}/api/v1${pathname}`, {
+  return fetcher(`${cfg.forgejoUrl}/api/v1${pathname}`, {
     method: init.method || "GET",
     signal: AbortSignal.timeout(CLUSTER_REQUEST_TIMEOUT_MS),
     headers: {
@@ -395,8 +396,9 @@ async function clusterFetch(
   cfg: OwnClusterConfig,
   pathname: string,
   init: { method?: string; body?: unknown } = {},
+  fetcher: typeof fetch = fetch,
 ) {
-  return fetch(`${cfg.apiUrl}${pathname}`, {
+  return fetcher(`${cfg.apiUrl}${pathname}`, {
     method: init.method || "GET",
     signal: AbortSignal.timeout(CLUSTER_REQUEST_TIMEOUT_MS),
     headers: {
@@ -406,6 +408,41 @@ async function clusterFetch(
     },
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
   })
+}
+
+export interface OwnClusterReadiness {
+  ok: boolean
+  reason?: string
+}
+
+/**
+ * Verify the two services a deployment cannot work without before marking a
+ * project as deploying. This is deliberately read-only: no repository or
+ * cluster project is created during the check.
+ */
+export async function preflightOwnCluster(
+  cfg: OwnClusterConfig | null = getOwnClusterConfig(),
+  fetcher: typeof fetch = fetch,
+): Promise<OwnClusterReadiness> {
+  if (!cfg) {
+    return { ok: false, reason: `своя инфраструктура не настроена (нет: ${missingOwnClusterEnvKeys().join(", ")})` }
+  }
+
+  const [cluster, forgejo] = await Promise.allSettled([
+    clusterFetch(cfg, "/api/projects", {}, fetcher),
+    forgejoFetch(cfg, "/user", {}, fetcher),
+  ])
+
+  const problems: string[] = []
+  if (cluster.status === "rejected") problems.push("control-plane недоступен")
+  else if (!cluster.value.ok) problems.push(`control-plane ответил ${cluster.value.status}`)
+
+  if (forgejo.status === "rejected") problems.push("Forgejo недоступен")
+  else if (!forgejo.value.ok) problems.push(`Forgejo ответил ${forgejo.value.status}`)
+
+  return problems.length === 0
+    ? { ok: true }
+    : { ok: false, reason: problems.join("; ") }
 }
 
 /** Регистрирует приложение в control-plane (идемпотентно).

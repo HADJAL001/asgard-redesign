@@ -11,6 +11,7 @@ import {
   GeneratedAppFile,
 } from "../services/app-generator"
 import { resolveDeployTarget, runDeployJob } from "../services/deploy-target"
+import { preflightOwnCluster } from "../services/own-cluster-deploy"
 import { verifyBuildInSandbox } from "../services/sandbox.service"
 import { decrypt } from "../utils/encryption"
 import { asyncHandler } from "../utils/async-handler"
@@ -1378,6 +1379,16 @@ const deployProjectHandler = asyncHandler(async (req: AuthRequest, res) => {
 
   if (project.deploy_status === "deploying") {
     return res.status(400).json({ error: "Деплой уже выполняется" })
+  }
+
+  if (decision.target === "own-cluster") {
+    const readiness = await preflightOwnCluster()
+    if (!readiness.ok) {
+      return res.status(503).json({
+        error: `Инфраструктура публикации сейчас недоступна: ${readiness.reason}`,
+        code: "infrastructure_unavailable",
+      })
+    }
   }
 
   db.prepare(`UPDATE projects SET deploy_status = 'deploying', deploy_error = NULL WHERE id = ?`).run(id)

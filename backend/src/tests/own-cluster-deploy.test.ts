@@ -39,6 +39,7 @@ import {
   GENERATED_NGINX_CONF,
   CLUSTER_INTERNAL_PORT,
   CLUSTER_REQUEST_TIMEOUT_MS,
+  preflightOwnCluster,
   type OwnClusterConfig,
 } from "../services/own-cluster-deploy"
 import { resolveDeployTarget, isNetlifyFallbackAllowed } from "../services/deploy-target"
@@ -50,6 +51,35 @@ test("внешние запросы деплоя имеют короткий и 
   const source = fs.readFileSync(path.join(__dirname, "..", "services", "own-cluster-deploy.ts"), "utf-8")
   assert.match(source, /forgejoUrl}\/api\/v1\$\{pathname\}[\s\S]*signal: AbortSignal\.timeout\(CLUSTER_REQUEST_TIMEOUT_MS\)/)
   assert.match(source, /apiUrl}\$\{pathname\}[\s\S]*signal: AbortSignal\.timeout\(CLUSTER_REQUEST_TIMEOUT_MS\)/)
+})
+
+test("preflight проверяет cluster и Forgejo до создания ресурсов", async () => {
+  const cfg: OwnClusterConfig = {
+    apiUrl: "https://cp.example.test",
+    apiToken: "cluster-token",
+    baseDomain: "example.test",
+    forgejoUrl: "https://git.example.test",
+    forgejoOwner: "apps",
+    forgejoUser: "deploy-bot",
+    forgejoToken: "forgejo-token",
+  }
+  const urls: string[] = []
+  const ok = await preflightOwnCluster(cfg, async (input) => {
+    urls.push(String(input))
+    return new Response("{}", { status: 200 })
+  })
+  assert.deepEqual(ok, { ok: true })
+  assert.deepEqual(urls.sort(), ["https://cp.example.test/api/projects", "https://git.example.test/api/v1/user"])
+
+  const unavailable = await preflightOwnCluster(cfg, async (input) => {
+    if (String(input).includes("git.example.test")) throw new Error("offline")
+    return new Response("{}", { status: 503 })
+  })
+  assert.equal(unavailable.ok, false)
+  assert.match(unavailable.reason || "", /control-plane ответил 503/)
+  assert.match(unavailable.reason || "", /Forgejo недоступен/)
+  assert.ok(!JSON.stringify(unavailable).includes(cfg.apiToken))
+  assert.ok(!JSON.stringify(unavailable).includes(cfg.forgejoToken))
 })
 
 test("слаг приложения годен и как поддомен, и как имя репозитория", () => {
