@@ -32,6 +32,22 @@ jobs:
             echo "timestamp,endpoint,http_code,response_time_s,ok" > monitoring/status-log.csv
           fi
 
+      - name: Detect delayed monitoring cadence
+        id: cadence
+        run: |
+          LAST_TS=$(tail -n 1 monitoring/status-log.csv | cut -d, -f1)
+          NOW_EPOCH=$(date -u +%s)
+          LAST_EPOCH=$(date -u -d "$LAST_TS" +%s 2>/dev/null || echo 0)
+          GAP_SECONDS=$((NOW_EPOCH - LAST_EPOCH))
+          if [ "$LAST_EPOCH" -gt 0 ] && [ "$GAP_SECONDS" -gt 1200 ]; then
+            echo "late=1" >> "$GITHUB_OUTPUT"
+            echo "gap_seconds=$GAP_SECONDS" >> "$GITHUB_OUTPUT"
+            echo "::warning::Monitoring cadence gap: ${GAP_SECONDS}s since the previous successful check"
+          else
+            echo "late=0" >> "$GITHUB_OUTPUT"
+            echo "gap_seconds=0" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check /api/health
         id: health
         continue-on-error: true
@@ -105,6 +121,23 @@ jobs:
             exit 0
           fi
           TEXT="⚠️ OSGARD backend отвечает медленно:${{ steps.timing.outputs.slow }}
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          curl -fsS --max-time 15 \
+            -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            --data-urlencode text="${TEXT}"
+
+      - name: Alert in Telegram on delayed monitoring cadence
+        if: steps.cadence.outputs.late == '1'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "::warning::Monitoring cadence was delayed, but Telegram secrets are not set"
+            exit 0
+          fi
+          TEXT="OSGARD monitoring resumed after a ${{ steps.cadence.outputs.gap_seconds }}s gap.
           Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           curl -fsS --max-time 15 \
             -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
