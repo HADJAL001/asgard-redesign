@@ -77,6 +77,10 @@ export default function CreateScreen() {
       await queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
       router.push(`/project/${project.id}`);
     } catch (e) {
+      if (e instanceof ApiError && e.code === 'GENERATION_PROVIDERS_UNAVAILABLE') {
+        setError('AI-команда временно недоступна. Проект не был начат, списаний нет. Попробуйте позже.');
+        return;
+      }
       setError(e instanceof ApiError ? e.message : 'Не удалось запустить создание проекта');
     } finally {
       setBusy(false);

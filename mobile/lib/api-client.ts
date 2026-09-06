@@ -37,11 +37,22 @@ export async function clearGuestClaimToken() {
   await SecureStore.deleteItemAsync(GUEST_CLAIM_TOKEN_KEY);
 }
 
+export type ApiErrorPayload = {
+  error?: string;
+  code?: string;
+  [key: string]: unknown;
+};
+
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  code?: string;
+  data: ApiErrorPayload;
+
+  constructor(status: number, message: string, data: ApiErrorPayload = {}) {
     super(message);
     this.status = status;
+    this.code = data.code;
+    this.data = data;
   }
 }
 
@@ -96,9 +107,9 @@ async function request<T>(path: string, options: RequestOptions = {}, isRetry = 
     if (newToken) return request<T>(path, options, true);
   }
 
-  const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => ({} as ApiErrorPayload));
   if (!res.ok) {
-    throw new ApiError(res.status, data.error ?? `Request failed: ${res.status}`);
+    throw new ApiError(res.status, data.error ?? `Request failed: ${res.status}`, data);
   }
   return data as T;
 }

@@ -86,4 +86,18 @@ describe('apiClient', () => {
 
     await expect(apiClient.post('/wallet', {})).rejects.toThrow('Bad request');
   });
+
+  it('retains the structured error code from the server', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ error: 'Generation unavailable', code: 'GENERATION_PROVIDERS_UNAVAILABLE' }),
+    });
+
+    await expect(apiClient.post('/projects', {})).rejects.toMatchObject({
+      status: 503,
+      code: 'GENERATION_PROVIDERS_UNAVAILABLE',
+      data: { error: 'Generation unavailable', code: 'GENERATION_PROVIDERS_UNAVAILABLE' },
+    });
+  });
 });

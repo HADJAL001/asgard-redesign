@@ -4,6 +4,7 @@ import { TextInput, View } from 'react-native';
 
 import CreateScreen from '../(tabs)/index';
 import { createProject } from '@/lib/projects-api';
+import { ApiError } from '@/lib/api-client';
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useLocalSearchParams: () => ({}) }));
 jest.mock('expo-haptics', () => ({
@@ -89,5 +90,35 @@ describe('mobile project interview', () => {
       ].join('\n'),
       depth: 'quick',
     });
+  });
+  it('explains that no project was started when AI generation is unavailable', async () => {
+    mockedCreateProject.mockRejectedValueOnce(new ApiError(503, 'Generation unavailable', {
+      code: 'GENERATION_PROVIDERS_UNAVAILABLE',
+    }));
+    let screen: renderer.ReactTestRenderer;
+    await act(async () => {
+      screen = renderer.create(<CreateScreen />);
+    });
+
+    const ideaInput = screen!.root.findByProps({ testID: 'project-prompt-input' });
+    act(() => ideaInput.props.onChangeText('Сервис бронирования столиков'));
+    act(() => primaryAction(screen!).props.onPress());
+
+    for (const answer of [
+      'Владельцы небольших кафе',
+      'Гость бронирует столик за минуту',
+      'Календарь, бронирования, уведомления',
+    ]) {
+      act(() => activeBriefInput(screen!).props.onChangeText(answer));
+      act(() => primaryAction(screen!).props.onPress());
+    }
+
+    await act(async () => {
+      await primaryAction(screen!).props.onPress();
+    });
+
+    expect(screen!.root.findAllByType('Text').map((node) => node.props.children).flat()).toContain(
+      'AI-команда временно недоступна. Проект не был начат, списаний нет. Попробуйте позже.',
+    );
   });
 });
