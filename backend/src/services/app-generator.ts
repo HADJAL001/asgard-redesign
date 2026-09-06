@@ -150,7 +150,10 @@ export type ManifestEntry = {
 type RawProvider = (prompt: string, maxTokens: number) => Promise<string | null>
 
 const PLANNER_CHAIN: RawProvider[] = [callClaudeRaw, callKimiRaw]
-const CODER_CHAIN: RawProvider[] = [callDeepSeekRaw]
+// DeepSeek remains the primary implementation model. Kimi is already a
+// verified reasoning provider and can return raw code too, so it prevents a
+// single coding-provider outage from making the whole project pipeline idle.
+const CODER_CHAIN: RawProvider[] = [callDeepSeekRaw, callKimiRaw]
 const REVIEWER_CHAIN: RawProvider[] = [callClaudeRaw, callKimiRaw]
 const GENERAL_CHAIN: RawProvider[] = [callClaudeRaw, callKimiRaw, callDeepSeekRaw, callGrokRaw]
 
@@ -235,7 +238,7 @@ export function callPlanner(prompt: string, maxTokens: number): Promise<string |
   )
 }
 
-/** DeepSeek alone implements the Claude/Kimi plan. */
+/** DeepSeek implements first; Kimi completes the same plan when it is down. */
 export function callCoder(prompt: string, maxTokens: number): Promise<string | null> {
   return firstAcceptedProviderResponse(CODER_CHAIN, prompt, maxTokens)
 }
@@ -268,7 +271,7 @@ export function resolveProjectGenerationReadiness(config: {
   const reasoningProvider = config.claude || config.kimi
   const roles = {
     planner: reasoningProvider,
-    coder: config.deepSeek,
+    coder: config.deepSeek || config.kimi,
     reviewer: reasoningProvider,
   }
   const missing = (Object.keys(roles) as Array<keyof typeof roles>).filter((role) => !roles[role])
