@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { CheckCircle2, CircleDashed, Layers3, WandSparkles, XCircle } from 'lucide-react-native';
+import { CheckCircle2, CircleDashed, Layers3, RefreshCw, WandSparkles, XCircle } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
 
 import { VoiceInputButton } from '@/components/VoiceInputButton';
@@ -46,7 +46,11 @@ export default function CreateScreen() {
     queryFn: fetchGenerationDepths,
     staleTime: 60_000,
   });
-  const { data: generationReadiness } = useQuery({
+  const {
+    data: generationReadiness,
+    refetch: refetchGenerationReadiness,
+    isFetching: isRefreshingGenerationReadiness,
+  } = useQuery({
     queryKey: ['project-generation-readiness'],
     queryFn: fetchProjectGenerationReadiness,
     staleTime: 60_000,
@@ -187,7 +191,7 @@ export default function CreateScreen() {
           </View>
         </View>
 
-        {generationUnavailable && !error && <View className="flex-row items-start gap-2 rounded-xl border border-down/40 bg-down/10 px-3 py-3"><XCircle size={17} color="#FB7185" /><Text className="flex-1 text-sm text-down">AI-команда временно недоступна. Создание проекта будет доступно после восстановления конвейера.</Text></View>}
+        {generationUnavailable && !error && <View className="gap-3 rounded-xl border border-down/40 bg-down/10 px-3 py-3"><View className="flex-row items-start gap-2"><XCircle size={17} color="#FB7185" /><Text className="flex-1 text-sm text-down">AI-команда временно недоступна. Создание проекта будет доступно после восстановления конвейера.</Text></View><Pressable testID="refresh-generation-readiness" onPress={() => void refetchGenerationReadiness()} disabled={isRefreshingGenerationReadiness} accessibilityRole="button" accessibilityState={{ disabled: isRefreshingGenerationReadiness }} className="flex-row items-center justify-center gap-2 self-start rounded-lg border border-down/50 px-3 py-2"><RefreshCw size={15} color="#FB7185" /><Text className="text-xs font-semibold text-down">Проверить снова</Text></Pressable></View>}
         {error && <View className="flex-row items-start gap-2 rounded-xl border border-down/40 bg-down/10 px-3 py-3"><XCircle size={17} color="#FB7185" /><Text className="flex-1 text-sm text-down">{error}</Text></View>}
 
         <Pressable testID="project-generate-button" onPress={briefOpen ? (isBriefLastStep ? submit : advanceBrief) : openBrief} disabled={primaryActionDisabled} accessibilityRole="button" accessibilityState={{ disabled: primaryActionDisabled }} className={`flex-row items-center justify-center gap-2 rounded-xl px-4 py-4 ${!primaryActionDisabled ? 'bg-accent' : 'bg-border'}`}>

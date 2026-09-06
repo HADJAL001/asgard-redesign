@@ -12,7 +12,7 @@ jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(),
   ImpactFeedbackStyle: { Light: 'light' },
 }));
-jest.mock('@tanstack/react-query', () => ({ useQuery: jest.fn(() => ({ data: [] })) }));
+jest.mock('@tanstack/react-query', () => ({ useQuery: jest.fn(() => ({ data: [], refetch: jest.fn(), isFetching: false })) }));
 jest.mock('@/hooks/useVoiceInput', () => ({
   useVoiceInput: () => ({ isListening: false, error: null, volume: 0, language: 'ru-RU', start: jest.fn(), stop: jest.fn(), cycleLanguage: jest.fn() }),
 }));
@@ -25,6 +25,7 @@ jest.mock('lucide-react-native', () => ({
   CheckCircle2: () => null,
   CircleDashed: () => null,
   Layers3: () => null,
+  RefreshCw: () => null,
   WandSparkles: () => null,
   XCircle: () => null,
 }));
@@ -50,7 +51,7 @@ function activeBriefInput(screen: renderer.ReactTestRenderer) {
 describe('mobile project interview', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedUseQuery.mockReturnValue({ data: [] });
+    mockedUseQuery.mockReturnValue({ data: [], refetch: jest.fn(), isFetching: false });
     mockedCreateProject.mockResolvedValue({ id: 42 } as Awaited<ReturnType<typeof createProject>>);
   });
 
@@ -125,10 +126,13 @@ describe('mobile project interview', () => {
   });
 
   it('blocks the interview before it starts when the verified AI pipeline is unavailable', async () => {
+    const refetch = jest.fn();
     mockedUseQuery.mockImplementation(({ queryKey }: { queryKey: string[] }) => ({
       data: queryKey[0] === 'project-generation-readiness'
         ? { ready: false, roles: { planner: true, coder: false, reviewer: true }, missing: ['coder'] }
         : [],
+      refetch,
+      isFetching: false,
     }));
     let screen: renderer.ReactTestRenderer;
     await act(async () => {
@@ -142,6 +146,8 @@ describe('mobile project interview', () => {
     expect(screen!.root.findAllByType(Text).map((node) => node.props.children).flat()).toContain(
       'AI-команда временно недоступна. Создание проекта будет доступно после восстановления конвейера.',
     );
+    act(() => screen!.root.findByProps({ testID: 'refresh-generation-readiness' }).props.onPress());
+    expect(refetch).toHaveBeenCalledTimes(1);
     expect(mockedCreateProject).not.toHaveBeenCalled();
   });
 });
