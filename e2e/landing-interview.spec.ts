@@ -27,6 +27,27 @@ test("the landing page interviews the creator before generation", async ({ page 
   expect(generationRequests).toBe(0)
 })
 
+test("the project interview can be safely dismissed with the keyboard", async ({ page }) => {
+  let generationRequests = 0
+  page.on("request", (request) => {
+    if (request.url().includes("/projects/generate")) generationRequests += 1
+  })
+
+  await page.goto("/")
+  const idea = page.locator('input[name="projectIdea"]:visible')
+  const trigger = page.locator(".artifact-form button")
+  await idea.fill("Сервис для бронирования столиков")
+  await trigger.click()
+
+  const brief = page.locator(".project-brief-card")
+  await expect(brief).toBeVisible()
+  await page.keyboard.press("Escape")
+
+  await expect(brief).toHaveCount(0)
+  await expect(trigger).toBeFocused()
+  expect(generationRequests).toBe(0)
+})
+
 test("the landing page hydrates cleanly for an English-language browser", async ({ browser }) => {
   const context = await browser.newContext({ locale: "en-US" })
   const page = await context.newPage()

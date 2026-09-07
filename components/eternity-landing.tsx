@@ -52,6 +52,7 @@ export function EternityLanding() {
   const router = useRouter()
   const { isAuthenticated } = useAuth()
   const inputRef = useRef<HTMLInputElement>(null)
+  const briefTriggerRef = useRef<HTMLButtonElement>(null)
   const briefDialogRef = useRef<HTMLFormElement>(null)
   const [scrolled, setScrolled] = useState(false)
   const [globeReady, setGlobeReady] = useState(false)
@@ -67,6 +68,10 @@ export function EternityLanding() {
       : result.error || t("landing.createError")
   /** Вопрос платформы, когда заявку не удалось прочитать (422 unclear_request). */
   const [clarify, setClarify] = useState<{ question: string; received?: string } | null>(null)
+  const getGenerationError = (result: { error?: string; code?: string }) =>
+    result.code === "GENERATION_PROVIDERS_UNAVAILABLE"
+      ? t("landing.generationProvidersUnavailable")
+      : result.error || t("landing.createError")
   const heroValueBadge = locale === "en"
     ? "BUILD PRODUCTS THAT MATTER"
     : locale === "kz"
@@ -78,6 +83,11 @@ export function EternityLanding() {
       ? "Жұмыс істейтін жобалар жасаңыз, идеяларды тексеріңіз және адамдар қолданатын өнімдерді дамытыңыз."
       : "Создавайте рабочие проекты, проверяйте идеи и развивайте продукты, которыми люди действительно пользуются."
 
+  const closeBrief = useCallback(() => {
+    setBriefIdea(null)
+    requestAnimationFrame(() => briefTriggerRef.current?.focus())
+  }, [])
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24)
     onScroll()
@@ -88,7 +98,6 @@ export function EternityLanding() {
   useEffect(() => {
     if (!briefIdea) return
 
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = "hidden"
 
@@ -101,7 +110,7 @@ export function EternityLanding() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault()
-        setBriefIdea(null)
+        closeBrief()
         return
       }
       if (event.key !== "Tab") return
@@ -124,9 +133,8 @@ export function EternityLanding() {
     return () => {
       window.removeEventListener("keydown", onKeyDown)
       document.body.style.overflow = previousOverflow
-      previousFocus?.focus()
     }
-  }, [briefIdea, briefStep])
+  }, [briefIdea, closeBrief])
 
   useEffect(() => {
     let timer: number | undefined
@@ -354,7 +362,7 @@ export function EternityLanding() {
       {/* Прозрачная шапка */}
       {briefIdea && (
         <div className="project-brief-overlay" role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget && !submitting) setBriefIdea(null)
+          if (event.target === event.currentTarget && !submitting) closeBrief()
         }}>
           <form ref={briefDialogRef} className="project-brief-card" onSubmit={handleBriefSubmit} role="dialog" aria-modal="true" aria-labelledby="project-brief-title" aria-describedby="project-brief-description">
             <div className="project-brief-kicker">{t("landing.briefKicker")}</div>
@@ -369,7 +377,7 @@ export function EternityLanding() {
               )}
             </label>
             <div className="project-brief-actions">
-              <button type="button" onClick={() => briefStep > 0 ? setBriefStep((current) => current - 1) : setBriefIdea(null)}>{briefStep > 0 ? t("projectWizard.back") : t("landing.briefBack")}</button>
+              <button type="button" onClick={() => briefStep > 0 ? setBriefStep((current) => current - 1) : closeBrief()}>{briefStep > 0 ? t("projectWizard.back") : t("landing.briefBack")}</button>
               <button type="submit" disabled={(briefStep < 3 && !isProjectBriefAnswerComplete(briefStepValue)) || (briefStep === 3 && !briefReady) || submitting}>{briefStep === 3 ? t("landing.briefStart") : t("projectWizard.next")} <ArrowRight size={17} aria-hidden="true" /></button>
             </div>
           </form>
@@ -420,7 +428,7 @@ export function EternityLanding() {
               aria-describedby={clarify ? "landing-clarify" : createError ? "landing-create-error" : undefined}
               disabled={submitting}
             />
-            <button type="submit" className={submitting ? "submitting" : undefined} disabled={submitting}>
+            <button ref={briefTriggerRef} type="submit" className={submitting ? "submitting" : undefined} disabled={submitting}>
               {submitting ? (
                 <>
                   {t("landing.creatingBtn")} <span className="btn-spinner" aria-hidden="true" />
