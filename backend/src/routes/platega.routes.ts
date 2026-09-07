@@ -12,6 +12,11 @@ const router = Router()
 const PAID_PLANS: Exclude<PlanKey, "free">[] = ["pro", "supreme", "duo", "elite"]
 const PERIOD_MS = 30 * 24 * 60 * 60 * 1000
 
+// Public capability check: expose availability, never merchant credentials.
+router.get("/status", (_req, res) => {
+  res.json({ available: isPlategaConfigured })
+})
+
 router.post("/create-payment", rateLimit(60_000, 10), requireAuth, asyncHandler(async (req: AuthRequest, res: Response) => {
   const plan = req.body?.plan as PlanKey | undefined
   if (!plan || !PAID_PLANS.includes(plan as Exclude<PlanKey, "free">)) return res.status(400).json({ error: "Invalid plan" })

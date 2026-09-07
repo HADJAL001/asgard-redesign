@@ -319,6 +319,22 @@ export function PricingView() {
   const [loading, setLoading] = useState(false)
   const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null)
   const [plategaBusy, setPlategaBusy] = useState<string | null>(null)
+  const [plategaAvailable, setPlategaAvailable] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    apiClient
+      .get<{ available: boolean }>("/platega/status")
+      .then((result) => {
+        if (!cancelled) setPlategaAvailable(result.available === true)
+      })
+      .catch(() => {
+        if (!cancelled) setPlategaAvailable(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const clickedAnyPlanRef = useRef(false)
 
@@ -657,12 +673,13 @@ export function PricingView() {
                     <button
                       type="button"
                       onClick={() => void startPlatega(plan)}
-                      disabled={plategaBusy !== null}
+                      disabled={plategaBusy !== null || plategaAvailable === false}
+                      aria-disabled={plategaAvailable === false}
                       className="flex items-center justify-center gap-2 w-full rounded-xl py-2.5 mt-2 text-[13px] font-medium transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ background: "transparent", border: `1px solid ${plan.color}30`, color: LABEL }}
                     >
                       {plategaBusy === plan.stripePlan ? <Loader2 size={14} className="animate-spin" /> : null}
-                      Оплатить в RUB (Platega)
+                      {plategaAvailable === false ? "Оплата временно недоступна" : "Оплатить в RUB (Platega)"}
                     </button>
                   )}
                 </div>
