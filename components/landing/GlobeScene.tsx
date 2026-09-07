@@ -16,7 +16,7 @@ export default function GlobeScene() {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     const quality = compactScene
       ? { pixelRatio: 1.25, earthSegments: 56, cloudSegments: 40, atmosphereSegments: 32, stars: 900, distantStars: 450 }
-      : { pixelRatio: 2, earthSegments: 128, cloudSegments: 96, atmosphereSegments: 64, stars: 4000, distantStars: 2000 }
+      : { pixelRatio: 1.5, earthSegments: 96, cloudSegments: 64, atmosphereSegments: 48, stars: 2200, distantStars: 1100 }
 
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x020408)
