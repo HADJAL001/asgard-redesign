@@ -166,8 +166,10 @@ export function recordRealBuildFailure(
       `UPDATE projects SET build_status = 'broken', build_report = ?, build_verified_at = ? WHERE id = ?`,
     ).run(JSON.stringify(report), at, projectId)
   } catch (err) {
-    // Схема без колонок 091 либо гонка с генерацией — деплой из-за этого не падает.
-    captureError("[engineering-gate] не удалось записать вердикт по реальной сборке:", err)
+    // Older databases legitimately lack the 091 evidence columns. Keep this
+    // compatibility path quiet; unexpected write failures still need capture.
+    const legacySchema = err instanceof Error && /no such column: (build_report|build_status|build_verified_at)/.test(err.message)
+    if (!legacySchema) captureError("[engineering-gate] не удалось записать вердикт по реальной сборке:", err)
   }
 }
 
