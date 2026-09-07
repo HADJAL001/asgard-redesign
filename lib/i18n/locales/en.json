@@ -65,6 +65,7 @@
     "createBtn": "Create project",
     "creatingBtn": "Creating…",
     "createError": "Project creation could not start. Check your connection and try again.",
+    "generationProvidersUnavailable": "The AI team is temporarily unavailable. Your project was not started and nothing was charged. Please try again later.",
     "briefKicker": "Project brief",
     "briefTitle": "Let's clarify the project first",
     "briefDescription": "Answer three required questions, then add any constraints if needed. OSGARD will build your app from the complete brief.",

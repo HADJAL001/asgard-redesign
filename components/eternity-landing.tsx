@@ -61,6 +61,10 @@ export function EternityLanding() {
   const [briefIdea, setBriefIdea] = useState<string | null>(null)
   const [brief, setBrief] = useState({ audience: "", outcome: "", essentials: "", constraints: "" })
   const [briefStep, setBriefStep] = useState(0)
+  const getGenerationError = (result: { error?: string; code?: string }) =>
+    result.code === "GENERATION_PROVIDERS_UNAVAILABLE"
+      ? t("landing.generationProvidersUnavailable")
+      : result.error || t("landing.createError")
   /** Вопрос платформы, когда заявку не удалось прочитать (422 unclear_request). */
   const [clarify, setClarify] = useState<{ question: string; received?: string } | null>(null)
   const heroValueBadge = locale === "en"
@@ -242,7 +246,7 @@ export function EternityLanding() {
           // The guest session is already valid at this point. Redirecting to
           // registration would hide an actionable generator response and lose
           // the person's place in the flow, so keep the brief in the field.
-          setCreateError(res.error || t("landing.createError"))
+          setCreateError(getGenerationError(res))
           flashInputError()
           setSubmitting(false)
           return
@@ -275,7 +279,7 @@ export function EternityLanding() {
         return
       }
       if (res.unclearRequest) setClarify({ question: res.error || "", received: res.received })
-      else setCreateError(res.error || t("landing.createError"))
+      else setCreateError(getGenerationError(res))
       flashInputError()
       setSubmitting(false)
     } catch {

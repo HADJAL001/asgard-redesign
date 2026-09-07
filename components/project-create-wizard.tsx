@@ -169,7 +169,11 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
         trackGeneration()
         onCreated(res.project.id)
       } else {
-        setError(res.error || t("projectWizard.errorGenerate"))
+        setError(
+          res.code === "GENERATION_PROVIDERS_UNAVAILABLE"
+            ? t("landing.generationProvidersUnavailable")
+            : res.error || t("projectWizard.errorGenerate"),
+        )
       }
     } finally {
       setSubmitting(false)

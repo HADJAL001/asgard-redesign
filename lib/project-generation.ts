@@ -10,6 +10,7 @@ export type ProjectGenerationResult = {
   success: boolean
   project?: GeneratedProject
   error?: string
+  code?: string
   unclearRequest?: boolean
   received?: string
 }
@@ -43,6 +44,7 @@ export async function generateProjectFromIdea(idea: string): Promise<ProjectGene
     return {
       success: false,
       error: generationError(err),
+      code: err instanceof ApiError && typeof err.data?.code === "string" ? err.data.code : undefined,
       unclearRequest,
       received,
     }

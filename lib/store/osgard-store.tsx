@@ -537,6 +537,8 @@ export interface ProjectActionResult {
   costCredits?: number
   costTimecoin?: number
   error?: string
+  /** Machine-readable API error code for UI-specific recovery. */
+  code?: string
   /** true — платформа не поняла заявку и НИЧЕГО не сгенерировала (422
    *  unclear_request): проект не создан, квота и кредиты не тронуты.
    *  Это вопрос человеку, а не сбой — и показывать его надо как вопрос. */
@@ -1671,7 +1673,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
           ? (err.data as { received: string }).received
           : undefined
       set({ loading: false, error: unclear ? null : message })
-      return { success: false, error: message, unclearRequest: unclear, received }
+      return { success: false, error: message, code: extractErrorCode(err), unclearRequest: unclear, received }
     }
   },
 
