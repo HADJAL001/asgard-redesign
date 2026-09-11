@@ -1977,3 +1977,5 @@ timestamp,endpoint,http_code,response_time_s,ok
 2026-09-11T15:14:33Z,tc-market-state,200,0.398519,1
 2026-09-11T18:36:33Z,health,200,1.525877,1
 2026-09-11T18:36:33Z,tc-market-state,200,0.494931,1
+2026-09-11T21:15:42Z,health,200,1.406716,1
+2026-09-11T21:15:42Z,tc-market-state,200,0.362157,1
