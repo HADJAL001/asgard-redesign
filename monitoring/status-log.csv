@@ -1983,3 +1983,5 @@ timestamp,endpoint,http_code,response_time_s,ok
 2026-09-11T23:18:32Z,tc-market-state,200,0.383995,1
 2026-09-12T01:13:15Z,health,200,1.196638,1
 2026-09-12T01:13:15Z,tc-market-state,200,0.366269,1
+2026-09-12T05:51:42Z,health,200,1.116432,1
+2026-09-12T05:51:42Z,tc-market-state,200,0.293361,1
