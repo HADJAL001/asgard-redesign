@@ -7,7 +7,7 @@ import { Navbar } from "./navbar"
 import { useTranslation } from "@/lib/i18n/use-translation"
 
 /* ---- Palette ----
-   bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E */
+   bg #10181d · card #17242a · accent #d7ae57 · text #FFFFFF · label #9eb2bc · border #30424b */
 
 type Faq = { id: number; q: string; a: string }
 
@@ -47,7 +47,7 @@ export function SupportView() {
   const filtered = FAQS.filter((f) => f.q.toLowerCase().includes(query.toLowerCase()))
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0A1628 100%)", color: "#FFFFFF" }}>
+    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #10181d 0%, #0A1628 100%)", color: "#FFFFFF" }}>
       <Navbar />
 
       <main className="mx-auto w-full max-w-6xl px-6 py-8 md:px-10">
@@ -60,9 +60,9 @@ export function SupportView() {
         {/* Search */}
         <div
           className="mt-6 flex items-center gap-3 rounded-xl px-4 py-3"
-          style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+          style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
         >
-          <Search size={18} strokeWidth={1.75} style={{ color: "#6A6A8A" }} />
+          <Search size={18} strokeWidth={1.75} style={{ color: "#9eb2bc" }} />
           <input
             type="text"
             value={query}
@@ -78,9 +78,9 @@ export function SupportView() {
           {/* FAQ */}
           <section
             className="rounded-xl p-5"
-            style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+            style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
           >
-            <h2 className="text-[12px] font-medium uppercase tracking-[0.14em]" style={{ color: "#6A6A8A" }}>
+            <h2 className="text-[12px] font-medium uppercase tracking-[0.14em]" style={{ color: "#9eb2bc" }}>
               Частые вопросы
             </h2>
             <ul className="mt-4 flex flex-col gap-1">
@@ -93,8 +93,8 @@ export function SupportView() {
                       onClick={() => setActiveFaq(active ? null : f.id)}
                       className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-[14px] transition-colors"
                       style={{
-                        color: active ? "#00D4FF" : "rgba(255,255,255,0.8)",
-                        backgroundColor: active ? "rgba(0,212,255,0.08)" : "transparent",
+                        color: active ? "#d7ae57" : "rgba(255,255,255,0.8)",
+                        backgroundColor: active ? "rgba(215, 174, 87,0.08)" : "transparent",
                       }}
                       onMouseEnter={(e) => {
                         if (!active) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)"
@@ -107,7 +107,7 @@ export function SupportView() {
                         size={16}
                         strokeWidth={1.75}
                         className="mt-0.5 shrink-0"
-                        style={{ color: active ? "#00D4FF" : "#6A6A8A" }}
+                        style={{ color: active ? "#d7ae57" : "#9eb2bc" }}
                       />
                       <span>{f.q}</span>
                     </button>
@@ -131,14 +131,20 @@ export function SupportView() {
             <button
               type="button"
               className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg py-2.5 text-[13px] transition-colors"
-              style={{ border: "1px solid #2A2A3E", color: "rgba(255,255,255,0.7)" }}
+              style={{
+                border: "1px solid #30424b",
+                color: query ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.3)",
+                cursor: query ? "pointer" : "default",
+              }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "#00D4FF"
-                e.currentTarget.style.color = "#00D4FF"
+                if (query) {
+                  e.currentTarget.style.borderColor = "#d7ae57"
+                  e.currentTarget.style.color = "#d7ae57"
+                }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "#2A2A3E"
-                e.currentTarget.style.color = "rgba(255,255,255,0.7)"
+                e.currentTarget.style.borderColor = "#30424b"
+                e.currentTarget.style.color = query ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.3)"
               }}
             >
               Все вопросы
@@ -149,13 +155,13 @@ export function SupportView() {
           {/* In-development notice — заменяет прежний макет с фейковым тикетом и чатом */}
           <section
             className="flex flex-col items-center justify-center rounded-xl p-10 text-center"
-            style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+            style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
           >
             <span
               className="mb-4 flex size-14 items-center justify-center rounded-full"
-              style={{ backgroundColor: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.25)" }}
+              style={{ backgroundColor: "rgba(215, 174, 87,0.1)", border: "1px solid rgba(215, 174, 87,0.25)" }}
             >
-              <Construction size={26} strokeWidth={1.5} style={{ color: "#00D4FF" }} />
+              <Construction size={26} strokeWidth={1.5} style={{ color: "#d7ae57" }} />
             </span>
             <h2 className="text-[18px] font-semibold text-white">{t("support.inDevelopmentTitle")}</h2>
             <p className="mt-2 max-w-md text-[14px] leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
@@ -165,7 +171,7 @@ export function SupportView() {
               <Link
                 href="/docs"
                 className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[14px] font-medium transition-opacity"
-                style={{ backgroundColor: "#00D4FF", color: "#0A0A0F" }}
+                style={{ backgroundColor: "#d7ae57", color: "#10181d" }}
               >
                 <BookOpen size={16} strokeWidth={1.75} />
                 Документация
@@ -173,7 +179,7 @@ export function SupportView() {
               <Link
                 href="/community"
                 className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[14px] transition-colors"
-                style={{ border: "1px solid #2A2A3E", color: "rgba(255,255,255,0.7)" }}
+                style={{ border: "1px solid #30424b", color: "rgba(255,255,255,0.7)" }}
               >
                 <Beer size={16} strokeWidth={1.75} />
                 Таверна

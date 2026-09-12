@@ -42,10 +42,10 @@ import { useAuth } from "@/lib/auth-store"
 import { track, getAnalyticsSessionId } from "@/lib/analytics"
 
 /* ── Палитра ───────────────────────────────────────────────────── */
-const BG     = "#0A0A0F"
-const CARD   = "#14141E"
-const BORDER = "#2A2A3E"
-const LABEL  = "#6A6A8A"
+const BG     = "#10181d"
+const CARD   = "#17242a"
+const BORDER = "#30424b"
+const LABEL  = "#9eb2bc"
 
 /* ── Типы ──────────────────────────────────────────────────────── */
 type PlanId = "guest" | "free" | "pro" | "supreme" | "duo" | "elite"
@@ -91,7 +91,7 @@ const PLANS: PlanDef[] = [
     subtitle:   "Попробуй без регистрации",
     price:      null,
     priceLabel: "Бесплатно",
-    color:      "#6A6A8A",
+    color:      "#9eb2bc",
     glow:       "rgba(106,106,138,0.15)",
     Icon:       Users,
     features: [
@@ -593,7 +593,7 @@ export function PricingView() {
             style={{
               background: notice.ok ? "rgba(52,211,153,0.08)" : "rgba(239,68,68,0.08)",
               border: `1px solid ${notice.ok ? "rgba(52,211,153,0.25)" : "rgba(239,68,68,0.25)"}`,
-              color: notice.ok ? "#34D399" : "#F87171",
+              color: notice.ok ? "#34D399" : "#e2685c",
             }}
           >
             {notice.text}
@@ -775,7 +775,7 @@ export function PricingView() {
               style={{
                 background: addonNotice.ok ? "rgba(52,211,153,0.08)" : "rgba(239,68,68,0.08)",
                 border: `1px solid ${addonNotice.ok ? "rgba(52,211,153,0.25)" : "rgba(239,68,68,0.25)"}`,
-                color: addonNotice.ok ? "#34D399" : "#F87171",
+                color: addonNotice.ok ? "#34D399" : "#e2685c",
               }}
             >
               {addonNotice.text}
@@ -846,7 +846,7 @@ export function PricingView() {
                           />
                         </div>
                         {status?.cancelAtPeriodEnd && (
-                          <p className="text-[11px] mt-2" style={{ color: "#F87171" }}>
+                          <p className="text-[11px] mt-2" style={{ color: "#e2685c" }}>
                             Отменена — доступ сохранится до конца оплаченного периода
                           </p>
                         )}
@@ -883,7 +883,7 @@ export function PricingView() {
                             onClick={() => handleAddonCancel(def.key)}
                             disabled={isBusy}
                             className="rounded-xl px-4 py-3 text-[13px] font-medium transition-all duration-200 hover:opacity-90 disabled:opacity-50"
-                            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#F87171" }}
+                            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#e2685c" }}
                           >
                             {isBusy ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
                           </button>

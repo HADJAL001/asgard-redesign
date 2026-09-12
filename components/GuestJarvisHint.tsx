@@ -69,8 +69,8 @@ export function GuestJarvisHint({ onClose, onTryFree }: GuestJarvisHintProps) {
         maxWidth: "calc(100vw - 32px)",
         borderRadius: 18,
         overflow: "hidden",
-        background: "#0A0A0F",
-        border: "1px solid rgba(0,212,255,0.25)",
+        background: "#10181d",
+        border: "1px solid rgba(215, 174, 87,0.25)",
         boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
         color: "#fff",
       }}
@@ -108,7 +108,7 @@ export function GuestJarvisHint({ onClose, onTryFree }: GuestJarvisHintProps) {
       <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10, maxHeight: 280, overflowY: "auto" }}>
         {FAQ.map((item) => (
           <div key={item.q}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#00D4FF", marginBottom: 2 }}>{item.q}</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#d7ae57", marginBottom: 2 }}>{item.q}</div>
             <div style={{ fontSize: 13, opacity: 0.75, lineHeight: 1.4 }}>{item.a}</div>
           </div>
         ))}
@@ -126,8 +126,8 @@ export function GuestJarvisHint({ onClose, onTryFree }: GuestJarvisHintProps) {
             padding: "10px 16px",
             borderRadius: 10,
             border: "none",
-            background: "#00D4FF",
-            color: "#0A0A0F",
+            background: "#d7ae57",
+            color: "#10181d",
             fontWeight: 600,
             fontSize: 13,
             cursor: "pointer",

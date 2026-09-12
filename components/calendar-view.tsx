@@ -5,8 +5,8 @@ import { ChevronLeft, ChevronRight, Plus, X, Pencil, Trash2, Clock } from "lucid
 import { Navbar } from "./navbar"
 
 /* ---- Palette ----
-   bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E
-   event types: meeting #00D4FF · deadline #EF4444 · update #10B981 · other #F59E0B */
+   bg #10181d · card #17242a · accent #d7ae57 · text #FFFFFF · label #9eb2bc · border #30424b
+   event types: meeting #d7ae57 · deadline #EF4444 · update #10B981 · other #F59E0B */
 
 type EventType = "meeting" | "deadline" | "update" | "other"
 type ViewMode = "month" | "week" | "day" | "list"
@@ -23,7 +23,7 @@ type CalEvent = {
 }
 
 const TYPE: Record<EventType, { label: string; color: string }> = {
-  meeting: { label: "Встреча", color: "#00D4FF" },
+  meeting: { label: "Встреча", color: "#d7ae57" },
   deadline: { label: "Дедлайн", color: "#EF4444" },
   update: { label: "Обновление", color: "#10B981" },
   other: { label: "Другое", color: "#F59E0B" },
@@ -112,7 +112,7 @@ export function CalendarView() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0F0F1A 100%)", color: "#FFFFFF" }}>
+    <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #10181d 0%, #0F0F1A 100%)", color: "#FFFFFF" }}>
       <Navbar />
 
       <main className="mx-auto max-w-6xl px-6 py-8 md:px-10 md:py-10">
@@ -129,9 +129,9 @@ export function CalendarView() {
               type="button"
               onClick={goToday}
               className="rounded-lg px-4 py-2.5 text-[14px] transition-colors"
-              style={{ border: "1px solid #2A2A3E", color: "rgba(255,255,255,0.8)" }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#00D4FF")}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#2A2A3E")}
+              style={{ border: "1px solid #30424b", color: "rgba(255,255,255,0.8)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#d7ae57")}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30424b")}
             >
               Сегодня
             </button>
@@ -139,7 +139,7 @@ export function CalendarView() {
               type="button"
               onClick={() => setCreating(true)}
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-medium transition-colors"
-              style={{ backgroundColor: "#00D4FF", color: "#0A0A0F" }}
+              style={{ backgroundColor: "#d7ae57", color: "#10181d" }}
               onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
               onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
             >
@@ -150,7 +150,7 @@ export function CalendarView() {
         </div>
 
         {/* View tabs */}
-        <div className="mt-8 flex items-center gap-8 border-b" style={{ borderColor: "#2A2A3E" }}>
+        <div className="mt-8 flex items-center gap-8 border-b" style={{ borderColor: "#30424b" }}>
           {VIEWS.map((v) => {
             const active = v.id === view
             return (
@@ -159,11 +159,11 @@ export function CalendarView() {
                 type="button"
                 onClick={() => setView(v.id)}
                 className="relative pb-3 text-[14px] uppercase tracking-wide transition-colors"
-                style={{ color: active ? "#00D4FF" : "rgba(255,255,255,0.5)" }}
+                style={{ color: active ? "#d7ae57" : "rgba(255,255,255,0.5)" }}
               >
                 {v.label}
                 {active && (
-                  <span className="absolute inset-x-0 -bottom-px h-0.5" style={{ backgroundColor: "#00D4FF" }} />
+                  <span className="absolute inset-x-0 -bottom-px h-0.5" style={{ backgroundColor: "#d7ae57" }} />
                 )}
               </button>
             )
@@ -175,19 +175,19 @@ export function CalendarView() {
           {/* Month navigation card */}
           <aside
             className="h-fit rounded-xl p-5"
-            style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+            style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
           >
             <div className="text-[20px] font-semibold">{MONTHS[month]}</div>
-            <div className="text-[14px]" style={{ color: "#6A6A8A" }}>{year}</div>
+            <div className="text-[14px]" style={{ color: "#9eb2bc" }}>{year}</div>
 
             <div className="mt-5 flex flex-col gap-2">
               <button
                 type="button"
                 onClick={prevMonth}
                 className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] transition-colors"
-                style={{ border: "1px solid #2A2A3E", color: "rgba(255,255,255,0.8)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#00D4FF")}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#2A2A3E")}
+                style={{ border: "1px solid #30424b", color: "rgba(255,255,255,0.8)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#d7ae57")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30424b")}
               >
                 <ChevronLeft size={15} strokeWidth={1.75} />
                 {MONTHS[(month + 11) % 12]}
@@ -196,9 +196,9 @@ export function CalendarView() {
                 type="button"
                 onClick={nextMonth}
                 className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] transition-colors"
-                style={{ border: "1px solid #2A2A3E", color: "rgba(255,255,255,0.8)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#00D4FF")}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#2A2A3E")}
+                style={{ border: "1px solid #30424b", color: "rgba(255,255,255,0.8)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#d7ae57")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30424b")}
               >
                 <ChevronRight size={15} strokeWidth={1.75} />
                 {MONTHS[(month + 1) % 12]}
@@ -207,16 +207,16 @@ export function CalendarView() {
                 type="button"
                 onClick={goToday}
                 className="mt-1 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors"
-                style={{ backgroundColor: "rgba(0,212,255,0.1)", color: "#00D4FF" }}
+                style={{ backgroundColor: "rgba(215, 174, 87,0.1)", color: "#d7ae57" }}
               >
                 Сегодня
               </button>
             </div>
 
             {/* Legend */}
-            <div className="mt-6 space-y-2 border-t pt-5" style={{ borderColor: "#2A2A3E" }}>
+            <div className="mt-6 space-y-2 border-t pt-5" style={{ borderColor: "#30424b" }}>
               {(Object.keys(TYPE) as EventType[]).map((k) => (
-                <div key={k} className="flex items-center gap-2 text-[12px]" style={{ color: "#6A6A8A" }}>
+                <div key={k} className="flex items-center gap-2 text-[12px]" style={{ color: "#9eb2bc" }}>
                   <span className="size-2 rounded-full" style={{ backgroundColor: TYPE[k].color }} aria-hidden="true" />
                   {TYPE[k].label}
                 </div>
@@ -227,11 +227,11 @@ export function CalendarView() {
           {/* Days grid */}
           <div
             className="rounded-xl p-5"
-            style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+            style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
           >
             <div className="grid grid-cols-7 gap-2">
               {WEEKDAYS.map((w) => (
-                <div key={w} className="pb-2 text-center text-[12px] font-medium" style={{ color: "#6A6A8A" }}>
+                <div key={w} className="pb-2 text-center text-[12px] font-medium" style={{ color: "#9eb2bc" }}>
                   {w}
                 </div>
               ))}
@@ -248,17 +248,17 @@ export function CalendarView() {
                     onClick={() => setSelected(dateIso)}
                     className="flex aspect-square flex-col items-center justify-start rounded-lg p-1.5 transition-colors"
                     style={{
-                      border: `1px solid ${isSelected ? "#00D4FF" : dayEvents.length ? "#2A2A3E" : "transparent"}`,
-                      backgroundColor: isToday ? "rgba(0,212,255,0.12)" : "transparent",
+                      border: `1px solid ${isSelected ? "#d7ae57" : dayEvents.length ? "#30424b" : "transparent"}`,
+                      backgroundColor: isToday ? "rgba(215, 174, 87,0.12)" : "transparent",
                     }}
-                    onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.borderColor = "#00D4FF" }}
-                    onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.borderColor = dayEvents.length ? "#2A2A3E" : "transparent" }}
+                    onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.borderColor = "#d7ae57" }}
+                    onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.borderColor = dayEvents.length ? "#30424b" : "transparent" }}
                     aria-label={`${d} ${MONTHS[month]}${dayEvents.length ? `, событий: ${dayEvents.length}` : ""}`}
                     aria-pressed={isSelected}
                   >
                     <span
                       className="text-[13px]"
-                      style={{ color: isToday ? "#00D4FF" : "#FFFFFF", fontWeight: isToday ? 600 : 400 }}
+                      style={{ color: isToday ? "#d7ae57" : "#FFFFFF", fontWeight: isToday ? 600 : 400 }}
                     >
                       {d}
                     </span>
@@ -284,9 +284,9 @@ export function CalendarView() {
         {/* Events for selected day */}
         <section
           className="mt-8 rounded-xl p-6"
-          style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+          style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
         >
-          <h2 className="text-[13px] font-medium uppercase tracking-wide" style={{ color: "#6A6A8A" }}>
+          <h2 className="text-[13px] font-medium uppercase tracking-wide" style={{ color: "#9eb2bc" }}>
             {`События на ${selectedLabel} (${selectedEvents.length})`}
           </h2>
 
@@ -302,19 +302,19 @@ export function CalendarView() {
                     type="button"
                     onClick={() => setOpenEvent(e)}
                     className="flex w-full items-center gap-4 rounded-lg p-4 text-left transition-colors"
-                    style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E" }}
-                    onMouseEnter={(e2) => (e2.currentTarget.style.borderColor = "#00D4FF")}
-                    onMouseLeave={(e2) => (e2.currentTarget.style.borderColor = "#2A2A3E")}
+                    style={{ backgroundColor: "#10181d", border: "1px solid #30424b" }}
+                    onMouseEnter={(e2) => (e2.currentTarget.style.borderColor = "#d7ae57")}
+                    onMouseLeave={(e2) => (e2.currentTarget.style.borderColor = "#30424b")}
                   >
                     <span
                       className="w-14 shrink-0 font-mono text-[14px]"
-                      style={{ color: "#00D4FF" }}
+                      style={{ color: "#d7ae57" }}
                     >
                       {e.time}
                     </span>
                     <span
                       className="h-8 w-px shrink-0"
-                      style={{ backgroundColor: "#2A2A3E" }}
+                      style={{ backgroundColor: "#30424b" }}
                       aria-hidden="true"
                     />
                     <span
@@ -357,12 +357,12 @@ function CreateModal({ onClose }: { onClose: () => void }) {
     >
       <div
         className="w-full max-w-md rounded-2xl p-6"
-        style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+        style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
           <h2 className="text-[20px] font-semibold">Создать событие</h2>
-          <button type="button" onClick={onClose} aria-label="Закрыть" className="transition-colors hover:text-white" style={{ color: "#6A6A8A" }}>
+          <button type="button" onClick={onClose} aria-label="Закрыть" className="transition-colors hover:text-white" style={{ color: "#9eb2bc" }}>
             <X size={20} strokeWidth={1.5} />
           </button>
         </div>
@@ -386,13 +386,13 @@ function CreateModal({ onClose }: { onClose: () => void }) {
           </Field>
 
           <div>
-            <label className="mb-2 block text-[13px]" style={{ color: "#6A6A8A" }}>Тип события</label>
+            <label className="mb-2 block text-[13px]" style={{ color: "#9eb2bc" }}>Тип события</label>
             <div className="grid grid-cols-2 gap-2">
               {(Object.keys(TYPE) as EventType[]).map((k) => (
                 <label
                   key={k}
                   className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px]"
-                  style={{ border: `1px solid ${type === k ? "#00D4FF" : "#2A2A3E"}` }}
+                  style={{ border: `1px solid ${type === k ? "#d7ae57" : "#30424b"}` }}
                 >
                   <input type="radio" name="cal-type" checked={type === k} onChange={() => setType(k)} className="sr-only" />
                   <span className="size-2.5 rounded-full" style={{ backgroundColor: TYPE[k].color }} aria-hidden="true" />
@@ -422,7 +422,7 @@ function CreateModal({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={onClose}
             className="rounded-lg px-5 py-2.5 text-[14px] font-medium transition-colors"
-            style={{ backgroundColor: "#00D4FF", color: "#0A0A0F" }}
+            style={{ backgroundColor: "#d7ae57", color: "#10181d" }}
             onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
             onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
           >
@@ -448,7 +448,7 @@ function ViewModal({ event, onClose }: { event: CalEvent; onClose: () => void })
     >
       <div
         className="w-full max-w-md rounded-2xl p-6"
-        style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+        style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
@@ -456,14 +456,14 @@ function ViewModal({ event, onClose }: { event: CalEvent; onClose: () => void })
             <span className="size-2.5 rounded-full" style={{ backgroundColor: t.color }} aria-hidden="true" />
             <span className="text-[12px] uppercase tracking-wide" style={{ color: t.color }}>{t.label}</span>
           </div>
-          <button type="button" onClick={onClose} aria-label="Закрыть" className="transition-colors hover:text-white" style={{ color: "#6A6A8A" }}>
+          <button type="button" onClick={onClose} aria-label="Закрыть" className="transition-colors hover:text-white" style={{ color: "#9eb2bc" }}>
             <X size={20} strokeWidth={1.5} />
           </button>
         </div>
 
         <h2 className="mt-4 text-[20px] font-semibold leading-snug text-balance">{event.title}</h2>
 
-        <div className="mt-4 flex items-center gap-2 text-[14px]" style={{ color: "#6A6A8A" }}>
+        <div className="mt-4 flex items-center gap-2 text-[14px]" style={{ color: "#9eb2bc" }}>
           <Clock size={16} strokeWidth={1.5} />
           <span>{event.time}</span>
           {event.duration !== "—" && <span>· {event.duration}</span>}
@@ -473,11 +473,11 @@ function ViewModal({ event, onClose }: { event: CalEvent; onClose: () => void })
           {event.description}
         </p>
 
-        <div className="mt-6 flex items-center gap-3 border-t pt-5" style={{ borderColor: "#2A2A3E" }}>
+        <div className="mt-6 flex items-center gap-3 border-t pt-5" style={{ borderColor: "#30424b" }}>
           <button
             type="button"
             className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-medium transition-colors"
-            style={{ backgroundColor: "#00D4FF", color: "#0A0A0F" }}
+            style={{ backgroundColor: "#d7ae57", color: "#10181d" }}
             onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
             onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
           >
@@ -487,9 +487,9 @@ function ViewModal({ event, onClose }: { event: CalEvent; onClose: () => void })
           <button
             type="button"
             className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[14px] transition-colors"
-            style={{ border: "1px solid #2A2A3E", color: "#EF4444" }}
+            style={{ border: "1px solid #30424b", color: "#EF4444" }}
             onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#EF4444")}
-            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#2A2A3E")}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30424b")}
           >
             <Trash2 size={16} strokeWidth={1.75} />
             Удалить
@@ -514,7 +514,7 @@ function ViewModal({ event, onClose }: { event: CalEvent; onClose: () => void })
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-2 block text-[13px]" style={{ color: "#6A6A8A" }}>{label}</label>
+      <label className="mb-2 block text-[13px]" style={{ color: "#9eb2bc" }}>{label}</label>
       {children}
     </div>
   )

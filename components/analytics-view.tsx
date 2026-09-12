@@ -33,11 +33,11 @@ import {
 import { Navbar } from "./navbar"
 
 /* ---- Palette ----
-   bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E */
-const ACCENT = "#00D4FF"
-const CARD = "#14141E"
-const BORDER = "#2A2A3E"
-const LABEL = "#6A6A8A"
+   bg #10181d · card #17242a · accent #d7ae57 · text #FFFFFF · label #9eb2bc · border #30424b */
+const ACCENT = "#d7ae57"
+const CARD = "#17242a"
+const BORDER = "#30424b"
+const LABEL = "#9eb2bc"
 
 type Range = "day" | "week" | "month" | "year" | "all"
 
@@ -85,7 +85,7 @@ function buildTokens(range: Range) {
 const PROJECTS = [
   { name: "Активные", value: 7, color: ACCENT },
   { name: "В работе", value: 3, color: "#F59E0B" },
-  { name: "Завершены", value: 2, color: "#6A6A8A" },
+  { name: "Завершены", value: 2, color: "#9eb2bc" },
 ]
 
 const METRICS: { label: string; value: string; Icon: LucideIcon; trend?: string }[] = [
@@ -100,7 +100,7 @@ function CardTip({ active, payload, suffix }: any) {
   return (
     <div
       className="rounded-md px-3 py-1.5 font-sans text-[12px]"
-      style={{ backgroundColor: "#0A0A0F", border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
+      style={{ backgroundColor: "#10181d", border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
     >
       {payload[0].value}
       {suffix ? ` ${suffix}` : ""}
@@ -115,7 +115,7 @@ export function AnalyticsView() {
   const projectTotal = PROJECTS.reduce((s, p) => s + p.value, 0)
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0F0F1A 100%)", color: "#FFFFFF" }}>
+    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #10181d 0%, #0F0F1A 100%)", color: "#FFFFFF" }}>
       <Navbar />
 
       <main className="mx-auto max-w-7xl px-6 py-10 md:px-10">
@@ -257,7 +257,7 @@ export function AnalyticsView() {
                 { k: "Доступно", v: "7 340" },
                 { k: "Сгорание", v: "240/день" },
               ].map((t) => (
-                <li key={t.k} className="rounded-lg py-3" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${BORDER}` }}>
+                <li key={t.k} className="rounded-lg py-3" style={{ backgroundColor: "#10181d", border: `1px solid ${BORDER}` }}>
                   <div className="text-[15px] font-medium">{t.v}</div>
                   <div className="mt-1 text-[11px]" style={{ color: LABEL }}>
                     {t.k}
@@ -311,7 +311,7 @@ function StatCard({
           <li
             key={label}
             className="flex items-center justify-between rounded-lg px-4 py-3"
-            style={{ backgroundColor: "#0A0A0F", border: `1px solid ${BORDER}` }}
+            style={{ backgroundColor: "#10181d", border: `1px solid ${BORDER}` }}
           >
             <span className="flex items-center gap-3 text-[14px]" style={{ color: "rgba(255,255,255,0.8)" }}>
               <Icon size={16} strokeWidth={1.5} style={{ color }} aria-hidden="true" />

@@ -31,10 +31,10 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
-const CARD = "#14141E"
-const BORDER = "#2A2A3E"
-const LABEL = "#6A6A8A"
-const CYAN = "#00D4FF"
+const CARD = "#17242a"
+const BORDER = "#30424b"
+const LABEL = "#9eb2bc"
+const CYAN = "#d7ae57"
 
 /* Премиум-усиление (см. backend/artifacts.routes.ts POST /artifacts/:id/premium-upgrade). */
 const PREMIUM_MAX_LEVEL = 10
@@ -293,7 +293,7 @@ export function ArtifactDetailView({ id }: { id: number }) {
               <ol className="mt-5 flex flex-col gap-0">
                 <li className="flex gap-4">
                   <div className="flex flex-col items-center">
-                    <span className="mt-1 size-3 rounded-full" style={{ backgroundColor: "#4ADE80" }} aria-hidden="true" />
+                    <span className="mt-1 size-3 rounded-full" style={{ backgroundColor: "#d7ae57" }} aria-hidden="true" />
                   </div>
                   <div className="pb-5">
                     <p className="text-[14px] font-medium">Рождение</p>

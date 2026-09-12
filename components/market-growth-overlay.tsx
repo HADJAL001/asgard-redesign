@@ -56,8 +56,8 @@ export function MarketGrowthOverlay() {
               aria-pressed={active}
               className="rounded-md border px-3 py-1.5 font-mono text-[11px] font-medium uppercase tracking-wider backdrop-blur-sm transition-colors"
               style={{
-                borderColor: active ? "#00D4FF" : "rgba(74,138,181,0.5)",
-                background: active ? "rgba(0,212,255,0.16)" : "rgba(10,14,39,0.5)",
+                borderColor: active ? "#d7ae57" : "rgba(74,138,181,0.5)",
+                background: active ? "rgba(215, 174, 87,0.16)" : "rgba(10,14,39,0.5)",
                 color: active ? "#8FE6FF" : "#8FC2E0",
               }}
             >
@@ -71,18 +71,18 @@ export function MarketGrowthOverlay() {
       <div className="pointer-events-auto absolute left-1/2 top-[26%] z-30 w-[74%] max-w-2xl -translate-x-1/2">
           <div
             className="rounded-lg border p-4 shadow-2xl backdrop-blur-md"
-            style={{ borderColor: "rgba(0,212,255,0.35)", background: "rgba(8,12,32,0.82)" }}
+            style={{ borderColor: "rgba(215, 174, 87,0.35)", background: "rgba(8,12,32,0.82)" }}
           >
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <TrendingUp size={16} strokeWidth={1.75} style={{ color: "#00D4FF" }} />
+                <TrendingUp size={16} strokeWidth={1.75} style={{ color: "#d7ae57" }} />
                 <span className="font-mono text-[11px] uppercase tracking-[0.18em]" style={{ color: "#8FC2E0" }}>
                   Market Growth · {range}
                 </span>
               </div>
               <span
                 className="font-mono text-[12px] font-semibold"
-                style={{ color: change >= 0 ? "#4ADE80" : "#F87171" }}
+                style={{ color: change >= 0 ? "#d7ae57" : "#e2685c" }}
               >
                 {change >= 0 ? "+" : ""}
                 {change}%
@@ -94,17 +94,17 @@ export function MarketGrowthOverlay() {
                 <AreaChart data={data} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="marketFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#00D4FF" stopOpacity={0.5} />
-                      <stop offset="100%" stopColor="#00D4FF" stopOpacity={0} />
+                      <stop offset="0%" stopColor="#d7ae57" stopOpacity={0.5} />
+                      <stop offset="100%" stopColor="#d7ae57" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="label" hide />
                   <YAxis hide domain={["dataMin - 8", "dataMax + 8"]} />
                   <Tooltip
-                    cursor={{ stroke: "rgba(0,212,255,0.4)", strokeWidth: 1 }}
+                    cursor={{ stroke: "rgba(215, 174, 87,0.4)", strokeWidth: 1 }}
                     contentStyle={{
                       background: "rgba(8,12,32,0.95)",
-                      border: "1px solid rgba(0,212,255,0.4)",
+                      border: "1px solid rgba(215, 174, 87,0.4)",
                       borderRadius: 8,
                       fontFamily: "monospace",
                       fontSize: 11,
@@ -116,7 +116,7 @@ export function MarketGrowthOverlay() {
                   <Area
                     type="monotone"
                     dataKey="value"
-                    stroke="#00D4FF"
+                    stroke="#d7ae57"
                     strokeWidth={2}
                     fill="url(#marketFill)"
                     animationDuration={700}

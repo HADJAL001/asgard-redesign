@@ -7,12 +7,12 @@ import { useTranslation } from "@/lib/i18n/use-translation"
 import { apiClient } from "@/lib/api-client"
 import { SectionHelp } from "./section-help"
 
-/* Palette: bg #0A0A0F · card #14141E · accent #00D4FF · label #6A6A8A · border #2A2A3E */
+/* Palette: bg #10181d · card #17242a · accent #d7ae57 · label #9eb2bc · border #30424b */
 
 const STEPS = [
-  { nameKey: "step1Name", descKey: "step1Desc", Icon: Zap, color: "#6A6A8A" },
+  { nameKey: "step1Name", descKey: "step1Desc", Icon: Zap, color: "#9eb2bc" },
   { nameKey: "step2Name", descKey: "step2Desc", Icon: Gem, color: "#8A8AA0" },
-  { nameKey: "step3Name", descKey: "step3Desc", Icon: Diamond, color: "#00D4FF" },
+  { nameKey: "step3Name", descKey: "step3Desc", Icon: Diamond, color: "#d7ae57" },
   { nameKey: "step4Name", descKey: "step4Desc", Icon: InfinityIcon, color: "#C9A84C" },
   { nameKey: "step5Name", descKey: "step5Desc", Icon: DollarSign, color: "#4CD980" },
 ] as const
@@ -57,7 +57,7 @@ export function EconomyMapView() {
   return (
     <div
       className="min-h-screen px-6 py-12"
-      style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0F0F1A 100%)" }}
+      style={{ background: "linear-gradient(180deg, #10181d 0%, #0F0F1A 100%)" }}
     >
       <SectionHelp
         title="Карта экономики OSGARD"
@@ -77,14 +77,14 @@ export function EconomyMapView() {
         <Link
           href="/docs"
           className="mb-8 inline-flex items-center gap-2 text-[13px] transition-colors hover:text-white"
-          style={{ color: "#6A6A8A" }}
+          style={{ color: "#9eb2bc" }}
         >
           <ArrowLeft size={14} strokeWidth={1.75} />
           {t("docsEconomyMap.backToDocs")}
         </Link>
 
         <h1 className="mb-2 text-[28px] font-semibold text-white">{t("docsEconomyMap.title")}</h1>
-        <p className="mb-12 text-[15px]" style={{ color: "#6A6A8A" }}>
+        <p className="mb-12 text-[15px]" style={{ color: "#9eb2bc" }}>
           {t("docsEconomyMap.subtitle")}
         </p>
 
@@ -97,7 +97,7 @@ export function EconomyMapView() {
                   <div
                     className="flex size-12 shrink-0 items-center justify-center rounded-full"
                     style={{
-                      backgroundColor: "#14141E",
+                      backgroundColor: "#17242a",
                       border: `1px solid ${step.color}`,
                       boxShadow: `0 0 16px ${step.color}33`,
                     }}
@@ -127,7 +127,7 @@ export function EconomyMapView() {
 
         <p
           className="mb-8 text-center text-[13px] italic"
-          style={{ color: "#6A6A8A" }}
+          style={{ color: "#9eb2bc" }}
         >
           {t("docsEconomyMap.ladderCaption")}
         </p>
@@ -167,7 +167,7 @@ export function EconomyMapView() {
 
         <div
           className="rounded-xl p-4 text-center text-[13px]"
-          style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E", color: "#6A6A8A" }}
+          style={{ backgroundColor: "#17242a", border: "1px solid #30424b", color: "#9eb2bc" }}
         >
           {t("docsEconomyMap.footerNote")}
         </div>

@@ -44,7 +44,7 @@ export function ForgeRevealClipExport({ name, rarityLabel, rarityColor, raritySy
     const size = CANVAS_SIZE
     const p = Math.min(1, t / CLIP_DURATION_MS)
     ctx.clearRect(0, 0, size, size)
-    ctx.fillStyle = "#0A0A0F"
+    ctx.fillStyle = "#10181d"
     ctx.fillRect(0, 0, size, size)
 
     const glowP = Math.min(1, p / 0.6)
@@ -197,7 +197,7 @@ export function ForgeRevealClipExport({ name, rarityLabel, rarityColor, raritySy
         {busy ? "Готовим клип…" : "Поделиться"}
       </button>
       {error && (
-        <p className="text-[11px]" style={{ color: "#F87171" }}>
+        <p className="text-[11px]" style={{ color: "#e2685c" }}>
           {error}
         </p>
       )}

@@ -511,7 +511,7 @@ function CreateAuctionModal({
                       type="button"
                       onClick={() => setArtifactId(a.id)}
                       className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors"
-                      style={{ border: `1px solid ${sel ? COLORS.accent : COLORS.border}`, backgroundColor: sel ? "rgba(0,212,255,0.06)" : "transparent" }}
+                      style={{ border: `1px solid ${sel ? COLORS.accent : COLORS.border}`, backgroundColor: sel ? "rgba(215, 174, 87,0.06)" : "transparent" }}
                     >
                       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg" style={{ border: `1px solid ${rarity.color}` }}>
                         <TypeIcon size={17} strokeWidth={1.25} style={{ color: rarity.color }} />

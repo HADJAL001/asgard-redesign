@@ -68,10 +68,6 @@ export function EternityLanding() {
       : result.error || t("landing.createError")
   /** Вопрос платформы, когда заявку не удалось прочитать (422 unclear_request). */
   const [clarify, setClarify] = useState<{ question: string; received?: string } | null>(null)
-  const getGenerationError = (result: { error?: string; code?: string }) =>
-    result.code === "GENERATION_PROVIDERS_UNAVAILABLE"
-      ? t("landing.generationProvidersUnavailable")
-      : result.error || t("landing.createError")
   const heroValueBadge = locale === "en"
     ? "BUILD PRODUCTS THAT MATTER"
     : locale === "kz"

@@ -25,7 +25,7 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     labelKey: "orchestrator.nodeType.claude",
     descriptionKey: "orchestrator.nodeType.claudeDesc",
     Icon: PremiumClaudeIcon,
-    color: "#00D4FF",
+    color: "#d7ae57",
     defaultData: {
       label: "OSGARD 5.0",
       type: "claude",
@@ -39,7 +39,7 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     labelKey: "orchestrator.nodeType.deepseek",
     descriptionKey: "orchestrator.nodeType.deepseekDesc",
     Icon: PremiumDeepseekIcon,
-    color: "#4ADE80",
+    color: "#d7ae57",
     defaultData: {
       label: "OSGARD 4.0",
       type: "deepseek",
@@ -67,7 +67,7 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     labelKey: "orchestrator.nodeType.promptTemplate",
     descriptionKey: "orchestrator.nodeType.promptTemplateDesc",
     Icon: PremiumTemplateIcon,
-    color: "#6A6A8A",
+    color: "#9eb2bc",
     defaultData: {
       label: "Шаблон",
       type: "prompt_template",
@@ -79,7 +79,7 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     labelKey: "orchestrator.nodeType.serviceCall",
     descriptionKey: "orchestrator.nodeType.serviceCallDesc",
     Icon: PremiumServiceCallIcon,
-    color: "#F87171",
+    color: "#e2685c",
     defaultData: {
       label: "Service Call",
       type: "service_call",

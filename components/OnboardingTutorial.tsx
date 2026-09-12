@@ -51,10 +51,10 @@ import { useOsgardStore } from "@/lib/store/osgard-store"
 import { useAuth } from "@/lib/auth-store"
 import { useTranslation } from "@/lib/i18n/use-translation"
 
-const ACCENT = "#00D4FF"
-const CARD = "#14141E"
-const BORDER = "#2A2A3E"
-const LABEL = "#6A6A8A"
+const ACCENT = "#d7ae57"
+const CARD = "#17242a"
+const BORDER = "#30424b"
+const LABEL = "#9eb2bc"
 
 const ONBOARDING_CSS = `
 @keyframes osgard-badge-pulse {
@@ -239,12 +239,12 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
     return (
       <div
         className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 text-center"
-        style={{ backgroundColor: "#0A0A0F" }}
+        style={{ backgroundColor: "#10181d" }}
       >
         <style>{ONBOARDING_CSS}</style>
         <span
           className="osgard-final-icon mb-6 flex size-24 items-center justify-center rounded-full"
-          style={{ border: `1px solid #B57BFF`, backgroundColor: "#14141E" }}
+          style={{ border: `1px solid #B57BFF`, backgroundColor: "#17242a" }}
         >
           <Award size={44} strokeWidth={1.5} style={{ color: "#B57BFF" }} />
         </span>
@@ -264,7 +264,7 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
         </p>
         <div
           className="mb-8 max-w-md rounded-lg px-5 py-3 text-[13px]"
-          style={{ backgroundColor: "#14141E", border: `1px solid ${BORDER}`, color: ACCENT }}
+          style={{ backgroundColor: "#17242a", border: `1px solid ${BORDER}`, color: ACCENT }}
         >
           {t("onboarding.final.nextGoal")}
         </div>
@@ -272,7 +272,7 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
           type="button"
           onClick={handleFinalContinue}
           className="rounded-lg px-8 py-3 text-[14px] font-medium transition-colors"
-          style={{ backgroundColor: ACCENT, color: "#0A0A0F" }}
+          style={{ backgroundColor: ACCENT, color: "#10181d" }}
         >
           {t("onboarding.final.continueBtn")}
         </button>
@@ -318,7 +318,7 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
         <div className="mb-5 flex flex-col items-center text-center">
           <span
             className="mb-4 flex size-16 items-center justify-center rounded-2xl"
-            style={{ border: `1px solid ${ACCENT}`, backgroundColor: "#0A0A0F" }}
+            style={{ border: `1px solid ${ACCENT}`, backgroundColor: "#10181d" }}
           >
             <activeStep.Icon size={28} strokeWidth={1.5} style={{ color: ACCENT }} />
           </span>
@@ -340,7 +340,7 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
         {/* Награда за шаг */}
         <div
           className="mb-6 flex items-center justify-center rounded-lg py-3"
-          style={{ backgroundColor: "#0A0A0F", border: `1px solid ${BORDER}` }}
+          style={{ backgroundColor: "#10181d", border: `1px solid ${BORDER}` }}
         >
           {justEarned ? (
             <span className="text-[13px]" style={{ color: ACCENT }}>
@@ -362,7 +362,7 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
           onClick={handleNext}
           disabled={loading}
           className="flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[14px] font-medium transition-colors disabled:opacity-60"
-          style={{ backgroundColor: ACCENT, color: "#0A0A0F" }}
+          style={{ backgroundColor: ACCENT, color: "#10181d" }}
         >
           {loading ? (
             <>

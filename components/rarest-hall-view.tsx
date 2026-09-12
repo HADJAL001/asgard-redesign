@@ -169,7 +169,7 @@ export function RarestHallView() {
 
         {/* Error */}
         {failed && !loading && (
-          <p className="mt-6 text-center text-[13px]" role="status" style={{ color: "#F87171" }}>
+          <p className="mt-6 text-center text-[13px]" role="status" style={{ color: "#e2685c" }}>
             Не удалось загрузить зал. Обновите страницу.
           </p>
         )}
@@ -190,7 +190,7 @@ export function RarestHallView() {
             {items.map((a, i) => {
               const rarityMeta = RARITY[a.rarity]
               const accent = rarityMeta?.color ?? LABEL
-              const cardBg = a.palette?.primary ?? "#14141E"
+              const cardBg = a.palette?.primary ?? "#17242a"
 
               return (
                 <Link

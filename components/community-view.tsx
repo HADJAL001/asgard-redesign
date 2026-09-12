@@ -10,7 +10,7 @@ import { ReadonlyGate, useReadonlyMode } from "@/lib/readonly-mode"
 import { HOTKEY_SAVE_EVENT } from "@/lib/use-hotkeys"
 
 /* ---- Palette ----
-   bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E */
+   bg #10181d · card #17242a · accent #d7ae57 · text #FFFFFF · label #9eb2bc · border #30424b */
 
 const AVATAR_FALLBACK =
   "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=160&q=80"
@@ -55,7 +55,7 @@ function formatTime(ts: number) {
 
 function Reaction({ Icon, value }: { Icon: typeof Heart; value: number }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[14px]" style={{ color: "#6A6A8A" }}>
+    <span className="inline-flex items-center gap-1.5 text-[14px]" style={{ color: "#9eb2bc" }}>
       <Icon size={16} strokeWidth={1.5} />
       {value}
     </span>
@@ -79,7 +79,7 @@ function LikeButton({
       onClick={onClick}
       disabled={disabled}
       className="inline-flex items-center gap-1.5 text-[14px] transition-colors disabled:opacity-60"
-      style={{ color: active ? "#FF6B6B" : "#6A6A8A" }}
+      style={{ color: active ? "#FF6B6B" : "#9eb2bc" }}
     >
       <Heart size={16} strokeWidth={1.5} fill={active ? "#FF6B6B" : "none"} />
       {value}
@@ -245,7 +245,7 @@ export function CommunityView() {
   }, [posts])
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0D0D1A 100%)", color: "#FFFFFF" }}>
+    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #10181d 0%, #0D0D1A 100%)", color: "#FFFFFF" }}>
       {/* Header */}
       <Navbar />
 
@@ -263,15 +263,15 @@ export function CommunityView() {
               type="button"
               onClick={() => setCreating(true)}
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[14px] transition-colors"
-              style={{ border: "1px solid #2A2A3E", color: "#FFFFFF" }}
+              style={{ border: "1px solid #30424b", color: "#FFFFFF" }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "#00D4FF"
-                e.currentTarget.style.borderColor = "#00D4FF"
-                e.currentTarget.style.color = "#0A0A0F"
+                e.currentTarget.style.backgroundColor = "#d7ae57"
+                e.currentTarget.style.borderColor = "#d7ae57"
+                e.currentTarget.style.color = "#10181d"
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = "transparent"
-                e.currentTarget.style.borderColor = "#2A2A3E"
+                e.currentTarget.style.borderColor = "#30424b"
                 e.currentTarget.style.color = "#FFFFFF"
               }}
             >
@@ -284,7 +284,7 @@ export function CommunityView() {
         {/* Metrics */}
         <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
           {metrics.map((m) => (
-            <div key={m.l} className="rounded-xl p-5" style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}>
+            <div key={m.l} className="rounded-xl p-5" style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}>
               <p className="text-[24px] font-medium">{m.n}</p>
               <p className="mt-1 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>{m.l}</p>
             </div>
@@ -293,20 +293,20 @@ export function CommunityView() {
 
         {/* Feed */}
         {loading && (
-          <div className="mt-10 flex items-center justify-center gap-2 text-[14px]" style={{ color: "#6A6A8A" }}>
+          <div className="mt-10 flex items-center justify-center gap-2 text-[14px]" style={{ color: "#9eb2bc" }}>
             <Loader2 size={18} className="animate-spin" />
             Загрузка постов…
           </div>
         )}
 
         {!loading && error && (
-          <div className="mt-10 rounded-xl p-5 text-[14px]" style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E", color: "#FF6B6B" }}>
+          <div className="mt-10 rounded-xl p-5 text-[14px]" style={{ backgroundColor: "#17242a", border: "1px solid #30424b", color: "#FF6B6B" }}>
             {error}
           </div>
         )}
 
         {!loading && !error && posts.length === 0 && (
-          <div className="mt-10 rounded-xl p-8 text-center text-[14px]" style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E", color: "#6A6A8A" }}>
+          <div className="mt-10 rounded-xl p-8 text-center text-[14px]" style={{ backgroundColor: "#17242a", border: "1px solid #30424b", color: "#9eb2bc" }}>
             Пока нет постов. Будь первым архитектором, кто поделится идеей.
           </div>
         )}
@@ -365,7 +365,7 @@ const PostCard = memo(function PostCard({
   return (
     <article
       className="rounded-xl p-6 transition-all duration-200"
-      style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+      style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
     >
       <div className="flex items-center gap-3">
         <Image
@@ -374,11 +374,11 @@ const PostCard = memo(function PostCard({
           width={32}
           height={32}
           className="size-8 rounded-full object-cover"
-          style={{ border: "1px solid #2A2A3E" }}
+          style={{ border: "1px solid #30424b" }}
         />
         <div className="min-w-0">
           <p className="text-[16px] font-medium leading-tight">{p.author.displayName}</p>
-          <p className="text-[12px]" style={{ color: "#6A6A8A" }}>Lvl.{p.author.level}</p>
+          <p className="text-[12px]" style={{ color: "#9eb2bc" }}>Lvl.{p.author.level}</p>
         </div>
         <span className="ml-auto text-[12px]" style={{ color: "rgba(255,255,255,0.3)" }}>{formatTime(p.createdAt)}</span>
       </div>
@@ -401,7 +401,7 @@ const PostCard = memo(function PostCard({
           type="button"
           onClick={() => onToggleComments(p.id)}
           className="inline-flex items-center gap-1.5 text-[14px] transition-colors"
-          style={{ color: expanded ? "#00D4FF" : "#6A6A8A" }}
+          style={{ color: expanded ? "#d7ae57" : "#9eb2bc" }}
         >
           <MessageCircle size={16} strokeWidth={1.5} />
           {p.commentsCount}
@@ -410,9 +410,9 @@ const PostCard = memo(function PostCard({
         <button
           type="button"
           className="ml-auto inline-flex items-center gap-1.5 text-[13px] transition-colors"
-          style={{ color: "#6A6A8A" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "#00D4FF")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "#6A6A8A")}
+          style={{ color: "#9eb2bc" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#d7ae57")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "#9eb2bc")}
         >
           <Pin size={15} strokeWidth={1.5} />
           Закрепить
@@ -420,12 +420,12 @@ const PostCard = memo(function PostCard({
       </div>
 
       {expanded && (
-        <div className="mt-5 flex flex-col gap-3 pt-5" style={{ borderTop: "1px solid #2A2A3E" }}>
+        <div className="mt-5 flex flex-col gap-3 pt-5" style={{ borderTop: "1px solid #30424b" }}>
           {commentsLoading && (
-            <p className="text-[13px]" style={{ color: "#6A6A8A" }}>Загрузка комментариев…</p>
+            <p className="text-[13px]" style={{ color: "#9eb2bc" }}>Загрузка комментариев…</p>
           )}
           {!commentsLoading && (postComments || []).length === 0 && (
-            <p className="text-[13px]" style={{ color: "#6A6A8A" }}>Комментариев пока нет.</p>
+            <p className="text-[13px]" style={{ color: "#9eb2bc" }}>Комментариев пока нет.</p>
           )}
           {(postComments || []).map((c) => (
             <div key={c.id} className="flex items-start gap-2.5">
@@ -435,9 +435,9 @@ const PostCard = memo(function PostCard({
                 width={24}
                 height={24}
                 className="size-6 shrink-0 rounded-full object-cover"
-                style={{ border: "1px solid #2A2A3E" }}
+                style={{ border: "1px solid #30424b" }}
               />
-              <div className="min-w-0 flex-1 rounded-lg px-3 py-2" style={{ backgroundColor: "#0A0A0F" }}>
+              <div className="min-w-0 flex-1 rounded-lg px-3 py-2" style={{ backgroundColor: "#10181d" }}>
                 <p className="text-[12px] font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>{c.author.displayName}</p>
                 <p className="mt-0.5 text-[13px] leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>{c.text}</p>
               </div>
@@ -455,14 +455,14 @@ const PostCard = memo(function PostCard({
                 }}
                 placeholder="Написать комментарий…"
                 className="w-full rounded-lg px-3 py-2 text-[13px] outline-none placeholder:text-white/25"
-                style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E", color: "#FFFFFF" }}
+                style={{ backgroundColor: "#10181d", border: "1px solid #30424b", color: "#FFFFFF" }}
               />
               <button
                 type="button"
                 onClick={() => onSubmitComment(p.id, draft)}
                 disabled={commentSubmitting || !draft.trim()}
                 className="flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-40"
-                style={{ backgroundColor: "#00D4FF", color: "#0A0A0F" }}
+                style={{ backgroundColor: "#d7ae57", color: "#10181d" }}
               >
                 {commentSubmitting ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} strokeWidth={1.75} />}
               </button>
@@ -514,11 +514,11 @@ function CreatePostModal({ onClose, onCreated }: { onClose: () => void; onCreate
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(4,6,17,0.72)" }} onClick={onClose}>
       <div
         className="flex max-h-[60vh] w-full max-w-[40vw] flex-col overflow-hidden rounded-2xl"
-        style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+        style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-4 px-8 py-5" style={{ borderBottom: "1px solid #2A2A3E" }}>
-          <button type="button" aria-label="Закрыть" onClick={onClose} className="flex size-8 items-center justify-center rounded-lg" style={{ color: "#6A6A8A" }}>
+        <div className="flex items-center gap-4 px-8 py-5" style={{ borderBottom: "1px solid #30424b" }}>
+          <button type="button" aria-label="Закрыть" onClick={onClose} className="flex size-8 items-center justify-center rounded-lg" style={{ color: "#9eb2bc" }}>
             <X size={18} strokeWidth={1.75} />
           </button>
           <h2 className="text-[20px] font-semibold">Создать пост</h2>
@@ -526,44 +526,44 @@ function CreatePostModal({ onClose, onCreated }: { onClose: () => void; onCreate
 
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-8 py-6">
           <label className="block">
-            <span className="mb-2 block text-[13px]" style={{ color: "#6A6A8A" }}>Заголовок</span>
+            <span className="mb-2 block text-[13px]" style={{ color: "#9eb2bc" }}>Заголовок</span>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Введите заголовок (необязательно)"
               className="w-full rounded-lg px-4 py-2.5 text-[14px] outline-none transition-colors placeholder:text-white/25"
-              style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E", color: "#FFFFFF" }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "#00D4FF")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "#2A2A3E")}
+              style={{ backgroundColor: "#10181d", border: "1px solid #30424b", color: "#FFFFFF" }}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "#d7ae57")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "#30424b")}
             />
           </label>
 
           <label className="block flex-1">
-            <span className="mb-2 block text-[13px]" style={{ color: "#6A6A8A" }}>Текст</span>
+            <span className="mb-2 block text-[13px]" style={{ color: "#9eb2bc" }}>Текст</span>
             <textarea
               rows={5}
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Что нового, архитектор?"
               className="w-full resize-none rounded-lg px-4 py-2.5 text-[14px] outline-none transition-colors placeholder:text-white/25"
-              style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E", color: "#FFFFFF" }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "#00D4FF")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "#2A2A3E")}
+              style={{ backgroundColor: "#10181d", border: "1px solid #30424b", color: "#FFFFFF" }}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "#d7ae57")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "#30424b")}
             />
           </label>
 
           {error && <p className="text-[13px]" style={{ color: "#FF6B6B" }}>{error}</p>}
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-8 py-5" style={{ borderTop: "1px solid #2A2A3E" }}>
-          <button type="button" onClick={onClose} className="rounded-lg px-5 py-2.5 text-[14px] transition-colors" style={{ border: "1px solid #2A2A3E", color: "#FFFFFF" }}>Отмена</button>
+        <div className="flex items-center justify-end gap-3 px-8 py-5" style={{ borderTop: "1px solid #30424b" }}>
+          <button type="button" onClick={onClose} className="rounded-lg px-5 py-2.5 text-[14px] transition-colors" style={{ border: "1px solid #30424b", color: "#FFFFFF" }}>Отмена</button>
           <button
             type="button"
             onClick={handleSubmit}
             disabled={submitting}
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[14px] font-medium transition-colors disabled:opacity-50"
-            style={{ backgroundColor: "#00D4FF", color: "#0A0A0F" }}
+            style={{ backgroundColor: "#d7ae57", color: "#10181d" }}
           >
             {submitting && <Loader2 size={15} className="animate-spin" />}
             Опубликовать

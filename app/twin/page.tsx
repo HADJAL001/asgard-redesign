@@ -87,7 +87,7 @@ type MarketplaceTwin = {
 }
 
 const RARITY_COLORS: Record<string, string> = {
-  common: "#6A6A8A",
+  common: "#9eb2bc",
   rare: "#3AA8FF",
   epic: "#B15CFF",
   legendary: "#FFC94A",
@@ -225,9 +225,9 @@ export default function TwinPage() {
 
   if (loading) {
     return (
-      <div style={{ backgroundColor: "#0A0A0F", minHeight: "100vh", color: "#FFFFFF" }}>
+      <div style={{ backgroundColor: "#10181d", minHeight: "100vh", color: "#FFFFFF" }}>
         <Navbar />
-        <div className="flex items-center justify-center py-32" style={{ color: "#6A6A8A" }}>
+        <div className="flex items-center justify-center py-32" style={{ color: "#9eb2bc" }}>
           <Loader2 className="mr-2 animate-spin" size={18} />
           {t("common.loading")}
         </div>
@@ -236,13 +236,13 @@ export default function TwinPage() {
   }
 
   return (
-    <div style={{ backgroundColor: "#0A0A0F", minHeight: "100vh", color: "#FFFFFF" }}>
+    <div style={{ backgroundColor: "#10181d", minHeight: "100vh", color: "#FFFFFF" }}>
       <Navbar />
 
       <main className="mx-auto max-w-6xl px-4 py-8">
         <header className="mb-6">
           <h1 className="text-2xl font-semibold">{t("twinPage.title")}</h1>
-          <p className="mt-1 text-sm" style={{ color: "#6A6A8A" }}>
+          <p className="mt-1 text-sm" style={{ color: "#9eb2bc" }}>
             {t("twinPage.subtitle")}
           </p>
         </header>
@@ -252,8 +252,8 @@ export default function TwinPage() {
             className="mb-6 rounded-lg px-4 py-3 text-sm"
             style={{
               backgroundColor: notice.ok ? "rgba(74,222,128,0.1)" : "rgba(248,113,113,0.1)",
-              border: `1px solid ${notice.ok ? "#4ADE80" : "#F87171"}`,
-              color: notice.ok ? "#4ADE80" : "#F87171",
+              border: `1px solid ${notice.ok ? "#d7ae57" : "#e2685c"}`,
+              color: notice.ok ? "#d7ae57" : "#e2685c",
             }}
           >
             {notice.text}
@@ -265,14 +265,14 @@ export default function TwinPage() {
             {/* ---- Профиль близнеца ---- */}
             <div
               className="mb-6 flex flex-col gap-6 rounded-xl p-6 sm:flex-row sm:items-center sm:justify-between"
-              style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+              style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
             >
               <div className="flex items-center gap-4">
                 <div
                   className="flex size-16 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: "rgba(0,212,255,0.12)", border: "1px solid #00D4FF" }}
+                  style={{ backgroundColor: "rgba(215, 174, 87,0.12)", border: "1px solid #d7ae57" }}
                 >
-                  <Sparkles size={28} strokeWidth={1.5} style={{ color: "#00D4FF" }} />
+                  <Sparkles size={28} strokeWidth={1.5} style={{ color: "#d7ae57" }} />
                 </div>
                 <div>
                   {editingName ? (
@@ -284,10 +284,10 @@ export default function TwinPage() {
                         onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
                         placeholder={t("twinPage.namePlaceholder")}
                         className="rounded-lg px-3 py-1.5 text-lg font-semibold outline-none"
-                        style={{ backgroundColor: "#0A0A0F", border: "1px solid #00D4FF", color: "#FFFFFF" }}
+                        style={{ backgroundColor: "#10181d", border: "1px solid #d7ae57", color: "#FFFFFF" }}
                       />
                       <button onClick={handleSaveName} disabled={busy}>
-                        <Check size={18} style={{ color: "#4ADE80" }} />
+                        <Check size={18} style={{ color: "#d7ae57" }} />
                       </button>
                     </div>
                   ) : (
@@ -300,12 +300,12 @@ export default function TwinPage() {
                         }}
                         aria-label={t("twinPage.renameBtn")}
                       >
-                        <Pencil size={14} style={{ color: "#6A6A8A" }} />
+                        <Pencil size={14} style={{ color: "#9eb2bc" }} />
                       </button>
                     </div>
                   )}
-                  <div className="mt-1 flex items-center gap-3 text-sm" style={{ color: "#6A6A8A" }}>
-                    <span style={{ color: "#00D4FF" }}>{t("twinPage.level", { level: twin.level })}</span>
+                  <div className="mt-1 flex items-center gap-3 text-sm" style={{ color: "#9eb2bc" }}>
+                    <span style={{ color: "#d7ae57" }}>{t("twinPage.level", { level: twin.level })}</span>
                     <span>{t("twinPage.xp", { xp: twin.xp })}</span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -314,13 +314,13 @@ export default function TwinPage() {
                         <span
                           key={tag}
                           className="rounded-full px-2.5 py-0.5 text-[11px]"
-                          style={{ backgroundColor: "rgba(0,212,255,0.1)", color: "#00D4FF", border: "1px solid #00D4FF" }}
+                          style={{ backgroundColor: "rgba(215, 174, 87,0.1)", color: "#d7ae57", border: "1px solid #d7ae57" }}
                         >
                           {tag}
                         </span>
                       ))
                     ) : (
-                      <span className="text-xs" style={{ color: "#6A6A8A" }}>
+                      <span className="text-xs" style={{ color: "#9eb2bc" }}>
                         {t("twinPage.noStyleTags")}
                       </span>
                     )}
@@ -332,7 +332,7 @@ export default function TwinPage() {
                 onClick={handleGenerate}
                 disabled={busy || twin.trainedSamples === 0}
                 className="flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-40"
-                style={{ backgroundColor: "#00D4FF", color: "#0A0A0F" }}
+                style={{ backgroundColor: "#d7ae57", color: "#10181d" }}
                 title={twin.trainedSamples === 0 ? t("twinPage.generateNeedTraining") : undefined}
               >
                 {busy ? <Loader2 className="animate-spin" size={16} /> : <Zap size={16} />}
@@ -351,11 +351,11 @@ export default function TwinPage() {
                 <div
                   key={i}
                   className="rounded-xl p-4"
-                  style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+                  style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
                 >
-                  <Icon size={18} strokeWidth={1.5} style={{ color: "#00D4FF" }} />
+                  <Icon size={18} strokeWidth={1.5} style={{ color: "#d7ae57" }} />
                   <div className="mt-2 text-lg font-semibold">{value}</div>
-                  <div className="text-xs" style={{ color: "#6A6A8A" }}>
+                  <div className="text-xs" style={{ color: "#9eb2bc" }}>
                     {label}
                   </div>
                 </div>
@@ -364,10 +364,10 @@ export default function TwinPage() {
 
             <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
               {/* ---- Обучение близнеца ---- */}
-              <div className="rounded-xl p-5" style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}>
+              <div className="rounded-xl p-5" style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}>
                 <h3 className="mb-3 font-medium">{t("twinPage.trainBtn")}</h3>
                 {myArtifacts.length === 0 ? (
-                  <p className="text-sm" style={{ color: "#6A6A8A" }}>
+                  <p className="text-sm" style={{ color: "#9eb2bc" }}>
                     {t("artifacts.notFound")}
                   </p>
                 ) : (
@@ -376,11 +376,11 @@ export default function TwinPage() {
                       <div
                         key={a.id}
                         className="flex items-center justify-between rounded-lg px-3 py-2"
-                        style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E" }}
+                        style={{ backgroundColor: "#10181d", border: "1px solid #30424b" }}
                       >
                         <div>
                           <div className="text-sm">{a.name}</div>
-                          <div className="text-[11px]" style={{ color: RARITY_COLORS[a.rarity] || "#6A6A8A" }}>
+                          <div className="text-[11px]" style={{ color: RARITY_COLORS[a.rarity] || "#9eb2bc" }}>
                             {a.rarity} · {a.type}
                           </div>
                         </div>
@@ -388,7 +388,7 @@ export default function TwinPage() {
                           onClick={() => handleTrain(a.id)}
                           disabled={busy}
                           className="rounded-md px-3 py-1 text-xs font-medium transition-opacity disabled:opacity-50"
-                          style={{ backgroundColor: "transparent", color: "#00D4FF", border: "1px solid #00D4FF" }}
+                          style={{ backgroundColor: "transparent", color: "#d7ae57", border: "1px solid #d7ae57" }}
                         >
                           {t("twinPage.trainBtn")}
                         </button>
@@ -399,21 +399,21 @@ export default function TwinPage() {
               </div>
 
               {/* ---- Сдача в аренду ---- */}
-              <div className="rounded-xl p-5" style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}>
+              <div className="rounded-xl p-5" style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}>
                 <h3 className="mb-3 font-medium">{t("twinPage.rentalTitle")}</h3>
                 <div className="mb-3 flex items-center gap-2 text-sm">
                   <span
                     className="rounded-full px-2.5 py-0.5 text-[11px]"
                     style={{
                       backgroundColor: twin.isRentable ? "rgba(74,222,128,0.12)" : "rgba(106,106,138,0.12)",
-                      color: twin.isRentable ? "#4ADE80" : "#6A6A8A",
-                      border: `1px solid ${twin.isRentable ? "#4ADE80" : "#2A2A3E"}`,
+                      color: twin.isRentable ? "#d7ae57" : "#9eb2bc",
+                      border: `1px solid ${twin.isRentable ? "#d7ae57" : "#30424b"}`,
                     }}
                   >
                     {twin.isRentable ? t("twinPage.rentalEnabled") : t("twinPage.rentalDisabled")}
                   </span>
                 </div>
-                <label className="mb-1 block text-xs" style={{ color: "#6A6A8A" }}>
+                <label className="mb-1 block text-xs" style={{ color: "#9eb2bc" }}>
                   {t("twinPage.rentalPrice")}
                 </label>
                 <input
@@ -421,16 +421,16 @@ export default function TwinPage() {
                   value={rentalPriceDraft}
                   onChange={(e) => setRentalPriceDraft(e.target.value)}
                   className="mb-3 w-full rounded-lg px-3 py-2 text-sm outline-none"
-                  style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E", color: "#FFFFFF" }}
+                  style={{ backgroundColor: "#10181d", border: "1px solid #30424b", color: "#FFFFFF" }}
                 />
                 <button
                   onClick={handleToggleRental}
                   disabled={busy || (twin.trainedSamples === 0 && !twin.isRentable)}
                   className="w-full rounded-lg py-2 text-sm font-medium transition-opacity disabled:opacity-40"
                   style={{
-                    backgroundColor: twin.isRentable ? "transparent" : "#00D4FF",
-                    color: twin.isRentable ? "#F87171" : "#0A0A0F",
-                    border: twin.isRentable ? "1px solid #F87171" : "none",
+                    backgroundColor: twin.isRentable ? "transparent" : "#d7ae57",
+                    color: twin.isRentable ? "#e2685c" : "#10181d",
+                    border: twin.isRentable ? "1px solid #e2685c" : "none",
                   }}
                 >
                   {twin.isRentable ? t("twinPage.disableRental") : t("twinPage.enableRental")}
@@ -444,7 +444,7 @@ export default function TwinPage() {
               {artifacts.length === 0 ? (
                 <div
                   className="rounded-xl py-10 text-center text-sm"
-                  style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E", color: "#6A6A8A" }}
+                  style={{ backgroundColor: "#17242a", border: "1px solid #30424b", color: "#9eb2bc" }}
                 >
                   {t("twinPage.noArtifacts")}
                 </div>
@@ -454,18 +454,18 @@ export default function TwinPage() {
                     <div
                       key={a.id}
                       className="rounded-xl p-4"
-                      style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+                      style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
                     >
                       <div className="mb-1 flex items-center justify-between">
                         <span className="font-medium">{a.name}</span>
                         <span
                           className="rounded-full px-2 py-0.5 text-[10px] uppercase"
-                          style={{ color: RARITY_COLORS[a.rarity] || "#6A6A8A", border: `1px solid ${RARITY_COLORS[a.rarity] || "#2A2A3E"}` }}
+                          style={{ color: RARITY_COLORS[a.rarity] || "#9eb2bc", border: `1px solid ${RARITY_COLORS[a.rarity] || "#30424b"}` }}
                         >
                           {a.rarity}
                         </span>
                       </div>
-                      <div className="text-xs" style={{ color: "#6A6A8A" }}>
+                      <div className="text-xs" style={{ color: "#9eb2bc" }}>
                         {a.type} · {a.styleTag}
                       </div>
                       {a.description && (
@@ -473,7 +473,7 @@ export default function TwinPage() {
                           {a.description}
                         </p>
                       )}
-                      <div className="mt-2 grid grid-cols-4 gap-1 text-[11px]" style={{ color: "#6A6A8A" }}>
+                      <div className="mt-2 grid grid-cols-4 gap-1 text-[11px]" style={{ color: "#9eb2bc" }}>
                         <span>⚔ {a.power}</span>
                         <span>🛡 {a.defense}</span>
                         <span>✨ {a.magic}</span>
@@ -490,17 +490,17 @@ export default function TwinPage() {
         {/* ---- Маркетплейс близнецов ---- */}
         <div>
           <div className="mb-3 flex items-center gap-2">
-            <Store size={18} style={{ color: "#00D4FF" }} />
+            <Store size={18} style={{ color: "#d7ae57" }} />
             <h3 className="font-medium">{t("twinPage.marketplaceTitle")}</h3>
           </div>
-          <p className="mb-4 text-sm" style={{ color: "#6A6A8A" }}>
+          <p className="mb-4 text-sm" style={{ color: "#9eb2bc" }}>
             {t("twinPage.marketplaceSubtitle")}
           </p>
 
           {marketplace.length === 0 ? (
             <div
               className="rounded-xl py-10 text-center text-sm"
-              style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E", color: "#6A6A8A" }}
+              style={{ backgroundColor: "#17242a", border: "1px solid #30424b", color: "#9eb2bc" }}
             >
               {t("twinPage.noListings")}
             </div>
@@ -510,15 +510,15 @@ export default function TwinPage() {
                 <div
                   key={listing.id}
                   className="flex flex-col rounded-xl p-4"
-                  style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+                  style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
                 >
                   <div className="mb-1 flex items-center justify-between">
                     <span className="font-medium">{listing.name}</span>
-                    <span style={{ color: "#00D4FF" }} className="text-xs">
+                    <span style={{ color: "#d7ae57" }} className="text-xs">
                       {t("twinPage.level", { level: listing.level })}
                     </span>
                   </div>
-                  <div className="mb-2 text-xs" style={{ color: "#6A6A8A" }}>
+                  <div className="mb-2 text-xs" style={{ color: "#9eb2bc" }}>
                     {t("twinPage.owner", { name: listing.ownerDisplayName || listing.ownerUsername })}
                   </div>
                   <div className="mb-3 flex flex-wrap gap-1.5">
@@ -526,13 +526,13 @@ export default function TwinPage() {
                       <span
                         key={tag}
                         className="rounded-full px-2 py-0.5 text-[10px]"
-                        style={{ backgroundColor: "rgba(0,212,255,0.1)", color: "#00D4FF" }}
+                        style={{ backgroundColor: "rgba(215, 174, 87,0.1)", color: "#d7ae57" }}
                       >
                         {tag}
                       </span>
                     ))}
                   </div>
-                  <div className="mb-3 text-sm font-semibold" style={{ color: "#00D4FF" }}>
+                  <div className="mb-3 text-sm font-semibold" style={{ color: "#d7ae57" }}>
                     {fmtTC(listing.rentalPriceTc)} / день
                   </div>
                   <div className="mt-auto flex items-center gap-2">
@@ -543,13 +543,13 @@ export default function TwinPage() {
                       value={rentDaysDraft[listing.id] || ""}
                       onChange={(e) => setRentDaysDraft((prev) => ({ ...prev, [listing.id]: e.target.value }))}
                       className="w-20 rounded-lg px-2 py-1.5 text-sm outline-none"
-                      style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E", color: "#FFFFFF" }}
+                      style={{ backgroundColor: "#10181d", border: "1px solid #30424b", color: "#FFFFFF" }}
                     />
                     <button
                       onClick={() => handleRent(listing)}
                       disabled={busy}
                       className="flex-1 rounded-lg py-1.5 text-sm font-medium transition-opacity disabled:opacity-50"
-                      style={{ backgroundColor: "#00D4FF", color: "#0A0A0F" }}
+                      style={{ backgroundColor: "#d7ae57", color: "#10181d" }}
                     >
                       {busy ? t("twinPage.renting") : t("twinPage.rentBtn")}
                     </button>

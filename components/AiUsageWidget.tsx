@@ -90,9 +90,9 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
     return (
       <div
         className="rounded-2xl p-4 flex items-center justify-center"
-        style={{ background: "#14141E", border: "1px solid #2A2A3E", minHeight: 80 }}
+        style={{ background: "#17242a", border: "1px solid #30424b", minHeight: 80 }}
       >
-        <Loader2 size={18} className="animate-spin" style={{ color: "#6A6A8A" }} />
+        <Loader2 size={18} className="animate-spin" style={{ color: "#9eb2bc" }} />
       </div>
     )
   }
@@ -120,18 +120,18 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
       return (
         <div
           className="rounded-xl px-4 py-3 flex items-center gap-3"
-          style={{ background: "#14141E", border: "1px solid #2A2A3E" }}
+          style={{ background: "#17242a", border: "1px solid #30424b" }}
         >
           <Bot size={16} className="shrink-0" style={{ color: "#06B6D4" }} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[12px]" style={{ color: "#6A6A8A" }}>Генерации · {planLabel}</span>
+              <span className="text-[12px]" style={{ color: "#9eb2bc" }}>Генерации · {planLabel}</span>
               <span className="text-[12px]" style={{ color: isUnlimited ? "#34D399" : "#FFFFFF" }}>
                 {isUnlimited ? "∞" : `${used} / ${limit}`}
               </span>
             </div>
             {!isUnlimited && (
-              <div className="h-1 rounded-full overflow-hidden" style={{ background: "#2A2A3E" }}>
+              <div className="h-1 rounded-full overflow-hidden" style={{ background: "#30424b" }}>
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{
@@ -147,7 +147,7 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
     }
 
     return (
-      <div className="rounded-2xl p-5" style={{ background: "#14141E", border: "1px solid #2A2A3E" }}>
+      <div className="rounded-2xl p-5" style={{ background: "#17242a", border: "1px solid #30424b" }}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div
@@ -158,7 +158,7 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
             </div>
             <div>
               <p className="text-[14px] font-semibold">Генерации проектов</p>
-              <p className="text-[11px]" style={{ color: "#6A6A8A" }}>Тариф: {planLabel} · сброс {resetLabel}</p>
+              <p className="text-[11px]" style={{ color: "#9eb2bc" }}>Тариф: {planLabel} · сброс {resetLabel}</p>
             </div>
           </div>
           <button
@@ -166,7 +166,7 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
             onClick={() => load(true)}
             disabled={refreshing}
             className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors hover:bg-white/5"
-            style={{ color: "#6A6A8A" }}
+            style={{ color: "#9eb2bc" }}
             aria-label="Обновить"
           >
             <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
@@ -175,12 +175,12 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
 
         <div>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[12px]" style={{ color: "#6A6A8A" }}>Сегодня</span>
+            <span className="text-[12px]" style={{ color: "#9eb2bc" }}>Сегодня</span>
             <span className="text-[13px] font-semibold" style={{ color: isUnlimited ? "#34D399" : pct > 80 ? "#EF4444" : "#FFFFFF" }}>
               {isUnlimited ? "∞" : `${used} / ${limit}`}
             </span>
           </div>
-          <div className="h-2 rounded-full overflow-hidden" style={{ background: "#2A2A3E" }}>
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: "#30424b" }}>
             {isUnlimited ? (
               <div className="h-full w-full rounded-full" style={{ background: "rgba(52,211,153,0.4)" }} />
             ) : (
@@ -225,17 +225,17 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
     return (
       <div
         className="rounded-xl px-4 py-3 flex items-center gap-3"
-        style={{ background: "#14141E", border: "1px solid #2A2A3E" }}
+        style={{ background: "#17242a", border: "1px solid #30424b" }}
       >
         <Bot size={16} className="shrink-0" style={{ color: "#F59E0B" }} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[12px]" style={{ color: "#6A6A8A" }}>Оркестратор · {planLabel}</span>
+            <span className="text-[12px]" style={{ color: "#9eb2bc" }}>Оркестратор · {planLabel}</span>
             <span className="text-[12px]" style={{ color: "#FFFFFF" }}>
               {totalUsed} / {totalLimit}{totalExtra > 0 ? ` (+${totalExtra})` : ""}
             </span>
           </div>
-          <div className="h-1 rounded-full overflow-hidden" style={{ background: "#2A2A3E" }}>
+          <div className="h-1 rounded-full overflow-hidden" style={{ background: "#30424b" }}>
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{ width: `${pct}%`, background: pct > 80 ? "#EF4444" : pct > 50 ? "#F59E0B" : "#06B6D4" }}
@@ -247,7 +247,7 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div className="rounded-2xl p-5" style={{ background: "#14141E", border: "1px solid #2A2A3E" }}>
+    <div className="rounded-2xl p-5" style={{ background: "#17242a", border: "1px solid #30424b" }}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div
@@ -258,7 +258,7 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
           </div>
           <div>
             <p className="text-[14px] font-semibold">Оркестратор — AI-лимиты</p>
-            <p className="text-[11px]" style={{ color: "#6A6A8A" }}>Тариф: {planLabel} · сброс {resetLabel}</p>
+            <p className="text-[11px]" style={{ color: "#9eb2bc" }}>Тариф: {planLabel} · сброс {resetLabel}</p>
           </div>
         </div>
         <button
@@ -266,7 +266,7 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
           onClick={() => load(true)}
           disabled={refreshing}
           className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors hover:bg-white/5"
-          style={{ color: "#6A6A8A" }}
+          style={{ color: "#9eb2bc" }}
           aria-label="Обновить"
         >
           <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
@@ -288,7 +288,7 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
                   {p.extraCredits > 0 ? ` (+${p.extraCredits})` : ""}
                 </span>
               </div>
-              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#2A2A3E" }}>
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#30424b" }}>
                 {isUnlim ? (
                   <div className="h-full w-full rounded-full" style={{ background: `${color}40` }} />
                 ) : (
@@ -303,7 +303,7 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
         })}
       </div>
 
-      <p className="mt-4 pt-3 text-[11px]" style={{ borderTop: "1px solid #2A2A3E", color: "#6A6A8A" }}>
+      <p className="mt-4 pt-3 text-[11px]" style={{ borderTop: "1px solid #30424b", color: "#9eb2bc" }}>
         В скобках — остаток докупленных пакетов (не сгорает)
       </p>
     </div>

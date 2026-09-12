@@ -61,10 +61,10 @@ import {
 } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
 
-const CARD = "#14141E"
-const BORDER = "#2A2A3E"
-const LABEL = "#6A6A8A"
-const BG_INNER = "#0A0A0F"
+const CARD = "#17242a"
+const BORDER = "#30424b"
+const LABEL = "#9eb2bc"
+const BG_INNER = "#10181d"
 
 function fmtTime(ts: number) {
   const d = new Date(ts)
@@ -328,7 +328,7 @@ export function TCMarketPanel() {
               aria-pressed={tf === tfKey}
               className="rounded-full px-3 py-1 text-[12px] font-medium transition-colors"
               style={{
-                backgroundColor: tf === tfKey ? "rgba(0,212,255,0.12)" : "transparent",
+                backgroundColor: tf === tfKey ? "rgba(215, 174, 87,0.12)" : "transparent",
                 color: tf === tfKey ? TC_ACCENT : LABEL,
                 border: `1px solid ${tf === tfKey ? TC_ACCENT : BORDER}`,
               }}
@@ -443,7 +443,7 @@ export function TCMarketPanel() {
                 aria-pressed={orderKind === k}
                 className="flex-1 rounded-lg py-1.5 text-[12px] font-medium transition-colors"
                 style={{
-                  backgroundColor: orderKind === k ? "rgba(0,212,255,0.1)" : "transparent",
+                  backgroundColor: orderKind === k ? "rgba(215, 174, 87,0.1)" : "transparent",
                   color: orderKind === k ? TC_ACCENT : LABEL,
                   border: `1px solid ${orderKind === k ? TC_ACCENT : BORDER}`,
                 }}

@@ -108,7 +108,7 @@ export function ProjectLiveRun({ projectId }: Props) {
       </div>
 
       {busy && (
-        <div className="flex items-center gap-3 rounded-xl px-4 py-3" style={{ backgroundColor: "rgba(0,212,255,0.06)", border: `1px solid ${COLORS.accent}` }}>
+        <div className="flex items-center gap-3 rounded-xl px-4 py-3" style={{ backgroundColor: "rgba(215, 174, 87,0.06)", border: `1px solid ${COLORS.accent}` }}>
           <Loader2 size={16} className="animate-spin" style={{ color: COLORS.accent, flexShrink: 0 }} />
           <p className="text-[13px]">
             {state === "booting" ? t("projectDetail.liveRunBooting") : t("projectDetail.liveRunInstalling")}

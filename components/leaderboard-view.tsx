@@ -37,9 +37,9 @@ const DEFAULT_AVATAR =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-       <rect width="48" height="48" rx="24" fill="#14141E"/>
-       <circle cx="24" cy="18" r="8" fill="#2A2A3E"/>
-       <path d="M8 42c0-9 7-14 16-14s16 5 16 14" fill="#2A2A3E"/>
+       <rect width="48" height="48" rx="24" fill="#17242a"/>
+       <circle cx="24" cy="18" r="8" fill="#30424b"/>
+       <path d="M8 42c0-9 7-14 16-14s16 5 16 14" fill="#30424b"/>
      </svg>`,
   )
 
@@ -79,7 +79,7 @@ export function LeaderboardView() {
   return (
     <div
       className="min-h-screen font-sans"
-      style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0D0D1A 100%)", color: COLORS.text }}
+      style={{ background: "linear-gradient(180deg, #10181d 0%, #0D0D1A 100%)", color: COLORS.text }}
     >
       <Navbar />
 
@@ -104,7 +104,7 @@ export function LeaderboardView() {
                   style={{
                     border: `1px solid ${active ? COLORS.accent : COLORS.border}`,
                     color: active ? COLORS.accent : "rgba(255,255,255,0.6)",
-                    backgroundColor: active ? "rgba(0,212,255,0.06)" : "transparent",
+                    backgroundColor: active ? "rgba(215, 174, 87,0.06)" : "transparent",
                   }}
                 >
                   {s.label}

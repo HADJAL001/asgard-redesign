@@ -40,7 +40,7 @@ import { useSignature } from "@/hooks/useSignature"
 import { Volume2 } from "lucide-react"
 
 /* ---- Palette ----
-   bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E */
+   bg #10181d · card #17242a · accent #d7ae57 · text #FFFFFF · label #9eb2bc · border #30424b */
 
 const AVATAR =
   "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=256&q=80"
@@ -84,7 +84,7 @@ const HEATMAP: number[][] = [
   [0, 1, 3, 4, 2, 3, 1],
 ]
 
-const LEVEL_COLOR = ["#14141E", "#0E3A4A", "#0F5566", "#0FA0B8", "#00D4FF"]
+const LEVEL_COLOR = ["#17242a", "#0E3A4A", "#0F5566", "#0FA0B8", "#d7ae57"]
 
 const ACTIVITY_STATS = [
   { Icon: MessageSquare, n: "128", l: "Постов" },
@@ -129,7 +129,7 @@ export function ProfileView() {
   }
 
   return (
-    <div className="relative overflow-hidden min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0A1628 100%)", color: "#FFFFFF" }}>
+    <div className="relative overflow-hidden min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #10181d 0%, #0A1628 100%)", color: "#FFFFFF" }}>
       <PremiumBackground variant="gold" />
       <Navbar />
 
@@ -147,7 +147,7 @@ export function ProfileView() {
           {/* Avatar card */}
           <div
             className="flex shrink-0 items-center justify-center rounded-2xl p-6"
-            style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+            style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
           >
             {user?.avatarUrl ? (
               <Image
@@ -156,7 +156,7 @@ export function ProfileView() {
                 width={128}
                 height={128}
                 className="size-32 rounded-full object-cover"
-                style={{ border: "2px solid #2A2A3E" }}
+                style={{ border: "2px solid #30424b" }}
               />
             ) : (
               /* Нет фото — вместо стокового человека показываем «мозг»: намёк на
@@ -178,11 +178,11 @@ export function ProfileView() {
           {/* Info card */}
           <div
             className="flex flex-1 flex-col justify-center gap-4 rounded-2xl p-6 md:p-8"
-            style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+            style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
           >
             <div>
               <h2 className="text-[24px] font-semibold leading-tight">{displayName}</h2>
-              <p className="mt-1 text-[16px]" style={{ color: "#6A6A8A" }}>
+              <p className="mt-1 text-[16px]" style={{ color: "#9eb2bc" }}>
                 Архитектор · Lvl. {level}
               </p>
             </div>
@@ -200,9 +200,9 @@ export function ProfileView() {
             <div
               key={l}
               className="rounded-xl p-5"
-              style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+              style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
             >
-              <Icon size={18} strokeWidth={1.5} style={{ color: "#6A6A8A" }} aria-hidden="true" />
+              <Icon size={18} strokeWidth={1.5} style={{ color: "#9eb2bc" }} aria-hidden="true" />
               <p className="mt-3 text-[24px] font-medium">{n}</p>
               <p className="mt-1 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>
                 {l}
@@ -215,7 +215,7 @@ export function ProfileView() {
         <ArchitectMastery />
 
         {/* Tabs */}
-        <div className="mt-10 flex gap-8 border-b" style={{ borderColor: "#2A2A3E" }} role="tablist">
+        <div className="mt-10 flex gap-8 border-b" style={{ borderColor: "#30424b" }} role="tablist">
           {TABS.map((t) => {
             const active = tab === t.id
             return (
@@ -226,12 +226,12 @@ export function ProfileView() {
                 aria-selected={active}
                 onClick={() => setTab(t.id)}
                 className="relative -mb-px py-3 text-[14px] font-medium uppercase tracking-[0.08em] transition-colors"
-                style={{ color: active ? "#00D4FF" : "rgba(255,255,255,0.5)" }}
+                style={{ color: active ? "#d7ae57" : "rgba(255,255,255,0.5)" }}
               >
                 {t.label}
                 <span
                   className="absolute inset-x-0 bottom-0 h-0.5 transition-opacity"
-                  style={{ backgroundColor: "#00D4FF", opacity: active ? 1 : 0 }}
+                  style={{ backgroundColor: "#d7ae57", opacity: active ? 1 : 0 }}
                   aria-hidden="true"
                 />
               </button>
@@ -283,7 +283,7 @@ function ArchitectMastery() {
   return (
     <section
       className="mt-8 rounded-2xl p-6 md:p-7 premium-card"
-      style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+      style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -294,7 +294,7 @@ function ArchitectMastery() {
             <Hammer size={20} strokeWidth={1.6} style={{ color: "var(--color-gold)" }} aria-hidden="true" />
           </span>
           <div>
-            <p className="text-[12px] uppercase tracking-[0.12em]" style={{ color: "#6A6A8A" }}>
+            <p className="text-[12px] uppercase tracking-[0.12em]" style={{ color: "#9eb2bc" }}>
               {t("architect.title")}
             </p>
             <h3 className="serif-title mt-0.5 text-[20px] leading-tight" style={{ color: "var(--color-gold)" }}>
@@ -304,7 +304,7 @@ function ArchitectMastery() {
         </div>
         <div className="text-right">
           <div className="premium-num text-[20px] font-semibold leading-none">{architect.xp}</div>
-          <div className="mt-1 text-[11px]" style={{ color: "#6A6A8A" }}>
+          <div className="mt-1 text-[11px]" style={{ color: "#9eb2bc" }}>
             {t("architect.tier")}
           </div>
         </div>
@@ -323,7 +323,7 @@ function ArchitectMastery() {
             }}
           />
         </div>
-        <p className="mt-2 text-[12px]" style={{ color: "#6A6A8A" }}>
+        <p className="mt-2 text-[12px]" style={{ color: "#9eb2bc" }}>
           {maxed
             ? t("architect.maxed")
             : t("architect.toNext", { tier: nextTierName ?? "", xp: architect.xpForNextTier ?? 0 })}
@@ -358,15 +358,15 @@ function OutlineButton({
       type="button"
       onClick={onClick}
       className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[14px] transition-colors"
-      style={{ border: "1px solid #2A2A3E", color: "#FFFFFF" }}
+      style={{ border: "1px solid #30424b", color: "#FFFFFF" }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = "#00D4FF"
-        e.currentTarget.style.borderColor = "#00D4FF"
-        e.currentTarget.style.color = "#0A0A0F"
+        e.currentTarget.style.backgroundColor = "#d7ae57"
+        e.currentTarget.style.borderColor = "#d7ae57"
+        e.currentTarget.style.color = "#10181d"
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.backgroundColor = "transparent"
-        e.currentTarget.style.borderColor = "#2A2A3E"
+        e.currentTarget.style.borderColor = "#30424b"
         e.currentTarget.style.color = "#FFFFFF"
       }}
     >
@@ -378,11 +378,11 @@ function OutlineButton({
 
 function Panel({ title, extra, children }: { title: string; extra?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl p-6 md:p-8" style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}>
+    <section className="rounded-2xl p-6 md:p-8" style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}>
       <div className="mb-6 flex items-center justify-between">
         <h3 className="text-[16px] font-semibold uppercase tracking-[0.08em]">{title}</h3>
         {extra && (
-          <span className="text-[13px]" style={{ color: "#6A6A8A" }}>
+          <span className="text-[13px]" style={{ color: "#9eb2bc" }}>
             {extra}
           </span>
         )}
@@ -396,13 +396,13 @@ function AchievementCard({ a }: { a: Achievement }) {
   return (
     <article
       className="rounded-xl p-5 transition-all duration-150"
-      style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E" }}
+      style={{ backgroundColor: "#10181d", border: "1px solid #30424b" }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = "#00D4FF"
+        e.currentTarget.style.borderColor = "#d7ae57"
         e.currentTarget.style.transform = "translateY(-2px)"
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "#2A2A3E"
+        e.currentTarget.style.borderColor = "#30424b"
         e.currentTarget.style.transform = "translateY(0)"
       }}
     >
@@ -413,11 +413,11 @@ function AchievementCard({ a }: { a: Achievement }) {
         <a.Icon size={32} strokeWidth={1.5} style={{ color: a.color }} aria-hidden="true" />
       </div>
       <p className="mt-4 text-[14px] font-medium">{a.name}</p>
-      <p className="mt-0.5 text-[12px]" style={{ color: "#6A6A8A" }}>
+      <p className="mt-0.5 text-[12px]" style={{ color: "#9eb2bc" }}>
         {a.tier}
       </p>
-      <div className="mt-3 h-1 w-full overflow-hidden rounded-full" style={{ backgroundColor: "#2A2A3E" }}>
-        <div className="h-full rounded-full" style={{ width: `${a.ratio * 100}%`, backgroundColor: "#00D4FF" }} />
+      <div className="mt-3 h-1 w-full overflow-hidden rounded-full" style={{ backgroundColor: "#30424b" }}>
+        <div className="h-full rounded-full" style={{ width: `${a.ratio * 100}%`, backgroundColor: "#d7ae57" }} />
       </div>
       <p className="mt-2 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>
         {a.progress}
@@ -473,8 +473,8 @@ function TCHoldingsPanel() {
     <Panel title="TimeCoin" extra={`1 ∞ = $${tcPrice.toFixed(2)}`}>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map(({ Icon, n, l, color }) => (
-          <div key={l} className="rounded-xl p-5" style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E" }}>
-            <Icon size={18} strokeWidth={1.5} style={{ color: "#6A6A8A" }} aria-hidden="true" />
+          <div key={l} className="rounded-xl p-5" style={{ backgroundColor: "#10181d", border: "1px solid #30424b" }}>
+            <Icon size={18} strokeWidth={1.5} style={{ color: "#9eb2bc" }} aria-hidden="true" />
             <p className="mt-3 text-[24px] font-medium" style={{ color }}>{n}</p>
             <p className="mt-1 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>{l}</p>
           </div>
@@ -486,20 +486,20 @@ function TCHoldingsPanel() {
           {active.map((s) => {
             const left = Math.max(0, Math.ceil((s.endTs - now) / DAY_MS))
             return (
-              <div key={s.id} className="flex items-center justify-between rounded-xl px-4 py-3 text-[14px]" style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E" }}>
+              <div key={s.id} className="flex items-center justify-between rounded-xl px-4 py-3 text-[14px]" style={{ backgroundColor: "#10181d", border: "1px solid #30424b" }}>
                 <span className="inline-flex items-center gap-2">
                   <Lock size={15} strokeWidth={1.75} style={{ color: "#9B59B6" }} aria-hidden="true" />
                   {formatTokens(s.amountTC)} ∞ · {(s.apr * 100).toFixed(0)}% APR
                 </span>
                 <span className="inline-flex items-center gap-3">
-                  <span className="text-[12px]" style={{ color: "#6A6A8A" }}>
+                  <span className="text-[12px]" style={{ color: "#9eb2bc" }}>
                     {left > 0 ? `${left} дн.` : "Готово"}
                   </span>
                   <button
                     type="button"
                     onClick={() => unstakeTC(s.id)}
                     className="rounded-lg px-3 py-1.5 text-[12px] font-medium"
-                    style={{ border: `1px solid ${left > 0 ? "#2A2A3E" : UP}`, color: left > 0 ? "rgba(255,255,255,0.7)" : UP }}
+                    style={{ border: `1px solid ${left > 0 ? "#30424b" : UP}`, color: left > 0 ? "rgba(255,255,255,0.7)" : UP }}
                   >
                     {left > 0 ? "Досрочно" : "Забрать"}
                   </button>
@@ -520,15 +520,15 @@ function TCHoldingsPanel() {
             key={href}
             href={href}
             className="flex items-center justify-between rounded-xl px-4 py-3 text-[14px] transition-colors"
-            style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E" }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#00D4FF")}
-            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#2A2A3E")}
+            style={{ backgroundColor: "#10181d", border: "1px solid #30424b" }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#d7ae57")}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30424b")}
           >
             <span className="inline-flex items-center gap-2">
-              <Icon size={16} strokeWidth={1.5} style={{ color: "#6A6A8A" }} aria-hidden="true" />
+              <Icon size={16} strokeWidth={1.5} style={{ color: "#9eb2bc" }} aria-hidden="true" />
               {label}
             </span>
-            <ChevronRight size={16} strokeWidth={1.5} style={{ color: "#6A6A8A" }} aria-hidden="true" />
+            <ChevronRight size={16} strokeWidth={1.5} style={{ color: "#9eb2bc" }} aria-hidden="true" />
           </Link>
         ))}
       </div>
@@ -550,7 +550,7 @@ function EarningsPanel() {
   const rank = user ? leaderboard.findIndex((e) => e.userId === user.id) + 1 : 0
 
   const stats = [
-    { Icon: Wallet, n: formatTokens(totalEarned), l: "Заработано, токенов", color: "#00D4FF" },
+    { Icon: Wallet, n: formatTokens(totalEarned), l: "Заработано, токенов", color: "#d7ae57" },
     { Icon: ShoppingBag, n: String(sold), l: "Артефактов продано", color: "#FFFFFF" },
     { Icon: Tag, n: String(listed), l: "В продаже сейчас", color: "#FFFFFF" },
     { Icon: Trophy, n: rank > 0 ? `#${rank}` : "—", l: "Место в рейтинге", color: "#FBBF24" },
@@ -569,9 +569,9 @@ function EarningsPanel() {
           <div
             key={l}
             className="rounded-xl p-5"
-            style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E" }}
+            style={{ backgroundColor: "#10181d", border: "1px solid #30424b" }}
           >
-            <Icon size={18} strokeWidth={1.5} style={{ color: "#6A6A8A" }} aria-hidden="true" />
+            <Icon size={18} strokeWidth={1.5} style={{ color: "#9eb2bc" }} aria-hidden="true" />
             <p className="mt-3 text-[24px] font-medium" style={{ color }}>
               {n}
             </p>
@@ -588,15 +588,15 @@ function EarningsPanel() {
             key={href}
             href={href}
             className="flex items-center justify-between rounded-xl px-4 py-3 text-[14px] transition-colors"
-            style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E" }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#00D4FF")}
-            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#2A2A3E")}
+            style={{ backgroundColor: "#10181d", border: "1px solid #30424b" }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#d7ae57")}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30424b")}
           >
             <span className="inline-flex items-center gap-2">
-              <Icon size={16} strokeWidth={1.5} style={{ color: "#6A6A8A" }} aria-hidden="true" />
+              <Icon size={16} strokeWidth={1.5} style={{ color: "#9eb2bc" }} aria-hidden="true" />
               {label}
             </span>
-            <ChevronRight size={16} strokeWidth={1.5} style={{ color: "#6A6A8A" }} aria-hidden="true" />
+            <ChevronRight size={16} strokeWidth={1.5} style={{ color: "#9eb2bc" }} aria-hidden="true" />
           </Link>
         ))}
       </div>
@@ -627,12 +627,12 @@ function ArtifactsPanel() {
         <Link
           href="/artifacts"
           className="mt-4 flex items-center justify-between rounded-xl px-4 py-3 text-[14px] transition-colors"
-          style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E" }}
-          onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#00D4FF")}
-          onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#2A2A3E")}
+          style={{ backgroundColor: "#10181d", border: "1px solid #30424b" }}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#d7ae57")}
+          onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30424b")}
         >
           <span>Все артефакты</span>
-          <ChevronRight size={16} strokeWidth={1.5} style={{ color: "#6A6A8A" }} aria-hidden="true" />
+          <ChevronRight size={16} strokeWidth={1.5} style={{ color: "#9eb2bc" }} aria-hidden="true" />
         </Link>
       )}
     </Panel>
@@ -657,7 +657,7 @@ function Heatmap() {
       {/* Day labels */}
       <div className="grid grid-cols-7 gap-2">
         {DAYS.map((d) => (
-          <span key={d} className="text-center text-[12px]" style={{ color: "#6A6A8A" }}>
+          <span key={d} className="text-center text-[12px]" style={{ color: "#9eb2bc" }}>
             {d}
           </span>
         ))}
@@ -670,7 +670,7 @@ function Heatmap() {
               <div
                 key={di}
                 className="aspect-square rounded-md"
-                style={{ backgroundColor: LEVEL_COLOR[lvl], border: "1px solid #2A2A3E" }}
+                style={{ backgroundColor: LEVEL_COLOR[lvl], border: "1px solid #30424b" }}
                 title={`${DAYS[di]}: уровень ${lvl}`}
               />
             ))}
@@ -678,13 +678,13 @@ function Heatmap() {
         ))}
       </div>
       {/* Legend */}
-      <div className="mt-4 flex items-center justify-end gap-2 text-[12px]" style={{ color: "#6A6A8A" }}>
+      <div className="mt-4 flex items-center justify-end gap-2 text-[12px]" style={{ color: "#9eb2bc" }}>
         <span>Меньше</span>
         {LEVEL_COLOR.map((c, i) => (
           <span
             key={i}
             className="size-3 rounded-sm"
-            style={{ backgroundColor: c, border: "1px solid #2A2A3E" }}
+            style={{ backgroundColor: c, border: "1px solid #30424b" }}
             aria-hidden="true"
           />
         ))}
@@ -706,9 +706,9 @@ function ActivityTab() {
           <div
             key={l}
             className="rounded-xl p-5"
-            style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+            style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
           >
-            <Icon size={18} strokeWidth={1.5} style={{ color: "#6A6A8A" }} aria-hidden="true" />
+            <Icon size={18} strokeWidth={1.5} style={{ color: "#9eb2bc" }} aria-hidden="true" />
             <p className="mt-3 text-[24px] font-medium">{n}</p>
             <p className="mt-1 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>
               {l}
@@ -779,7 +779,7 @@ function SettingsTab() {
               width={64}
               height={64}
               className="size-16 rounded-full object-cover"
-              style={{ border: "1px solid #2A2A3E" }}
+              style={{ border: "1px solid #30424b" }}
             />
             <OutlineButton Icon={Camera} onClick={handleChangeAvatar}>Сменить аватар</OutlineButton>
           </div>
@@ -790,8 +790,8 @@ function SettingsTab() {
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none focus:border-[#00D4FF]"
-              style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E", color: "#FFFFFF" }}
+              className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none focus:border-[#d7ae57]"
+              style={{ backgroundColor: "#10181d", border: "1px solid #30424b", color: "#FFFFFF" }}
             />
           </Field>
 
@@ -801,8 +801,8 @@ function SettingsTab() {
               rows={3}
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              className="w-full resize-none rounded-lg px-3 py-2.5 text-[14px] outline-none focus:border-[#00D4FF]"
-              style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E", color: "#FFFFFF" }}
+              className="w-full resize-none rounded-lg px-3 py-2.5 text-[14px] outline-none focus:border-[#d7ae57]"
+              style={{ backgroundColor: "#10181d", border: "1px solid #30424b", color: "#FFFFFF" }}
             />
           </Field>
         </div>
@@ -817,7 +817,7 @@ function SettingsTab() {
           ].map((row) => (
             <div key={row.label} className="flex items-center justify-between">
               <span className="inline-flex items-center gap-2 text-[14px]">
-                <Bell size={16} strokeWidth={1.5} style={{ color: "#6A6A8A" }} aria-hidden="true" />
+                <Bell size={16} strokeWidth={1.5} style={{ color: "#9eb2bc" }} aria-hidden="true" />
                 {row.label}
               </span>
               <Toggle defaultOn={row.on} label={row.label} />
@@ -830,7 +830,7 @@ function SettingsTab() {
 
       <div className="flex items-center justify-end gap-3">
         {status === "ok" && (
-          <span className="text-[13px]" style={{ color: "#4ADE80" }} role="status">
+          <span className="text-[13px]" style={{ color: "#d7ae57" }} role="status">
             Сохранено
           </span>
         )}
@@ -844,7 +844,7 @@ function SettingsTab() {
           onClick={handleSave}
           disabled={saving}
           className="rounded-lg px-6 py-2.5 text-[14px] font-medium transition-opacity disabled:opacity-50"
-          style={{ backgroundColor: "#00D4FF", color: "#0A0A0F" }}
+          style={{ backgroundColor: "#d7ae57", color: "#10181d" }}
           onMouseEnter={(e) => { if (!saving) e.currentTarget.style.opacity = "0.9" }}
           onMouseLeave={(e) => { if (!saving) e.currentTarget.style.opacity = "1" }}
         >
@@ -858,7 +858,7 @@ function SettingsTab() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-2 block text-[13px]" style={{ color: "#6A6A8A" }}>
+      <label className="mb-2 block text-[13px]" style={{ color: "#9eb2bc" }}>
         {label}
       </label>
       {children}
@@ -886,7 +886,7 @@ function SensorySignaturePanel() {
     <Panel title={t("signature.title")}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <Volume2 size={18} strokeWidth={1.5} style={{ color: "#6A6A8A", marginTop: 2 }} aria-hidden="true" />
+          <Volume2 size={18} strokeWidth={1.5} style={{ color: "#9eb2bc", marginTop: 2 }} aria-hidden="true" />
           <div>
             <p className="text-[14px]">{t("signature.toggleLabel")}</p>
             <p className="mt-1 text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.45)", maxWidth: 460 }}>
@@ -902,7 +902,7 @@ function SensorySignaturePanel() {
           disabled={!supported}
           onClick={handleToggle}
           className="relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40"
-          style={{ backgroundColor: enabled ? "var(--color-gold)" : "#2A2A3E" }}
+          style={{ backgroundColor: enabled ? "var(--color-gold)" : "#30424b" }}
         >
           <span
             className="absolute top-0.5 size-5 rounded-full transition-all"
@@ -924,7 +924,7 @@ function Toggle({ defaultOn, label }: { defaultOn: boolean; label: string }) {
       aria-label={label}
       onClick={() => setOn((v) => !v)}
       className="relative h-6 w-11 rounded-full transition-colors"
-      style={{ backgroundColor: on ? "#00D4FF" : "#2A2A3E" }}
+      style={{ backgroundColor: on ? "#d7ae57" : "#30424b" }}
     >
       <span
         className="absolute top-0.5 size-5 rounded-full transition-all"

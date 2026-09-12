@@ -151,7 +151,7 @@ export function TransactionsView() {
   return (
     <div
       className="min-h-screen font-sans"
-      style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #1A1A1A 100%)", color: COLORS.text }}
+      style={{ background: "linear-gradient(180deg, #10181d 0%, #1A1A1A 100%)", color: COLORS.text }}
     >
       <Navbar />
 
@@ -180,14 +180,14 @@ export function TransactionsView() {
                 style={{
                   border: `1px solid ${active ? COLORS.accent : COLORS.border}`,
                   color: active ? COLORS.accent : "rgba(255,255,255,0.6)",
-                  backgroundColor: active ? "rgba(0,212,255,0.06)" : "transparent",
+                  backgroundColor: active ? "rgba(215, 174, 87,0.06)" : "transparent",
                 }}
               >
                 {f.label}
                 <span
                   className="rounded-full px-1.5 text-[11px]"
                   style={{
-                    backgroundColor: active ? "rgba(0,212,255,0.15)" : "rgba(255,255,255,0.06)",
+                    backgroundColor: active ? "rgba(215, 174, 87,0.15)" : "rgba(255,255,255,0.06)",
                     color: active ? COLORS.accent : COLORS.label,
                   }}
                 >

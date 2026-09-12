@@ -166,7 +166,7 @@ export function ProjectFileEditor({ projectId }: Props) {
               className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[12px] transition-colors"
               style={{
                 color: active ? COLORS.accent : COLORS.text,
-                backgroundColor: active ? "rgba(0,212,255,0.08)" : "transparent",
+                backgroundColor: active ? "rgba(215, 174, 87,0.08)" : "transparent",
               }}
             >
               <FileCode2 size={14} strokeWidth={1.5} style={{ flexShrink: 0, color: active ? COLORS.accent : COLORS.label }} />

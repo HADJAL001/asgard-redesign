@@ -153,7 +153,7 @@ export function DemoProjectModal({ open, onClose, onLimitReached, initialName }:
             onFocus={(e) => { e.currentTarget.style.border = "1px solid rgba(6,182,212,0.4)" }}
             onBlur={(e) => { e.currentTarget.style.border = displayError ? "1px solid rgba(239,68,68,0.5)" : "1px solid rgba(255,255,255,0.1)" }}
           />
-          {displayError && <p className="mt-2 text-[12px]" style={{ color: "#F87171" }}>{displayError}</p>}
+          {displayError && <p className="mt-2 text-[12px]" style={{ color: "#e2685c" }}>{displayError}</p>}
         </div>
 
         {/* Выбор темы */}

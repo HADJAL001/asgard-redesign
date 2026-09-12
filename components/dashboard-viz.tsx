@@ -75,7 +75,7 @@ export function NumberMatrix({ height = 260 }: { height?: number }) {
         if (pointer.active) {
           const dx = x - pointer.x
           const dy = y - pointer.y
-          if (dx * dx + dy * dy < 70 * 70) color = "rgba(0, 240, 255, 0.95)"
+          if (dx * dx + dy * dy < 70 * 70) color = "rgba(215, 174, 87, 0.95)"
         }
 
         ctx.fillStyle = color
@@ -106,8 +106,8 @@ export function NumberMatrix({ height = 260 }: { height?: number }) {
         const t = fl.life / fl.max
         const alpha = t < 0.2 ? t / 0.2 : 1 - (t - 0.2) / 0.8
         ctx.font = `700 22px ui-monospace, SFMono-Regular, Menlo, monospace`
-        ctx.fillStyle = `rgba(0, 240, 255, ${Math.max(0, alpha) * 0.9})`
-        ctx.shadowColor = "rgba(0, 240, 255, 0.7)"
+        ctx.fillStyle = `rgba(215, 174, 87, ${Math.max(0, alpha) * 0.9})`
+        ctx.shadowColor = "rgba(215, 174, 87, 0.7)"
         ctx.shadowBlur = 12
         ctx.fillText(fl.text, fl.x, fl.y)
         ctx.shadowBlur = 0
@@ -194,7 +194,7 @@ export function IsometricBars({ data }: { data: BarDatum[] }) {
         </defs>
 
         {/* Isometric floor grid */}
-        <g stroke="rgba(0,240,255,0.10)" strokeWidth="0.6">
+        <g stroke="rgba(215, 174, 87,0.10)" strokeWidth="0.6">
           {Array.from({ length: 6 }).map((_, i) => (
             <line key={`h${i}`} x1="30" y1={baseY - i * 40} x2={W - 30} y2={baseY - i * 40} />
           ))}

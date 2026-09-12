@@ -215,27 +215,27 @@ export function StakeView() {
 
             {/* Term selection */}
             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {STAKE_TERMS.map((t) => {
-                const activeTerm = term.days === t.days
+              {STAKE_TERMS.map((termOption) => {
+                const activeTerm = term.days === termOption.days
                 return (
                   <button
-                    key={t.days}
+                    key={termOption.days}
                     type="button"
-                    onClick={() => setTerm(t)}
+                    onClick={() => setTerm(termOption)}
                     aria-pressed={activeTerm}
                     className="rounded-xl p-4 text-left transition-colors"
                     style={{
-                      backgroundColor: activeTerm ? "rgba(155,89,182,0.1)" : "#0A0A0F",
-                      border: `1px solid ${activeTerm ? PURPLE : COLORS.border}`,
+                      backgroundColor: activeTerm ? "rgb(200 169 110 / 0.08)" : "#10181d",
+                      border: `1px solid ${activeTerm ? "#C8A96E" : COLORS.border}`,
                     }}
                   >
-                    <p className="text-[15px] font-medium">{t.label}</p>
-                    <p className="mt-1 inline-flex items-center gap-1 text-[20px] font-semibold" style={{ color: UP }}>
+                    <p className="text-[15px] font-medium">{termOption.label}</p>
+                    <p className="mt-1 inline-flex items-center gap-1 text-[20px] font-semibold" style={{ color: "#C8A96E" }}>
                       <Percent size={15} strokeWidth={2} aria-hidden="true" />
-                      {(t.apr * 100).toFixed(0)}
+                      {(termOption.apr * 100).toFixed(0)}
                       <span className="text-[12px] font-normal" style={{ color: COLORS.label }}>APR</span>
                     </p>
-                    <p className="mt-2 text-[11px]" style={{ color: COLORS.label }}>{t.perk}</p>
+                    <p className="mt-2 text-[11px]" style={{ color: COLORS.label }}>{termOption.perk}</p>
                   </button>
                 )
               })}
@@ -418,7 +418,7 @@ export function StakeView() {
                             {(s.apr * 100).toFixed(0)}% APR · {s.days}д
                           </span>
                         </div>
-                        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full" style={{ backgroundColor: "#14141E" }}>
+                        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full" style={{ backgroundColor: "#17242a" }}>
                           <div className="h-full rounded-full" style={{ width: `${progress}%`, backgroundColor: PURPLE }} />
                         </div>
                         <div className="mt-3 flex items-center justify-between">

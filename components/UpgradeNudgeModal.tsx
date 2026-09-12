@@ -112,7 +112,7 @@ export function UpgradeNudgeModal({
               {generationsToday} / {limit}
             </span>
           </div>
-          <div className="h-2 rounded-full overflow-hidden" style={{ background: "#2A2A3E" }}>
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: "#30424b" }}>
             <div
               className="h-full rounded-full transition-all duration-700"
               style={{

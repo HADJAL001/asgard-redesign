@@ -35,7 +35,7 @@ export function SnakeEdge({
         className="orch-snake-edge"
         style={{
           ...style,
-          stroke: selected ? COLORS.accent : "#00D4FF",
+          stroke: selected ? COLORS.accent : "#d7ae57",
           strokeWidth: selected ? 2.5 : 2,
         }}
       />

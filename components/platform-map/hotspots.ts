@@ -44,17 +44,17 @@ function fibonacciSpherePoint(index: number, total: number) {
 type HotspotDef = Omit<PlatformHotspot, "lat" | "lon">
 
 const BASE_SECTIONS: HotspotDef[] = [
-  { key: "map.dashboard", href: "/dashboard", label: "Панель", description: "Общая сводка аккаунта", color: "#00D4FF", Icon: LayoutDashboard },
+  { key: "map.dashboard", href: "/dashboard", label: "Панель", description: "Общая сводка аккаунта", color: "#d7ae57", Icon: LayoutDashboard },
   { key: "map.forge", href: "/forge", label: "Кузница", description: "Создание проектов с ИИ", color: "#E74C3C", Icon: Hammer },
   { key: "map.marketplace", href: "/marketplace", label: "Маркет", description: "Магазин артефактов", color: "#F5A623", Icon: ShoppingBag },
   { key: "map.exchange", href: "/exchange", label: "Биржа", description: "Обмен и торговля", color: "#2ECC71", Icon: TrendingUp },
   { key: "map.stake", href: "/stake", label: "Стейкинг", description: "Заморозка активов", color: "#7B2FBE", Icon: Lock },
-  { key: "map.projects", href: "/projects", label: "Проекты", description: "Ваши созданные проекты", color: "#00D4FF", Icon: FolderKanban },
+  { key: "map.projects", href: "/projects", label: "Проекты", description: "Ваши созданные проекты", color: "#d7ae57", Icon: FolderKanban },
   { key: "map.community", href: "/community", label: "Таверна", description: "Сообщество архитекторов", color: "#F5A623", Icon: Beer },
   { key: "map.twin", href: "/twin", label: "Близнец", description: "Ваш ИИ-двойник", color: "#7B2FBE", Icon: Sparkle },
   { key: "map.economy", href: "/economy", label: "Экономика", description: "Статистика платформы", color: "#2ECC71", Icon: BarChart3 },
-  { key: "map.referral", href: "/referral", label: "Рефералы", description: "Приглашай друзей", color: "#00D4FF", Icon: Users },
-  { key: "map.profile", href: "/profile", label: "Профиль", description: "Настройки аккаунта", color: "#6A6A8A", Icon: UserRound },
+  { key: "map.referral", href: "/referral", label: "Рефералы", description: "Приглашай друзей", color: "#d7ae57", Icon: Users },
+  { key: "map.profile", href: "/profile", label: "Профиль", description: "Настройки аккаунта", color: "#9eb2bc", Icon: UserRound },
   { key: "map.wallet", href: "/wallet", label: "Кошелёк", description: "Баланс и переводы", color: "#F5A623", Icon: Wallet },
   { key: "map.hall-of-fame", href: "/hall-of-fame", label: "Зал славы", description: "Лучшие творения", color: "#FFD700", Icon: Trophy },
   { key: "map.leaderboard", href: "/leaderboard", label: "Рейтинг", description: "Рейтинг архитекторов", color: "#E74C3C", Icon: Medal },

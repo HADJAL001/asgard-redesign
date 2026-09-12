@@ -22,7 +22,7 @@ import {
 import { Infinity as InfinityIcon, Lock, ShieldCheck, Sparkles, Wallet as WalletIcon } from "lucide-react"
 
 const CARD = "#101018"
-const BORDER = "#2A2A3E"
+const BORDER = "#30424b"
 const LABEL = "#8A8AA0"
 const GOLD = "#F1C40F"
 const SERIF = "var(--font-playfair)"
@@ -47,7 +47,7 @@ export function SanctumView() {
     return (
       <div
         className="min-h-screen font-sans"
-        style={{ background: "radial-gradient(circle at 50% 20%, #1A1408 0%, #0A0A0F 60%)", color: "#FFFFFF" }}
+        style={{ background: "radial-gradient(circle at 50% 20%, #1A1408 0%, #10181d 60%)", color: "#FFFFFF" }}
       >
         <Navbar />
         <main className="mx-auto flex max-w-lg flex-col items-center px-6 py-24 text-center">
@@ -67,7 +67,7 @@ export function SanctumView() {
           <Link
             href="/hall-of-fame"
             className="mt-8 rounded-full px-6 py-3 text-[14px] font-medium"
-            style={{ backgroundColor: GOLD, color: "#0A0A0F" }}
+            style={{ backgroundColor: GOLD, color: "#10181d" }}
           >
             Смотреть Зал славы
           </Link>
@@ -79,7 +79,7 @@ export function SanctumView() {
   return (
     <div
       className="min-h-screen font-sans"
-      style={{ background: "radial-gradient(circle at 50% 0%, #1A1408 0%, #0A0A0F 55%)", color: "#FFFFFF" }}
+      style={{ background: "radial-gradient(circle at 50% 0%, #1A1408 0%, #10181d 55%)", color: "#FFFFFF" }}
     >
       <Navbar />
       <main className="mx-auto max-w-5xl px-6 py-12">
@@ -131,7 +131,7 @@ export function SanctumView() {
                   <div
                     key={id}
                     className="rounded-xl p-4"
-                    style={{ backgroundColor: "#0A0A0F", border: `1px solid ${c.elite ? `${GOLD}55` : BORDER}` }}
+                    style={{ backgroundColor: "#10181d", border: `1px solid ${c.elite ? `${GOLD}55` : BORDER}` }}
                   >
                     <div className="flex items-center gap-1.5" style={{ color: c.color }}>
                       <c.Icon size={14} strokeWidth={1.75} aria-hidden="true" />
@@ -174,7 +174,7 @@ export function SanctumView() {
                   <XAxis dataKey="month" tick={{ fill: LABEL, fontSize: 12 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: LABEL, fontSize: 12 }} axisLine={false} tickLine={false} width={48} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: "#0A0A0F", border: `1px solid ${BORDER}`, borderRadius: 8, color: "#FFFFFF" }}
+                    contentStyle={{ backgroundColor: "#10181d", border: `1px solid ${BORDER}`, borderRadius: 8, color: "#FFFFFF" }}
                     labelStyle={{ color: LABEL }}
                     formatter={(v) => [`${formatTokens(Number(v))} ∞`, "Капитал"]}
                   />
@@ -242,7 +242,7 @@ export function SanctumView() {
               { t: "∞-знак в профиле", d: "Вечный статус легенды OSGARD во всех разделах платформы" },
               { t: "Голос в совете", d: "Влияние на эмиссию TimeCoin и параметры экономики" },
             ].map((p) => (
-              <li key={p.t} className="rounded-xl p-4" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${BORDER}` }}>
+              <li key={p.t} className="rounded-xl p-4" style={{ backgroundColor: "#10181d", border: `1px solid ${BORDER}` }}>
                 <p className="text-[14px] font-medium" style={{ color: GOLD }}>
                   {p.t}
                 </p>

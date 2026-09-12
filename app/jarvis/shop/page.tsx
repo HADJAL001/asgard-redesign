@@ -157,13 +157,13 @@ export default function JarvisShopPage() {
   const visibleItems = filter === "all" ? items : items.filter((i) => i.type === filter)
 
   return (
-    <div style={{ backgroundColor: "#0A0A0F", minHeight: "100vh", color: "#FFFFFF" }}>
+    <div style={{ backgroundColor: "#10181d", minHeight: "100vh", color: "#FFFFFF" }}>
       <Navbar />
 
       <main className="mx-auto max-w-6xl px-4 py-8">
         <header className="mb-6">
           <h1 className="text-2xl font-semibold">Магазин ДЖАРВИСА</h1>
-          <p className="mt-1 text-sm" style={{ color: "#6A6A8A" }}>
+          <p className="mt-1 text-sm" style={{ color: "#9eb2bc" }}>
             Скины, голоса и аксессуары для вашего ИИ-ассистента. Оплата в ∞ (TimeCoin).
           </p>
         </header>
@@ -171,10 +171,10 @@ export default function JarvisShopPage() {
         {/* ---- Живое превью 3D-аватара: сразу отражает надетые аксессуары ---- */}
         <div
           className="mb-8 flex flex-col items-center rounded-xl py-4"
-          style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+          style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
         >
           <JarvisAvatar equipment={equipment} height={200} />
-          <span className="mt-1 text-xs" style={{ color: "#6A6A8A" }}>
+          <span className="mt-1 text-xs" style={{ color: "#9eb2bc" }}>
             Предпросмотр ДЖАРВИСА — обновляется мгновенно при покупке/надевании
           </span>
         </div>
@@ -185,8 +185,8 @@ export default function JarvisShopPage() {
             className="mb-6 rounded-lg px-4 py-3 text-sm"
             style={{
               backgroundColor: notice.ok ? "rgba(74,222,128,0.1)" : "rgba(248,113,113,0.1)",
-              border: `1px solid ${notice.ok ? "#4ADE80" : "#F87171"}`,
-              color: notice.ok ? "#4ADE80" : "#F87171",
+              border: `1px solid ${notice.ok ? "#d7ae57" : "#e2685c"}`,
+              color: notice.ok ? "#d7ae57" : "#e2685c",
             }}
           >
             {notice.text}
@@ -199,9 +199,9 @@ export default function JarvisShopPage() {
             onClick={() => setFilter("all")}
             className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
             style={{
-              backgroundColor: filter === "all" ? "#00D4FF" : "transparent",
-              color: filter === "all" ? "#0A0A0F" : "#6A6A8A",
-              border: "1px solid #2A2A3E",
+              backgroundColor: filter === "all" ? "#d7ae57" : "transparent",
+              color: filter === "all" ? "#10181d" : "#9eb2bc",
+              border: "1px solid #30424b",
             }}
           >
             Все
@@ -215,9 +215,9 @@ export default function JarvisShopPage() {
                 onClick={() => setFilter(t)}
                 className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
                 style={{
-                  backgroundColor: filter === t ? "#00D4FF" : "transparent",
-                  color: filter === t ? "#0A0A0F" : "#6A6A8A",
-                  border: "1px solid #2A2A3E",
+                  backgroundColor: filter === t ? "#d7ae57" : "transparent",
+                  color: filter === t ? "#10181d" : "#9eb2bc",
+                  border: "1px solid #30424b",
                 }}
               >
                 <Icon size={14} strokeWidth={1.75} />
@@ -229,12 +229,12 @@ export default function JarvisShopPage() {
 
         {/* ---- Сетка карточек ---- */}
         {loading ? (
-          <div className="flex items-center justify-center py-20" style={{ color: "#6A6A8A" }}>
+          <div className="flex items-center justify-center py-20" style={{ color: "#9eb2bc" }}>
             <Loader2 className="mr-2 animate-spin" size={18} />
             Загрузка…
           </div>
         ) : visibleItems.length === 0 ? (
-          <div className="py-20 text-center text-sm" style={{ color: "#6A6A8A" }}>
+          <div className="py-20 text-center text-sm" style={{ color: "#9eb2bc" }}>
             Ничего не найдено
           </div>
         ) : (
@@ -246,11 +246,11 @@ export default function JarvisShopPage() {
                 <div
                   key={item.id}
                   className="flex flex-col rounded-xl p-4"
-                  style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+                  style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
                 >
                   <div
                     className="mb-3 flex h-32 items-center justify-center rounded-lg"
-                    style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E" }}
+                    style={{ backgroundColor: "#10181d", border: "1px solid #30424b" }}
                   >
                     {item.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -263,21 +263,21 @@ export default function JarvisShopPage() {
                         }}
                       />
                     ) : (
-                      <Icon size={36} strokeWidth={1.25} style={{ color: "#00D4FF" }} />
+                      <Icon size={36} strokeWidth={1.25} style={{ color: "#d7ae57" }} />
                     )}
                   </div>
 
-                  <div className="mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wide" style={{ color: "#6A6A8A" }}>
+                  <div className="mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wide" style={{ color: "#9eb2bc" }}>
                     <Icon size={12} strokeWidth={1.75} />
                     {TYPE_META[item.type].label.replace(/ы$/, "")}
                   </div>
 
                   <h3 className="mb-1 font-medium">{item.name}</h3>
-                  <p className="mb-3 flex-1 text-sm" style={{ color: "#6A6A8A" }}>
+                  <p className="mb-3 flex-1 text-sm" style={{ color: "#9eb2bc" }}>
                     {item.description}
                   </p>
 
-                  <div className="mb-3 text-lg font-semibold" style={{ color: "#00D4FF" }}>
+                  <div className="mb-3 text-lg font-semibold" style={{ color: "#d7ae57" }}>
                     {fmtTC(item.price)}
                   </div>
 
@@ -286,7 +286,7 @@ export default function JarvisShopPage() {
                       <button
                         disabled
                         className="flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium"
-                        style={{ backgroundColor: "rgba(74,222,128,0.12)", color: "#4ADE80", border: "1px solid #4ADE80" }}
+                        style={{ backgroundColor: "rgba(74,222,128,0.12)", color: "#d7ae57", border: "1px solid #d7ae57" }}
                       >
                         <Check size={14} /> Надето
                       </button>
@@ -295,7 +295,7 @@ export default function JarvisShopPage() {
                         onClick={() => handleEquip(item)}
                         disabled={isBusy}
                         className="rounded-lg py-2 text-sm font-medium transition-opacity disabled:opacity-50"
-                        style={{ backgroundColor: "transparent", color: "#00D4FF", border: "1px solid #00D4FF" }}
+                        style={{ backgroundColor: "transparent", color: "#d7ae57", border: "1px solid #d7ae57" }}
                       >
                         {isBusy ? "Надеваем…" : "Надеть"}
                       </button>
@@ -305,7 +305,7 @@ export default function JarvisShopPage() {
                       onClick={() => handleBuy(item)}
                       disabled={isBusy}
                       className="rounded-lg py-2 text-sm font-semibold transition-opacity disabled:opacity-50"
-                      style={{ backgroundColor: "#00D4FF", color: "#0A0A0F" }}
+                      style={{ backgroundColor: "#d7ae57", color: "#10181d" }}
                     >
                       {isBusy ? "Покупаем…" : `Купить за ${fmtTC(item.price)}`}
                     </button>

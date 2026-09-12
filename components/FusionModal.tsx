@@ -11,7 +11,7 @@ import { useOsgardStore, type OsgardArtifact } from "@/lib/store/osgard-store"
 
 const RARITY_COLOR: Record<string, string> = {
   common: "#9CA3AF",
-  rare: "#00D4FF",
+  rare: "#d7ae57",
   epic: "#A855F7",
   legendary: "#F59E0B",
   mythic: "#EF4444",

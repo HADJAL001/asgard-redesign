@@ -124,9 +124,9 @@ export function ProjectDetailView({ projectId }: Props) {
   const badgeIconComponent = useMemo(() => badgeIcon(currentProject?.badge ?? ""), [currentProject?.badge])
 
   const STATUS_META: Record<ArtifactStatus, { label: string; color: string; Icon: typeof Store }> = {
-    listed: { label: t("artifacts.statusListed"), color: "#00D4FF", Icon: Store },
-    kept: { label: t("artifacts.statusKept"), color: "#6A6A8A", Icon: Archive },
-    sold: { label: t("artifacts.statusSold"), color: "#4ADE80", Icon: CheckCircle2 },
+    listed: { label: t("artifacts.statusListed"), color: "#d7ae57", Icon: Store },
+    kept: { label: t("artifacts.statusKept"), color: "#9eb2bc", Icon: Archive },
+    sold: { label: t("artifacts.statusSold"), color: "#d7ae57", Icon: CheckCircle2 },
   }
 
   useEffect(() => {
@@ -237,7 +237,7 @@ export function ProjectDetailView({ projectId }: Props) {
 
   if (loading && !currentProject) {
     return (
-      <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
+      <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #10181d 0%, #17242a 100%)", color: COLORS.text }}>
         <Navbar />
         <main className="mx-auto flex max-w-[1240px] flex-col items-center gap-3 px-6 py-24 text-center">
           <Loader2 size={28} className="animate-spin" style={{ color: COLORS.accent }} />
@@ -249,7 +249,7 @@ export function ProjectDetailView({ projectId }: Props) {
 
   if (!currentProject) {
     return (
-      <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
+      <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #10181d 0%, #17242a 100%)", color: COLORS.text }}>
         <Navbar />
         <main className="mx-auto flex max-w-[1240px] flex-col items-center gap-4 px-6 py-24 text-center">
           <p className="text-[15px]" style={{ color: COLORS.label }}>{error || t("projectDetail.notFound")}</p>
@@ -268,7 +268,7 @@ export function ProjectDetailView({ projectId }: Props) {
   }
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
+    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #10181d 0%, #17242a 100%)", color: COLORS.text }}>
       <Navbar />
 
       <main className="mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
@@ -396,7 +396,7 @@ export function ProjectDetailView({ projectId }: Props) {
         {currentProject.deployStatus === "deploying" && (
           <div
             className="mt-6 flex items-center gap-3 rounded-xl px-4 py-3"
-            style={{ backgroundColor: "rgba(0,212,255,0.06)", border: `1px solid ${COLORS.accent}` }}
+            style={{ backgroundColor: "rgba(215, 174, 87,0.06)", border: `1px solid ${COLORS.accent}` }}
           >
             <Loader2 size={16} className="animate-spin" style={{ color: COLORS.accent, flexShrink: 0 }} />
             <p className="text-[13px]">{t("projectDetail.deploying")}</p>

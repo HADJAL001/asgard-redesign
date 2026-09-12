@@ -28,7 +28,7 @@ import { Navbar } from "./navbar"
 import { apiClient } from "@/lib/api-client"
 
 /* ---- Palette ----
-   bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E */
+   bg #10181d · card #17242a · accent #d7ae57 · text #FFFFFF · label #9eb2bc · border #30424b */
 
 const AVATAR =
   "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=256&q=80"
@@ -65,18 +65,18 @@ const SECTION_META: Record<Section, { title: string; subtitle: string }> = {
   danger: { title: "Удалить аккаунт", subtitle: "Безвозвратное удаление аккаунта и данных" },
 }
 
-const CARD = "#14141E"
-const BG = "#0A0A0F"
-const ACCENT = "#00D4FF"
-const LABEL = "#6A6A8A"
-const BORDER = "#2A2A3E"
+const CARD = "#17242a"
+const BG = "#10181d"
+const ACCENT = "#d7ae57"
+const LABEL = "#9eb2bc"
+const BORDER = "#30424b"
 
 export function SettingsView() {
   const [active, setActive] = useState<Section>("profile")
   const meta = SECTION_META[active]
 
   return (
-    <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: "#FFFFFF" }}>
+    <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #10181d 0%, #17242a 100%)", color: "#FFFFFF" }}>
       <Navbar />
 
       <main className="mx-auto max-w-6xl px-6 py-10 md:px-10">
@@ -97,8 +97,8 @@ export function SettingsView() {
               const isActive = active === item.id
               const color = item.danger
                 ? isActive
-                  ? "#F87171"
-                  : "#F87171"
+                  ? "#e2685c"
+                  : "#e2685c"
                 : isActive
                   ? ACCENT
                   : "#FFFFFF"
@@ -110,7 +110,7 @@ export function SettingsView() {
                   aria-current={isActive ? "true" : undefined}
                   className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[14px] transition-colors"
                   style={{
-                    backgroundColor: isActive ? "rgba(0,212,255,0.08)" : "transparent",
+                    backgroundColor: isActive ? "rgba(215, 174, 87,0.08)" : "transparent",
                     color,
                     opacity: item.danger ? 0.9 : isActive ? 1 : 0.6,
                   }}
@@ -124,7 +124,7 @@ export function SettingsView() {
                   <item.Icon
                     size={16}
                     strokeWidth={1.75}
-                    style={{ color: item.danger ? "#F87171" : isActive ? ACCENT : LABEL }}
+                    style={{ color: item.danger ? "#e2685c" : isActive ? ACCENT : LABEL }}
                   />
                   {item.label}
                 </button>
@@ -188,7 +188,7 @@ function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none transition-colors placeholder:text-white/30 focus:border-[#00D4FF]"
+      className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none transition-colors placeholder:text-white/30 focus:border-[#d7ae57]"
       style={inputStyle}
     />
   )
@@ -265,7 +265,7 @@ function ProfileSection() {
         <textarea
           defaultValue="Архитектор вселенной, создатель нейросетей и цифровых артефактов."
           rows={3}
-          className="w-full resize-none rounded-lg px-3 py-2.5 text-[14px] leading-relaxed outline-none transition-colors placeholder:text-white/30 focus:border-[#00D4FF]"
+          className="w-full resize-none rounded-lg px-3 py-2.5 text-[14px] leading-relaxed outline-none transition-colors placeholder:text-white/30 focus:border-[#d7ae57]"
           style={inputStyle}
         />
       </Field>
@@ -319,7 +319,7 @@ function SecuritySection() {
           <input
             type={show ? "text" : "password"}
             defaultValue="password123"
-            className="w-full rounded-lg px-3 py-2.5 pr-11 text-[14px] outline-none transition-colors focus:border-[#00D4FF]"
+            className="w-full rounded-lg px-3 py-2.5 pr-11 text-[14px] outline-none transition-colors focus:border-[#d7ae57]"
             style={inputStyle}
           />
           <button
@@ -357,7 +357,7 @@ function SecuritySection() {
                   Текущая
                 </span>
               ) : (
-                <button type="button" className="text-[13px]" style={{ color: "#F87171" }}>
+                <button type="button" className="text-[13px]" style={{ color: "#e2685c" }}>
                   Завершить
                 </button>
               )}
@@ -412,7 +412,7 @@ function ApiSection() {
               <button type="button" aria-label="Копировать ключ" style={{ color: LABEL }}>
                 <Copy size={16} strokeWidth={1.75} />
               </button>
-              <button type="button" aria-label="Удалить ключ" style={{ color: "#F87171" }}>
+              <button type="button" aria-label="Удалить ключ" style={{ color: "#e2685c" }}>
                 <Trash2 size={16} strokeWidth={1.75} />
               </button>
             </div>
@@ -458,7 +458,7 @@ function AppearanceSection() {
       <Field label="Шрифт интерфейса:">
         <select
           defaultValue="Inter"
-          className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none focus:border-[#00D4FF]"
+          className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none focus:border-[#d7ae57]"
           style={inputStyle}
         >
           <option style={{ backgroundColor: CARD }}>Inter</option>
@@ -537,7 +537,7 @@ function DangerSection() {
       className="max-w-lg rounded-lg p-5"
       style={{ border: "1px solid rgba(248,113,113,0.4)", backgroundColor: "rgba(248,113,113,0.05)" }}
     >
-      <p className="text-[15px] font-medium" style={{ color: "#F87171" }}>
+      <p className="text-[15px] font-medium" style={{ color: "#e2685c" }}>
         Удаление аккаунта необратимо
       </p>
       <p className="mt-2 text-[14px] leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
@@ -546,7 +546,7 @@ function DangerSection() {
       <button
         type="button"
         className="mt-5 inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[14px] font-medium transition-colors"
-        style={{ backgroundColor: "#F87171", color: BG }}
+        style={{ backgroundColor: "#e2685c", color: BG }}
         onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
         onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
       >
@@ -674,12 +674,12 @@ function PromoSection() {
           {result.ok ? (
             <CheckCircle2 size={18} style={{ color: "#34D399", flexShrink: 0, marginTop: 1 }} />
           ) : (
-            <XCircle size={18} style={{ color: "#F87171", flexShrink: 0, marginTop: 1 }} />
+            <XCircle size={18} style={{ color: "#e2685c", flexShrink: 0, marginTop: 1 }} />
           )}
           <div>
             <p
               className="text-[14px] font-medium"
-              style={{ color: result.ok ? "#34D399" : "#F87171" }}
+              style={{ color: result.ok ? "#34D399" : "#e2685c" }}
             >
               {result.ok ? "Промокод применён!" : "Ошибка"}
             </p>

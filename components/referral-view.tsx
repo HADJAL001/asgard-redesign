@@ -32,7 +32,7 @@ const RF_CSS = `
 .rf-ticker-row { position: absolute; left: 0; white-space: nowrap; font-family: ui-monospace, Menlo, monospace;
   font-size: 15px; font-weight: 600; letter-spacing: .04em; opacity: .10; filter: blur(.3px); will-change: transform; }
 .rf-ticker-row span { display: inline-block; padding-right: 3rem; }
-.rf-up { color: #34d399; } .rf-down { color: #f87171; } .rf-sym { color: rgba(255,255,255,0.55); }
+.rf-up { color: #34d399; } .rf-down { color: #e2685c; } .rf-sym { color: rgba(255,255,255,0.55); }
 .rf-vignette { position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background: radial-gradient(120% 90% at 50% 40%, transparent 40%, rgba(3,5,12,0.65) 100%); }
 .rf-glow { position: absolute; left: 50%; top: 8%; width: 640px; height: 320px; transform: translateX(-50%);

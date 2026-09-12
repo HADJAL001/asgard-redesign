@@ -57,7 +57,7 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs }: HotspotProps) 
         <button
           type="button"
           onClick={() => router.push(hotspot.href)}
-          className="group flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 text-[11px] font-semibold backdrop-blur-xl transition-all hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
+          className="group flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 text-[11px] font-semibold backdrop-blur-xl transition-all hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#10181d]"
           style={{
             borderColor: `${hotspot.color}55`,
             background: "rgba(8, 10, 18, 0.55)",

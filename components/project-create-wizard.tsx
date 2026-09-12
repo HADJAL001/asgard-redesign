@@ -283,7 +283,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                       style={{
                         border: `1px solid ${active ? COLORS.accent : COLORS.border}`,
                         color: active ? COLORS.accent : COLORS.text,
-                        backgroundColor: active ? "rgba(0,212,255,0.06)" : "transparent",
+                        backgroundColor: active ? "rgba(215, 174, 87,0.06)" : "transparent",
                       }}
                     >
                       {th.label}
@@ -311,7 +311,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                       style={{
                         border: `1px solid ${active ? COLORS.accent : COLORS.border}`,
                         color: active ? COLORS.accent : COLORS.text,
-                        backgroundColor: active ? "rgba(0,212,255,0.06)" : "transparent",
+                        backgroundColor: active ? "rgba(215, 174, 87,0.06)" : "transparent",
                       }}
                     >
                       <PenLine size={14} strokeWidth={1.75} />
@@ -414,7 +414,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                           className="flex flex-col items-start gap-1 rounded-lg p-3 text-left transition-colors"
                           style={{
                             border: `1px solid ${active ? COLORS.accent : COLORS.border}`,
-                            backgroundColor: active ? "rgba(0,212,255,0.06)" : "transparent",
+                            backgroundColor: active ? "rgba(215, 174, 87,0.06)" : "transparent",
                             opacity: tooExpensive ? 0.55 : 1,
                           }}
                         >

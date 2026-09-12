@@ -8,10 +8,10 @@ import { apiClient, API_BASE_URL } from "@/lib/api-client"
 import { useAuth, useRequireAuth } from "@/lib/auth-store"
 
 /* Палитра — как в components/admin-view.tsx (единый стиль admin-раздела). */
-const ACCENT = "#00D4FF"
-const CARD = "#14141E"
-const BORDER = "#2A2A3E"
-const LABEL = "#6A6A8A"
+const ACCENT = "#d7ae57"
+const CARD = "#17242a"
+const BORDER = "#30424b"
+const LABEL = "#9eb2bc"
 
 type BillingSummary = {
   totalRevenue: number
@@ -144,7 +144,7 @@ export function BillingDashboardView() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#0A0A0F" }}>
+    <div className="min-h-screen" style={{ backgroundColor: "#10181d" }}>
       <Navbar />
       <main className="mx-auto max-w-6xl px-6 py-10">
         <div className="mb-8 flex items-center justify-between">

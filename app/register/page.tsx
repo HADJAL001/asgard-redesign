@@ -92,8 +92,8 @@ export default function RegisterPage() {
         )}
 
         {continuesProject && (
-          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-cyan-300/25 bg-cyan-300/[0.06] px-4 py-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-300/40 text-cyan-200">
+          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-amber-300/25 bg-amber-300/[0.06] px-4 py-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-300/40 text-amber-200">
               <Wand2 className="h-4 w-4" />
             </span>
             <p className="text-[13px] leading-snug text-white/80">

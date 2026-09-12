@@ -67,7 +67,7 @@ export function IntegrationsView() {
   }
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: COLORS.text }}>
+    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #10181d 0%, #17242a 100%)", color: COLORS.text }}>
       <Navbar />
 
       <main className="mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">

@@ -88,8 +88,8 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
           backdropFilter: "blur(32px) saturate(180%)",
         }}
       >
-        <div className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: "1px solid #2A2A3E" }}>
-          <Search size={18} strokeWidth={1.75} style={{ color: "#6A6A8A" }} />
+        <div className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: "1px solid #30424b" }}>
+          <Search size={18} strokeWidth={1.75} style={{ color: "#9eb2bc" }} />
           <input
             ref={inputRef}
             type="text"
@@ -99,14 +99,14 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             className="w-full bg-transparent text-[15px] outline-none placeholder:text-white/30"
             style={{ color: "#FFFFFF" }}
           />
-          <kbd className="rounded px-1.5 py-0.5 text-[11px]" style={{ color: "#6A6A8A", border: "1px solid #2A2A3E" }}>
+          <kbd className="rounded px-1.5 py-0.5 text-[11px]" style={{ color: "#9eb2bc", border: "1px solid #30424b" }}>
             Esc
           </kbd>
         </div>
 
         <div className="max-h-[320px] overflow-y-auto p-2">
           {filtered.length === 0 && (
-            <p className="px-3 py-6 text-center text-[13px]" style={{ color: "#6A6A8A" }}>
+            <p className="px-3 py-6 text-center text-[13px]" style={{ color: "#9eb2bc" }}>
               Ничего не найдено
             </p>
           )}
@@ -124,11 +124,11 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                 }}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[14px] transition-colors"
                 style={{
-                  backgroundColor: active ? "rgba(0,212,255,0.1)" : "transparent",
-                  color: active ? "#00D4FF" : "rgba(255,255,255,0.8)",
+                  backgroundColor: active ? "rgba(215, 174, 87,0.1)" : "transparent",
+                  color: active ? "#d7ae57" : "rgba(255,255,255,0.8)",
                 }}
               >
-                <Icon size={16} strokeWidth={1.5} style={{ color: active ? "#00D4FF" : "#6A6A8A" }} />
+                <Icon size={16} strokeWidth={1.5} style={{ color: active ? "#d7ae57" : "#9eb2bc" }} />
                 {item.label}
               </button>
             )

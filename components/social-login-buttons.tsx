@@ -40,9 +40,9 @@ export function SocialLoginButtons() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-[#2A2A3E]" />
-        <span className="text-xs text-[#6A6A8A]">или через</span>
-        <div className="h-px flex-1 bg-[#2A2A3E]" />
+        <div className="h-px flex-1 bg-[#30424b]" />
+        <span className="text-xs text-[#9eb2bc]">или через</span>
+        <div className="h-px flex-1 bg-[#30424b]" />
       </div>
       <div className="grid grid-cols-2 gap-2">
         {PROVIDERS.map((p) => (
@@ -50,7 +50,7 @@ export function SocialLoginButtons() {
             key={p.id}
             href={`${BACKEND_URL}/auth/${p.id}`}
             title={p.label}
-            className="flex items-center justify-center rounded-lg border border-[#2A2A3E] bg-[#0A0A0F] py-2.5 text-white transition-colors hover:border-[#00D4FF]/50 hover:bg-[#14141E]"
+            className="flex items-center justify-center rounded-lg border border-[#30424b] bg-[#10181d] py-2.5 text-white transition-colors hover:border-[#d7ae57]/50 hover:bg-[#17242a]"
           >
             {p.icon}
           </a>

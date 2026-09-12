@@ -27,11 +27,11 @@ import { useAuth, useRequireAuth } from "@/lib/auth-store"
 import { displayAiModelName } from "@/lib/ai-model-labels"
 
 /* ---- Palette ----
-   bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E */
-const ACCENT = "#00D4FF"
-const CARD = "#14141E"
-const BORDER = "#2A2A3E"
-const LABEL = "#6A6A8A"
+   bg #10181d · card #17242a · accent #d7ae57 · text #FFFFFF · label #9eb2bc · border #30424b */
+const ACCENT = "#d7ae57"
+const CARD = "#17242a"
+const BORDER = "#30424b"
+const LABEL = "#9eb2bc"
 
 type AdminStats = {
   totalUsers: number
@@ -354,7 +354,7 @@ export function AdminView() {
 
   if (authLoading || (user && user.role !== "admin")) {
     return (
-      <div className="min-h-screen font-sans" style={{ background: "#0A0A0F", color: "#FFFFFF" }}>
+      <div className="min-h-screen font-sans" style={{ background: "#10181d", color: "#FFFFFF" }}>
         <Navbar />
         <div className="flex items-center justify-center py-32" style={{ color: LABEL }}>
           Загрузка…
@@ -377,7 +377,7 @@ export function AdminView() {
   return (
     <div
       className="min-h-screen font-sans"
-      style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0F0F1A 100%)", color: "#FFFFFF" }}
+      style={{ background: "linear-gradient(180deg, #10181d 0%, #0F0F1A 100%)", color: "#FFFFFF" }}
     >
       <Navbar />
 
@@ -414,7 +414,7 @@ export function AdminView() {
             className="inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-colors"
             style={
               tab === "users"
-                ? { backgroundColor: "rgba(0,212,255,0.1)", border: `1px solid ${ACCENT}`, color: ACCENT }
+                ? { backgroundColor: "rgba(215, 174, 87,0.1)", border: `1px solid ${ACCENT}`, color: ACCENT }
                 : { border: `1px solid ${BORDER}`, color: LABEL }
             }
           >
@@ -427,7 +427,7 @@ export function AdminView() {
             className="inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-colors"
             style={
               tab === "logs"
-                ? { backgroundColor: "rgba(0,212,255,0.1)", border: `1px solid ${ACCENT}`, color: ACCENT }
+                ? { backgroundColor: "rgba(215, 174, 87,0.1)", border: `1px solid ${ACCENT}`, color: ACCENT }
                 : { border: `1px solid ${BORDER}`, color: LABEL }
             }
           >
@@ -440,7 +440,7 @@ export function AdminView() {
             className="inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-colors"
             style={
               tab === "analytics"
-                ? { backgroundColor: "rgba(0,212,255,0.1)", border: `1px solid ${ACCENT}`, color: ACCENT }
+                ? { backgroundColor: "rgba(215, 174, 87,0.1)", border: `1px solid ${ACCENT}`, color: ACCENT }
                 : { border: `1px solid ${BORDER}`, color: LABEL }
             }
           >
@@ -457,7 +457,7 @@ export function AdminView() {
           <form onSubmit={handleSearchSubmit} className="mb-5 flex items-center gap-3">
             <div
               className="flex flex-1 items-center gap-2 rounded-lg px-3 py-2"
-              style={{ border: `1px solid ${BORDER}`, backgroundColor: "#0A0A0F" }}
+              style={{ border: `1px solid ${BORDER}`, backgroundColor: "#10181d" }}
             >
               <Search size={15} style={{ color: LABEL }} />
               <input
@@ -472,14 +472,14 @@ export function AdminView() {
             <button
               type="submit"
               className="rounded-lg px-4 py-2 text-[13px] font-medium"
-              style={{ backgroundColor: ACCENT, color: "#0A0A0F" }}
+              style={{ backgroundColor: ACCENT, color: "#10181d" }}
             >
               Найти
             </button>
           </form>
 
           {actionError && (
-            <div className="mb-4 rounded-lg px-3 py-2 text-[13px]" style={{ border: "1px solid #F87171", color: "#F87171" }}>
+            <div className="mb-4 rounded-lg px-3 py-2 text-[13px]" style={{ border: "1px solid #e2685c", color: "#e2685c" }}>
               {actionError}
             </div>
           )}
@@ -521,7 +521,7 @@ export function AdminView() {
                           className="rounded-full px-2 py-0.5 text-[11px] font-medium"
                           style={
                             u.role === "admin"
-                              ? { backgroundColor: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.3)", color: ACCENT }
+                              ? { backgroundColor: "rgba(215, 174, 87,0.1)", border: "1px solid rgba(215, 174, 87,0.3)", color: ACCENT }
                               : { border: `1px solid ${BORDER}`, color: LABEL }
                           }
                         >
@@ -530,9 +530,9 @@ export function AdminView() {
                       </td>
                       <td className="py-3 pr-4">
                         {u.banned ? (
-                          <span className="text-[12px]" style={{ color: "#F87171" }}>Заблокирован</span>
+                          <span className="text-[12px]" style={{ color: "#e2685c" }}>Заблокирован</span>
                         ) : (
-                          <span className="text-[12px]" style={{ color: "#4ADE80" }}>Активен</span>
+                          <span className="text-[12px]" style={{ color: "#d7ae57" }}>Активен</span>
                         )}
                       </td>
                       <td className="py-3 pr-4">
@@ -551,7 +551,7 @@ export function AdminView() {
                             type="button"
                             onClick={() => toggleBanned(u)}
                             className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px]"
-                            style={{ border: `1px solid ${BORDER}`, color: u.banned ? "#4ADE80" : "#F87171" }}
+                            style={{ border: `1px solid ${BORDER}`, color: u.banned ? "#d7ae57" : "#e2685c" }}
                             title={u.banned ? "Разбанить" : "Забанить"}
                           >
                             {u.banned ? <CheckCircle2 size={13} /> : <Ban size={13} />}
@@ -579,7 +579,7 @@ export function AdminView() {
                         <td colSpan={6} className="pb-4">
                           <div
                             className="flex flex-wrap items-end gap-3 rounded-lg p-4"
-                            style={{ border: `1px solid ${BORDER}`, backgroundColor: "#0A0A0F" }}
+                            style={{ border: `1px solid ${BORDER}`, backgroundColor: "#10181d" }}
                           >
                             <label className="block">
                               <span className="mb-1 block text-[11px]" style={{ color: LABEL }}>Credits</span>
@@ -589,7 +589,7 @@ export function AdminView() {
                                 onChange={(e) => setGrantCredits(e.target.value)}
                                 placeholder="0"
                                 className="w-28 rounded-lg px-3 py-1.5 text-[13px] outline-none"
-                                style={{ backgroundColor: "#14141E", border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
+                                style={{ backgroundColor: "#17242a", border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
                               />
                             </label>
                             <label className="block">
@@ -600,7 +600,7 @@ export function AdminView() {
                                 onChange={(e) => setGrantTimecoin(e.target.value)}
                                 placeholder="0"
                                 className="w-28 rounded-lg px-3 py-1.5 text-[13px] outline-none"
-                                style={{ backgroundColor: "#14141E", border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
+                                style={{ backgroundColor: "#17242a", border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
                               />
                             </label>
                             <label className="block flex-1 min-w-[180px]">
@@ -611,7 +611,7 @@ export function AdminView() {
                                 onChange={(e) => setGrantReason(e.target.value)}
                                 placeholder="Необязательно"
                                 className="w-full rounded-lg px-3 py-1.5 text-[13px] outline-none"
-                                style={{ backgroundColor: "#14141E", border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
+                                style={{ backgroundColor: "#17242a", border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
                               />
                             </label>
                             <button
@@ -619,7 +619,7 @@ export function AdminView() {
                               onClick={() => submitGrant(u.id)}
                               disabled={grantSubmitting}
                               className="rounded-lg px-4 py-1.5 text-[13px] font-medium disabled:opacity-50"
-                              style={{ backgroundColor: ACCENT, color: "#0A0A0F" }}
+                              style={{ backgroundColor: ACCENT, color: "#10181d" }}
                             >
                               Выдать
                             </button>
@@ -710,7 +710,7 @@ export function AdminView() {
                         <td className="py-3 pr-4">
                           <span
                             className="rounded-full px-2 py-0.5 text-[11px] font-medium"
-                            style={{ backgroundColor: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.3)", color: ACCENT }}
+                            style={{ backgroundColor: "rgba(215, 174, 87,0.1)", border: "1px solid rgba(215, 174, 87,0.3)", color: ACCENT }}
                           >
                             {ACTION_LABELS[l.action] || l.action}
                           </span>

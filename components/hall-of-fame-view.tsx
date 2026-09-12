@@ -283,7 +283,7 @@ export function HallOfFameView() {
 
         {/* Error */}
         {error && !loading && (
-          <p className="mt-6 text-center text-[13px]" role="status" style={{ color: "#F87171" }}>
+          <p className="mt-6 text-center text-[13px]" role="status" style={{ color: "#e2685c" }}>
             {error}
           </p>
         )}

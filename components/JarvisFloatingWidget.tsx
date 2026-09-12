@@ -80,9 +80,9 @@ export function JarvisFloatingWidget() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: "#0A0A0F",
-              color: "#00D4FF",
-              boxShadow: "0 4px 20px rgba(0,212,255,0.35)",
+              backgroundColor: "#10181d",
+              color: "#d7ae57",
+              boxShadow: "0 4px 20px rgba(215, 174, 87,0.35)",
             }}
           >
             <X size={24} strokeWidth={2} aria-hidden="true" />

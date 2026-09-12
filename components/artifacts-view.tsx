@@ -60,9 +60,9 @@ export function ArtifactsView() {
   ]
 
   const STATUS_META: Record<ArtifactStatus, { label: string; color: string; Icon: typeof Store }> = {
-    listed: { label: t("artifacts.statusListed"), color: "#00D4FF", Icon: Store },
-    kept: { label: t("artifacts.statusKept"), color: "#6A6A8A", Icon: Archive },
-    sold: { label: t("artifacts.statusSold"), color: "#4ADE80", Icon: CheckCircle2 },
+    listed: { label: t("artifacts.statusListed"), color: "#d7ae57", Icon: Store },
+    kept: { label: t("artifacts.statusKept"), color: "#9eb2bc", Icon: Archive },
+    sold: { label: t("artifacts.statusSold"), color: "#d7ae57", Icon: CheckCircle2 },
   }
 
   const [filter, setFilter] = useState<Filter>(FILTERS.some((f) => f.id === initial) ? initial : "all")
@@ -164,7 +164,7 @@ export function ArtifactsView() {
                 style={{
                   border: `1px solid ${active ? COLORS.accent : COLORS.border}`,
                   color: active ? COLORS.accent : "rgba(255,255,255,0.6)",
-                  backgroundColor: active ? "rgba(0,212,255,0.06)" : "transparent",
+                  backgroundColor: active ? "rgba(215, 174, 87,0.06)" : "transparent",
                 }}
               >
                 {f.label}

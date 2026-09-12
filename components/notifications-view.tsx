@@ -15,8 +15,8 @@ import { useNotificationsStore, type AppNotification } from "@/lib/store/notific
 import { formatTokens } from "@/lib/economy"
 
 /* ---- Palette ----
-   bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E
-   status: new #00D4FF · important #F59E0B · read #6B7280 */
+   bg #10181d · card #17242a · accent #d7ae57 · text #FFFFFF · label #9eb2bc · border #30424b
+   status: new #d7ae57 · important #F59E0B · read #6B7280 */
 
 type NotifType = "comment" | "like" | "price" | "system"
 type Status = "new" | "important" | "read"
@@ -41,7 +41,7 @@ const TYPE_ICON: Record<NotifType, LucideIcon> = {
 }
 
 const STATUS: Record<Status, { label: string; color: string }> = {
-  new: { label: "Новое", color: "#00D4FF" },
+  new: { label: "Новое", color: "#d7ae57" },
   important: { label: "Важное", color: "#F59E0B" },
   read: { label: "Прочитано", color: "#6B7280" },
 }
@@ -105,7 +105,7 @@ function Metric({ value, label }: { value: string; label: string }) {
   return (
     <div
       className="flex flex-col gap-1 rounded-lg px-5 py-4"
-      style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+      style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
     >
       <span className="text-[24px] font-medium leading-none">{value}</span>
       <span className="text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>
@@ -129,9 +129,9 @@ function NotificationCard({
   return (
     <article
       className="rounded-lg p-4 transition-colors"
-      style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
-      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#00D4FF")}
-      onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#2A2A3E")}
+      style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#d7ae57")}
+      onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30424b")}
     >
       <div className="flex items-start gap-3">
         {/* status dot */}
@@ -156,7 +156,7 @@ function NotificationCard({
             </span>
             <span
               className="inline-flex size-6 items-center justify-center rounded"
-              style={{ border: "1px solid #2A2A3E", color: "#6A6A8A" }}
+              style={{ border: "1px solid #30424b", color: "#9eb2bc" }}
             >
               <Icon size={14} strokeWidth={1.75} />
             </span>
@@ -183,7 +183,7 @@ function NotificationCard({
               type="button"
               onClick={() => onRead(item.id)}
               className="mt-3 text-[13px] transition-opacity hover:opacity-80"
-              style={{ color: "#00D4FF" }}
+              style={{ color: "#d7ae57" }}
             >
               Отметить прочитанным
             </button>
@@ -261,7 +261,7 @@ export function NotificationsView() {
   const visible = allItems.filter((n) => n.bucket === bucket)
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: "#FFFFFF" }}>
+    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #10181d 0%, #17242a 100%)", color: "#FFFFFF" }}>
       <Navbar />
 
       <main className="mx-auto max-w-[900px] px-6 py-10 md:px-10 md:py-12">
@@ -277,11 +277,11 @@ export function NotificationsView() {
             type="button"
             onClick={markAllRead}
             className="inline-flex items-center gap-2 self-start rounded-lg px-4 py-2.5 text-[14px] transition-colors sm:self-auto"
-            style={{ border: "1px solid #2A2A3E", color: "rgba(255,255,255,0.8)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#00D4FF")}
-            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#2A2A3E")}
+            style={{ border: "1px solid #30424b", color: "rgba(255,255,255,0.8)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#d7ae57")}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30424b")}
           >
-            <CheckCheck size={16} strokeWidth={1.75} style={{ color: "#00D4FF" }} />
+            <CheckCheck size={16} strokeWidth={1.75} style={{ color: "#d7ae57" }} />
             Всё прочитано
           </button>
         </div>
@@ -294,7 +294,7 @@ export function NotificationsView() {
         </div>
 
         {/* Time filters */}
-        <div className="mt-8 flex flex-wrap gap-6 border-b" style={{ borderColor: "#2A2A3E" }}>
+        <div className="mt-8 flex flex-wrap gap-6 border-b" style={{ borderColor: "#30424b" }}>
           {BUCKETS.map((b) => {
             const active = b.id === bucket
             return (
@@ -303,7 +303,7 @@ export function NotificationsView() {
                 type="button"
                 onClick={() => setBucket(b.id)}
                 className="relative -mb-px pb-3 text-[13px] uppercase tracking-wide transition-colors"
-                style={{ color: active ? "#00D4FF" : "rgba(255,255,255,0.5)" }}
+                style={{ color: active ? "#d7ae57" : "rgba(255,255,255,0.5)" }}
               >
                 {b.label}
                 <span className="ml-1.5 text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
@@ -312,7 +312,7 @@ export function NotificationsView() {
                 {active && (
                   <span
                     className="absolute inset-x-0 -bottom-px h-0.5"
-                    style={{ backgroundColor: "#00D4FF" }}
+                    style={{ backgroundColor: "#d7ae57" }}
                     aria-hidden="true"
                   />
                 )}

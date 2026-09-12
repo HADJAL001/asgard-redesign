@@ -40,7 +40,7 @@ export function Footer() {
   return (
     <footer
       style={{
-        background: "linear-gradient(180deg, #0A0A0F 0%, #0A1128 100%)",
+        background: "linear-gradient(180deg, #10181d 0%, #0A1128 100%)",
         borderTop: "1px solid rgba(229,228,226,0.08)",
       }}
     >

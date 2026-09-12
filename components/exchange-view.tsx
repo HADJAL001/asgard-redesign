@@ -32,12 +32,12 @@ import {
   type Candle,
 } from "@/lib/economy"
 
-const CARD = "#14141E"
-const BORDER = "#2A2A3E"
-const LABEL = "#6A6A8A"
-const ACCENT = "#00D4FF"
-const UP = "#4ADE80"
-const DOWN = "#F87171"
+const CARD = "#17242a"
+const BORDER = "#30424b"
+const LABEL = "#9eb2bc"
+const ACCENT = "#d7ae57"
+const UP = "#d7ae57"
+const DOWN = "#e2685c"
 
 /* ---------------- Candlestick (custom Recharts shape) ---------------- */
 
@@ -166,7 +166,7 @@ export function ExchangeView() {
                     onClick={() => setMode(m.id)}
                     aria-pressed={active}
                     className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors"
-                    style={{ backgroundColor: active ? ACCENT : "transparent", color: active ? "#0A0A0F" : "rgba(255,255,255,0.6)" }}
+                    style={{ backgroundColor: active ? ACCENT : "transparent", color: active ? "#10181d" : "rgba(255,255,255,0.6)" }}
                   >
                     <m.Icon size={14} strokeWidth={2} aria-hidden="true" />
                     {m.label}
@@ -190,7 +190,7 @@ export function ExchangeView() {
                   onClick={() => setCurrency(id)}
                   aria-pressed={active}
                   className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors"
-                  style={{ backgroundColor: active ? c.color : "transparent", color: active ? "#0A0A0F" : c.color }}
+                  style={{ backgroundColor: active ? c.color : "transparent", color: active ? "#10181d" : c.color }}
                 >
                   <CIcon size={14} strokeWidth={2} aria-hidden="true" />
                   {c.label}
@@ -244,7 +244,7 @@ export function ExchangeView() {
                 onClick={() => setAssetId(a.id)}
                 className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] transition-colors"
                 style={{
-                  backgroundColor: active ? "rgba(0,212,255,0.08)" : CARD,
+                  backgroundColor: active ? "rgba(215, 174, 87,0.08)" : CARD,
                   border: `1px solid ${active ? ACCENT : BORDER}`,
                 }}
               >
@@ -382,7 +382,7 @@ export function ExchangeView() {
                   className="rounded-lg py-2 text-[14px] font-medium transition-colors"
                   style={{
                     backgroundColor: side === s ? (s === "buy" ? UP : DOWN) : "transparent",
-                    color: side === s ? "#0A0A0F" : s === "buy" ? UP : DOWN,
+                    color: side === s ? "#10181d" : s === "buy" ? UP : DOWN,
                     border: `1px solid ${s === "buy" ? UP : DOWN}`,
                   }}
                 >
@@ -401,7 +401,7 @@ export function ExchangeView() {
                   aria-pressed={orderType === t}
                   className="flex-1 rounded-lg py-1.5 text-[12px] font-medium transition-colors"
                   style={{
-                    backgroundColor: orderType === t ? "rgba(0,212,255,0.1)" : "transparent",
+                    backgroundColor: orderType === t ? "rgba(215, 174, 87,0.1)" : "transparent",
                     color: orderType === t ? ACCENT : LABEL,
                     border: `1px solid ${orderType === t ? ACCENT : BORDER}`,
                   }}
@@ -447,7 +447,7 @@ export function ExchangeView() {
                 className="cal-input mt-1"
               >
                 {CURRENCY_ORDER.map((id) => (
-                  <option key={id} value={id} style={{ backgroundColor: "#0A0A0F" }}>
+                  <option key={id} value={id} style={{ backgroundColor: "#10181d" }}>
                     {CURRENCIES[id].label} ({CURRENCIES[id].symbol})
                   </option>
                 ))}
@@ -466,13 +466,13 @@ export function ExchangeView() {
               type="button"
               onClick={submitOrder}
               className="mt-4 w-full rounded-lg py-2.5 text-[14px] font-semibold transition-opacity hover:opacity-90"
-              style={{ backgroundColor: side === "buy" ? UP : DOWN, color: "#0A0A0F" }}
+              style={{ backgroundColor: side === "buy" ? UP : DOWN, color: "#10181d" }}
             >
               {side === "buy" ? "Подтвердить покупку" : "Подтвердить продажу"}
             </button>
 
             {toast && (
-              <p className="mt-3 rounded-lg px-3 py-2 text-[12px]" role="status" style={{ backgroundColor: "rgba(0,212,255,0.08)", color: ACCENT }}>
+              <p className="mt-3 rounded-lg px-3 py-2 text-[12px]" role="status" style={{ backgroundColor: "rgba(215, 174, 87,0.08)", color: ACCENT }}>
                 {toast}
               </p>
             )}
@@ -513,7 +513,7 @@ function FilterChip({
       aria-pressed={active}
       className="rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors"
       style={{
-        backgroundColor: active ? "rgba(0,212,255,0.1)" : "transparent",
+        backgroundColor: active ? "rgba(215, 174, 87,0.1)" : "transparent",
         color: active ? ACCENT : color,
         border: `1px solid ${active ? ACCENT : BORDER}`,
       }}

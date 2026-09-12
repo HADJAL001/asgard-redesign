@@ -51,7 +51,7 @@ import { Globe } from "lucide-react"
 
 
 /* ---- Palette ----
-   panel #0A0A0F · accent #D4AF37 · text #FFFFFF · icon/label #6A6A8A · border #2A2A3E */
+   panel #10181d · accent #D4AF37 · text #FFFFFF · icon/label #9eb2bc · border #30424b */
 
 const AVATAR =
   "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=160&q=80"
@@ -141,8 +141,8 @@ function LanguageSwitcher() {
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={t("nav.language")}
-        className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-white/5"
-        style={{ color: "#6A6A8A", border: "1px solid #2A2A3E" }}
+        className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-[color:var(--line)]/35"
+        style={{ color: "#9eb2bc", border: "1px solid #30424b" }}
       >
         <Globe size={14} strokeWidth={1.75} aria-hidden="true" />
         {LOCALE_SHORT[locale]}
@@ -151,7 +151,7 @@ function LanguageSwitcher() {
         <div
           role="listbox"
           className="absolute right-0 top-full z-50 mt-2 min-w-[140px] overflow-hidden rounded-lg"
-          style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+          style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
         >
           {LOCALES.map((l: Locale) => (
             <button
@@ -163,11 +163,11 @@ function LanguageSwitcher() {
                 setLocale(l)
                 setOpen(false)
               }}
-              className="flex w-full items-center justify-between px-3 py-2 text-left text-[13px] transition-colors hover:bg-white/5"
+              className="flex w-full items-center justify-between px-3 py-2 text-left text-[13px] transition-colors hover:bg-[color:var(--line)]/35"
               style={{ color: locale === l ? "var(--color-gold)" : "rgba(255,255,255,0.8)" }}
             >
               {LOCALE_LABELS[l]}
-              <span style={{ color: "#6A6A8A" }}>{LOCALE_SHORT[l]}</span>
+              <span style={{ color: "#9eb2bc" }}>{LOCALE_SHORT[l]}</span>
             </button>
           ))}
         </div>
@@ -212,7 +212,7 @@ function ProfileMenu({
           width={32}
           height={32}
           className="size-8 rounded-full object-cover"
-          style={{ border: "1px solid #2A2A3E" }}
+          style={{ border: "1px solid #30424b" }}
         />
         <span className="hidden text-[14px] xl:block" style={{ color: "rgba(255,255,255,0.8)" }}>
           {t("nav.guest")}
@@ -236,7 +236,7 @@ function ProfileMenu({
           width={32}
           height={32}
           className="size-8 rounded-full object-cover"
-          style={{ border: `1px solid ${isProfileActive || open ? "var(--color-gold)" : "#2A2A3E"}` }}
+          style={{ border: `1px solid ${isProfileActive || open ? "var(--color-gold)" : "#30424b"}` }}
         />
         <span
           className="hidden text-[14px] xl:block"
@@ -249,13 +249,13 @@ function ProfileMenu({
         <div
           role="menu"
           className="absolute right-0 top-full z-50 mt-2 min-w-[180px] overflow-hidden rounded-lg"
-          style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+          style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
         >
           <Link
             href="/profile"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-white/5"
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-[color:var(--line)]/35"
             style={{ color: "rgba(255,255,255,0.8)" }}
           >
             <UserRound size={15} strokeWidth={1.75} />
@@ -268,8 +268,8 @@ function ProfileMenu({
               setOpen(false)
               onLogout()
             }}
-            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-white/5"
-            style={{ color: "#FF6B6B", borderTop: "1px solid #2A2A3E" }}
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-[color:var(--line)]/35"
+            style={{ color: "#FF6B6B", borderTop: "1px solid #30424b" }}
           >
             <LogOut size={15} strokeWidth={1.75} />
             {t("nav.logout")}
@@ -319,12 +319,12 @@ function NavDrawer({
         aria-label={t("nav.mainNav")}
         className="fixed right-0 top-0 z-50 flex h-full w-[280px] max-w-[85vw] flex-col transition-transform duration-200"
         style={{
-          backgroundColor: "#0A0A0F",
-          borderLeft: "1px solid #2A2A3E",
+          backgroundColor: "#10181d",
+          borderLeft: "1px solid #30424b",
           transform: open ? "translateX(0)" : "translateX(100%)",
         }}
       >
-        <div className="flex h-16 shrink-0 items-center justify-between px-5" style={{ borderBottom: "1px solid #2A2A3E" }}>
+        <div className="flex h-16 shrink-0 items-center justify-between px-5" style={{ borderBottom: "1px solid #30424b" }}>
           <span
             className="text-[13px] font-semibold tracking-[0.18em]"
             style={{ color: "var(--color-gold)" }}
@@ -335,8 +335,8 @@ function NavDrawer({
             type="button"
             onClick={onClose}
             aria-label={t("nav.close")}
-            className="rounded-full p-1.5 transition-colors hover:bg-white/5"
-            style={{ color: "#6A6A8A" }}
+            className="rounded-full p-1.5 transition-colors hover:bg-[color:var(--line)]/35"
+            style={{ color: "#9eb2bc" }}
           >
             <X size={18} strokeWidth={1.75} />
           </button>
@@ -350,14 +350,14 @@ function NavDrawer({
                 href={href}
                 onClick={onClose}
                 aria-current={active ? "page" : undefined}
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-normal transition-colors hover:bg-white/5"
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-normal transition-colors hover:bg-[color:var(--line)]/35"
                 style={{ color: active ? "var(--color-gold)" : "rgba(255,255,255,0.75)" }}
               >
                 <Icon
                   size={17}
                   strokeWidth={1.5}
                   aria-hidden="true"
-                  style={{ color: active ? "var(--color-gold)" : "#6A6A8A" }}
+                  style={{ color: active ? "var(--color-gold)" : "#9eb2bc" }}
                 />
                 {t(key)}
               </Link>
@@ -374,7 +374,7 @@ function Badge({ count }: { count: number }) {
   return (
     <span
       className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full text-[10px] font-medium leading-none"
-      style={{ backgroundColor: "var(--color-gold)", color: "#0A0A0F" }}
+      style={{ backgroundColor: "var(--color-gold)", color: "#10181d" }}
     >
       {count}
     </span>
@@ -411,7 +411,7 @@ export function Navbar() {
     <div className="sticky top-0 z-40 font-sans">
       <header
         className="flex h-16 items-center"
-        style={{ backgroundColor: "#0A0A0F", borderBottom: "1px solid #2A2A3E", color: "#FFFFFF" }}
+        style={{ backgroundColor: "#10181d", borderBottom: "1px solid #30424b", color: "#FFFFFF" }}
       >
       {/* Logo — 24px inset */}
       <Link
@@ -466,7 +466,7 @@ export function Navbar() {
                 size={16}
                 strokeWidth={1.5}
                 className="transition-colors group-hover:opacity-100 xl:mr-2"
-                style={{ color: active ? "var(--color-gold)" : "#6A6A8A" }}
+                style={{ color: active ? "var(--color-gold)" : "#9eb2bc" }}
                 aria-hidden="true"
               />
               {/* Текст пункта появляется только с xl (1280px). На lg (1024px)
@@ -505,8 +505,8 @@ export function Navbar() {
           aria-label={t("nav.mainNav")}
           aria-haspopup="dialog"
           aria-expanded={drawerOpen}
-          className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-medium transition-colors hover:bg-white/5"
-          style={{ color: "#6A6A8A", border: "1px solid #2A2A3E" }}
+          className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-medium transition-colors hover:bg-[color:var(--line)]/35"
+          style={{ color: "#9eb2bc", border: "1px solid #30424b" }}
         >
           <Menu size={16} strokeWidth={1.75} aria-hidden="true" />
           {/* Текст и валютные балансы вместе физически не влезают рядом с
@@ -523,7 +523,7 @@ export function Navbar() {
           href="/about"
           aria-label={t("nav.about")}
           aria-current={isActive("/about") ? "page" : undefined}
-          className="hidden items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/5 sm:flex"
+          className="hidden items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:bg-[color:var(--line)]/35 sm:flex"
           style={{ color: "var(--color-gold)", border: "1px solid var(--color-gold)" }}
         >
           <HelpCircle size={16} strokeWidth={1.9} aria-hidden="true" />
@@ -531,7 +531,7 @@ export function Navbar() {
         </Link>
         <div
           className="hidden items-center gap-1 rounded-full p-1 min-[1600px]:flex"
-          style={{ border: `1px solid ${isActive("/wallet") ? "var(--color-gold)" : "#2A2A3E"}` }}
+          style={{ border: `1px solid ${isActive("/wallet") ? "var(--color-gold)" : "#30424b"}` }}
           role="group"
           aria-label={t("nav.currencyBalances")}
         >
@@ -544,7 +544,7 @@ export function Navbar() {
                 key={id}
                 href="/wallet"
                 aria-label={`${c.label}: ${formatCurrencyAmount(id, wallet[id])}`}
-                className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-white/5"
+                className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-[color:var(--line)]/35"
                 style={{ color: c.color }}
               >
                 <CIcon
@@ -569,7 +569,7 @@ export function Navbar() {
           aria-label={t("nav.notifications")}
           aria-current={isActive("/notifications") ? "page" : undefined}
           className="relative flex items-center gap-1.5 transition-colors hover:text-white"
-          style={{ color: isActive("/notifications") ? "var(--color-gold)" : "#6A6A8A" }}
+          style={{ color: isActive("/notifications") ? "var(--color-gold)" : "#9eb2bc" }}
         >
           <Bell size={18} strokeWidth={1.5} aria-hidden="true" />
           <Badge count={isAuthenticated ? unreadCount : 0} />
@@ -584,7 +584,7 @@ export function Navbar() {
           aria-label={t("nav.messages")}
           aria-current={isActive("/messages") ? "page" : undefined}
           className="relative hidden items-center gap-1.5 transition-colors hover:text-white md:flex"
-          style={{ color: isActive("/messages") ? "var(--color-gold)" : "#6A6A8A" }}
+          style={{ color: isActive("/messages") ? "var(--color-gold)" : "#9eb2bc" }}
         >
           <Mail size={18} strokeWidth={1.5} aria-hidden="true" />
           <Badge count={0} />

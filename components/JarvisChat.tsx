@@ -558,7 +558,7 @@ const JARVIS_CHAT_CSS = `
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 0 60px rgba(0,212,255,0.08);
+  box-shadow: 0 0 60px rgba(215, 174, 87,0.08);
   font-family: inherit;
 }
 
@@ -574,9 +574,9 @@ const JARVIS_CHAT_CSS = `
 }
 .jarvis-title {
   display: flex; align-items: center; gap: 8px;
-  color: #00D4FF; font-weight: 700; font-size: 14px; letter-spacing: 0.5px;
+  color: #d7ae57; font-weight: 700; font-size: 14px; letter-spacing: 0.5px;
 }
-.jarvis-equip-badge { font-size: 12px; filter: drop-shadow(0 0 4px rgba(0,212,255,0.6)); }
+.jarvis-equip-badge { font-size: 12px; filter: drop-shadow(0 0 4px rgba(215, 174, 87,0.6)); }
 
 
 .jarvis-controls { display: flex; align-items: center; gap: 6px; position: relative; }
@@ -587,9 +587,9 @@ const JARVIS_CHAT_CSS = `
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
   cursor: pointer; transition: all 0.2s ease;
 }
-.jarvis-toggle-btn.on { color: #00D4FF; border-color: rgba(0,212,255,0.35); background: rgba(0,212,255,0.08); }
+.jarvis-toggle-btn.on { color: #d7ae57; border-color: rgba(215, 174, 87,0.35); background: rgba(215, 174, 87,0.08); }
 .jarvis-toggle-btn.off { color: #5A6678; }
-.jarvis-toggle-btn:hover { border-color: rgba(0,212,255,0.4); }
+.jarvis-toggle-btn:hover { border-color: rgba(215, 174, 87,0.4); }
 
 .jarvis-mode-select { position: relative; }
 .jarvis-mode-btn {
@@ -598,7 +598,7 @@ const JARVIS_CHAT_CSS = `
   color: #B0C0D8; font-size: 11px; padding: 6px 10px; border-radius: 8px; cursor: pointer;
   white-space: nowrap; transition: border-color 0.2s ease;
 }
-.jarvis-mode-btn:hover { border-color: rgba(0,212,255,0.4); }
+.jarvis-mode-btn:hover { border-color: rgba(215, 174, 87,0.4); }
 .jarvis-mode-icon { font-size: 13px; line-height: 1; }
 
 .jarvis-mode-menu {
@@ -615,15 +615,15 @@ const JARVIS_CHAT_CSS = `
   text-align: left; transition: background 0.15s ease;
 }
 .jarvis-mode-option:hover { background: rgba(255,255,255,0.06); }
-.jarvis-mode-option.active { color: #00D4FF; background: rgba(0,212,255,0.08); }
+.jarvis-mode-option.active { color: #d7ae57; background: rgba(215, 174, 87,0.08); }
 
 .jarvis-stop-speak {
   display: flex; align-items: center; gap: 6px;
-  background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.35);
-  color: #00D4FF; font-size: 10px; padding: 6px 8px; border-radius: 8px; cursor: pointer;
+  background: rgba(215, 174, 87,0.1); border: 1px solid rgba(215, 174, 87,0.35);
+  color: #d7ae57; font-size: 10px; padding: 6px 8px; border-radius: 8px; cursor: pointer;
 }
 .jarvis-speak-pulse {
-  width: 6px; height: 6px; border-radius: 50%; background: #00D4FF;
+  width: 6px; height: 6px; border-radius: 50%; background: #d7ae57;
   animation: jarvis-pulse 1s infinite ease-in-out;
 }
 @keyframes jarvis-pulse {
@@ -644,7 +644,7 @@ const JARVIS_CHAT_CSS = `
   width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-  color: #00D4FF;
+  color: #d7ae57;
 }
 .jarvis-msg.user .jarvis-msg-avatar { color: #B478FF; }
 
@@ -653,7 +653,7 @@ const JARVIS_CHAT_CSS = `
   border-radius: 12px; padding: 10px 12px; font-size: 13px; line-height: 1.5; color: #E4EAF2;
   white-space: pre-wrap; word-break: break-word;
 }
-.jarvis-msg.user .jarvis-msg-bubble { background: rgba(0,212,255,0.08); border-color: rgba(0,212,255,0.2); }
+.jarvis-msg.user .jarvis-msg-bubble { background: rgba(215, 174, 87,0.08); border-color: rgba(215, 174, 87,0.2); }
 
 .jarvis-msg-voice-only {
   display: flex; align-items: center; gap: 6px; color: #8A94A8; font-style: italic; font-size: 12px;
@@ -677,16 +677,16 @@ const JARVIS_CHAT_CSS = `
   border-radius: 10px; padding: 10px 12px; font-size: 13px; color: #fff; outline: none;
   transition: border-color 0.2s ease;
 }
-.jarvis-input-row input:focus { border-color: #00D4FF; }
+.jarvis-input-row input:focus { border-color: #d7ae57; }
 .jarvis-input-row input:disabled { opacity: 0.6; }
 
 .jarvis-input-row button {
   display: flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border-radius: 10px;
-  background: linear-gradient(135deg, #00D4FF, #0090C8); border: none;
+  background: linear-gradient(135deg, #d7ae57, #0090C8); border: none;
   color: #001018; cursor: pointer; transition: all 0.2s ease; flex-shrink: 0;
 }
-.jarvis-input-row button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,212,255,0.3); }
+.jarvis-input-row button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(215, 174, 87,0.3); }
 .jarvis-input-row button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .jarvis-mic-btn {
@@ -695,10 +695,10 @@ const JARVIS_CHAT_CSS = `
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
   color: #8A94A8; cursor: pointer; transition: all 0.2s ease; flex-shrink: 0;
 }
-.jarvis-mic-btn:hover { border-color: rgba(0,212,255,0.4); color: #00D4FF; }
+.jarvis-mic-btn:hover { border-color: rgba(215, 174, 87,0.4); color: #d7ae57; }
 .jarvis-mic-btn.listening {
   background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.4);
-  color: #F87171; animation: jarvis-pulse 1s infinite ease-in-out;
+  color: #e2685c; animation: jarvis-pulse 1s infinite ease-in-out;
 }
 
 @media (max-width: 480px) {

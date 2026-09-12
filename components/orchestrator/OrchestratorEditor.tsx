@@ -408,7 +408,7 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
             style={{
               border: `1px solid ${isJarvisTemplate ? COLORS.accent : COLORS.border}`,
               color: isJarvisTemplate ? COLORS.accent : COLORS.label,
-              backgroundColor: isJarvisTemplate ? `rgba(0,212,255,0.06)` : "transparent",
+              backgroundColor: isJarvisTemplate ? `rgba(215, 174, 87,0.06)` : "transparent",
             }}
             title={t(isJarvisTemplate ? "orchestrator.removeJarvisTemplate" : "orchestrator.saveAsJarvisTemplate")}
           >

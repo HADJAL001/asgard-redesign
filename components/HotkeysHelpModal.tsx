@@ -21,7 +21,7 @@ function KeyCap({ children }: { children: string }) {
   return (
     <kbd
       className="inline-flex min-w-[28px] items-center justify-center rounded-md px-2 py-1 text-[12px] font-medium"
-      style={{ backgroundColor: "#0A0A0F", border: "1px solid #2A2A3E", color: "#FFFFFF" }}
+      style={{ backgroundColor: "#10181d", border: "1px solid #30424b", color: "#FFFFFF" }}
     >
       {children}
     </kbd>
@@ -35,7 +35,7 @@ export function HotkeysHelpModal({ open, onClose }: { open: boolean; onClose: ()
       onClose={onClose}
       title="Горячие клавиши"
       subtitle="Ускоряют навигацию по OSGARD"
-      icon={<Keyboard size={22} strokeWidth={1.75} style={{ color: "#00D4FF" }} />}
+      icon={<Keyboard size={22} strokeWidth={1.75} style={{ color: "#d7ae57" }} />}
       maxWidth="sm"
     >
       <div className="flex flex-col gap-3">
@@ -46,7 +46,7 @@ export function HotkeysHelpModal({ open, onClose }: { open: boolean; onClose: ()
               {s.keys.map((k, i) => (
                 <span key={i} className="flex items-center gap-1">
                   <KeyCap>{k}</KeyCap>
-                  {i < s.keys.length - 1 && <span style={{ color: "#6A6A8A" }}>+</span>}
+                  {i < s.keys.length - 1 && <span style={{ color: "#9eb2bc" }}>+</span>}
                 </span>
               ))}
             </div>

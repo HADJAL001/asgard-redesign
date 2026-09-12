@@ -31,12 +31,12 @@ import { fmtTC } from "@/lib/tc-market"
 
 
 /* ---- Palette ----
-   bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E */
-const ACCENT = "#00D4FF"
-const CARD = "#14141E"
-const BORDER = "#2A2A3E"
-const LABEL = "#6A6A8A"
-const GREEN = "#4ADE80"
+   bg #10181d · card #17242a · accent #d7ae57 · text #FFFFFF · label #9eb2bc · border #30424b */
+const ACCENT = "#d7ae57"
+const CARD = "#17242a"
+const BORDER = "#30424b"
+const LABEL = "#9eb2bc"
+const GREEN = "#d7ae57"
 const YELLOW = "#FFD54A"
 const RED = "#FF5C5C"
 
@@ -210,7 +210,7 @@ export function DashboardView() {
   }, [])
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0F0F1A 100%)", color: "#FFFFFF" }}>
+    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #10181d 0%, #0F0F1A 100%)", color: "#FFFFFF" }}>
       <Navbar />
 
       {/* Автозапуск генерации по намерению с лендинга — оверлей на время старта */}
@@ -417,14 +417,14 @@ export function DashboardView() {
             style={{
               backgroundColor: CARD,
               border: `1px solid #1A2A3E`,
-              background: `linear-gradient(135deg, #0D1A2A 0%, #14141E 50%, #0A1020 100%)`,
+              background: `linear-gradient(135deg, #0D1A2A 0%, #17242a 50%, #0A1020 100%)`,
             }}
           >
             {/* Glow effect */}
             <div
               className="pointer-events-none absolute inset-0 rounded-xl"
               style={{
-                background: "radial-gradient(ellipse 60% 50% at 15% 50%, rgba(0,212,255,0.08) 0%, transparent 70%)",
+                background: "radial-gradient(ellipse 60% 50% at 15% 50%, rgba(215, 174, 87,0.08) 0%, transparent 70%)",
               }}
             />
 
@@ -434,9 +434,9 @@ export function DashboardView() {
                 <div
                   className="relative flex size-20 items-center justify-center rounded-full"
                   style={{
-                    border: "2px solid rgba(0,212,255,0.4)",
+                    border: "2px solid rgba(215, 174, 87,0.4)",
                     background: "radial-gradient(circle at 35% 35%, #1A3A4A, #0A1A2A)",
-                    boxShadow: "0 0 32px rgba(0,212,255,0.25), inset 0 0 20px rgba(0,212,255,0.08)",
+                    boxShadow: "0 0 32px rgba(215, 174, 87,0.25), inset 0 0 20px rgba(215, 174, 87,0.08)",
                   }}
                 >
                   <span className="text-3xl select-none">🤖</span>
@@ -444,7 +444,7 @@ export function DashboardView() {
                   <span
                     className="absolute inset-0 rounded-full animate-ping"
                     style={{
-                      border: "1px solid rgba(0,212,255,0.3)",
+                      border: "1px solid rgba(215, 174, 87,0.3)",
                       animationDuration: "3s",
                     }}
                   />
@@ -459,11 +459,11 @@ export function DashboardView() {
                   </h3>
                   <span
                     className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                    style={{ backgroundColor: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.25)", color: ACCENT }}
+                    style={{ backgroundColor: "rgba(215, 174, 87,0.1)", border: "1px solid rgba(215, 174, 87,0.25)", color: ACCENT }}
                   >
                     <span
                       className="size-1.5 rounded-full"
-                      style={{ backgroundColor: "#4ADE80", boxShadow: "0 0 6px #4ADE80" }}
+                      style={{ backgroundColor: "#d7ae57", boxShadow: "0 0 6px #d7ae57" }}
                     />
                     Online
                   </span>
@@ -494,18 +494,18 @@ export function DashboardView() {
                   onClick={() => router.push("/walli-room")}
                   className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[13px] font-semibold transition-all duration-200"
                   style={{
-                    backgroundColor: "rgba(0,212,255,0.12)",
-                    border: "1px solid rgba(0,212,255,0.4)",
+                    backgroundColor: "rgba(215, 174, 87,0.12)",
+                    border: "1px solid rgba(215, 174, 87,0.4)",
                     color: ACCENT,
-                    boxShadow: "0 0 16px rgba(0,212,255,0.12)",
+                    boxShadow: "0 0 16px rgba(215, 174, 87,0.12)",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "rgba(0,212,255,0.22)"
-                    e.currentTarget.style.boxShadow = "0 0 24px rgba(0,212,255,0.28)"
+                    e.currentTarget.style.backgroundColor = "rgba(215, 174, 87,0.22)"
+                    e.currentTarget.style.boxShadow = "0 0 24px rgba(215, 174, 87,0.28)"
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "rgba(0,212,255,0.12)"
-                    e.currentTarget.style.boxShadow = "0 0 16px rgba(0,212,255,0.12)"
+                    e.currentTarget.style.backgroundColor = "rgba(215, 174, 87,0.12)"
+                    e.currentTarget.style.boxShadow = "0 0 16px rgba(215, 174, 87,0.12)"
                   }}
                 >
                   <MessageCircle size={15} />
@@ -545,7 +545,7 @@ function QuickAction({ Icon, label, onClick }: { Icon: LucideIcon; label: string
       onMouseEnter={(e) => {
         e.currentTarget.style.backgroundColor = ACCENT
         e.currentTarget.style.borderColor = ACCENT
-        e.currentTarget.style.color = "#0A0A0F"
+        e.currentTarget.style.color = "#10181d"
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.backgroundColor = "transparent"

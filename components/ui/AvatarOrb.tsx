@@ -21,7 +21,7 @@ type AvatarOrbProps = {
 }
 
 const VARIANT_COLORS: Record<AvatarOrbVariant, { core: string; edge: string; ring: string }> = {
-  idle: { core: "#8FF3FF", edge: "#0A6E93", ring: "#00D4FF" },
+  idle: { core: "#8FF3FF", edge: "#0A6E93", ring: "#d7ae57" },
   speaking: { core: "#C9F9FF", edge: "#0A6E93", ring: "#38F0FF" },
   listening: { core: "#FFE7B0", edge: "#7A4A00", ring: "#FFC94A" },
 }

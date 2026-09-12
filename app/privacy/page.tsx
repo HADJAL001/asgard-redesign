@@ -11,5 +11,5 @@ const sections = [
 ] as const
 
 export default function PrivacyPage() {
-  return <main className="mx-auto min-h-screen max-w-3xl px-6 py-20 text-white"><p className="mb-3 text-sm text-cyan-300">OSGARD NEW WORLD</p><h1 className="text-4xl font-semibold">Политика конфиденциальности</h1><p className="mt-4 text-sm text-white/60">Редакция от 23 августа 2026 года</p><div className="mt-12 space-y-9">{sections.map(([title, body]) => <section key={title}><h2 className="text-xl font-semibold">{title}</h2><p className="mt-3 leading-7 text-white/75">{body}</p></section>)}</div></main>
+  return <main className="mx-auto min-h-screen max-w-3xl px-6 py-20 text-white"><p className="mb-3 text-sm text-amber-300">OSGARD NEW WORLD</p><h1 className="text-4xl font-semibold">Политика конфиденциальности</h1><p className="mt-4 text-sm text-white/60">Редакция от 23 августа 2026 года</p><div className="mt-12 space-y-9">{sections.map(([title, body]) => <section key={title}><h2 className="text-xl font-semibold">{title}</h2><p className="mt-3 leading-7 text-white/75">{body}</p></section>)}</div></main>
 }

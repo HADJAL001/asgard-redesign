@@ -38,7 +38,7 @@ function statusBorder(status?: OrchestratorNodeRunStatus, selected?: boolean): s
 }
 
 function statusBg(status?: OrchestratorNodeRunStatus): string {
-  if (status === "running") return `rgba(0,212,255,0.06)`
+  if (status === "running") return `rgba(215, 174, 87,0.06)`
   if (status === "done") return `rgba(74,222,128,0.06)`
   if (status === "error") return `rgba(248,113,113,0.06)`
   return COLORS.card
@@ -168,7 +168,7 @@ export const OrchestratorNode = memo(function OrchestratorNode({
         {data.status === "running" && (
           <div
             className="mt-2 overflow-hidden rounded-full"
-            style={{ height: 2, backgroundColor: `rgba(0,212,255,0.15)` }}
+            style={{ height: 2, backgroundColor: `rgba(215, 174, 87,0.15)` }}
           >
             <div
               className="orch-progress-bar h-full rounded-full"
@@ -193,8 +193,8 @@ const NODE_ANIMATION_CSS = `
 
 /* Пульсирующее свечение при running */
 @keyframes orch-glow-pulse {
-  0%, 100% { box-shadow: 0 0 0 2px rgba(0,212,255,0.25), 0 0 12px rgba(0,212,255,0.4); }
-  50%       { box-shadow: 0 0 0 3px rgba(0,212,255,0.45), 0 0 24px rgba(0,212,255,0.7); }
+  0%, 100% { box-shadow: 0 0 0 2px rgba(215, 174, 87,0.25), 0 0 12px rgba(215, 174, 87,0.4); }
+  50%       { box-shadow: 0 0 0 3px rgba(215, 174, 87,0.45), 0 0 24px rgba(215, 174, 87,0.7); }
 }
 .orch-node-running {
   animation: orch-glow-pulse 1.4s ease-in-out infinite;

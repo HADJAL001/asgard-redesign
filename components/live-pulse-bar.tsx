@@ -111,8 +111,8 @@ export function LivePulseBar({ variant = "app" }: { variant?: "app" | "landing" 
         boxShadow: "0 8px 32px rgba(10,17,40,0.28)",
       }
     : {
-        background: "#14141E",
-        border: "1px solid #2A2A3E",
+        background: "#17242a",
+        border: "1px solid #30424b",
       }
 
   const label = isLanding ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.45)"

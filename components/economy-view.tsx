@@ -37,8 +37,8 @@ function fmtUSD(n: number): string {
 
 function tooltipStyle() {
   return {
-    backgroundColor: "#14141E",
-    border: "1px solid #2A2A3E",
+    backgroundColor: "#17242a",
+    border: "1px solid #30424b",
     borderRadius: 8,
     color: "#FFFFFF",
     fontSize: 12,
@@ -81,7 +81,7 @@ export function EconomyView() {
   return (
     <div
       className="relative overflow-hidden min-h-screen font-sans"
-      style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0F0F1A 100%)", color: COLORS.text }}
+      style={{ background: "linear-gradient(180deg, #10181d 0%, #0F0F1A 100%)", color: COLORS.text }}
     >
       <PremiumBackground variant="coins" />
       <Navbar />
@@ -107,7 +107,7 @@ export function EconomyView() {
         >
           <div>
             <p className="flex items-center gap-2 text-[13px]" style={{ color: COLORS.label }}>
-              <InfinityIcon size={15} strokeWidth={1.75} style={{ color: "#00D4FF" }} aria-hidden="true" />
+              <InfinityIcon size={15} strokeWidth={1.75} style={{ color: "#d7ae57" }} aria-hidden="true" />
               TimeCoin · TC / USD
             </p>
             <div className="mt-2 flex items-end gap-3">
@@ -133,8 +133,8 @@ export function EconomyView() {
               <span>Эмитировано от лимита</span>
               <span style={{ color: "#FFFFFF" }}>{mintedPct.toFixed(1)}%</span>
             </div>
-            <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full" style={{ backgroundColor: "#0A0A0F" }}>
-              <div className="h-full rounded-full" style={{ width: `${mintedPct}%`, backgroundColor: "#00D4FF" }} />
+            <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full" style={{ backgroundColor: "#10181d" }}>
+              <div className="h-full rounded-full" style={{ width: `${mintedPct}%`, backgroundColor: "#d7ae57" }} />
             </div>
             <p className="mt-2 text-[12px]" style={{ color: COLORS.label }}>
               Лимит эмиссии: {formatTokens(TC_TOTAL_CAP)} ∞ · дефляционная модель
@@ -169,9 +169,9 @@ export function EconomyView() {
                     <stop offset="100%" stopColor={UP} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3E" vertical={false} />
-                <XAxis dataKey="label" stroke="#6A6A8A" fontSize={12} tickLine={false} axisLine={false} minTickGap={40} />
-                <YAxis stroke="#6A6A8A" fontSize={12} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => `$${v}`} domain={["auto", "auto"]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#30424b" vertical={false} />
+                <XAxis dataKey="label" stroke="#9eb2bc" fontSize={12} tickLine={false} axisLine={false} minTickGap={40} />
+                <YAxis stroke="#9eb2bc" fontSize={12} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => `$${v}`} domain={["auto", "auto"]} />
                 <Tooltip contentStyle={tooltipStyle()} formatter={(v) => [`$${Number(v).toFixed(2)}`, "Цена"]} />
                 <Area type="monotone" dataKey="price" stroke={UP} strokeWidth={2} fill="url(#tcprice)" />
               </AreaChart>
@@ -189,15 +189,15 @@ export function EconomyView() {
               <AreaChart data={EMISSION_SERIES} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="circ" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#00D4FF" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#00D4FF" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#d7ae57" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#d7ae57" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3E" vertical={false} />
-                <XAxis dataKey="month" stroke="#6A6A8A" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#6A6A8A" fontSize={12} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => `${v / 1000}k`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#30424b" vertical={false} />
+                <XAxis dataKey="month" stroke="#9eb2bc" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#9eb2bc" fontSize={12} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => `${v / 1000}k`} />
                 <Tooltip contentStyle={tooltipStyle()} formatter={(v) => [`${formatTokens(Number(v))} ∞`, "В обороте"]} />
-                <Area type="monotone" dataKey="circulating" stroke="#00D4FF" strokeWidth={2} fill="url(#circ)" />
+                <Area type="monotone" dataKey="circulating" stroke="#d7ae57" strokeWidth={2} fill="url(#circ)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -211,12 +211,12 @@ export function EconomyView() {
           <div className="mt-6 h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={EMISSION_SERIES} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3E" vertical={false} />
-                <XAxis dataKey="month" stroke="#6A6A8A" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#6A6A8A" fontSize={12} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => `${v / 1000}k`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#30424b" vertical={false} />
+                <XAxis dataKey="month" stroke="#9eb2bc" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#9eb2bc" fontSize={12} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => `${v / 1000}k`} />
                 <Tooltip contentStyle={tooltipStyle()} formatter={(v, n) => [`${formatTokens(Number(v))} ∞`, n === "treasury" ? "Казна" : "Сожжено"]} />
-                <Line type="monotone" dataKey="treasury" stroke="#4ADE80" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="burned" stroke="#F87171" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="treasury" stroke="#d7ae57" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="burned" stroke="#e2685c" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -242,7 +242,7 @@ export function EconomyView() {
               { t: "Стейкинг", d: "Блокировка TC сокращает предложение", Icon: Lock, c: "#9B59B6" },
               { t: "Комиссия 5%", d: "Идёт в казну OSGARD", Icon: Landmark, c: COLORS.green },
             ].map((s) => (
-              <div key={s.t} className="rounded-lg p-4" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}` }}>
+              <div key={s.t} className="rounded-lg p-4" style={{ backgroundColor: "#10181d", border: `1px solid ${COLORS.border}` }}>
                 <s.Icon size={18} strokeWidth={1.5} style={{ color: s.c }} aria-hidden="true" />
                 <p className="mt-3 text-[14px]">{s.t}</p>
                 <p className="mt-1 text-[12px]" style={{ color: COLORS.label }}>

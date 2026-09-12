@@ -22,13 +22,13 @@ import {
 import { Navbar } from "./navbar"
 
 /* ---- Palette ----
-   bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E */
+   bg #10181d · card #17242a · accent #d7ae57 · text #FFFFFF · label #9eb2bc · border #30424b */
 
-const BG = "#0A0A0F"
-const CARD = "#14141E"
-const ACCENT = "#00D4FF"
-const LABEL = "#6A6A8A"
-const BORDER = "#2A2A3E"
+const BG = "#10181d"
+const CARD = "#17242a"
+const ACCENT = "#d7ae57"
+const LABEL = "#9eb2bc"
+const BORDER = "#30424b"
 
 type CategoryId =
   | "intro"
@@ -305,7 +305,7 @@ export function DocsView() {
   const countByCategory = (id: CategoryId) => ARTICLES.filter((a) => a.category === id).length
 
   return (
-    <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #0D0D1A 100%)", color: "#FFFFFF" }}>
+    <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #10181d 0%, #0D0D1A 100%)", color: "#FFFFFF" }}>
       <Navbar />
 
       <main className="mx-auto max-w-6xl px-6 py-10 md:px-10">
@@ -364,7 +364,7 @@ export function DocsView() {
                     aria-current={isActive ? "true" : undefined}
                     className="flex items-center gap-3 rounded-lg py-2.5 pl-3 pr-2 text-left text-[14px] transition-colors"
                     style={{
-                      backgroundColor: isActive ? "rgba(0,212,255,0.08)" : "transparent",
+                      backgroundColor: isActive ? "rgba(215, 174, 87,0.08)" : "transparent",
                       borderLeft: `2px solid ${isActive ? ACCENT : "transparent"}`,
                       color: isActive ? ACCENT : "#FFFFFF",
                       opacity: isActive ? 1 : 0.7,
@@ -430,7 +430,7 @@ export function DocsView() {
                       style={{
                         borderTop: i === 0 ? "none" : `1px solid ${BORDER}`,
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(0,212,255,0.05)")}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(215, 174, 87,0.05)")}
                       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                     >
                       <div className="min-w-0 flex-1">
@@ -488,7 +488,7 @@ export function DocsView() {
                 >
                   <span
                     className="flex size-7 shrink-0 items-center justify-center rounded-md text-[13px] font-medium"
-                    style={{ backgroundColor: "rgba(0,212,255,0.1)", color: ACCENT }}
+                    style={{ backgroundColor: "rgba(215, 174, 87,0.1)", color: ACCENT }}
                   >
                     {i + 1}
                   </span>

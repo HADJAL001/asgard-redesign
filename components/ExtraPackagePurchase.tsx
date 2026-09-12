@@ -99,7 +99,7 @@ export function ExtraPackagePurchase() {
   return (
     <section
       className="rounded-2xl p-6"
-      style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+      style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
     >
       <div className="flex items-center gap-2">
         <div
@@ -110,7 +110,7 @@ export function ExtraPackagePurchase() {
         </div>
         <div>
           <p className="text-[14px] font-semibold">Докупить пакет запросов</p>
-          <p className="text-[11px]" style={{ color: "#6A6A8A" }}>Не сгорают, переносятся на следующие месяцы</p>
+          <p className="text-[11px]" style={{ color: "#9eb2bc" }}>Не сгорают, переносятся на следующие месяцы</p>
         </div>
       </div>
 
@@ -124,7 +124,7 @@ export function ExtraPackagePurchase() {
             <div>
               <p className="text-[13px] font-medium" style={{ color }}>{label}</p>
               <p className="text-[18px] font-semibold mt-1">+{amount}</p>
-              <p className="text-[11px]" style={{ color: "#6A6A8A" }}>{priceLabel} · разово</p>
+              <p className="text-[11px]" style={{ color: "#9eb2bc" }}>{priceLabel} · разово</p>
             </div>
             <button
               type="button"

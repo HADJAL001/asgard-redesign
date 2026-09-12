@@ -55,21 +55,23 @@ import {
 } from "lucide-react"
 
 /* ================================================================
-   OSGARD NEURAL CORE — shared economy model
-   Palette: bg #0A0A0F · card #14141E · accent #00D4FF
-            text #FFFFFF · label #6A6A8A · border #2A2A3E
+   OSGARD PREMIUM — shared economy model
+   Palette: bg #10181d · card #17242a · accent #d7ae57 (gold)
+            text #f6f3eb · label #9eb2bc · border #30424b
+   Green is not a brand color (docs/OSGARD-PREMIUM-INTERFACE-PLAN.md);
+   positive states use the gold accent instead.
    ================================================================ */
 
 export const COLORS = {
-  bg: "#0A0A0F",
-  card: "#14141E",
-  accent: "#00D4FF",
-  text: "#FFFFFF",
-  label: "#6A6A8A",
-  border: "#2A2A3E",
-  green: "#4ADE80",
-  amber: "#FBBF24",
-  red: "#F87171",
+  bg: "#10181d",
+  card: "#17242a",
+  accent: "#d7ae57",
+  text: "#f6f3eb",
+  label: "#9eb2bc",
+  border: "#30424b",
+  green: "#d7ae57",
+  amber: "#d7ae57",
+  red: "#e2685c",
 } as const
 
 /* ---------------- Rarity ---------------- */
@@ -80,7 +82,7 @@ export const RARITY: Record<
   Rarity,
   { label: string; color: string; mult: number; stars: number; symbol: string; glow?: boolean }
 > = {
-  common: { label: "Обычный", color: "#6A6A8A", mult: 1, stars: 1, symbol: "○" },
+  common: { label: "Обычный", color: "#9eb2bc", mult: 1, stars: 1, symbol: "○" },
   rare: { label: "Редкий", color: "#4A7A9C", mult: 2, stars: 2, symbol: "◇" },
   epic: { label: "Эпический", color: "#9B59B6", mult: 3, stars: 3, symbol: "◆" },
   legendary: { label: "Легендарный", color: "#F1C40F", mult: 4, stars: 4, symbol: "★" },
@@ -385,15 +387,15 @@ export const TRANSACTIONS: Transaction[] = [
 ]
 
 export const TX_META: Record<TxType, { label: string; color: string }> = {
-  buy: { label: "Покупка", color: "#4ADE80" },
-  sell: { label: "Продажа", color: "#F87171" },
+  buy: { label: "Покупка", color: "#d7ae57" },
+  sell: { label: "Продажа", color: "#e2685c" },
   dividend: { label: "Дивиденды", color: "#FBBF24" },
 }
 
 export const TX_STATUS: Record<Transaction["status"], { label: string; color: string }> = {
-  done: { label: "Завершена", color: "#4ADE80" },
+  done: { label: "Завершена", color: "#d7ae57" },
   pending: { label: "В ожидании", color: "#FBBF24" },
-  cancelled: { label: "Отменена", color: "#F87171" },
+  cancelled: { label: "Отменена", color: "#e2685c" },
 }
 
 /* ================================================================

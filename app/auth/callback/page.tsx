@@ -52,13 +52,13 @@ function AuthCallbackInner() {
   }, [searchParams, loginWithToken, router])
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0A0A0F] px-4">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#10181d] px-4">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-1/2 top-1/3 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#00D4FF]/10 blur-[120px]" />
+        <div className="absolute left-1/2 top-1/3 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#d7ae57]/10 blur-[120px]" />
       </div>
       <div className="relative z-10 flex flex-col items-center gap-3 text-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[#00D4FF]" />
-        <p className="text-sm text-[#6A6A8A]">{error || "Завершаем вход…"}</p>
+        <Loader2 className="h-8 w-8 animate-spin text-[#d7ae57]" />
+        <p className="text-sm text-[#9eb2bc]">{error || "Завершаем вход…"}</p>
       </div>
     </main>
   )

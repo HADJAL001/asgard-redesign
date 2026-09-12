@@ -14,11 +14,11 @@ export interface NodeIconProps {
 type Variant = "claude" | "deepseek" | "grok" | "prompt_template" | "service_call" | "webhook_trigger"
 
 const GRADIENT_STOPS: Record<Variant, [string, string, string]> = {
-  claude: ["#67E8F9", "#00D4FF", "#0369A1"],
-  deepseek: ["#86EFAC", "#4ADE80", "#047857"],
+  claude: ["#67E8F9", "#d7ae57", "#0369A1"],
+  deepseek: ["#86EFAC", "#d7ae57", "#047857"],
   grok: ["#FDE68A", "#FBBF24", "#B45309"],
   prompt_template: ["#E2E8F0", "#94A3B8", "#334155"],
-  service_call: ["#FCA5A5", "#F87171", "#7F1D1D"],
+  service_call: ["#FCA5A5", "#e2685c", "#7F1D1D"],
   webhook_trigger: ["#D8B4FE", "#A855F7", "#6B21A8"],
 }
 

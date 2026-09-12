@@ -234,7 +234,7 @@ export function WalletView() {
   return (
     <div
       className="min-h-screen font-sans"
-      style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #1A1A1A 100%)", color: COLORS.text }}
+      style={{ background: "linear-gradient(180deg, #10181d 0%, #1A1A1A 100%)", color: COLORS.text }}
     >
       <Navbar />
 
@@ -458,7 +458,7 @@ export function WalletView() {
             </div>
 
             {/* Quote breakdown */}
-            <div className="mt-4 space-y-2 rounded-lg p-4 text-[13px]" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}` }}>
+            <div className="mt-4 space-y-2 rounded-lg p-4 text-[13px]" style={{ backgroundColor: "#10181d", border: `1px solid ${COLORS.border}` }}>
               <div className="flex items-center justify-between">
                 <span className="inline-flex items-center gap-1.5" style={{ color: COLORS.label }}>
                   <Info size={13} strokeWidth={1.5} /> {t("wallet.rateApprox")}
@@ -529,7 +529,7 @@ export function WalletView() {
                 )
               })}
             </ul>
-            <div className="mt-5 rounded-lg p-4" style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}` }}>
+            <div className="mt-5 rounded-lg p-4" style={{ backgroundColor: "#10181d", border: `1px solid ${COLORS.border}` }}>
               <div className="flex items-center justify-between">
                 <p className="text-[12px]" style={{ color: COLORS.label }}>
                   {t("wallet.marketRate")}
@@ -592,7 +592,7 @@ export function WalletView() {
                   onChange={(e) => setWithdrawAmount(e.target.value)}
                   placeholder="0"
                   className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none"
-                  style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
+                  style={{ backgroundColor: "#10181d", border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
                 />
               </div>
               <div>
@@ -605,7 +605,7 @@ export function WalletView() {
                   onChange={(e) => setSolanaAddr(e.target.value)}
                   placeholder="Адрес кошелька Solana"
                   className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none"
-                  style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
+                  style={{ backgroundColor: "#10181d", border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
                 />
               </div>
               <div>
@@ -619,7 +619,7 @@ export function WalletView() {
                   onChange={(e) => setTwofaToken(e.target.value.replace(/[^0-9]/g, ""))}
                   placeholder="123456"
                   className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none"
-                  style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
+                  style={{ backgroundColor: "#10181d", border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
                 />
               </div>
             </div>
@@ -628,7 +628,7 @@ export function WalletView() {
               <p className="mt-3 text-[13px]" role="status" style={{ color: withdrawNotice.ok ? COLORS.green : COLORS.red }}>
                 {withdrawNotice.text}
                 {withdrawNotice.action && (
-                  <Link href={withdrawNotice.action.href} className="ml-2 font-medium underline" style={{ color: "#00D4FF" }}>
+                  <Link href={withdrawNotice.action.href} className="ml-2 font-medium underline" style={{ color: "#d7ae57" }}>
                     {withdrawNotice.action.label}
                   </Link>
                 )}
@@ -692,7 +692,7 @@ export function WalletView() {
                   onChange={(e) => setDepositAmount(e.target.value)}
                   placeholder="0"
                   className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none"
-                  style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
+                  style={{ backgroundColor: "#10181d", border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
                 />
               </div>
               <div>
@@ -705,7 +705,7 @@ export function WalletView() {
                   onChange={(e) => setTxSignature(e.target.value)}
                   placeholder="Вставьте txSignature транзакции"
                   className="w-full rounded-lg px-3 py-2.5 text-[14px] outline-none"
-                  style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
+                  style={{ backgroundColor: "#10181d", border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
                 />
               </div>
             </div>
@@ -775,7 +775,7 @@ function CurrencySelect({
           value={value}
           onChange={(e) => onChange(e.target.value as CurrencyKey)}
           className="w-full appearance-none rounded-lg py-2.5 pl-9 pr-8 text-[14px]"
-          style={{ backgroundColor: "#0A0A0F", border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
+          style={{ backgroundColor: "#10181d", border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
         >
           {CONVERT_CURRENCIES.map((id) => (
             <option key={id} value={id}>

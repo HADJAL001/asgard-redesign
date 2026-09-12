@@ -82,7 +82,7 @@ export function GenerationStory({
       {progress !== null && (
         <div
           className="h-1.5 w-full max-w-[320px] overflow-hidden rounded-full"
-          style={{ backgroundColor: "rgba(0,212,255,0.12)" }}
+          style={{ backgroundColor: "rgba(215, 174, 87,0.12)" }}
         >
           <div
             className="h-full rounded-full transition-all duration-500 ease-out"

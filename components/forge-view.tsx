@@ -37,7 +37,7 @@ const FORGE_COST_TC = 50
 /* Ковка за любую монету, но слабее (зеркалит FORGE_CURRENCIES на бэкенде):
    слабее/дешевле валюта → ниже множитель характеристик артефакта. */
 const FORGE_CURRENCIES = [
-  { id: "credits", label: "Кредиты", cost: 200, mult: 0.4, color: "#00D4FF" },
+  { id: "credits", label: "Кредиты", cost: 200, mult: 0.4, color: "#d7ae57" },
   { id: "shards", label: "Шарды", cost: 80, mult: 0.6, color: "#B57BFF" },
   { id: "crystals", label: "Кристаллы", cost: 30, mult: 0.85, color: "#5AC8FA" },
   { id: "timecoin", label: "TimeCoin", cost: FORGE_COST_TC, mult: 1.0, color: "#F1C40F" },
@@ -380,7 +380,7 @@ export function ForgeView() {
 
   /* Корень прозрачный (.eg-page — вуаль вместо глухой заливки): сквозь него
      дышит общий AmbientBackdrop. Раньше здесь был непрозрачный градиент
-     #0A0A0F→#14141E, который глушил живой фон платформы. */
+     #10181d→#17242a, который глушил живой фон платформы. */
   return (
     <div className="eg-page min-h-screen font-sans" style={{ color: COLORS.text }}>
       <Navbar />
@@ -460,7 +460,7 @@ export function ForgeView() {
                   marginTop: -140,
                   marginLeft: -140,
                   background:
-                    "conic-gradient(from 0deg, transparent 0deg, rgba(0,212,255,0.22) 6deg, transparent 18deg, transparent 160deg, rgba(0,212,255,0.16) 170deg, transparent 182deg, transparent 340deg, rgba(0,212,255,0.2) 352deg, transparent 360deg)",
+                    "conic-gradient(from 0deg, transparent 0deg, rgba(215, 174, 87,0.22) 6deg, transparent 18deg, transparent 160deg, rgba(215, 174, 87,0.16) 170deg, transparent 182deg, transparent 340deg, rgba(215, 174, 87,0.2) 352deg, transparent 360deg)",
                   animation: anim("forge-rays-spin 7s linear infinite"),
                   opacity: forgePhase === "charging" ? 1 : 0,
                   filter: "blur(1px)",
@@ -480,8 +480,8 @@ export function ForgeView() {
                     left: "50%",
                     marginTop: -size / 2,
                     marginLeft: -size / 2,
-                    border: `1.5px solid rgba(0,212,255,${0.2 + i * 0.12})`,
-                    boxShadow: `0 0 ${10 + i * 6}px rgba(0,212,255,${0.15 + i * 0.08})`,
+                    border: `1.5px solid rgba(215, 174, 87,${0.2 + i * 0.12})`,
+                    boxShadow: `0 0 ${10 + i * 6}px rgba(215, 174, 87,${0.15 + i * 0.08})`,
                     animation: anim(`forge-ring-spin ${3 + i * 1.5}s linear infinite ${i % 2 === 0 ? "" : "reverse"}`),
                     opacity: forgePhase === "charging" ? 1 : 0,
                     transition: "opacity 0.3s ease",
@@ -534,10 +534,10 @@ export function ForgeView() {
                   height: 80,
                   background: forgePhase === "burst"
                     ? `radial-gradient(circle at 35% 35%, #fff, ${fxColor} 40%, #0050FF)`
-                    : "radial-gradient(circle at 35% 35%, rgba(0,212,255,0.6), rgba(0,80,255,0.3))",
+                    : "radial-gradient(circle at 35% 35%, rgba(215, 174, 87,0.6), rgba(0,80,255,0.3))",
                   boxShadow: forgePhase === "burst"
                     ? `0 0 90px 45px ${fxColor}D9, 0 0 170px 90px ${fxColor}66, 0 0 40px 10px rgba(255,255,255,0.9)`
-                    : "0 0 30px 10px rgba(0,212,255,0.4)",
+                    : "0 0 30px 10px rgba(215, 174, 87,0.4)",
                   transition: "background 0.2s ease, box-shadow 0.2s ease",
                   animation:
                     forgePhase === "charging"
@@ -637,10 +637,10 @@ export function ForgeView() {
                 key={forgePhase}
                 className="text-[24px] font-semibold tracking-widest uppercase"
                 style={{
-                  color: forgePhase === "charging" ? "#00D4FF" : "#fff",
+                  color: forgePhase === "charging" ? "#d7ae57" : "#fff",
                   textShadow:
                     forgePhase === "charging"
-                      ? "0 0 18px rgba(0,212,255,0.35)"
+                      ? "0 0 18px rgba(215, 174, 87,0.35)"
                       : `0 0 30px ${fxColor}E6, 0 0 60px ${fxColor}80`,
                   letterSpacing: "0.22em",
                   animation: anim("forge-text-pop 0.5s cubic-bezier(0.16,1,0.3,1) both"),
@@ -684,12 +684,12 @@ export function ForgeView() {
                 className="h-full rounded-full"
                 style={{
                   background: forgePhase === "charging"
-                    ? "linear-gradient(90deg, #00D4FF, #B57BFF, #00D4FF)"
+                    ? "linear-gradient(90deg, #d7ae57, #B57BFF, #d7ae57)"
                     : `linear-gradient(90deg, ${fxColor}, #ffffff, ${fxColor})`,
                   backgroundSize: "220% 100%",
                   width: forgePhase === "charging" ? "60%" : "100%",
                   transition: "width 0.6s ease",
-                  boxShadow: `0 0 12px ${forgePhase === "charging" ? "rgba(0,212,255,0.7)" : `${fxColor}B3`}`,
+                  boxShadow: `0 0 12px ${forgePhase === "charging" ? "rgba(215, 174, 87,0.7)" : `${fxColor}B3`}`,
                   animation: anim("forge-progress-shimmer 1.4s linear infinite"),
                 }}
               />
@@ -767,7 +767,7 @@ export function ForgeView() {
                       style={{
                         border: `1px solid ${active ? COLORS.accent : COLORS.border}`,
                         color: active ? COLORS.accent : "rgba(255,255,255,0.7)",
-                        backgroundColor: active ? "rgba(0,212,255,0.06)" : "transparent",
+                        backgroundColor: active ? "rgba(215, 174, 87,0.06)" : "transparent",
                       }}
                     >
                       <Icon size={16} strokeWidth={1.75} aria-hidden="true" />

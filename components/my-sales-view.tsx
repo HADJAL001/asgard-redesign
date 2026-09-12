@@ -18,9 +18,9 @@ type SaleStatus = "active" | "sold" | "cancelled"
 type Sale = Artifact & { saleStatus: SaleStatus; views: number; listed: string }
 
 const STATUS: Record<SaleStatus, { label: string; color: string }> = {
-  active: { label: "Активно", color: "#00D4FF" },
-  sold: { label: "Продано", color: "#4ADE80" },
-  cancelled: { label: "Отменено", color: "#F87171" },
+  active: { label: "Активно", color: "#d7ae57" },
+  sold: { label: "Продано", color: "#d7ae57" },
+  cancelled: { label: "Отменено", color: "#e2685c" },
 }
 
 function seedSales(): Sale[] {
@@ -121,7 +121,7 @@ export function MySalesView() {
                 style={{
                   border: `1px solid ${activeF ? COLORS.accent : COLORS.border}`,
                   color: activeF ? COLORS.accent : "rgba(255,255,255,0.6)",
-                  backgroundColor: activeF ? "rgba(0,212,255,0.06)" : "transparent",
+                  backgroundColor: activeF ? "rgba(215, 174, 87,0.06)" : "transparent",
                 }}
               >
                 {label}

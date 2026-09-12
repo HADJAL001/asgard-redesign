@@ -20,13 +20,13 @@ import { useTranslation } from "@/lib/i18n/use-translation"
 import { RARITY, type Rarity } from "@/lib/economy"
 
 const COLORS = {
-  bg0: "#0A0A0F",
-  bg1: "#141420",
-  text: "#F5F5F7",
-  dim: "rgba(245,245,247,0.5)",
-  faint: "rgba(245,245,247,0.32)",
-  gold: "#D4AF37",
-  line: "rgba(212,175,55,0.18)",
+  bg0: "#10181d",
+  bg1: "#17242a",
+  text: "#f6f3eb",
+  dim: "rgba(246,243,235,0.5)",
+  faint: "rgba(246,243,235,0.32)",
+  gold: "#d7ae57",
+  line: "rgba(215,174,87,0.18)",
 }
 
 /* --- типы ответов бэка (см. backend/src/routes/provenance.routes.ts) --- */

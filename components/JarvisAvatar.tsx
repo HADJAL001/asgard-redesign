@@ -38,8 +38,8 @@ type JarvisAvatarProps = {
 type SkinPreset = { color: string; emissive: string; emissiveIntensity: number; metalness: number; roughness: number }
 
 const DEFAULT_SKIN: SkinPreset = {
-  color: "#00D4FF",
-  emissive: "#00D4FF",
+  color: "#d7ae57",
+  emissive: "#d7ae57",
   emissiveIntensity: 0.6,
   metalness: 0.6,
   roughness: 0.25,
@@ -55,7 +55,7 @@ function resolveSkinPreset(skinName?: string): SkinPreset {
     return { color: "#FFC94A", emissive: "#FFA500", emissiveIntensity: 0.55, metalness: 0.9, roughness: 0.12 }
   }
   if (name.includes("син") || name.includes("щит") || name.includes("blue")) {
-    return { color: "#3AA8FF", emissive: "#00D4FF", emissiveIntensity: 0.6, metalness: 0.55, roughness: 0.22 }
+    return { color: "#3AA8FF", emissive: "#d7ae57", emissiveIntensity: 0.6, metalness: 0.55, roughness: 0.22 }
   }
   return DEFAULT_SKIN
 }
@@ -149,7 +149,7 @@ function ArcRingAccessory() {
   return (
     <mesh ref={ref}>
       <torusGeometry args={[1.35, 0.035, 16, 64]} />
-      <meshStandardMaterial color="#00D4FF" emissive="#00D4FF" emissiveIntensity={1.2} metalness={0.3} roughness={0.1} />
+      <meshStandardMaterial color="#d7ae57" emissive="#d7ae57" emissiveIntensity={1.2} metalness={0.3} roughness={0.1} />
     </mesh>
   )
 }
@@ -167,7 +167,7 @@ function WristProjectorAccessory() {
     <group ref={ref}>
       <mesh>
         <sphereGeometry args={[0.12, 16, 16]} />
-        <meshStandardMaterial color="#00D4FF" emissive="#00D4FF" emissiveIntensity={1.4} />
+        <meshStandardMaterial color="#d7ae57" emissive="#d7ae57" emissiveIntensity={1.4} />
       </mesh>
     </group>
   )
@@ -203,7 +203,7 @@ function DataParticlesAccessory() {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial color="#00D4FF" size={0.035} sizeAttenuation transparent opacity={0.85} />
+      <pointsMaterial color="#d7ae57" size={0.035} sizeAttenuation transparent opacity={0.85} />
     </points>
   )
 }

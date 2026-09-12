@@ -11,9 +11,9 @@
 
 import { useTranslation } from "@/lib/i18n/use-translation"
 
-const ACCENT = "#00D4FF"
-const CARD = "#14141E"
-const BORDER = "#2A2A3E"
+const ACCENT = "#d7ae57"
+const CARD = "#17242a"
+const BORDER = "#30424b"
 
 interface OnboardingPrologueProps {
   /** Отображаемое имя пользователя, подставляется в приветствие. */
@@ -29,7 +29,7 @@ export function OnboardingPrologue({ name, onContinue }: OnboardingPrologueProps
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center p-6"
       style={{
-        background: "linear-gradient(180deg, #0A0A0F 0%, #0F0F1A 100%)",
+        background: "linear-gradient(180deg, #10181d 0%, #0F0F1A 100%)",
       }}
     >
       <div
@@ -57,7 +57,7 @@ export function OnboardingPrologue({ name, onContinue }: OnboardingPrologueProps
           type="button"
           onClick={onContinue}
           className="rounded-lg px-8 py-3 text-[14px] font-medium transition-transform hover:-translate-y-px"
-          style={{ backgroundColor: ACCENT, color: "#0A0A0F" }}
+          style={{ backgroundColor: ACCENT, color: "#10181d" }}
         >
           {t("onboarding.prologue.cta")}
         </button>

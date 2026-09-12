@@ -6,6 +6,7 @@
   --font-sans: var(--font-inter);
   --font-display: var(--font-space);
   --font-serif: var(--font-cormorant);
+  --font-mono: var(--font-plex-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -20,6 +21,19 @@
   --color-ring: var(--ring);
 }
 
+/* Premium workspace typography utilities — dashboard/workspace layer only,
+   applied via className, not on body (landing keeps Inter/Cormorant). */
+.font-display-premium { font-family: var(--font-jakarta), sans-serif; }
+.font-body-premium { font-family: var(--font-onest), sans-serif; }
+.font-mono-metric { font-family: var(--font-plex-mono), monospace; }
+
+/* WorldShell (workspace/dashboard routes) uses Onest for body copy and Plus Jakarta
+   Sans for headings; the public landing keeps Inter/Cormorant on <body>. */
+.app-root-content { font-family: var(--font-onest), sans-serif; }
+.app-root-content h1,
+.app-root-content h2,
+.app-root-content h3 { font-family: var(--font-jakarta), sans-serif; }
+
 :root {
   color-scheme: dark;
   --font-inter: "Inter Variable", "Inter", sans-serif;
@@ -27,29 +41,54 @@
   --font-cormorant: "Cormorant Garamond Variable", "Cormorant Garamond", Georgia, serif;
   --font-playfair: "Playfair Display Variable", "Playfair Display", Georgia, serif;
 
+  /* Premium workspace typography (docs/OSGARD-PREMIUM-INTERFACE-PLAN.md §Type System) */
+  --font-jakarta: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", sans-serif;
+  --font-onest: "Onest Variable", "Onest", sans-serif;
+  --font-plex-mono: "IBM Plex Mono", monospace;
+
   /* ── OSGARD NEW WORLD palette ── */
   /* Платина: #E5E4E2 | Тёмно-синий: #0A1128 | Королевский синий: #1A2A6C */
   /* Неон-синий: #2D7DD2 | Золото: #C9A84C */
 
-  /* Deep navy background — canonical value, matches --background/--onw-navy */
-  --color-navy: #0A1128;
+  /* ── OSGARD Premium graphite/gold tokens (docs/OSGARD-PREMIUM-INTERFACE-PLAN.md) ── */
+  --canvas: #10181d;
+  --surface: #17242a;
+  --shell-nav-active: #1b2a31;
+  --line: #30424b;
+  --warning: #d7ae57;
+  --ink: #f6f3eb;
+  --muted-ink: #9eb2bc;
+
+  /* Deep graphite background — canonical value, matches --background/--onw-navy */
+  --os-space: var(--canvas);
+  --os-surface: var(--surface);
+  --os-surface-raised: var(--shell-nav-active);
+  --os-glass: rgb(255 255 255 / 2%);
+  --os-gold: var(--warning);
+  --os-gold-rgb: 215 174 87;
+  --os-platinum: var(--ink);
+  --os-ai: var(--warning);
+  --os-artifact: #7C3AED;
+  --os-danger: #D46A6A;
+
+  --color-navy: var(--os-space);
   /* Metallic gold accent — canonical value, matches --eg-gold-2/--elite-gold */
   --color-gold: #D4AF37;
   --color-gold-rgb: 212 175 55;
 
   --background: var(--color-navy);
-  --foreground: #E5E4E2;
-  --card: #0e1630;
-  --card-foreground: #E5E4E2;
-  --primary: #2D7DD2;
-  --primary-foreground: #E5E4E2;
-  --secondary: #1A2A6C;
-  --secondary-foreground: #E5E4E2;
-  --muted: #162040;
-  --muted-foreground: #8899bb;
-  --border: rgb(229 228 226 / 10%);
-  --ring: #2D7DD2;
-  --radius: 1.25rem;
+  --foreground: var(--os-platinum);
+  --card: var(--os-surface);
+  --card-foreground: var(--os-platinum);
+  --primary: var(--os-gold);
+  --primary-foreground: #11100D;
+  --secondary: var(--os-surface-raised);
+  --secondary-foreground: var(--os-platinum);
+  --muted: #171C26;
+  --muted-foreground: var(--muted-ink);
+  --border: var(--line);
+  --ring: var(--os-gold);
+  --radius: 0.5rem;
 
   /* ONW extended tokens */
   --onw-gold: #C9A84C;
@@ -59,9 +98,9 @@
   --onw-neon: #2D7DD2;
   --onw-purple: #6A5ACD;
 
-  /* Brand cyan (holographic accent) — canonical value, matches mobile design-system.colors.cyan */
-  --color-cyan: #00f0ff;
-  --color-cyan-rgb: 0 240 255;
+  /* Interactive accent glow — gold, not cyan (docs/OSGARD-PREMIUM-INTERFACE-PLAN.md §Surface Rules) */
+  --color-cyan: var(--warning);
+  --color-cyan-rgb: var(--os-gold-rgb);
 
   /* ── Eternity/Premium gold (лендинг) ── */
   --eg-gold-1: #F7E05E;
@@ -413,13 +452,13 @@ svg { width: 1rem; height: 1rem; flex: none; }
   padding: 0.625rem 0.75rem;
   font-size: 14px;
   color: #ffffff;
-  background-color: #0a0a0f;
-  border: 1px solid #2a2a3e;
+  background-color: #10181d;
+  border: 1px solid #30424b;
   outline: none;
   transition: border-color 0.15s ease;
 }
 .cal-input::placeholder { color: rgba(255, 255, 255, 0.3); }
-.cal-input:focus { border-color: #00d4ff; }
+.cal-input:focus { border-color: #d7ae57; }
 
 /* ===== Forge aura pulse for high-level artifacts ===== */
 @keyframes osgard-aura-pulse {
@@ -431,8 +470,8 @@ svg { width: 1rem; height: 1rem; flex: none; }
 @keyframes forge-ring-spin { to { transform: rotate(360deg); } }
 @keyframes forge-rays-spin { to { transform: rotate(360deg); } }
 @keyframes forge-pulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 30px 10px rgba(0,212,255,0.4); filter: brightness(1); }
-  50% { transform: scale(1.14); box-shadow: 0 0 60px 24px rgba(0,212,255,0.75); filter: brightness(1.25); }
+  0%, 100% { transform: scale(1); box-shadow: 0 0 30px 10px rgba(215, 174, 87,0.4); filter: brightness(1); }
+  50% { transform: scale(1.14); box-shadow: 0 0 60px 24px rgba(215, 174, 87,0.75); filter: brightness(1.25); }
 }
 @keyframes forge-core-flare {
   0% { transform: scale(0.6); filter: brightness(1); }
@@ -787,8 +826,8 @@ svg { width: 1rem; height: 1rem; flex: none; }
 .avatar-orb { position: relative; display: inline-flex; align-items: flex-end; justify-content: center; }
 .avatar-orb-glow { position: absolute; inset: -12% -35% auto -35%; height: 60%; border-radius: 50%; filter: blur(14px); opacity: .45; pointer-events: none; }
 .avatar-orb-ring { transform-box: fill-box; transform-origin: center; animation: orb-ring-spin 14s linear infinite; }
-.avatar-orb-core { transform-box: fill-box; transform-origin: center; filter: drop-shadow(0 0 5px var(--orb-glow-color, #00D4FF)); animation: orb-core-breathe 4.4s ease-in-out infinite; }
-.avatar-orb-chest { transform-box: fill-box; transform-origin: center; filter: drop-shadow(0 0 4px var(--orb-glow-color, #00D4FF)); animation: orb-core-breathe 3.2s ease-in-out infinite; }
+.avatar-orb-core { transform-box: fill-box; transform-origin: center; filter: drop-shadow(0 0 5px var(--orb-glow-color, #d7ae57)); animation: orb-core-breathe 4.4s ease-in-out infinite; }
+.avatar-orb-chest { transform-box: fill-box; transform-origin: center; filter: drop-shadow(0 0 4px var(--orb-glow-color, #d7ae57)); animation: orb-core-breathe 3.2s ease-in-out infinite; }
 .avatar-orb--speaking .avatar-orb-core { animation: orb-core-speak .5s ease-in-out infinite; }
 .avatar-orb--speaking .avatar-orb-glow { opacity: .7; }
 .avatar-orb--listening .avatar-orb-ring { animation: orb-ring-spin 3.2s linear infinite; }
@@ -1027,11 +1066,11 @@ svg { width: 1rem; height: 1rem; flex: none; }
 
 /* ===== Живые поверхности экономики (Claude B) ======================
    Ответ на спеку Claude A («Живой фон платформы»): view-файлы домена B
-   хардкодили НЕПРОЗРАЧНЫЙ корневой linear-gradient(#0A0A0F→…) на весь
+   хардкодили НЕПРОЗРАЧНЫЙ корневой linear-gradient(#10181d→…) на весь
    экран — он глушил общий AmbientBackdrop, и Кузница/Маркет/Аукционы
    выглядели плоскими и мёртвыми. Здесь — переиспользуемый словарь
    «живых» поверхностей: страница-вуаль вместо глухой заливки и
-   стеклянные панели вместо плоских bg-[#14141E] с 1px-бордером.
+   стеклянные панели вместо плоских bg-[#17242a] с 1px-бордером.
    Строится на существующих токенах (--eg-glass-*, --color-gold-rgb,
    --ease-premium, --radius). Ничего существующего не переопределяет. */
 
@@ -1059,7 +1098,7 @@ svg { width: 1rem; height: 1rem; flex: none; }
 }
 
 /* Стеклянная панель экономики: полупрозрачный материал + блюр (сквозь
-   неё видно ambient) вместо плоского #14141E. Сестра .premium-panel
+   неё видно ambient) вместо плоского #17242a. Сестра .premium-panel
    Claude A, но без золотой волосяной линии — та зарезервирована за
    конверсионными экранами (вход/регистрация), здесь её было бы слишком
    много (панелей на экране десятки). */
@@ -1081,7 +1120,7 @@ svg { width: 1rem; height: 1rem; flex: none; }
   box-shadow: 0 0 28px -6px rgb(var(--color-gold-rgb) / 0.28);
 }
 
-/* Утопленная плашка внутри панели — замена глухого bg #0A0A0F
+/* Утопленная плашка внутри панели — замена глухого bg #10181d
    (цифры/итоги/пустые состояния). Тёмное стекло, а не дыра. */
 .eg-inset {
   background: rgb(6 7 12 / 52%);
@@ -1333,7 +1372,7 @@ svg { width: 1rem; height: 1rem; flex: none; }
 
 /* --- Соц-вход: перекрашиваем ИЗ КОНТЕЙНЕРА, не трогая компонент Claude A ---
    components/social-login-buttons.tsx — файл домена A с жёстко зашитым
-   cyan-hover (#00D4FF) и плоской заливкой #0A0A0F. Правим потомков через свою
+   cyan-hover (#d7ae57) и плоской заливкой #10181d. Правим потомков через свою
    область: тот же премиум-язык, чужой файл нетронут. */
 .auth-social .h-px { background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.12), transparent) !important; }
 .auth-social span {
@@ -1612,7 +1651,7 @@ svg { width: 1rem; height: 1rem; flex: none; }
 
 /* ── Кнопка входа в режим разработчика (шапка обычного режима) ──
       Раньше была неотличима от служебных иконок шапки (серый текст,
-      бордер #2A2A3E) и подписана «Dev» — аббревиатурой, которая ничего
+      бордер #30424b) и подписана «Dev» — аббревиатурой, которая ничего
       не говорит тому, кто про режим ещё не знает. Теперь это заметная
       золотая кнопка с полным названием: вход во вторую вселенную —
       не служебная иконка, он обязан бросаться в глаза. */
@@ -1628,7 +1667,7 @@ svg { width: 1rem; height: 1rem; flex: none; }
               box-shadow .2s ease, transform .18s var(--ease-out-soft, cubic-bezier(.22,.61,.36,1));
 }
 .dev-mode-nav-btn:hover:not(:disabled) {
-  color: #0A0A0F;
+  color: #10181d;
   background: linear-gradient(135deg, #F3DF9B, #D4AF37);
   border-color: rgb(212 175 55 / 85%);
   box-shadow: 0 0 18px rgb(212 175 55 / 45%);
@@ -1815,21 +1854,21 @@ svg { width: 1rem; height: 1rem; flex: none; }
 
 /* ── Мастерская внутри студии: бирюза мира → серебро ──
       Кнопки «Сохранить» / «Запустить» и рамки панелей приходят из общего
-      экрана Мастерской с жёстко вшитым accent #00D4FF (lib/economy.tsx).
+      экрана Мастерской с жёстко вшитым accent #d7ae57 (lib/economy.tsx).
       Менять саму константу нельзя — она держит весь мир OSGARD, поэтому
       перекрашиваем точечно и только под .dev-mode.
 
       Селектор по атрибуту, а не по классу: цвета заданы inline-стилями,
       классов у этих кнопок нет. */
-.dev-mode [style*="#00D4FF"],
-.dev-mode [style*="rgb(0, 212, 255)"] {
+.dev-mode [style*="#d7ae57"],
+.dev-mode [style*="rgb(215, 174, 87)"] {
   color: #E2E8F0 !important;
   border-color: rgb(226 232 240 / 30%) !important;
 }
 /* Заливка (у «Сохранить»/«Запустить» цвет уходит в background) — серебро. */
-.dev-mode [style*="background-color: rgb(0, 212, 255)"],
-.dev-mode [style*="background: #00D4FF"],
-.dev-mode [style*="backgroundColor:#00D4FF"] {
+.dev-mode [style*="background-color: rgb(215, 174, 87)"],
+.dev-mode [style*="background: #d7ae57"],
+.dev-mode [style*="backgroundColor:#d7ae57"] {
   background: linear-gradient(145deg, #E2E8F0, #CBD5E1) !important;
   color: #0F172A !important;
   border-color: transparent !important;

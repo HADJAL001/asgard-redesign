@@ -79,3 +79,18 @@ test("OAuth-callback выдаёт stateful refresh-токен", () => {
     "соц-вход обязан выдавать refresh через RefreshTokenService.issue()",
   )
 })
+
+test("mobile OAuth uses a claimed callback and one-time code exchange", () => {
+  const oauth = fs.readFileSync(path.join(srcRoot, "routes", "oauth.routes.ts"), "utf8")
+  const mobile = fs.readFileSync(path.resolve(srcRoot, "..", "..", "mobile", "lib", "oauth.ts"), "utf8")
+  const server = stripComments(oauth)
+
+  assert.match(server, /parsed\.protocol === 'osgard:'/)
+  assert.match(server, /parsed\.hostname === 'oauth-callback'/)
+  assert.match(server, /parsed\.pathname === '\/oauth-callback'/)
+  assert.match(server, /router\.post\('\/exchange'/)
+  assert.doesNotMatch(server, /parsed\.protocol === 'myapp:'/)
+  assert.doesNotMatch(server, /[?&](?:token|refreshToken)=/i)
+  assert.match(mobile, /\/auth\/exchange/)
+  assert.match(mobile, /body: JSON\.stringify\(\{ code \}\)/)
+})

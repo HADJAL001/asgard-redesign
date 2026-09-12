@@ -133,12 +133,12 @@ export function RoamingAvatar() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: isListening ? "#FFC94A" : "#0A0A0F",
-              border: "1.5px solid #00D4FF",
+              background: isListening ? "#FFC94A" : "#10181d",
+              border: "1.5px solid #d7ae57",
               boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
             }}
           >
-            <Mic size={12} color={isListening ? "#0A0A0F" : "#00D4FF"} strokeWidth={2} aria-hidden="true" />
+            <Mic size={12} color={isListening ? "#10181d" : "#d7ae57"} strokeWidth={2} aria-hidden="true" />
           </span>
         )}
 
@@ -151,7 +151,7 @@ export function RoamingAvatar() {
               transform: "translateX(-50%)",
               width: 220,
               background: "rgba(10,10,15,0.94)",
-              border: "1px solid rgba(0,212,255,0.3)",
+              border: "1px solid rgba(215, 174, 87,0.3)",
               borderRadius: 10,
               padding: "8px 10px",
               fontSize: 12,

@@ -71,7 +71,7 @@ export function ArtifactMiniCard({ a, tcUsdPrice }: { a: MiniArtifact; tcUsdPric
         {a.status === "listed" && (
           <span
             className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px]"
-            style={{ border: `1px solid ${COLORS.border}`, color: "#00D4FF" }}
+            style={{ border: `1px solid ${COLORS.border}`, color: "#d7ae57" }}
           >
             В продаже
           </span>
@@ -79,7 +79,7 @@ export function ArtifactMiniCard({ a, tcUsdPrice }: { a: MiniArtifact; tcUsdPric
         {a.status === "sold" && (
           <span
             className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px]"
-            style={{ border: `1px solid ${COLORS.border}`, color: "#4ADE80" }}
+            style={{ border: `1px solid ${COLORS.border}`, color: "#d7ae57" }}
           >
             Продан
           </span>

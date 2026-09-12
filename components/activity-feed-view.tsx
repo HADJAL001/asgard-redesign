@@ -17,9 +17,9 @@ const DEFAULT_AVATAR =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-       <rect width="48" height="48" rx="24" fill="#14141E"/>
-       <circle cx="24" cy="18" r="8" fill="#2A2A3E"/>
-       <path d="M8 42c0-9 7-14 16-14s16 5 16 14" fill="#2A2A3E"/>
+       <rect width="48" height="48" rx="24" fill="#17242a"/>
+       <circle cx="24" cy="18" r="8" fill="#30424b"/>
+       <path d="M8 42c0-9 7-14 16-14s16 5 16 14" fill="#30424b"/>
      </svg>`,
   )
 
@@ -30,7 +30,7 @@ const TYPE_ICON: Record<string, LucideIcon> = {
 }
 
 const TYPE_COLOR: Record<string, string> = {
-  artifact_crafted: "#00D4FF",
+  artifact_crafted: "#d7ae57",
   artifact_sold: "#34D399",
   hof_entry: "#FFD700",
 }
@@ -53,7 +53,7 @@ function timeLabelFor(raw: string): string {
 
 function EventCard({ item, reduce }: { item: ActivityEvent; reduce: boolean }) {
   const Icon = TYPE_ICON[item.type] ?? Sparkles
-  const color = TYPE_COLOR[item.type] ?? "#6A6A8A"
+  const color = TYPE_COLOR[item.type] ?? "#9eb2bc"
   const name = item.actor.displayName || item.actor.username
 
   return (
@@ -63,9 +63,9 @@ function EventCard({ item, reduce }: { item: ActivityEvent; reduce: boolean }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: reduce ? 0.2 : 0.42, ease: [0.16, 1, 0.3, 1] }}
       className="rounded-lg p-4 transition-colors"
-      style={{ backgroundColor: "#14141E", border: "1px solid #2A2A3E" }}
+      style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = color)}
-      onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#2A2A3E")}
+      onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30424b")}
     >
       <div className="flex items-start gap-3">
         <Link href={`/profile/${item.actor.id}`} className="shrink-0">
@@ -128,7 +128,7 @@ export function ActivityFeedView() {
   }, [refresh])
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #0A0A0F 0%, #14141E 100%)", color: "#FFFFFF" }}>
+    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #10181d 0%, #17242a 100%)", color: "#FFFFFF" }}>
       <Navbar />
 
       <main className="mx-auto max-w-[700px] px-6 py-10 md:px-10 md:py-12">
@@ -145,23 +145,23 @@ export function ActivityFeedView() {
 
         {loading && events.length === 0 && (
           <div className="mt-16 flex flex-col items-center gap-3 text-center">
-            <Loader2 size={28} className="animate-spin" style={{ color: "#00D4FF" }} />
-            <p className="text-[14px]" style={{ color: "#6A6A8A" }}>
+            <Loader2 size={28} className="animate-spin" style={{ color: "#d7ae57" }} />
+            <p className="text-[14px]" style={{ color: "#9eb2bc" }}>
               {t("common.loading")}
             </p>
           </div>
         )}
 
         {error && !loading && (
-          <p className="mt-6 text-center text-[13px]" role="status" style={{ color: "#F87171" }}>
+          <p className="mt-6 text-center text-[13px]" role="status" style={{ color: "#e2685c" }}>
             {error}
           </p>
         )}
 
         {!loading && events.length === 0 && !error && (
           <div className="mt-16 flex flex-col items-center gap-3 text-center">
-            <Sparkles size={32} strokeWidth={1.25} style={{ color: "#6A6A8A" }} />
-            <p className="text-[15px]" style={{ color: "#6A6A8A" }}>
+            <Sparkles size={32} strokeWidth={1.25} style={{ color: "#9eb2bc" }} />
+            <p className="text-[15px]" style={{ color: "#9eb2bc" }}>
               {t("activityFeed.empty")}
             </p>
           </div>
@@ -184,9 +184,9 @@ export function ActivityFeedView() {
               onClick={loadMore}
               disabled={loadingMore}
               className="rounded-lg px-4 py-2.5 text-[13px] transition-colors disabled:opacity-50"
-              style={{ border: "1px solid #2A2A3E", color: "rgba(255,255,255,0.8)" }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#00D4FF")}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#2A2A3E")}
+              style={{ border: "1px solid #30424b", color: "rgba(255,255,255,0.8)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#d7ae57")}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#30424b")}
             >
               {loadingMore ? t("common.loading") : t("activityFeed.loadMore")}
             </button>
