@@ -1987,3 +1987,5 @@ timestamp,endpoint,http_code,response_time_s,ok
 2026-09-12T05:51:42Z,tc-market-state,200,0.293361,1
 2026-09-12T09:55:38Z,health,200,1.195740,1
 2026-09-12T09:55:38Z,tc-market-state,200,0.472277,1
+2026-09-12T13:18:56Z,health,200,0.903401,1
+2026-09-12T13:18:56Z,tc-market-state,200,0.299578,1
