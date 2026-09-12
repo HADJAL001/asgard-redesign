@@ -307,7 +307,7 @@ function GameIconBar() {
             className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-2.5 py-2 text-sm font-medium transition duration-200 hover:scale-105 ${
               active
                 ? "border-primary/50 bg-primary/10 text-primary shadow-[0_0_16px_rgba(215, 174, 87,0.28)]"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-white/5"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-[color:var(--line)]/35"
             }`}
           >
             {Icon ? <Icon /> : <span className="grid size-5 place-items-center font-display text-xs font-bold">{label}</span>}

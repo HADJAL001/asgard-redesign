@@ -211,7 +211,7 @@ export function LeaderboardView() {
                   <Link
                     key={u.userId}
                     href={`/profile/${u.userId}`}
-                    className="grid grid-cols-[0.5fr_2fr_1fr_1.2fr_1fr_1fr] items-center gap-4 px-6 py-3.5 text-[14px] transition-colors hover:bg-white/5"
+                    className="grid grid-cols-[0.5fr_2fr_1fr_1.2fr_1fr_1fr] items-center gap-4 px-6 py-3.5 text-[14px] transition-colors hover:bg-[color:var(--line)]/35"
                     style={{ borderBottom: `1px solid ${COLORS.border}` }}
                   >
                     <span style={{ color: u.position <= 3 ? PODIUM[u.position - 1] : COLORS.label }}>

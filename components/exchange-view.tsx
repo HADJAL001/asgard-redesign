@@ -482,7 +482,7 @@ export function ExchangeView() {
         {/* Converter shortcut */}
         <a
           href="/wallet"
-          className="mt-6 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-medium transition-colors hover:bg-white/5"
+          className="mt-6 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-medium transition-colors hover:bg-[color:var(--line)]/35"
           style={{ border: `1px solid ${BORDER}`, color: ACCENT }}
         >
           <ArrowRightLeft size={16} strokeWidth={1.75} aria-hidden="true" />

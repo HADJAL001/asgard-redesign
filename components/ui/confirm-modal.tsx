@@ -73,7 +73,7 @@ export function ConfirmModal({
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/10"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[color:var(--line)]/50"
             style={{ color: COLORS.label }}
             aria-label={cancelLabel}
           >

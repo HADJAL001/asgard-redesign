@@ -255,10 +255,10 @@ export default function WalliRoom() {
           <div className="bg-[#0c0c10]/98 border border-[#c8830e]/25 rounded-2xl p-6 w-80 shadow-2xl">
             <h3 className="text-[#e8a820] text-lg font-semibold mb-4 text-center tracking-widest uppercase">{t('walli.roomLabel')}</h3>
             <div className="space-y-2">
-              <button className="w-full bg-white/5 hover:bg-white/10 text-white py-2.5 rounded-lg transition-colors text-sm" onClick={() => { setMenuOpen(false); voice.setVoiceOpen(true) }}>Поговорить</button>
-              <button className="w-full bg-white/5 hover:bg-white/10 text-white py-2.5 rounded-lg transition-colors text-sm" onClick={() => { setMenuOpen(false); setUpgradeOpen(true) }}>Улучшить способности</button>
-              <button className="w-full bg-white/5 hover:bg-white/10 text-white py-2.5 rounded-lg transition-colors text-sm" onClick={() => { setMenuOpen(false); setTrainOpen(true) }}>Обучение</button>
-              <button className="w-full bg-white/5 hover:bg-white/10 text-[#888] py-2.5 rounded-lg transition-colors text-sm mt-2" onClick={() => setMenuOpen(false)}>Закрыть</button>
+              <button className="w-full bg-white/5 hover:bg-[color:var(--line)]/50 text-white py-2.5 rounded-lg transition-colors text-sm" onClick={() => { setMenuOpen(false); voice.setVoiceOpen(true) }}>Поговорить</button>
+              <button className="w-full bg-white/5 hover:bg-[color:var(--line)]/50 text-white py-2.5 rounded-lg transition-colors text-sm" onClick={() => { setMenuOpen(false); setUpgradeOpen(true) }}>Улучшить способности</button>
+              <button className="w-full bg-white/5 hover:bg-[color:var(--line)]/50 text-white py-2.5 rounded-lg transition-colors text-sm" onClick={() => { setMenuOpen(false); setTrainOpen(true) }}>Обучение</button>
+              <button className="w-full bg-white/5 hover:bg-[color:var(--line)]/50 text-[#888] py-2.5 rounded-lg transition-colors text-sm mt-2" onClick={() => setMenuOpen(false)}>Закрыть</button>
             </div>
           </div>
         </div>
@@ -272,12 +272,12 @@ export default function WalliRoom() {
               {(([['find_artifacts','Поиск артефактов'],['trade','Торговля'],['analyze','Анализ']] as const)).map(([ab, label]) => {
                 const a = abilities.find((x: any) => x.ability_type === ab)
                 return (
-                  <button key={ab} disabled={busy} className="w-full bg-white/5 hover:bg-white/10 text-white py-2 rounded-lg transition-colors disabled:opacity-50 text-sm" onClick={() => doUpgrade(ab)}>
+                  <button key={ab} disabled={busy} className="w-full bg-white/5 hover:bg-[color:var(--line)]/50 text-white py-2 rounded-lg transition-colors disabled:opacity-50 text-sm" onClick={() => doUpgrade(ab)}>
                     {label} (Ур. {a?.current_level ?? 0}) — ${a?.upgrade_price_usd ?? 19}
                   </button>
                 )
               })}
-              <button className="w-full bg-white/5 hover:bg-white/10 text-[#888] py-2 rounded-lg mt-2 text-sm" onClick={() => setUpgradeOpen(false)}>Закрыть</button>
+              <button className="w-full bg-white/5 hover:bg-[color:var(--line)]/50 text-[#888] py-2 rounded-lg mt-2 text-sm" onClick={() => setUpgradeOpen(false)}>Закрыть</button>
             </div>
           </div>
         </div>
@@ -289,11 +289,11 @@ export default function WalliRoom() {
             <h3 className="text-[#e8a820] text-lg font-semibold mb-4 text-center">Обучение</h3>
             <div className="space-y-2">
               {([1,2,3,4,5] as const).map(lv => (
-                <button key={lv} disabled={busy} className="w-full bg-white/5 hover:bg-white/10 text-white py-2 rounded-lg transition-colors disabled:opacity-50 text-sm" onClick={() => doTrain(lv)}>
+                <button key={lv} disabled={busy} className="w-full bg-white/5 hover:bg-[color:var(--line)]/50 text-white py-2 rounded-lg transition-colors disabled:opacity-50 text-sm" onClick={() => doTrain(lv)}>
                   Уровень {lv} — ${econ.economy?.pricing?.training_levels?.[lv] ?? (15 + 5 * (lv - 1))}
                 </button>
               ))}
-              <button className="w-full bg-white/5 hover:bg-white/10 text-[#888] py-2 rounded-lg mt-2 text-sm" onClick={() => setTrainOpen(false)}>Закрыть</button>
+              <button className="w-full bg-white/5 hover:bg-[color:var(--line)]/50 text-[#888] py-2 rounded-lg mt-2 text-sm" onClick={() => setTrainOpen(false)}>Закрыть</button>
             </div>
           </div>
         </div>
@@ -312,11 +312,11 @@ export default function WalliRoom() {
             </div>
             <div className="flex gap-2 mb-3">
               <input type="text" value={textInput} onChange={e => setTextInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendText()} placeholder="Напиши ВАЛЛИ..." className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-[#444] outline-none focus:border-[#c8830e]/40" />
-              <button onClick={sendText} className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-3 py-2 text-[#e8a820] text-sm transition-colors">→</button>
+              <button onClick={sendText} className="bg-white/5 hover:bg-[color:var(--line)]/50 border border-white/10 rounded-lg px-3 py-2 text-[#e8a820] text-sm transition-colors">→</button>
             </div>
             <div className="flex justify-center">
               <button onClick={voice.isListening ? voice.stopListening : voice.startListening} disabled={!voice.sttSupported}
-                className={`w-12 h-12 rounded-full border flex items-center justify-center text-xl transition-all ${voice.isListening ? "bg-[#c8830e]/20 border-[#c8830e]/60" : "bg-white/5 border-white/15 hover:bg-white/10"} ${!voice.sttSupported ? "opacity-30 cursor-not-allowed" : ""}`}>
+                className={`w-12 h-12 rounded-full border flex items-center justify-center text-xl transition-all ${voice.isListening ? "bg-[#c8830e]/20 border-[#c8830e]/60" : "bg-white/5 border-white/15 hover:bg-[color:var(--line)]/50"} ${!voice.sttSupported ? "opacity-30 cursor-not-allowed" : ""}`}>
                 {voice.isListening ? "■" : "●"}
               </button>
             </div>

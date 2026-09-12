@@ -165,7 +165,7 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
             type="button"
             onClick={() => load(true)}
             disabled={refreshing}
-            className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors hover:bg-white/5"
+            className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors hover:bg-[color:var(--line)]/35"
             style={{ color: "#9eb2bc" }}
             aria-label="Обновить"
           >
@@ -265,7 +265,7 @@ export function AiUsageWidget({ compact = false }: { compact?: boolean }) {
           type="button"
           onClick={() => load(true)}
           disabled={refreshing}
-          className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors hover:bg-white/5"
+          className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors hover:bg-[color:var(--line)]/35"
           style={{ color: "#9eb2bc" }}
           aria-label="Обновить"
         >

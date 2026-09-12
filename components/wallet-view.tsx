@@ -423,7 +423,7 @@ export function WalletView() {
                   setTo(from)
                   setNotice(null)
                 }}
-                className="mx-auto flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/5"
+                className="mx-auto flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-[color:var(--line)]/35"
                 style={{ border: `1px solid ${COLORS.border}`, color: COLORS.label }}
               >
                 <ArrowRight size={16} strokeWidth={1.75} />
@@ -570,7 +570,7 @@ export function WalletView() {
               <button
                 type="button"
                 onClick={() => setWithdrawOpen(false)}
-                className="flex size-8 items-center justify-center rounded-lg text-[18px] transition-colors hover:bg-white/10"
+                className="flex size-8 items-center justify-center rounded-lg text-[18px] transition-colors hover:bg-[color:var(--line)]/50"
                 style={{ color: COLORS.label }}
                 aria-label="Закрыть"
               >
@@ -670,7 +670,7 @@ export function WalletView() {
               <button
                 type="button"
                 onClick={() => setDepositOpen(false)}
-                className="flex size-8 items-center justify-center rounded-lg text-[18px] transition-colors hover:bg-white/10"
+                className="flex size-8 items-center justify-center rounded-lg text-[18px] transition-colors hover:bg-[color:var(--line)]/50"
                 style={{ color: COLORS.label }}
                 aria-label="Закрыть"
               >

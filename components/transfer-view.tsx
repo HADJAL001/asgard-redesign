@@ -243,7 +243,7 @@ export function TransferView() {
                 type="button"
                 onClick={() => setConfirmOpen(false)}
                 disabled={confirmBusy}
-                className="flex size-8 items-center justify-center rounded-lg text-[18px] transition-colors hover:bg-white/10"
+                className="flex size-8 items-center justify-center rounded-lg text-[18px] transition-colors hover:bg-[color:var(--line)]/50"
                 style={{ color: COLORS.label }}
                 aria-label="Закрыть"
               >
