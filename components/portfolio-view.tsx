@@ -25,14 +25,14 @@ import {
 } from "lucide-react"
 import { Navbar } from "./navbar"
 
-/* ---- Palette ----
-   bg #0A0A0F · card #14141E · accent #00D4FF · text #FFFFFF · label #6A6A8A · border #2A2A3E
-   up #10B981 · down #EF4444 · dividend #F59E0B */
-const ACCENT = "#00D4FF"
-const CARD = "#14141E"
-const BORDER = "#2A2A3E"
-const LABEL = "#6A6A8A"
-const UP = "#10B981"
+/* ---- Palette (docs/OSGARD-PREMIUM-INTERFACE-PLAN.md) ----
+   bg #10181d · card #17242a · accent #d7ae57 · text #f6f3eb · label #9eb2bc · border #30424b
+   up #d7ae57 (зелёный запрещён как брендовый цвет) · down #EF4444 · dividend #F59E0B */
+const ACCENT = "#d7ae57"
+const CARD = "#17242a"
+const BORDER = "#30424b"
+const LABEL = "#9eb2bc"
+const UP = "#d7ae57"
 const DOWN = "#EF4444"
 const DIVIDEND = "#F59E0B"
 
@@ -107,7 +107,7 @@ function ChartTip({ active, payload }: any) {
   return (
     <div
       className="rounded-md px-3 py-1.5 font-sans text-[12px]"
-      style={{ backgroundColor: "#0A0A0F", border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
+      style={{ backgroundColor: "#10181d", border: `1px solid ${BORDER}`, color: "#f6f3eb" }}
     >
       {Number(payload[0].value).toLocaleString("ru-RU")} USDT
     </div>
@@ -358,7 +358,7 @@ function HoldingsCard({
         <button
           type="button"
           className="flex-1 rounded-lg px-4 py-2.5 text-[14px] font-medium transition-colors"
-          style={{ backgroundColor: ACCENT, color: "#0A0A0F" }}
+          style={{ backgroundColor: ACCENT, color: "#10181d" }}
           onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
           onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
         >
