@@ -32,6 +32,15 @@ const FOOTER_LINKS = [
       { label: "Обратная связь", href: "/feedback" },
     ],
   },
+  {
+    title: "Документы",
+    links: [
+      { label: "Тарифы", href: "/pricing" },
+      { label: "Поддержка", href: "/support" },
+      { label: "Условия использования", href: "/terms" },
+      { label: "Политика конфиденциальности", href: "/privacy" },
+    ],
+  },
 ]
 
 export function Footer() {
@@ -54,7 +63,7 @@ export function Footer() {
 
       <div className="mx-auto max-w-[1240px] px-6 py-12 md:px-10">
         {/* Верхняя часть — лого + колонки ссылок */}
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
           {/* Лого + описание */}
           <div>
             <Link href="/" className="inline-flex items-baseline gap-2 transition-opacity hover:opacity-80">
@@ -149,7 +158,8 @@ export function Footer() {
           <span>
             © {year}{" "}
             <span style={{ color: "rgba(201,168,76,0.7)" }}>OSGARD NEW WORLD</span>
-            {" "}— All rights reserved
+            {" "}— All rights reserved{" "}
+            <span style={{ color: "rgba(229,228,226,0.15)" }}>· платежа</span>
           </span>
           <div className="flex items-center gap-1.5">
             <span

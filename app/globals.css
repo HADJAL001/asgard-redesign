@@ -920,11 +920,52 @@ svg { width: 1rem; height: 1rem; flex: none; }
 }
 .workshop-backdrop-image {
   position: absolute; inset: -3%;
-  background-image: url("/backgrounds/workshop.webp");
-  background-size: cover; background-position: center;
-  filter: saturate(1.05) brightness(0.9);
-  animation: workshop-ken-burns 75s ease-in-out infinite alternate;
+  background:
+    radial-gradient(ellipse 60% 45% at 22% 18%, rgb(106 90 205 / 0.28), transparent 60%),
+    radial-gradient(ellipse 55% 40% at 82% 72%, rgb(45 125 210 / 0.22), transparent 60%),
+    radial-gradient(ellipse 70% 55% at 50% 100%, rgb(201 168 76 / 0.10), transparent 65%),
+    radial-gradient(circle at 50% 50%, #0d1230 0%, #070a1c 45%, #04050e 100%);
+  animation: workshop-ken-burns 90s ease-in-out infinite alternate;
   will-change: transform;
+}
+.workshop-backdrop-aurora {
+  position: absolute; inset: -20%;
+  background:
+    conic-gradient(from 210deg at 30% 20%,
+      transparent 0deg,
+      rgb(106 90 205 / 0.22) 40deg,
+      rgb(45 125 210 / 0.16) 90deg,
+      transparent 140deg,
+      transparent 360deg);
+  filter: blur(60px);
+  mix-blend-mode: screen;
+  animation: workshop-aurora-drift 42s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+@keyframes workshop-aurora-drift {
+  0%   { transform: translate3d(-4%, -2%, 0) rotate(0deg); opacity: 0.55; }
+  50%  { transform: translate3d(3%, 4%, 0) rotate(8deg); opacity: 0.85; }
+  100% { transform: translate3d(-2%, 3%, 0) rotate(-4deg); opacity: 0.6; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workshop-backdrop-aurora { animation: none; }
+}
+.workshop-backdrop-stars {
+  position: absolute; inset: -3%;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 22%, #fff, transparent),
+    radial-gradient(1px 1px at 28% 65%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 44% 12%, rgb(255 255 255 / 0.85), transparent),
+    radial-gradient(1px 1px at 58% 48%, #fff, transparent),
+    radial-gradient(2px 2px at 71% 28%, rgb(255 245 210 / 0.9), transparent),
+    radial-gradient(1px 1px at 83% 62%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 92% 15%, #fff, transparent),
+    radial-gradient(1px 1px at 6% 82%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 35% 88%, rgb(255 255 255 / 0.8), transparent),
+    radial-gradient(1px 1px at 66% 92%, #fff, transparent);
+  background-repeat: no-repeat;
+  opacity: 0.55;
+  animation: workshop-twinkle 5s ease-in-out infinite alternate;
 }
 .workshop-backdrop-grain {
   position: absolute; inset: 0;
@@ -943,8 +984,95 @@ svg { width: 1rem; height: 1rem; flex: none; }
   0%   { transform: scale(1) translate3d(0, 0, 0); }
   100% { transform: scale(1.08) translate3d(-1.2%, -1%, 0); }
 }
+@keyframes workshop-twinkle {
+  0%   { opacity: 0.4; }
+  100% { opacity: 0.7; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .workshop-backdrop-image { animation: none; }
+  .workshop-backdrop-image, .workshop-backdrop-stars { animation: none; }
+}
+
+/* ================================================================
+   ShootingStar — метеоритный дождь: 5 падающих звёзд разной яркости,
+   скорости и угла, вразнобой по времени. Голова со вспышкой при
+   появлении + конусный хвост, сужающийся к концу. Чистый CSS.
+   ================================================================ */
+.shooting-star-root {
+  position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+}
+.shooting-star {
+  position: absolute;
+  top: -10%;
+  left: 15%;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 12px 3px rgb(255 255 255 / 0.95), 0 0 28px 7px rgb(201 168 76 / 0.6);
+  opacity: 0;
+  animation: shooting-star-fall 6s cubic-bezier(0.3, 0, 0.7, 1) infinite;
+}
+.shooting-star::before {
+  content: "";
+  position: absolute;
+  top: 50%; right: 0;
+  width: 220px; height: 2px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.9) 55%, #fff 100%);
+  clip-path: polygon(0 45%, 100% 0, 100% 100%, 0 55%);
+  transform: translateY(-50%) rotate(180deg);
+  transform-origin: right center;
+  filter: drop-shadow(0 0 4px rgb(255 255 255 / 0.6));
+}
+.shooting-star::after {
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 40px; height: 40px;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.9), transparent 70%);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  animation: shooting-star-flash 6s cubic-bezier(0.3, 0, 0.7, 1) infinite;
+}
+.shooting-star--a { top: -8%; left: 10%; animation-delay: 0s; animation-duration: 6s; }
+.shooting-star--a::after { animation-delay: 0s; animation-duration: 6s; }
+.shooting-star--b {
+  top: -6%; left: 48%; animation-delay: 2.2s; animation-duration: 5s;
+  width: 3px; height: 3px; box-shadow: 0 0 8px 2px rgb(255 255 255 / 0.85), 0 0 18px 4px rgb(45 125 210 / 0.5);
+}
+.shooting-star--b::before { width: 150px; opacity: 0.85; }
+.shooting-star--b::after { animation-delay: 2.2s; animation-duration: 5s; }
+.shooting-star--c {
+  top: -10%; left: 72%; animation-delay: 4.6s; animation-duration: 8s;
+  width: 5px; height: 5px; box-shadow: 0 0 16px 4px rgb(255 255 255 / 1), 0 0 34px 9px rgb(201 168 76 / 0.7);
+}
+.shooting-star--c::before { width: 280px; height: 3px; }
+.shooting-star--c::after { animation-delay: 4.6s; animation-duration: 8s; }
+.shooting-star--d {
+  top: -5%; left: 30%; animation-delay: 7.5s; animation-duration: 4.5s;
+  width: 2.5px; height: 2.5px; box-shadow: 0 0 7px 2px rgb(255 255 255 / 0.8);
+}
+.shooting-star--d::before { width: 110px; opacity: 0.7; }
+.shooting-star--d::after { animation-delay: 7.5s; animation-duration: 4.5s; }
+.shooting-star--e {
+  top: -9%; left: 88%; animation-delay: 10.8s; animation-duration: 6.5s;
+  width: 3.5px; height: 3.5px; box-shadow: 0 0 10px 3px rgb(255 255 255 / 0.9), 0 0 20px 5px rgb(106 90 205 / 0.5);
+}
+.shooting-star--e::before { width: 170px; }
+.shooting-star--e::after { animation-delay: 10.8s; animation-duration: 6.5s; }
+@keyframes shooting-star-fall {
+  0%   { transform: translate3d(0, 0, 0); opacity: 0; }
+  3%   { opacity: 1; }
+  24%  { transform: translate3d(-42vw, 50vh, 0); opacity: 1; }
+  30%  { opacity: 0; }
+  100% { opacity: 0; }
+}
+@keyframes shooting-star-flash {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  2%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  6%   { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shooting-star, .shooting-star::after { animation: none; opacity: 0; }
 }
 
 /* ===== Premium surface utilities (Claude A) ========================
@@ -1194,12 +1322,13 @@ svg { width: 1rem; height: 1rem; flex: none; }
 .auth-stage::before {
   content: ""; position: absolute; inset: -3%; pointer-events: none; z-index: 0;
   background-image:
-    radial-gradient(46% 34% at 50% 30%, rgb(var(--color-gold-rgb) / 0.10), transparent 68%),
+    radial-gradient(46% 34% at 50% 30%, rgb(var(--color-gold-rgb) / 0.08), transparent 68%),
     radial-gradient(70% 50% at 50% 120%, rgb(8 10 18 / 0.75), transparent 70%),
-    url("/backgrounds/cosmic-login.webp");
-  background-size: auto, auto, cover;
+    radial-gradient(ellipse 60% 45% at 22% 18%, rgb(106 90 205 / 0.24), transparent 60%),
+    radial-gradient(ellipse 55% 40% at 82% 72%, rgb(45 125 210 / 0.20), transparent 60%),
+    radial-gradient(circle at 50% 50%, #0d1230 0%, #070a1c 45%, #04050e 100%);
+  background-size: auto, auto, auto, auto, cover;
   background-position: center;
-  filter: saturate(1.1) brightness(0.85);
   animation: auth-stage-ken-burns 80s ease-in-out infinite alternate;
   will-change: transform;
 }

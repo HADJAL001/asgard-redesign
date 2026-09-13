@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, GitBranch, Play, Pencil, Trash2, Loader2 } from "lucide-react"
 import { Navbar } from "./navbar"
-import { SnakeBackground } from "./snake-bg"
+import { ShootingStar } from "./shooting-star"
 import { WorkshopBackdrop } from "./workshop-backdrop"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
@@ -64,7 +64,7 @@ export function OrchestratorView() {
   return (
     <div className="eg-page relative overflow-hidden min-h-screen font-sans" style={{ color: COLORS.text }}>
       <WorkshopBackdrop />
-      <SnakeBackground />
+      <ShootingStar />
       <Navbar />
 
       <main className="relative z-10 mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
@@ -92,6 +92,11 @@ export function OrchestratorView() {
             <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
             {t("orchestrator.createBtn")}
           </button>
+        </div>
+
+        <div className="eg-surface mt-6 rounded-xl px-5 py-4" style={{ borderColor: "rgb(var(--color-gold-rgb) / 0.25)" }}>
+          <p className="text-[13px] font-medium" style={{ color: "var(--eg-gold-2)" }}>{t("orchestrator.exampleTitle")}</p>
+          <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: COLORS.label }}>{t("orchestrator.exampleBody")}</p>
         </div>
 
         {error && (

@@ -259,6 +259,9 @@
     "capPlan": "Per-stake cap on the {{plan}} plan is {{amount}}. The field won't accept more.",
     "capUpgrade": "Upgrade plan",
     "capBalance": "Capped by your balance: {{amount}}.",
+    "secretRoomBonus": "+{{amount}}% from Secret Room",
+    "secretRoomHint": "Unlock the Secret Room — +2% APR on any stake",
+    "secretRoomLink": "Open the room",
     "blockedNoFunds": "You need at least {{amount}} ∞ on your balance to open a stake.",
     "blockedBelowMin": "Minimum stake amount is {{amount}} ∞.",
     "blockedEnterAmount": "Enter an amount to see the income forecast."
@@ -581,7 +584,9 @@
   },
   "orchestrator": {
     "title": "Orchestrator",
-    "subtitle": "Build chains of AI model calls and run them",
+    "subtitle": "Build a pipeline: each node passes its result to the next. Example: OSGARD 5.0 plans → OSGARD 4.0 writes the code → Template formats the reply.",
+    "exampleTitle": "Why you'd use this",
+    "exampleBody": "Without the Orchestrator, you'd copy text between three separate chats by hand: ask one model for a plan, paste its answer into another model for code, then format the result yourself. A chain does it in one run: enter the task once, get the finished result — no manual copying between windows.",
     "createBtn": "Create Chain",
     "loadError": "Failed to load chains",
     "confirmDelete": "Delete this chain?",
@@ -624,7 +629,8 @@
     "noIntegrations": "You have no connected integrations.",
     "noIntegrationsLink": "Connect one",
     "serviceCallNotConfigured": "Not configured",
-    "chainInputLabel": "Chain input",
+    "chainInputLabel": "Chain input — text the run starts with (sent to the first node)",
+    "chainInputPlaceholder": "E.g. \"Write a plan for adding OAuth login\"",
     "chainInputRequired": "Provide chain input before running",
     "runCost": "Charged {{cost}} TC",
     "insufficientTcTitle": "Insufficient TimeCoin",
@@ -922,7 +928,7 @@
   },
   "support": {
     "inDevelopmentTitle": "Section under development",
-    "inDevelopmentText": "Live support is still being built. For answers, check the Docs or the Tavern (community)."
+    "inDevelopmentText": "Live chat support is still being built. Reach us through the feedback form — every message gets a reply — or check the Docs."
   },
   "architect": {
     "title": "Architect Mastery",

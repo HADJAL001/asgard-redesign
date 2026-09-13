@@ -708,6 +708,8 @@ export interface OsgardStoreState {
    *  максимум ОДНОГО стейка. null, пока стейки не загружены. Нужен, чтобы поле
    *  суммы клампилось по реальному потолку, а не принимало любое число. */
   stakeLimits: { plan: string; maxStake: number } | null
+  /** Надбавка к APR стейкинга за активную Тайную комнату (0 = комнаты нет/не активна). См. GET /stakes. */
+  secretRoomAprBonus: number
   artifacts: OsgardArtifact[]
   /** Снаряжение Кузницы: надетые артефакты + совокупный бонус к генерации (см. GET /artifacts/loadout). */
   forgeLoadout: ForgeLoadout
@@ -981,6 +983,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   userOrders: [],
   stakes: [],
   stakeLimits: null,
+  secretRoomAprBonus: 0,
   artifacts: [],
   forgeLoadout: EMPTY_FORGE_LOADOUT,
   architect: null,
@@ -1197,11 +1200,12 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       // `limits` появилось позже самого эндпоинта — на старом бэкенде его нет,
       // тогда оставляем null (UI честно скажет «лимит тарифа неизвестен»,
       // а не нарисует выдуманный потолок).
-      const { stakes, limits } = await apiClient.get<{
+      const { stakes, limits, secretRoomAprBonus } = await apiClient.get<{
         stakes: OsgardStake[]
         limits?: { plan: string; maxStake: number }
+        secretRoomAprBonus?: number
       }>("/stakes", opts)
-      set({ stakes, stakeLimits: limits ?? null, error: null })
+      set({ stakes, stakeLimits: limits ?? null, secretRoomAprBonus: secretRoomAprBonus ?? 0, error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить стейки") })
     }
@@ -2035,6 +2039,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       userOrders: [],
       stakes: [],
       stakeLimits: null,
+      secretRoomAprBonus: 0,
       artifacts: [],
       forgeLoadout: EMPTY_FORGE_LOADOUT,
       architect: null,

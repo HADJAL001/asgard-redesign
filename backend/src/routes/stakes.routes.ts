@@ -3,6 +3,7 @@ import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { fetchTreasuryTcForEmission, canEmitUnbackedSync } from "../lib/emission-guard"
 import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
+import { hasActiveSecretRoom, SECRET_ROOM_STAKE_APR_BONUS } from "../lib/secret-room-perks"
 
 const router = Router()
 
@@ -61,7 +62,12 @@ router.get("/", requireAuth, (req: AuthRequest, res) => {
     )
     .all(req.user!.userId)
 
-  res.json({ stakes, limits: stakeLimitsFor(req.user!.userId) })
+  res.json({
+    stakes,
+    limits: stakeLimitsFor(req.user!.userId),
+    // Показываем UI, что бонус активен ДО открытия стейка — не как сюрприз в apr задним числом.
+    secretRoomAprBonus: hasActiveSecretRoom(req.user!.userId) ? SECRET_ROOM_STAKE_APR_BONUS : 0,
+  })
 })
 
 /* ---------------- POST /stakes ---------------- */
@@ -95,7 +101,10 @@ router.post("/", requireAuth, (req: AuthRequest, res) => {
     })
   }
 
-  const apr = getApr(stakeDays)
+  /* Владелец активной Тайной комнаты стейкует под повышенный APR — надбавка
+     замораживается на весь срок стейка, как и базовая ставка по сроку
+     (см. lib/secret-room-perks.ts). */
+  const apr = getApr(stakeDays) + (hasActiveSecretRoom(req.user!.userId) ? SECRET_ROOM_STAKE_APR_BONUS : 0)
   const now = Date.now()
   const endTs = now + stakeDays * DAY_MS
 
