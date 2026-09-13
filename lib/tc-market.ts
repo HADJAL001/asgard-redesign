@@ -16,7 +16,7 @@
 
 export const TC_SYMBOL = "∞"
 export const TC_ACCENT = "#d7ae57" // ∞ brand color
-export const UP = "#10B981" // price rising
+export const UP = "#d7ae57" // price rising — gold, not green (план запрещает зелёный как брендовый цвет)
 export const DOWN = "#EF4444" // price falling
 
 /** Total TC emission cap (matches TC_MINTED in components/osgard-store.tsx). */

@@ -6,7 +6,8 @@ import { Navbar } from "./navbar"
 
 /* ---- Palette ----
    bg #10181d · card #17242a · accent #d7ae57 · text #FFFFFF · label #9eb2bc · border #30424b
-   event types: meeting #d7ae57 · deadline #EF4444 · update #10B981 · other #F59E0B */
+   event types: meeting #d7ae57 · deadline #EF4444 · update #7C8FA6 · other #F59E0B
+   (зелёный запрещён как брендовый цвет — docs/OSGARD-PREMIUM-INTERFACE-PLAN.md) */
 
 type EventType = "meeting" | "deadline" | "update" | "other"
 type ViewMode = "month" | "week" | "day" | "list"
@@ -25,7 +26,7 @@ type CalEvent = {
 const TYPE: Record<EventType, { label: string; color: string }> = {
   meeting: { label: "Встреча", color: "#d7ae57" },
   deadline: { label: "Дедлайн", color: "#EF4444" },
-  update: { label: "Обновление", color: "#10B981" },
+  update: { label: "Обновление", color: "#7C8FA6" },
   other: { label: "Другое", color: "#F59E0B" },
 }
 
