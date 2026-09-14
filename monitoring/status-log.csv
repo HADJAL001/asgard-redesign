@@ -2015,3 +2015,5 @@ timestamp,endpoint,http_code,response_time_s,ok
 2026-09-13T23:36:02Z,tc-market-state,200,0.441640,1
 2026-09-14T01:36:27Z,health,200,1.539435,1
 2026-09-14T01:36:27Z,tc-market-state,200,0.524886,1
+2026-09-14T07:02:44Z,health,200,1.758579,1
+2026-09-14T07:02:44Z,tc-market-state,200,0.428713,1
