@@ -13,14 +13,14 @@ import { asyncHandler } from "../utils/async-handler"
 import { rateLimit } from "../middleware/rateLimiter"
 import { captureError } from "../lib/sentry"
 import { logAudit } from "../lib/audit"
-import { getGenerationLimit, getGenerationUsage } from "../lib/generationsQuota"
+import { resolveMonthlyLimit, getMonthStartMs, getNextMonthStartMs } from "../lib/generation-quota"
 import { getProviderUsageStatus, type AiProvider } from "../lib/orchestratorProviderQuota"
 import { parseTimecoinQuantity, timecoinPurchaseCents, TIMECOIN_USD_CENTS } from "../lib/timecoin-economy"
 
 
 const router = Router()
 
-const PAID_PLANS: Exclude<PlanKey, "free">[] = ["pro", "supreme", "duo", "elite"]
+const PAID_PLANS: Exclude<PlanKey, "free">[] = ["pro", "supreme", "elite"]
 const MOCK_PERIOD_MS  = 30 * 24 * 60 * 60 * 1000 // 30 дней
 const TRIAL_PERIOD_MS =  7 * 24 * 60 * 60 * 1000 //  7 дней
 const TRIAL_DAYS      = 7
@@ -327,7 +327,7 @@ export function requirePlan(requiredPlan: PlanKey) {
    POST /subscription/create-checkout
    Создаёт Stripe Checkout Session для оформления платной подписки.
 
-   body: { plan: 'pro' | 'supreme' | 'duo' | 'elite' }
+   body: { plan: 'pro' | 'supreme' | 'elite' }
 
    Если Stripe не настроен (нет STRIPE_SECRET_KEY) — работает в
    mock-режиме: сразу активирует подписку локально на 30 дней и
@@ -515,7 +515,7 @@ router.post("/extra-package", rateLimit(60_000, 10), requireAuth, asyncHandler(a
    с пропорциональным пересчётом (Stripe proration) — в отличие от
    /create-checkout, не создаёт новую подписку и не запускает новый триал.
 
-   body: { plan: 'pro' | 'supreme' | 'duo' | 'elite' }
+   body: { plan: 'pro' | 'supreme' | 'elite' }
    ================================================================ */
 router.post("/change-plan", rateLimit(60_000, 10), requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const { plan } = req.body || {}
@@ -928,11 +928,11 @@ router.get("/status", requireAuth, (req: AuthRequest, res) => {
    Возвращает использование AI для текущего пользователя, форма ответа
    зависит от тарифа:
 
-   - Free/Pro (mode: "generations") — общий дневной счётчик генераций
-     проекта (см. generationsQuota.ts), сбрасывается в полночь UTC:
+   - Free/Pro (mode: "generations") — общий месячный счётчик генераций
+     проекта (см. generation-quota.ts), сбрасывается 1-го числа месяца:
      { plan, mode: "generations", generations: { used, limit, remaining }, resetsAt }
 
-   - Supreme/Duo/Elite (mode: "orchestrator") — месячная квота
+   - Supreme/Elite (mode: "orchestrator") — месячная квота
      оркестратора по каждому AI-провайдеру + остаток докупленных
      пакетов (см. orchestratorProviderQuota.ts), сбрасывается в начале
      следующего UTC-месяца:
@@ -944,11 +944,12 @@ router.get("/ai-usage", requireAuth, asyncHandler(async (req: AuthRequest, res) 
   const plan = (userRow?.plan ?? "free") as PlanKey
 
   if (plan === "free" || plan === "pro") {
-    const limit = getGenerationLimit(plan)
-    const used = await getGenerationUsage(userId)
-
-    const now = new Date()
-    const nextMidnightUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+    const limit = resolveMonthlyLimit(plan)
+    const { count: used } = db
+      .prepare(
+        `SELECT COUNT(*) as count FROM generation_tasks WHERE user_id = ? AND created_at >= ?`,
+      )
+      .get(userId, getMonthStartMs()) as { count: number }
 
     return res.json({
       plan,
@@ -958,7 +959,7 @@ router.get("/ai-usage", requireAuth, asyncHandler(async (req: AuthRequest, res) 
         limit,
         remaining: limit === null ? null : Math.max(0, limit - used),
       },
-      resetsAt: nextMidnightUtc,
+      resetsAt: getNextMonthStartMs(),
     })
   }
 
@@ -1027,14 +1028,14 @@ router.post("/cancel", rateLimit(60_000, 10), requireAuth, async (req: AuthReque
 /* ================================================================
    GET /subscription/trial-status
    Возвращает, может ли пользователь воспользоваться триалом на план.
-   body query: ?plan=pro|supreme|duo|elite
+   body query: ?plan=pro|supreme|elite
    ================================================================ */
 router.get("/trial-status", requireAuth, (req: AuthRequest, res) => {
   const userId = req.user!.userId
   const plan = req.query.plan as string | undefined
 
   if (!plan || !PAID_PLANS.includes(plan as any)) {
-    return res.status(400).json({ error: "Укажите корректный план: pro, supreme, duo или elite" })
+    return res.status(400).json({ error: "Укажите корректный план: pro, supreme или elite" })
   }
 
   const used = hasUsedTrial(userId, plan)

@@ -18,7 +18,7 @@ export const BURN_SHARE_OF_FEE = 0.5
 /** Доля комиссии (в TimeCoin), уходящая пригласившему продавца, — реф-revshare. */
 export const REFERRAL_REVSHARE_OF_FEE = 0.1
 
-const PLAN_FEE: Record<string, number> = { free: 0.05, pro: 0.04, supreme: 0.03, duo: 0.02, elite: 0.01 }
+const PLAN_FEE: Record<string, number> = { free: 0.05, pro: 0.04, supreme: 0.03, elite: 0.01 }
 
 /** Итоговая ставка комиссии для продавца: минимум из тарифа и привилегии стейка. */
 export function marketFeeRateFor(sellerId: number): number {

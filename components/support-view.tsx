@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Search, HelpCircle, ChevronRight, BookOpen, Beer, Construction } from "lucide-react"
+import { Search, HelpCircle, ChevronRight, BookOpen, Mail, Construction } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useTranslation } from "@/lib/i18n/use-translation"
 
@@ -177,12 +177,12 @@ export function SupportView() {
                 Документация
               </Link>
               <Link
-                href="/community"
+                href="/feedback"
                 className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[14px] transition-colors"
                 style={{ border: "1px solid #30424b", color: "rgba(255,255,255,0.7)" }}
               >
-                <Beer size={16} strokeWidth={1.75} />
-                Таверна
+                <Mail size={16} strokeWidth={1.75} />
+                Написать в поддержку
               </Link>
             </div>
           </section>

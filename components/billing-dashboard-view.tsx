@@ -43,7 +43,6 @@ type BillingSummary = {
 const PLAN_LABELS: Record<string, string> = {
   pro: "Pro",
   supreme: "Supreme",
-  duo: "Duo",
   elite: "Elite",
   free: "Free",
 }

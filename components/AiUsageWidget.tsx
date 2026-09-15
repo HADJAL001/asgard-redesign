@@ -3,8 +3,8 @@
 /* ================================================================
    AiUsageWidget — виджет использования AI по тарифу
    ----------------------------------------------------------------
-   Free/Pro — общий дневной счётчик генераций проектов (mode:
-   "generations"). Supreme/Duo/Elite — месячная квота оркестратора
+   Free/Pro — общий месячный счётчик генераций проектов (mode:
+   "generations"). Supreme/Elite — месячная квота оркестратора
    по 3 провайдерам + докупленные extra_credits (mode: "orchestrator").
    Источник данных: GET /subscription/ai-usage.
 
@@ -51,7 +51,6 @@ const PLAN_LABELS: Record<string, string> = {
   free:    "Бесплатный",
   pro:     "Pro",
   supreme: "Supreme",
-  duo:     "Duo",
   elite:   "Elite",
 }
 

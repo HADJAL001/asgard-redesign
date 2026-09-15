@@ -15,7 +15,7 @@ const MARKET_FEE = 0.05 /* базовая комиссия маркетплей�
 
 /* Комиссия снижается тарифом подписки И активным стейком (привилегия стейкинга —
    «до 1% вместо 5%»). Берём наименьшую из двух ставок. */
-const PLAN_FEE: Record<string, number> = { free: 0.05, pro: 0.04, supreme: 0.03, duo: 0.02, elite: 0.01 }
+const PLAN_FEE: Record<string, number> = { free: 0.05, pro: 0.04, supreme: 0.03, elite: 0.01 }
 function marketFeeRateFor(sellerId: number): number {
   const u: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(sellerId)
   const staked: any = db

@@ -9,7 +9,7 @@ import { upsertSubscription } from "./subscription.routes"
 import { createPlategaPayment, getPlategaPayment, isPlategaConfigured, isPlategaPaid, PLATEGA_PLAN_PRICES_RUB } from "../lib/platega"
 
 const router = Router()
-const PAID_PLANS: Exclude<PlanKey, "free">[] = ["pro", "supreme", "duo", "elite"]
+const PAID_PLANS: Exclude<PlanKey, "free">[] = ["pro", "supreme", "elite"]
 const PERIOD_MS = 30 * 24 * 60 * 60 * 1000
 
 // Public capability check: expose availability, never merchant credentials.

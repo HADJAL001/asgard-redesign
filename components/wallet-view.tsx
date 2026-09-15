@@ -385,7 +385,7 @@ export function WalletView() {
           })}
         </div>
 
-        {/* Докупка пакетов AI-провайдеров (Pro/Supreme/Duo/Elite) */}
+        {/* Докупка пакетов AI-провайдеров (Pro/Supreme/Elite) */}
         <div className="mt-8">
           <ExtraPackagePurchase />
         </div>

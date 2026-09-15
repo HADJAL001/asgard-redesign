@@ -9,7 +9,6 @@ export const isPlategaConfigured = Boolean(MERCHANT_ID && SECRET)
 export const PLATEGA_PLAN_PRICES_RUB: Record<Exclude<PlanKey, "free">, number> = {
   pro: Number(process.env.PLATEGA_PRICE_PRO) || 2900,
   supreme: Number(process.env.PLATEGA_PRICE_SUPREME) || 9900,
-  duo: Number(process.env.PLATEGA_PRICE_DUO) || 14900,
   elite: Number(process.env.PLATEGA_PRICE_ELITE) || 19900,
 }
 

@@ -13,8 +13,9 @@ import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, GitBranch, Play, Pencil, Trash2, Loader2 } from "lucide-react"
 import { Navbar } from "./navbar"
-import { SnakeBackground } from "./snake-bg"
+import { ShootingStar } from "./shooting-star"
 import { WorkshopBackdrop } from "./workshop-backdrop"
+import { OrchestratorRadialShowcase } from "./orchestrator/OrchestratorRadialShowcase"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { orchestratorApi } from "@/lib/orchestrator/api"
@@ -64,7 +65,7 @@ export function OrchestratorView() {
   return (
     <div className="eg-page relative overflow-hidden min-h-screen font-sans" style={{ color: COLORS.text }}>
       <WorkshopBackdrop />
-      <SnakeBackground />
+      <ShootingStar />
       <Navbar />
 
       <main className="relative z-10 mx-auto max-w-[1240px] px-6 py-10 md:px-10 md:py-12">
@@ -94,6 +95,11 @@ export function OrchestratorView() {
           </button>
         </div>
 
+        <div className="eg-surface mt-6 rounded-xl px-5 py-4" style={{ borderColor: "rgb(var(--color-gold-rgb) / 0.25)" }}>
+          <p className="text-[13px] font-medium" style={{ color: "var(--eg-gold-2)" }}>{t("orchestrator.exampleTitle")}</p>
+          <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: COLORS.label }}>{t("orchestrator.exampleBody")}</p>
+        </div>
+
         {error && (
           <p className="mt-6 rounded-lg px-3 py-2 text-[13px]" style={{ backgroundColor: "rgba(248,113,113,0.1)", color: COLORS.red }}>
             {error}
@@ -105,13 +111,8 @@ export function OrchestratorView() {
             <Loader2 size={24} className="animate-spin" style={{ color: "var(--eg-gold-2)" }} />
           </div>
         ) : chains.length === 0 ? (
-          <div className="premium-panel mt-16 flex flex-col items-center gap-4 rounded-2xl px-8 py-14 text-center">
-            <span
-              className="flex size-16 items-center justify-center rounded-2xl"
-              style={{ border: "1px solid rgb(var(--color-gold-rgb) / 0.35)", background: "var(--eg-glass-bg)" }}
-            >
-              <GitBranch size={28} strokeWidth={1.25} style={{ color: "var(--eg-gold-2)" }} aria-hidden="true" />
-            </span>
+          <div className="premium-panel mt-16 flex flex-col items-center gap-2 rounded-2xl px-8 py-10 text-center">
+            <OrchestratorRadialShowcase />
             <p className="max-w-sm text-[14px]" style={{ color: COLORS.label }}>{t("orchestrator.emptyState")}</p>
             <button
               type="button"

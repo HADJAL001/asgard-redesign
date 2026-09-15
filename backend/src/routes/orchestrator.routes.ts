@@ -41,9 +41,9 @@ function toPublicWebhookTrigger(row: { node_id: string; token: string; enabled: 
   }
 }
 
-/* Оркестратор доступен только на Supreme/Duo/Elite (жёсткий гейт по тарифу) — Free/Pro
-   не имеют доступа вовсе (они работают через обычную генерацию проекта с дневной квотой,
-   см. generationsQuota.ts). Квота на вызовы AI-провайдеров внутри оркестратора — месячная,
+/* Оркестратор доступен только на Supreme/Elite (жёсткий гейт по тарифу) — Free/Pro
+   не имеют доступа вовсе (они работают через обычную генерацию проекта с месячной квотой,
+   см. generation-quota.ts). Квота на вызовы AI-провайдеров внутри оркестратора — месячная,
    по провайдерам, см. orchestratorProviderQuota.ts (проверяется/списывается на уровне
    каждого узла в orchestrator-nodes.ts, а не на уровне запуска цепочки целиком). */
 const ORCHESTRATOR_MIN_PLAN: PlanKey = "supreme"
@@ -63,7 +63,7 @@ function requireOrchestratorAccess(req: AuthRequest, res: Response, next: NextFu
   const plan: PlanKey = userRow?.plan ?? "free"
   if (planLevel(plan) < planLevel(ORCHESTRATOR_MIN_PLAN)) {
     return res.status(403).json({
-      error: "Оркестратор доступен на тарифах Supreme, Duo и Elite",
+      error: "Оркестратор доступен на тарифах Supreme и Elite",
       upgradeRequired: true,
     })
   }

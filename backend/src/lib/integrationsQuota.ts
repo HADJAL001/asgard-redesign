@@ -15,7 +15,6 @@ export const SERVICE_BRIDGE_LIMITS: Record<PlanKey, number | null> = {
   free: 20,
   pro: 100,
   supreme: 400,
-  duo: 400,
   elite: null,
 }
 

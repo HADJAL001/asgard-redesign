@@ -38,38 +38,56 @@ export function planLimit<T extends number | null>(limits: Record<string, T>, pl
   return Object.prototype.hasOwnProperty.call(limits, plan) ? limits[plan] : limits.free
 }
 
-/**
- * Дневной лимит БЕСПЛАТНЫХ (quick) генераций проектов по тарифу. null = без лимита.
- * Платные глубины списывают кредиты и в эту квоту не входят.
- *
- * Ключи — действующий словарь тарифов (миграция 050). Прежние имена оставлены
- * псевдонимами: базы, не прошедшие 050, ещё держат их в users.plan, и молча
- * ронять такие аккаунты в free — тот же дефект, только с другой стороны.
- *
- * `duo` в старой таблице не существовал; он выше supreme и в порядке тарифов
- * (lib/stripe PLAN_ORDER), и по комиссии рынка (lib/market-fees), поэтому получает
- * не меньше supreme. Ровно supreme, а не безлимит: расширять обещание тарифа —
- * решение продуктовое, а не техническое.
- */
-export const PROJECT_GENERATION_DAILY_LIMITS: Record<string, number | null> = {
-  free: 5,
-  pro: 15,
-  supreme: 40,
-  duo: 40,
-  elite: null,
+/* ================================================================
+   OSGARD · Месячная квота бесплатных (quick) генераций проектов
+   ----------------------------------------------------------------
+   ПЕРЕХОД С ДНЕВНОЙ КВОТЫ НА МЕСЯЧНУЮ (2026-09). Дневной лимит вида
+   "N генераций в день" на дорогой multi-agent пайплайн (48-88 AI-вызовов,
+   ~387K токенов на генерацию, см. generation-estimate.ts) даёт потолок
+   costs = N × 30 в месяц при цене подписки, рассчитанной на среднее
+   использование, а не на максимум. При себестоимости генерации ~$1
+   (реальные цены провайдеров на 2026: Claude Sonnet 5 $2/$10, Grok 4.6
+   $2/$6, DeepSeek V4 Flash ~$0.22/$0.66 за 1M токенов) старый лимит
+   Pro (15-20/день = до 600/мес при подписке $29) гарантировал убыток на
+   активном пользователе. Месячная квота, которую можно потратить в любой
+   день, но которая не размазывается искусственно по дням — то же самое
+   право использования с честным потолком costs.
+
+   Ключи — действующий словарь тарифов (миграция 050 + 110, duo убран).
+   Прежние имена оставлены псевдонимами: базы, не прошедшие 050, ещё
+   держат их в users.plan, и молча ронять такие аккаунты в free — тот
+   же дефект, только с другой стороны.
+   ================================================================ */
+export const PROJECT_GENERATION_MONTHLY_LIMITS: Record<string, number | null> = {
+  free: 3,
+  pro: 10,
+  supreme: 35,
+  elite: 70,
 
   /* Легаси-имена до миграции 050 — те же уровни. */
-  architect: 15,
-  master: 40,
-  legend: null,
+  architect: 10,
+  master: 35,
+  legend: 70,
 }
 
-/** Дневной лимит быстрых генераций для тарифа. null — без ограничений. */
-export function resolveDailyLimit(plan: string): number | null {
-  return planLimit(PROJECT_GENERATION_DAILY_LIMITS, plan)
+/** Месячный лимит быстрых генераций для тарифа. null — без ограничений. */
+export function resolveMonthlyLimit(plan: string): number | null {
+  return planLimit(PROJECT_GENERATION_MONTHLY_LIMITS, plan)
 }
 
-/** Остаток попыток на сегодня. null — без ограничений (это не то же, что 0). */
-export function quotaRemaining(dailyLimit: number | null, usedToday: number): number | null {
-  return dailyLimit === null ? null : Math.max(0, dailyLimit - usedToday)
+/** Остаток попыток на текущий месяц. null — без ограничений (это не то же, что 0). */
+export function quotaRemaining(monthlyLimit: number | null, usedThisMonth: number): number | null {
+  return monthlyLimit === null ? null : Math.max(0, monthlyLimit - usedThisMonth)
+}
+
+/** Начало текущего календарного месяца, локальное время сервера (мс). Единица окна квоты. */
+export function getMonthStartMs(): number {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+}
+
+/** Начало следующего календарного месяца, локальное время сервера (мс) — момент сброса квоты. */
+export function getNextMonthStartMs(): number {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime()
 }

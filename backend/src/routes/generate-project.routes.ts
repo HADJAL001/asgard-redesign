@@ -4,7 +4,7 @@ import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { asyncHandler } from "../utils/async-handler"
 import { ChainManager, pipelineEvents, getTaskStatus } from "../services/chain-manager"
 import { DEFAULT_PIPELINE } from "../services/pipeline-agents"
-import { getGenerationLimit, isGenerationLimitExceeded, incrementGenerationUsage } from "../lib/generationsQuota"
+import { resolveMonthlyLimit, quotaRemaining, getMonthStartMs, getNextMonthStartMs } from "../lib/generation-quota"
 import type { PlanKey } from "../lib/stripe"
 
 /* ================================================================
@@ -50,21 +50,29 @@ router.post(
     const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
     const plan: PlanKey = userRow?.plan ?? "free"
 
-    if (await isGenerationLimitExceeded(userId, plan)) {
-      const limit = getGenerationLimit(plan)
-      return res.status(429).json({
-        error: `Вы использовали все ${limit} генераций на сегодня`,
-        code: "GENERATIONS_LIMIT",
-        limit,
-        upgradeRequired: true,
-      })
+    const monthlyLimit = resolveMonthlyLimit(plan)
+    if (monthlyLimit !== null) {
+      const { count: usedThisMonth } = db
+        .prepare(
+          `SELECT COUNT(*) as count FROM generation_tasks WHERE user_id = ? AND created_at >= ?`,
+        )
+        .get(userId, getMonthStartMs()) as { count: number }
+
+      if (quotaRemaining(monthlyLimit, usedThisMonth) === 0) {
+        return res.status(429).json({
+          error: `Вы использовали все ${monthlyLimit} генераций за этот месяц`,
+          code: "GENERATIONS_LIMIT",
+          limit: monthlyLimit,
+          resetsAt: getNextMonthStartMs(),
+          upgradeRequired: true,
+        })
+      }
     }
 
     const taskId = chainManager.start(userId, {
       name: name.trim(),
       description: typeof description === "string" ? description : undefined,
     })
-    await incrementGenerationUsage(userId)
 
     res.status(202).json({ taskId })
   }),

@@ -15,7 +15,7 @@ import { stakeMaxForPlan } from '../routes/stakes.routes';
    ================================================================ */
 
 test('лестница тарифов: каждый следующий тариф даёт потолок не ниже предыдущего', () => {
-  const ladder = ['free', 'pro', 'supreme', 'duo', 'elite'].map(stakeMaxForPlan);
+  const ladder = ['free', 'pro', 'supreme', 'elite'].map(stakeMaxForPlan);
   for (let i = 1; i < ladder.length; i++) {
     assert.ok(
       ladder[i] > ladder[i - 1],
@@ -28,8 +28,15 @@ test('известные тарифы дают ожидаемые потолки
   assert.equal(stakeMaxForPlan('free'), 100);
   assert.equal(stakeMaxForPlan('pro'), 1_000);
   assert.equal(stakeMaxForPlan('supreme'), 5_000);
-  assert.equal(stakeMaxForPlan('duo'), 20_000);
   assert.equal(stakeMaxForPlan('elite'), 100_000);
+});
+
+test('duo больше не является известным тарифом (убран как дубль supreme)', () => {
+  assert.equal(
+    stakeMaxForPlan('duo'),
+    stakeMaxForPlan('free'),
+    'незнакомый тариф трактуется как free — duo не должен иметь отдельной записи',
+  );
 });
 
 test('неизвестный/пустой тариф трактуется как free (консервативно, не безлимит)', () => {
@@ -41,7 +48,7 @@ test('неизвестный/пустой тариф трактуется как
 });
 
 test('потолок всегда конечное положительное число (поле суммы на него клампится)', () => {
-  for (const plan of ['free', 'pro', 'supreme', 'duo', 'elite', 'нет-такого']) {
+  for (const plan of ['free', 'pro', 'supreme', 'elite', 'нет-такого']) {
     const max = stakeMaxForPlan(plan);
     assert.ok(Number.isFinite(max), `${plan}: потолок обязан быть конечным`);
     assert.ok(max > 0, `${plan}: потолок обязан быть положительным`);

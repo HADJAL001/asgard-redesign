@@ -44,6 +44,7 @@ import { DevStatusBar } from "./dev-mode/DevStatusBar"
 import { LiveGenerationMeter, GenerationMeterCard } from "./dev-mode/GenerationMeter"
 import { GenerationStory } from "./dev-mode/GenerationStory"
 import { WorkshopBackdrop } from "./workshop-backdrop"
+import { ShootingStar } from "./shooting-star"
 import { ConfirmModal } from "./ui/confirm-modal"
 import { useDevMode } from "@/lib/dev-mode"
 import { useOsgardStore, type RefinementKind } from "@/lib/store/osgard-store"
@@ -769,7 +770,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     >
       {/* Мастерская мира рисует свой тёплый фон; в студии его роль играет
           общий AmbientBackdrop, перекрашенный в сине-серебряную гамму. */}
-      {isDev ? null : <WorkshopBackdrop />}
+      {isDev ? null : <><WorkshopBackdrop /><ShootingStar /></>}
       <WorkspaceTopBar isDev={isDev} />
 
       {/* ---- Шапка мастерской ---- */}

@@ -449,6 +449,7 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
         <textarea
           value={chainInput}
           onChange={(e) => setChainInput(e.target.value)}
+          placeholder={t("orchestrator.chainInputPlaceholder")}
           rows={2}
           className="mt-1 w-full resize-none rounded-lg px-3 py-2 text-[13px] outline-none"
           style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text }}
