@@ -40,13 +40,12 @@ export const isStripeConfigured = !!stripe
 export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ""
 export const STRIPE_WEBHOOK_SECRET_ADDONS = process.env.STRIPE_WEBHOOK_SECRET_ADDONS || STRIPE_WEBHOOK_SECRET
 
-export type PlanKey = "free" | "pro" | "supreme" | "duo" | "elite"
+export type PlanKey = "free" | "pro" | "supreme" | "elite"
 
 /* Соответствие плана и его Stripe Price ID (задаются в .env) */
 export const PLAN_PRICE_IDS: Record<Exclude<PlanKey, "free">, string> = {
   pro: process.env.STRIPE_PRICE_PRO || "",
   supreme: process.env.STRIPE_PRICE_SUPREME || "",
-  duo: process.env.STRIPE_PRICE_DUO || "",
   elite: process.env.STRIPE_PRICE_ELITE || "",
 }
 
@@ -55,12 +54,11 @@ export const PLAN_PRICES_USD: Record<PlanKey, number> = {
   free: 0,
   pro: 29,
   supreme: 99,
-  duo: 149,
   elite: 199,
 }
 
 /* Иерархия планов — используется в requirePlan для сравнения уровней доступа */
-export const PLAN_ORDER: PlanKey[] = ["free", "pro", "supreme", "duo", "elite"]
+export const PLAN_ORDER: PlanKey[] = ["free", "pro", "supreme", "elite"]
 
 export function planLevel(plan: string): number {
   const idx = PLAN_ORDER.indexOf(plan as PlanKey)

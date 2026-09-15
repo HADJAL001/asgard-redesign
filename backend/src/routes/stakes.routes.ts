@@ -27,7 +27,6 @@ const STAKE_MAX_BY_PLAN: Record<string, number> = {
   free: 100,
   pro: 1_000,
   supreme: 5_000,
-  duo: 20_000,
   elite: 100_000,
 }
 

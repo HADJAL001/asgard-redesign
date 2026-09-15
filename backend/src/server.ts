@@ -360,6 +360,7 @@ import "./migrations/106_artifact_abilities"
 import "./migrations/107_timecoin_rebalance"
 import "./migrations/108_billing_reconciliation"
 import "./migrations/109_platega_payments"
+import { runRemoveDuoPlanMigration } from "./migrations/110_remove_duo_plan"
 import { scheduleBillingReconciliation } from "./services/billing-reconciliation.service"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
@@ -400,10 +401,14 @@ runPerfIndexesMigration()
 /* Гарантируем наличие таблиц integrations/integration_logs (Service Bridge / Интеграции). */
 runServiceBridgeMigration()
 
-/* Ремап planKey (architect/master/legend → free/pro/supreme/duo/elite) + таблицы квот
+/* Ремап planKey (architect/master/legend → free/pro/supreme/elite) + таблицы квот
    оркестратора по провайдерам (orchestrator_monthly_usage) и докупаемых пакетов (extra_credits,
    extra_package_purchases) при старте сервера. */
 runPlanTiersMigration()
+
+/* Убирает план 'duo' (дубль Supreme с наценкой, продаж не было) из CHECK-ограничения
+   subscriptions.plan. См. migrations/110_remove_duo_plan.ts. */
+runRemoveDuoPlanMigration()
 
 /* Гарантируем наличие таблицы tc_convert_log (лог конвертаций ∞ ↔ TC) при старте сервера. */
 runTcConvertMigration()

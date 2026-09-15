@@ -19,6 +19,11 @@ export type AiProvider = "claude" | "grok" | "deepseek"
    гейтится жёстко в orchestrator.routes.ts (requirePlan("supreme")),
    лимит здесь на 0 лишь для полноты картины/симметрии таблицы.
 
+   Elite (20/провайдер/мес) — вдвое больше Supreme (10/провайдер/мес):
+   единственная реальная функциональная дифференциация тарифов верхнего
+   уровня после удаления Duo (был чистым дублем Supreme с наценкой, см.
+   migrations/110_remove_duo_plan.ts).
+
    После исчерпания месячной базовой квоты списывается 1 из
    extra_credits (докупленные пакеты — не сгорают, переносятся на
    следующий месяц).
@@ -28,8 +33,7 @@ export const PROVIDER_MONTHLY_LIMITS: Record<PlanKey, number | null> = {
   free: 0,
   pro: 0,
   supreme: 10,
-  duo: 10,
-  elite: 10,
+  elite: 20,
 }
 
 export interface ProviderUsageStatus {

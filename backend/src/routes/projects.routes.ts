@@ -30,7 +30,7 @@ import { GENERATION_DEPTHS, resolveDepth, serializeDepths, type GenerationDepth 
 import { allowsServerCode, normalizeAppProfile } from "../lib/app-profiles"
 import { getAppDatabase, releaseAppDatabase } from "../services/app-database-binding"
 import { estimateAllDepths, loadGenerationSamples, type GenerationPath } from "../lib/generation-estimate"
-import { resolveDailyLimit, quotaRemaining } from "../lib/generation-quota"
+import { resolveMonthlyLimit, quotaRemaining, getMonthStartMs, getNextMonthStartMs } from "../lib/generation-quota"
 import {
   attachMakegoodProject,
   consumeMakegood,
@@ -77,10 +77,6 @@ const LIST_CURRENCY_BY_RARITY: Record<string, string> = {
   mythic: "timecoin",
 }
 
-function getTodayStartMs(): number {
-  const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-}
 
 /* Единый 409-ответ хард-капа гостя (is_guest=1 → максимум один проект).
    Сама проверка — guestProjectCapReached в lib/guest-service (БД-логика воронки,
@@ -92,25 +88,26 @@ const GUEST_CAP_RESPONSE = {
   code: "GUEST_PROJECT_LIMIT",
 } as const
 
-/* ---------------- GET /projects/generation-limits — дневной лимит генераций по тарифу ---------------- */
+/* ---------------- GET /projects/generation-limits — месячный лимит генераций по тарифу ---------------- */
 router.get("/generation-limits", requireAuth, (req: AuthRequest, res) => {
   const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(req.user!.userId)
   const plan = userRow?.plan || "free"
-  const dailyLimit = resolveDailyLimit(plan)
+  const monthlyLimit = resolveMonthlyLimit(plan)
 
-  const todayStart = getTodayStartMs()
+  const monthStart = getMonthStartMs()
   // Квоту тратят только бесплатные (quick) генерации; платные (standard/deep) — нет.
   const { count } = db
     .prepare(
       `SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND created_at >= ? AND generation_depth = 'quick'`,
     )
-    .get(req.user!.userId, todayStart) as { count: number }
+    .get(req.user!.userId, monthStart) as { count: number }
 
   res.json({
     plan,
-    dailyLimit,
+    monthlyLimit,
     used: count,
-    remaining: quotaRemaining(dailyLimit, count),
+    remaining: quotaRemaining(monthlyLimit, count),
+    resetsAt: getNextMonthStartMs(),
     depths: serializeDepths(),
   })
 })
@@ -156,17 +153,17 @@ router.post(
     const name = typeof req.body?.name === "string" ? req.body.name.slice(0, 200) : undefined
     const hint = typeof req.body?.hint === "string" ? req.body.hint.slice(0, 2000) : undefined
 
-    /* Дневная квота тарифа — вторая половина ответа на вопрос «сколько это стоит»:
+    /* Месячная квота тарифа — вторая половина ответа на вопрос «сколько это стоит»:
        для быстрой генерации цена измеряется не кредитами, а остатком попыток. */
     const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
     const plan = userRow?.plan || "free"
-    const dailyLimit = resolveDailyLimit(plan)
-    const { count: usedToday } = db
+    const monthlyLimit = resolveMonthlyLimit(plan)
+    const { count: usedThisMonth } = db
       .prepare(
         `SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND created_at >= ? AND generation_depth = 'quick'`,
       )
-      .get(userId, getTodayStartMs()) as { count: number }
-    const remainingToday = quotaRemaining(dailyLimit, usedToday)
+      .get(userId, getMonthStartMs()) as { count: number }
+    const remainingThisMonth = quotaRemaining(monthlyLimit, usedThisMonth)
 
     /* Путь по каждой глубине — ровно тот, который выберет генерация. Для standard/deep
        шаблонный shortcut отключён (forceAi), поэтому там всегда полная AI-сборка. */
@@ -194,7 +191,7 @@ router.post(
 
     res.json({
       plan,
-      quota: { dailyLimit, used: usedToday, remaining: remainingToday },
+      quota: { monthlyLimit, used: usedThisMonth, remaining: remainingThisMonth, resetsAt: getNextMonthStartMs() },
       /* Тема, по которой подобрался готовый шаблон (null — шаблона нет). Объясняет,
          почему быстрая генерация дешевле: платформа уже собирала похожее. */
       templateTheme,
@@ -625,11 +622,11 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     logAudit(userId, "credit", admissionCostTimecoin, "project_generation_refund", { depth, currency: "timecoin" })
   }
 
-  /* --- Бесплатная (quick) генерация: расход дневной квоты тарифа --- */
+  /* --- Бесплатная (quick) генерация: расход месячной квоты тарифа --- */
   if (depthCfg.countsAgainstQuota) {
     const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
     const plan = userRow?.plan || "free"
-    const dailyLimit = resolveDailyLimit(plan)
+    const monthlyLimit = resolveMonthlyLimit(plan)
 
     /* Право на перегенерацию за счёт платформы (lib/generation-makegood) списывается
        здесь ТОЛЬКО при исчерпанной квоте — то есть ровно тогда, когда без него человек
@@ -637,15 +634,15 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
        тратить компенсацию на неё значило бы обесценить её молча. */
     let makegoodId: number | null = null
 
-    if (dailyLimit !== null) {
-      const todayStart = getTodayStartMs()
+    if (monthlyLimit !== null) {
+      const monthStart = getMonthStartMs()
       const { count } = db
         .prepare(
           `SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND created_at >= ? AND generation_depth = 'quick'`,
         )
-        .get(userId, todayStart) as { count: number }
+        .get(userId, monthStart) as { count: number }
 
-      if (count >= dailyLimit) {
+      if (count >= monthlyLimit) {
         const right = findMakegoodFor(userId, depth)
         /* Списываем ДО создания проекта: право должно быть либо потрачено, либо целым.
            Если два запуска борются за одно право, consume победит только у одного. */
@@ -654,10 +651,11 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
         } else {
           refundProjectCharge()
           return res.status(429).json({
-            error: `Дневной лимит быстрых генераций (${dailyLimit}) для тарифа "${plan}" исчерпан. Попробуйте завтра, улучшите тариф или выберите платную глубину.`,
+            error: `Месячный лимит быстрых генераций (${monthlyLimit}) для тарифа "${plan}" исчерпан. Обновится ${new Date(getNextMonthStartMs()).toLocaleDateString("ru-RU")}, улучшите тариф или выберите платную глубину.`,
             plan,
-            dailyLimit,
+            monthlyLimit,
             used: count,
+            resetsAt: getNextMonthStartMs(),
           })
         }
       }

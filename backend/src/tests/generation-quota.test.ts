@@ -1,12 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PROJECT_GENERATION_DAILY_LIMITS,
+  PROJECT_GENERATION_MONTHLY_LIMITS,
   planLimit,
-  resolveDailyLimit,
+  resolveMonthlyLimit,
   quotaRemaining,
 } from '../lib/generation-quota';
-import { GENERATION_LIMITS, getGenerationLimit } from '../lib/generationsQuota';
 import { SERVICE_BRIDGE_LIMITS, getServiceBridgeLimit } from '../lib/integrationsQuota';
 
 /* ================================================================
@@ -31,6 +30,11 @@ import { SERVICE_BRIDGE_LIMITS, getServiceBridgeLimit } from '../lib/integration
 
    `null` и `0` здесь противоположны («ограничений нет» против «попыток
    нет»), и тесты держат границу между ними.
+
+   ПЕРЕХОД НА МЕСЯЧНУЮ КВОТУ (2026-09). Дневной лимит на дорогой
+   multi-agent пайплайн создавал разрыв unit-экономики (см. комментарий
+   в lib/generation-quota.ts) — квота переведена на календарный месяц.
+   Duo (чистый дубль Supreme) убран, см. migrations/110_remove_duo_plan.ts.
    ================================================================ */
 
 /* ---------------- разбор значения из тарифной таблицы ---------------- */
@@ -62,28 +66,35 @@ test('ноль сохраняется как ноль — это лимит, а 
   assert.equal(planLimit({ free: 0, top: 10 }, 'free'), 0);
 });
 
-/* ---------------- дневная квота генераций проектов ---------------- */
+/* ---------------- месячная квота генераций проектов ---------------- */
 
-test('верхний тариф elite генерирует без дневного лимита', () => {
-  assert.equal(resolveDailyLimit('elite'), null);
+test('действующий словарь тарифов (после миграции 050+110) знает все платные уровни', () => {
+  assert.equal(resolveMonthlyLimit('free'), 3);
+  assert.equal(resolveMonthlyLimit('pro'), 10);
+  assert.equal(resolveMonthlyLimit('supreme'), 35);
+  assert.equal(resolveMonthlyLimit('elite'), 70);
 });
 
-test('действующий словарь тарифов (после миграции 050) знает все платные уровни', () => {
-  assert.equal(resolveDailyLimit('free'), 5);
-  assert.equal(resolveDailyLimit('pro'), 15);
-  assert.equal(resolveDailyLimit('supreme'), 40);
-  assert.notEqual(
-    resolveDailyLimit('duo'),
-    PROJECT_GENERATION_DAILY_LIMITS.free,
-    'duo стоит выше supreme и по цене, и по комиссии рынка — квота free для него неверна',
+test('лестница тарифов: каждый следующий тариф даёт лимит не ниже предыдущего', () => {
+  const ladder = ['free', 'pro', 'supreme', 'elite'].map(resolveMonthlyLimit);
+  for (let i = 1; i < ladder.length; i++) {
+    assert.ok((ladder[i] as number) > (ladder[i - 1] as number), `${ladder[i - 1]} -> ${ladder[i]}`);
+  }
+});
+
+test('duo больше не является известным тарифом (убран как дубль supreme)', () => {
+  assert.equal(
+    resolveMonthlyLimit('duo'),
+    PROJECT_GENERATION_MONTHLY_LIMITS.free,
+    'незнакомый тариф трактуется как free — duo не должен иметь отдельной записи',
   );
 });
 
 test('легаси-имена тарифов до миграции 050 сохраняют свои уровни', () => {
   /* Базы, не прошедшие 050, ещё держат старые имена в users.plan. */
-  assert.equal(resolveDailyLimit('architect'), 15);
-  assert.equal(resolveDailyLimit('master'), 40);
-  assert.equal(resolveDailyLimit('legend'), null);
+  assert.equal(resolveMonthlyLimit('architect'), 10);
+  assert.equal(resolveMonthlyLimit('master'), 35);
+  assert.equal(resolveMonthlyLimit('legend'), 70);
 });
 
 test('остаток без лимита — null, а не ноль: это разные утверждения', () => {
@@ -103,20 +114,6 @@ test('остаток не уходит в минус — исчерпанная 
 });
 
 /* ---------------- тот же дефект в соседних квотах ---------------- */
-
-test('дневная квота генераций оркестратора: безлимитные тарифы безлимитны', () => {
-  /* GENERATION_LIMITS: supreme/duo/elite = null. Через `??` все три получали 5. */
-  for (const plan of ['supreme', 'duo', 'elite'] as const) {
-    assert.equal(GENERATION_LIMITS[plan], null, 'предпосылка теста: тарифу обещан безлимит');
-    assert.equal(
-      getGenerationLimit(plan),
-      null,
-      `тариф ${plan} обслуживался по квоте free (${GENERATION_LIMITS.free})`,
-    );
-  }
-  assert.equal(getGenerationLimit('free'), 5);
-  assert.equal(getGenerationLimit('pro'), 20);
-});
 
 test('дневная квота интеграций: elite без ограничений', () => {
   assert.equal(SERVICE_BRIDGE_LIMITS.elite, null, 'предпосылка теста: elite обещан безлимит');

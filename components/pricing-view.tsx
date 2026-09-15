@@ -3,13 +3,13 @@
 /* ================================================================
    PricingView — страница тарифных планов OSGARD
    ----------------------------------------------------------------
-   Отображает 6 карточек: Гость / Free / Pro / Supreme / Duo / Elite.
+   Отображает 5 карточек: Гость / Free / Pro / Supreme / Elite.
 
-   Free и Pro — общий дневной счётчик генераций проектов (без разбивки
-   по провайдерам). Supreme/Duo/Elite — доступ к Оркестратору с квотой
-   10 OSGARD 5.0 + 10 OSGARD 3.3 + 10 OSGARD 4.0 в месяц (одинаковая квота для всех
-   трёх — Duo/Elite лишь более дорогие тарифы). Докупаемые пакеты
-   запросов — не сгорают, см. ExtraPackagePurchase.
+   Free и Pro — общий МЕСЯЧНЫЙ счётчик генераций проектов (без разбивки
+   по провайдерам, доступен в любой момент месяца, обнуляется 1-го числа).
+   Supreme/Elite — доступ к Оркестратору с квотой в месяц: Supreme
+   10 OSGARD 5.0 + 10 OSGARD 3.3 + 10 OSGARD 4.0, Elite — вдвое больше
+   (20+20+20). Докупаемые пакеты запросов — не сгорают, см. ExtraPackagePurchase.
 
    Если Stripe не настроен — mock-режим (dev), подписка активируется
    локально через POST /subscription/create-checkout.
@@ -48,7 +48,7 @@ const BORDER = "#30424b"
 const LABEL  = "#9eb2bc"
 
 /* ── Типы ──────────────────────────────────────────────────────── */
-type PlanId = "guest" | "free" | "pro" | "supreme" | "duo" | "elite"
+type PlanId = "guest" | "free" | "pro" | "supreme" | "elite"
 
 interface PlanDef {
   id:            PlanId
@@ -65,22 +65,37 @@ interface PlanDef {
   aiLimits?:     { label: string; value: string; color: string }[]
   cta:           string
   ctaHref?:      string          // если не требует API-вызова
-  stripePlan?:   "pro" | "supreme" | "duo" | "elite"
+  stripePlan?:   "pro" | "supreme" | "elite"
 }
 
 /* ── Планы ─────────────────────────────────────────────────────── */
-const ORCHESTRATOR_LIMITS: PlanDef["aiLimits"] = [
+const ORCHESTRATOR_LIMITS_SUPREME: PlanDef["aiLimits"] = [
   { label: "OSGARD 5.0", value: "10/мес", color: "#F59E0B" },
   { label: "OSGARD 3.3", value: "10/мес", color: "#A855F7" },
   { label: "OSGARD 4.0", value: "10/мес", color: "#06B6D4" },
 ]
 
-const ORCHESTRATOR_FEATURES: PlanDef["features"] = [
+const ORCHESTRATOR_LIMITS_ELITE: PlanDef["aiLimits"] = [
+  { label: "OSGARD 5.0", value: "20/мес", color: "#F59E0B" },
+  { label: "OSGARD 3.3", value: "20/мес", color: "#A855F7" },
+  { label: "OSGARD 4.0", value: "20/мес", color: "#06B6D4" },
+]
+
+const ORCHESTRATOR_FEATURES_SUPREME: PlanDef["features"] = [
   { text: "Доступ к Оркестратору AI-цепочек",           highlight: true },
   { text: "10 OSGARD 5.0 + 10 OSGARD 3.3 + 10 OSGARD 4.0 в месяц",   highlight: true },
   { text: "ДЖАРВИС + ВАЛЛИ + БЛИЗНЕЦ — всё" },
   { text: "Докупка пакетов провайдеров — не сгорают" },
   { text: "Деплой на инфраструктуру OSGARD + GitHub" },
+]
+
+const ORCHESTRATOR_FEATURES_ELITE: PlanDef["features"] = [
+  { text: "Доступ к Оркестратору AI-цепочек",           highlight: true },
+  { text: "20 OSGARD 5.0 + 20 OSGARD 3.3 + 20 OSGARD 4.0 в месяц — вдвое больше Supreme",   highlight: true },
+  { text: "ДЖАРВИС + ВАЛЛИ + БЛИЗНЕЦ — всё" },
+  { text: "Докупка пакетов провайдеров — не сгорают" },
+  { text: "Деплой на инфраструктуру OSGARD + GitHub" },
+  { text: "Приоритетная генерация" },
   { text: "Ранний доступ к новым фичам" },
 ]
 
@@ -112,15 +127,15 @@ const PLANS: PlanDef[] = [
     glow:       "rgba(6,182,212,0.15)",
     Icon:       Zap,
     features: [
-      { text: "5 AI-генераций проектов/день" },
+      { text: "3 AI-генерации проектов/мес" },
       { text: "ДЖАРВИС — безлимит (OSGARD 4.0)" },
       { text: "ВАЛЛИ — советник и 3D-комната" },
       { text: "БЛИЗНЕЦ — обучение на артефактах" },
       { text: "Маркетплейс и торговля" },
       { text: "Кошелёк и TimeCoin" },
     ],
-    aiLimitsTitle: "AI-лимиты / день",
-    aiLimits:      [{ label: "Генераций проектов", value: "5/день", color: "#06B6D4" }],
+    aiLimitsTitle: "AI-лимиты / месяц",
+    aiLimits:      [{ label: "Генераций проектов", value: "3/мес", color: "#06B6D4" }],
     cta:     "Зарегистрироваться",
     ctaHref: "/register",
   },
@@ -135,15 +150,14 @@ const PLANS: PlanDef[] = [
     Icon:       Crown,
     badge:      "Популярный",
     features: [
-      { text: "20 AI-генераций проектов/день", highlight: true },
+      { text: "10 AI-генераций проектов/мес", highlight: true },
       { text: "ДЖАРВИС — безлимит" },
       { text: "ВАЛЛИ + БЛИЗНЕЦ — полный доступ" },
       { text: "Деплой на инфраструктуру OSGARD" },
       { text: "GitHub-публикация проектов" },
-      { text: "Приоритетная генерация" },
     ],
-    aiLimitsTitle: "AI-лимиты / день",
-    aiLimits:      [{ label: "Генераций проектов", value: "20/день", color: "#A855F7" }],
+    aiLimitsTitle: "AI-лимиты / месяц",
+    aiLimits:      [{ label: "Генераций проектов", value: "10/мес", color: "#A855F7" }],
     cta:        "Подключить Pro",
     stripePlan: "pro",
   },
@@ -156,40 +170,25 @@ const PLANS: PlanDef[] = [
     color:      "#F59E0B",
     glow:       "rgba(245,158,11,0.2)",
     Icon:       Star,
-    features:      ORCHESTRATOR_FEATURES,
+    features:      ORCHESTRATOR_FEATURES_SUPREME,
     aiLimitsTitle: "Оркестратор — квота / месяц",
-    aiLimits:      ORCHESTRATOR_LIMITS,
+    aiLimits:      ORCHESTRATOR_LIMITS_SUPREME,
     cta:        "Подключить Supreme",
     stripePlan: "supreme",
   },
   {
-    id:         "duo",
-    name:       "Duo",
-    subtitle:   "Те же квоты, что Supreme",
-    price:      149,
-    priceLabel: "$149 / мес",
-    color:      "#EC4899",
-    glow:       "rgba(236,72,153,0.2)",
-    Icon:       Sparkles,
-    features:      ORCHESTRATOR_FEATURES,
-    aiLimitsTitle: "Оркестратор — квота / месяц",
-    aiLimits:      ORCHESTRATOR_LIMITS,
-    cta:        "Подключить Duo",
-    stripePlan: "duo",
-  },
-  {
     id:         "elite",
     name:       "Elite",
-    subtitle:   "Те же квоты, что Supreme",
+    subtitle:   "Вдвое больше квот, чем Supreme",
     price:      199,
     priceLabel: "$199 / мес",
     color:      "#34D399",
     glow:       "rgba(52,211,153,0.2)",
     Icon:       Infinity,
     badge:      "Максимум",
-    features:      ORCHESTRATOR_FEATURES,
+    features:      ORCHESTRATOR_FEATURES_ELITE,
     aiLimitsTitle: "Оркестратор — квота / месяц",
-    aiLimits:      ORCHESTRATOR_LIMITS,
+    aiLimits:      ORCHESTRATOR_LIMITS_ELITE,
     cta:        "Подключить Elite",
     stripePlan: "elite",
   },
@@ -308,7 +307,7 @@ const AI_AGENTS = [
     name:  "Оркестратор",
     Icon:  GitBranch,
     color: "#F59E0B",
-    desc:  "Цепочки нейросетей OSGARD (OSGARD 5.0 → OSGARD 3.3 → OSGARD 4.0). Доступен на тарифах Supreme, Duo и Elite.",
+    desc:  "Цепочки нейросетей OSGARD (OSGARD 5.0 → OSGARD 3.3 → OSGARD 4.0). Доступен на тарифах Supreme и Elite.",
   },
 ]
 
@@ -1061,7 +1060,7 @@ export function PricingView() {
           <h2 className="text-[24px] font-bold mb-2 text-center">AI-ассистенты на каждом тарифе</h2>
           <p className="text-[14px] text-center mb-8" style={{ color: LABEL }}>
             ДЖАРВИС, ВАЛЛИ и БЛИЗНЕЦ доступны всем зарегистрированным пользователям без лимитов.
-            Оркестратор — для Supreme, Duo и Elite.
+            Оркестратор — для Supreme и Elite.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {AI_AGENTS.map((a) => (
@@ -1097,12 +1096,13 @@ export function PricingView() {
             </div>
             <div>
               <h3 className="text-[18px] font-bold">AI-Оркестратор</h3>
-              <p className="text-[13px]" style={{ color: LABEL }}>Цепочки нейросетей — Supreme, Duo и Elite</p>
+              <p className="text-[13px]" style={{ color: LABEL }}>Цепочки нейросетей — Supreme и Elite</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
-              { plan: "Supreme / Duo / Elite", color: "#F59E0B", items: ["10 OSGARD 5.0 в месяц", "10 OSGARD 3.3 в месяц", "10 OSGARD 4.0 в месяц", "До 20 узлов в цепочке", "Ранний доступ к новым фичам"] },
+              { plan: "Supreme", color: "#F59E0B", items: ["10 OSGARD 5.0 в месяц", "10 OSGARD 3.3 в месяц", "10 OSGARD 4.0 в месяц", "До 20 узлов в цепочке"] },
+              { plan: "Elite", color: "#34D399", items: ["20 OSGARD 5.0 в месяц", "20 OSGARD 3.3 в месяц", "20 OSGARD 4.0 в месяц", "До 20 узлов в цепочке", "Ранний доступ к новым фичам"] },
               { plan: "Докупаемые пакеты", color: "#06B6D4", items: ["+5 OSGARD 5.0 — $19", "+10 OSGARD 3.3 — $15", "+10 OSGARD 4.0 — $10", "Не сгорают, переносятся на след. месяцы"] },
               { plan: "Что это даёт?", color: "#A855F7", items: ["Автоматизация задач", "Последовательная обработка текста", "Мульти-провайдерная генерация", "Сохранение как шаблоны ДЖАРВИСА", "SSE-поток прогресса в реальном времени"] },
             ].map(({ plan, color, items }) => (
@@ -1128,11 +1128,11 @@ export function PricingView() {
             {[
               {
                 q: "Что такое AI-лимиты?",
-                a: "На Free и Pro это один общий счётчик генераций проектов в день (5 и 20 соответственно), обнуляется в полночь UTC. На Supreme, Duo и Elite — квота Оркестратора: 10 OSGARD 5.0 + 10 OSGARD 3.3 + 10 OSGARD 4.0 в месяц, отдельно по каждому уровню.",
+                a: "На Free и Pro это один общий счётчик генераций проектов в месяц (3 и 10 соответственно) — доступен в любой момент месяца, обнуляется 1-го числа календарного месяца. На Supreme и Elite — квота Оркестратора в месяц: у Supreme 10 OSGARD 5.0 + 10 OSGARD 3.3 + 10 OSGARD 4.0, у Elite вдвое больше — 20+20+20.",
               },
               {
                 q: "Входит ли ДЖАРВИС, ВАЛЛИ, БЛИЗНЕЦ в бесплатный план?",
-                a: "Да — все три ассистента доступны всем зарегистрированным пользователям без лимитов. Оркестратор (цепочки нейросетей) — только для Supreme, Duo и Elite.",
+                a: "Да — все три ассистента доступны всем зарегистрированным пользователям без лимитов. Оркестратор (цепочки нейросетей) — только для Supreme и Elite.",
               },
               {
                 q: "Можно ли отменить подписку?",
@@ -1140,7 +1140,7 @@ export function PricingView() {
               },
               {
                 q: "Что происходит с лимитами при апгрейде?",
-                a: "При переходе на более высокий тариф новые лимиты применяются немедленно. Уже использованные запросы текущего дня засчитываются в новые лимиты.",
+                a: "При переходе на более высокий тариф новые лимиты применяются немедленно. Уже использованные генерации текущего месяца засчитываются в новый лимит.",
               },
             ].map(({ q, a }) => (
               <div
