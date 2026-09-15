@@ -401,13 +401,12 @@ export function EternityLanding() {
             {t("landing.heroTitleLine1")}
             <br />{t("landing.heroTitleLine2")}
           </h1>
-          <div className="tc-badge">
-            <InfinityIcon size={14} strokeWidth={1.4} aria-hidden="true" />
-            {heroValueBadge}
-            <span className="tc-badge-dot" aria-hidden="true" />
-          </div>
           <p className="hero-subtitle">
-            {heroValueSubtitle}
+            <span className="tc-badge">
+              <InfinityIcon size={14} strokeWidth={1.4} aria-hidden="true" />
+              {heroValueBadge}
+            </span>
+            {" "}{heroValueSubtitle}
           </p>
 
           {/* Миниатюрное окно ввода (всегда видимо) */}
@@ -1096,6 +1095,7 @@ const CSS = `
   background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.25);
   border-radius: 20px; padding: 6px 14px; letter-spacing: 0.06em; text-transform: uppercase;
   animation: eternity-rise 1s ease-out 0.1s forwards; opacity: 0;
+  margin-right: 10px; vertical-align: middle;
 }
 .eternity-page .tc-badge svg { color: var(--eg-gold-1); filter: drop-shadow(0 0 6px rgba(212, 175, 55, 0.5)); }
 .eternity-page .tc-badge-dot {

@@ -993,6 +993,95 @@ svg { width: 1rem; height: 1rem; flex: none; }
 }
 
 /* ================================================================
+   OrchestratorRadialShowcase — центральный хаб-цепочка и узлы-
+   сателлиты вокруг, соединённые пунктирными лучами. Золотая палитра
+   OSGARD вместо демо-красной; подписи сателлитов — реальные типы
+   узлов Оркестратора (см. OrchestratorRadialShowcase.tsx).
+   ================================================================ */
+.orch-radial {
+  position: relative;
+  width: 280px;
+  height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.orch-radial-hub {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  color: var(--eg-gold-2);
+  background: radial-gradient(circle at 50% 40%, rgb(var(--color-gold-rgb) / 0.22), rgb(10 8 6 / 0.7) 65%);
+  border: 1px solid rgb(var(--color-gold-rgb) / 0.5);
+  box-shadow: 0 0 28px rgb(var(--color-gold-rgb) / 0.35), inset 0 0 18px rgb(var(--color-gold-rgb) / 0.15);
+  animation: orch-radial-pulse 3.6s ease-in-out infinite;
+}
+.orch-radial-branch {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.orch-radial-line {
+  position: absolute;
+  width: 108px;
+  height: 0;
+  left: 50%;
+  top: 50%;
+  border-top: 1px dashed rgb(var(--color-gold-rgb) / 0.32);
+  transform-origin: 0 0;
+  transform: rotate(var(--branch-angle));
+}
+.orch-radial-node {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin: -17px;
+  border-radius: 50%;
+  color: var(--eg-gold-2);
+  background: radial-gradient(circle at 50% 35%, rgb(var(--color-gold-rgb) / 0.28), rgb(10 8 6 / 0.75) 70%);
+  border: 1px solid rgb(var(--color-gold-rgb) / 0.4);
+  box-shadow: 0 0 16px rgb(var(--color-gold-rgb) / 0.28);
+  animation: orch-radial-node-pulse 3.6s ease-in-out infinite;
+}
+.orch-radial-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: -9px 0 0 0;
+  width: max-content;
+  max-width: 108px;
+  font-size: 11px;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  text-align: center;
+  translate: -50% 22px;
+}
+@keyframes orch-radial-pulse {
+  0%, 100% { box-shadow: 0 0 28px rgb(var(--color-gold-rgb) / 0.35), inset 0 0 18px rgb(var(--color-gold-rgb) / 0.15); }
+  50% { box-shadow: 0 0 40px rgb(var(--color-gold-rgb) / 0.55), inset 0 0 22px rgb(var(--color-gold-rgb) / 0.25); }
+}
+@keyframes orch-radial-node-pulse {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orch-radial-hub, .orch-radial-node { animation: none; }
+}
+
+/* ================================================================
    ShootingStar — метеоритный дождь: 5 падающих звёзд разной яркости,
    скорости и угла, вразнобой по времени. Голова со вспышкой при
    появлении + конусный хвост, сужающийся к концу. Чистый CSS.
