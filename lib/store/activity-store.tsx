@@ -28,6 +28,8 @@ export type ActivityEvent = {
   metadata: Record<string, unknown> | null
   createdAt: string
   actor: ActivityActor
+  reactionCount: number
+  reactedByMe: boolean
 }
 
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -49,6 +51,10 @@ type ActivityStoreState = {
       события (id, которых ещё нет) к голове ленты. Ошибки глушим — фон не должен
       мигать баннером. Возвращает id новых событий (для анимации влёта). */
   refresh: () => Promise<number[]>
+  /** Оптимистичный toggle-лайк: сразу переворачивает reactedByMe/reactionCount
+      локально, а сервер лишь подтверждает — не ждём round-trip перед откликом
+      кнопки. При ошибке (401/сеть) — откатывает обратно. */
+  toggleReaction: (eventId: number) => Promise<void>
 }
 
 export const useActivityStore = create<ActivityStoreState>((set, get) => ({
@@ -102,6 +108,28 @@ export const useActivityStore = create<ActivityStoreState>((set, get) => ({
       return fresh.map((e) => e.id)
     } catch {
       return [] // тихо — фоновый поллинг
+    }
+  },
+
+  toggleReaction: async (eventId) => {
+    const apply = (liked: boolean, count: number) =>
+      set((state) => ({
+        events: state.events.map((e) =>
+          e.id === eventId ? { ...e, reactedByMe: liked, reactionCount: count } : e,
+        ),
+      }))
+
+    const current = get().events.find((e) => e.id === eventId)
+    if (!current) return
+    const prevLiked = current.reactedByMe
+    const prevCount = current.reactionCount
+    apply(!prevLiked, prevCount + (prevLiked ? -1 : 1))
+
+    try {
+      const res = await apiClient.post<{ liked: boolean; count: number }>(`/feed/${eventId}/react`, {})
+      apply(res.liked, res.count)
+    } catch {
+      apply(prevLiked, prevCount) // откат — не авторизован или сеть недоступна
     }
   },
 }))
