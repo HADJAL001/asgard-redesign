@@ -21,11 +21,65 @@ import { useRouter } from "next/navigation"
 import {
   // GitBranch, а не Github: в этой версии lucide-react бренд-иконок нет
   // (их вынесли из пакета). Тот же выбор уже сделан в navbar.tsx.
-  Rocket, Loader2, ExternalLink, GitBranch, CircleCheck, TriangleAlert, PackageOpen,
+  Rocket, Loader2, ExternalLink, GitBranch, CircleCheck, TriangleAlert, PackageOpen, PartyPopper, X,
 } from "lucide-react"
 import { useOsgardStore, type OsgardProject } from "@/lib/store/osgard-store"
 
 type RowBusy = "deploy" | "github" | null
+
+/** Вау-момент после успешного деплоя: сайт открывается сам, а не ждёт,
+ *  что человек заметит зелёный бейдж в строке. Закрыть можно кликом вне
+ *  окна/по крестику — модалка не блокирует, её единственная задача —
+ *  не дать первому впечатлению потеряться в списке проектов. */
+function DeploySuccessModal({
+  project,
+  onClose,
+}: {
+  project: OsgardProject
+  onClose: () => void
+}) {
+  if (!project.liveUrl) return null
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Проект опубликован"
+      onClick={onClose}
+    >
+      <div
+        className="dev-card relative w-full max-w-md p-6 text-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-3 top-3 rounded-lg p-1 hover:bg-white/5"
+          aria-label="Закрыть"
+        >
+          <X size={16} style={{ color: "#94A3B8" }} aria-hidden="true" />
+        </button>
+        <PartyPopper size={32} strokeWidth={1.5} style={{ color: "#FBBF24" }} className="mx-auto" aria-hidden="true" />
+        <h2 className="mt-3 text-[18px] font-semibold" style={{ color: "#F1F5F9" }}>
+          {project.name} опубликован
+        </h2>
+        <p className="mt-1.5 text-[13px]" style={{ color: "rgb(148 163 184 / 90%)" }}>
+          Сайт уже открылся в новой вкладке. Ссылку можно отдать кому угодно.
+        </p>
+        <a
+          href={project.liveUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 flex items-center justify-center gap-1.5 truncate rounded-full px-4 py-2 text-[13px] underline underline-offset-4"
+          style={{ color: "#7DD3FC" }}
+        >
+          {project.liveUrl.replace(/^https?:\/\//, "")}
+          <ExternalLink size={12} strokeWidth={1.75} aria-hidden="true" />
+        </a>
+      </div>
+    </div>
+  )
+}
 
 function DeployRow({ project, primary }: { project: OsgardProject; primary: boolean }) {
   const router = useRouter()
@@ -36,6 +90,7 @@ function DeployRow({ project, primary }: { project: OsgardProject; primary: bool
   const [repoUrl, setRepoUrl] = useState<string | null>(null)
   /** Не null — сервер не пустил публикацию: приложение не собирается. */
   const [blockedDefects, setBlockedDefects] = useState<number | null>(null)
+  const [celebrate, setCelebrate] = useState<OsgardProject | null>(null)
 
   // Проект мог начать деплоиться в другом месте (Мастерская) — тогда
   // строка обязана показывать «публикуется», даже если кнопку жали не здесь.
@@ -64,6 +119,12 @@ function DeployRow({ project, primary }: { project: OsgardProject; primary: bool
     const finished = await pollDeployStatus(project.id)
     if (finished?.deployStatus === "failed") {
       setError(finished.deployError || "Публикация завершилась ошибкой.")
+    } else if (finished?.deployStatus === "deployed" && finished.liveUrl) {
+      // Вау-момент: сайт открывается сам, а не ждёт, что человек заметит
+      // бейдж в списке. window.open — сразу в ответ на исходный клик по
+      // "Опубликовать", поэтому браузер не блокирует его как поп-ап.
+      window.open(finished.liveUrl, "_blank", "noopener,noreferrer")
+      setCelebrate(finished)
     }
     await fetchProjects({ skipAuthRedirect: true })
     setBusy(null)
@@ -80,6 +141,7 @@ function DeployRow({ project, primary }: { project: OsgardProject; primary: bool
 
   return (
     <li className="dev-card p-4">
+      {celebrate ? <DeploySuccessModal project={celebrate} onClose={() => setCelebrate(null)} /> : null}
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
