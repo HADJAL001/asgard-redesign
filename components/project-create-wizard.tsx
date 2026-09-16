@@ -21,7 +21,7 @@
    ================================================================ */
 
 import { useEffect, useState } from "react"
-import { X, Wand2, PenLine, Loader2, ArrowRight, ArrowLeft, Check, Coins } from "lucide-react"
+import { X, Wand2, PenLine, Loader2, ArrowRight, ArrowLeft, Check, Coins, Dices } from "lucide-react"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
@@ -131,6 +131,24 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
   const totalSteps = 3
   const progress = (step / totalSteps) * 100
   const briefReady = isProjectBriefComplete(brief)
+
+  /** «Мне повезёт»: снимает барьер «пустого листа» — случайная тема + готовый
+   *  бриф без ввода вручную, сразу переходит к шагу с депсом/отправкой.
+   *  Не отправляет автоматически — пользователь всё равно видит смету и жмёт
+   *  «Создать» сам, чтобы не тратить кредиты без подтверждения. */
+  function handleLuckyPick() {
+    setError(null)
+    const pick = THEMES[Math.floor(Math.random() * THEMES.length)]
+    setTheme(pick)
+    setName((current) => current.trim() || pick.label)
+    setBrief({
+      audience: t("projectWizard.luckyAudience"),
+      outcome: t("projectWizard.luckyOutcome"),
+      essentials: t("projectWizard.luckyEssentials"),
+      constraints: "",
+    })
+    setStep(3)
+  }
 
   function goNext() {
     setError(null)
@@ -263,6 +281,18 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
               <p className="mt-3 text-[12px]" style={{ color: COLORS.label }}>
                 {t("projectWizard.nameHint")}
               </p>
+
+              <button
+                type="button"
+                onClick={handleLuckyPick}
+                className="mt-4 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium transition-colors"
+                style={{ border: `1px solid ${COLORS.border}`, color: COLORS.label }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = COLORS.accent)}
+                onMouseLeave={(e) => (e.currentTarget.style.color = COLORS.label)}
+              >
+                <Dices size={14} strokeWidth={1.75} />
+                {t("projectWizard.luckyButton")}
+              </button>
             </div>
           )}
 

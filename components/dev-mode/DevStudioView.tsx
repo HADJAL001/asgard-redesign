@@ -30,6 +30,15 @@ import { ProjectCreateWizard } from "@/components/project-create-wizard"
 import { VoiceInputButton } from "@/components/voice-input-button"
 import { useVoice } from "@/lib/hooks/useVoice"
 
+/** Живые реплики-приветствия агентов при входе в студию — парасоциальная
+ *  оживлённость интерфейса без затрат на инфраструктуру (просто текст,
+ *  один случайный выбор на монтирование, без поллинга и WebRTC). */
+const AGENT_GREETINGS = [
+  { agent: "ДЖАРВИС", text: "Готов собрать первую версию за пару минут — просто опишите идею." },
+  { agent: "ВАЛЛИ", text: "Если понадобится живой пример — заходите в Комнату, покажу артефакты." },
+  { agent: "БЛИЗНЕЦ", text: "Голос работает не хуже текста — можно просто рассказать, что нужно." },
+]
+
 /** Человеческий статус проекта — без экономических метрик.
  *  Формулировки честные: «Собирается» не обещает успех заранее. */
 function statusOf(project: OsgardProject): { label: string; color: string; Icon: typeof CircleCheck } {
@@ -44,6 +53,9 @@ export function DevStudioView() {
   const [idea, setIdea] = useState("")
   const [wizardOpen, setWizardOpen] = useState(false)
   const canCreateProject = idea.trim().length > 0
+
+  // Один случайный выбор на монтирование — не меняется при ре-рендерах экрана.
+  const [greeting] = useState(() => AGENT_GREETINGS[Math.floor(Math.random() * AGENT_GREETINGS.length)])
 
   function startProjectCreation() {
     if (!canCreateProject) return
@@ -88,6 +100,14 @@ export function DevStudioView() {
         <h1 className="dev-title text-[30px] leading-tight md:text-[38px]">Какой проект создаём?</h1>
         <p className="mt-2 text-[14px]" style={{ color: "rgb(148 163 184 / 90%)" }}>
           Опишите идею голосом или текстом — OSGARD создаст проект и подготовит его к развитию.
+        </p>
+
+        <p
+          className="mt-3 inline-flex items-center gap-2 text-[13px]"
+          style={{ color: "rgb(148 163 184 / 75%)" }}
+        >
+          <Sparkles size={13} strokeWidth={1.75} style={{ color: "#d7ae57" }} aria-hidden="true" />
+          <span style={{ color: "#d7ae57", fontWeight: 500 }}>{greeting.agent}:</span> {greeting.text}
         </p>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-start">
