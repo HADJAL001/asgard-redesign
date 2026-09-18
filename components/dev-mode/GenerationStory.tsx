@@ -22,7 +22,7 @@
    упавшей сборки.
    ================================================================ */
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { ComponentType } from "react"
 import { CheckCircle2, Loader2, XCircle } from "lucide-react"
 import { COLORS } from "@/lib/economy"
@@ -45,6 +45,7 @@ export function GenerationStory({
   failed,
   actionLabel,
   onAction,
+  codePreview,
 }: {
   steps: StoryStep[]
   /** Одна фраза о том, что происходит прямо сейчас. */
@@ -55,10 +56,25 @@ export function GenerationStory({
   failed?: boolean
   actionLabel?: string
   onAction?: () => void
+  codePreview?: { path: string; content: string } | null
 }) {
   const activeIndex = steps.findIndex((s) => s.state === "active")
   const doneCount = steps.filter((s) => s.state === "done").length
   const lastSoundIndex = useRef(-1)
+  const [typedCode, setTypedCode] = useState("")
+
+  useEffect(() => {
+    const target = codePreview?.content ?? ""
+    if (!target) return
+    let offset = 0
+    setTypedCode("")
+    const timer = window.setInterval(() => {
+      offset = Math.min(target.length, offset + 24)
+      setTypedCode(target.slice(0, offset))
+      if (offset >= target.length) window.clearInterval(timer)
+    }, 22)
+    return () => window.clearInterval(timer)
+  }, [codePreview?.content])
 
   useEffect(() => {
     if (activeIndex < 0 || activeIndex === lastSoundIndex.current || typeof window === "undefined") return
@@ -112,6 +128,13 @@ export function GenerationStory({
               backgroundColor: failed ? COLORS.red : COLORS.accent,
             }}
           />
+        </div>
+      )}
+
+      {codePreview && typedCode && (
+        <div className="w-full max-w-[560px] overflow-hidden rounded-lg border text-left" style={{ borderColor: "rgba(125,211,252,.22)", background: "rgba(2,6,23,.7)" }}>
+          <p className="border-b px-3 py-2 font-mono text-[11px]" style={{ borderColor: "rgba(125,211,252,.14)", color: "#7DD3FC" }}>{codePreview.path}</p>
+          <pre className="max-h-36 overflow-hidden p-3 text-[11px] leading-relaxed" style={{ color: "#d7e8f5" }}>{typedCode}<span style={{ color: COLORS.accent }}>|</span></pre>
         </div>
       )}
 

@@ -17,7 +17,7 @@ import { GENERATION_DEPTHS, resolveDepth, type GenerationDepth } from "./generat
 import { allowsServerCode, DEFAULT_APP_PROFILE, FULLSTACK_DEPENDENCIES, normalizeAppProfile, type AppProfile } from "./app-profiles"
 import { bindAppDatabase } from "../services/app-database-binding"
 import { createNotification } from "./notifications"
-import { emitGenerationStage, emitGenerationMeter } from "./generation-events"
+import { emitGenerationStage, emitGenerationMeter, emitGenerationCode } from "./generation-events"
 import {
   GenerationTokenBudgetExceededError,
   withGenerationTelemetry,
@@ -1095,7 +1095,10 @@ async function runAppGenerationJobInner(
       db.exec("BEGIN IMMEDIATE")
       try {
         if (refinement) db.prepare(`DELETE FROM project_files WHERE project_id = ?`).run(projectId)
-        for (const file of files) insertFile.run(projectId, file.path, file.content, now)
+        for (const [index, file] of files.entries()) {
+          insertFile.run(projectId, file.path, file.content, now)
+          if (index < 3) emitGenerationCode(projectId, file.path, file.content)
+        }
         db.exec("COMMIT")
       } catch (error) {
         db.exec("ROLLBACK")

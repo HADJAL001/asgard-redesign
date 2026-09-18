@@ -98,8 +98,17 @@ export type GenerationMeterEvent = {
   at: number
 }
 
+/** A bounded excerpt of a real generated file, emitted while it is persisted. */
+export type GenerationCodeEvent = {
+  type: "code"
+  projectId: number
+  path: string
+  content: string
+  at: number
+}
+
 /** Всё, что может прийти подписчику канала "gen:<projectId>". */
-export type GenerationStreamEvent = GenerationStageEvent | GenerationMeterEvent
+export type GenerationStreamEvent = GenerationStageEvent | GenerationMeterEvent | GenerationCodeEvent
 
 /** Общая шина: событие "gen:<projectId>" несёт GenerationStreamEvent.
  *  Одно SSE-подключение на активную вкладку страницы проекта → лимит слушателей снят. */
@@ -200,6 +209,17 @@ export function emitGenerationMeter(
     at: now,
   }
   generationEvents.emit(`gen:${projectId}`, evt)
+}
+
+export function emitGenerationCode(projectId: number, path: string, content: string) {
+  generationEvents.emit(`gen:${projectId}`, {
+    type: "code",
+    projectId,
+    path,
+    // The preview is an observation surface, never a second transport for entire files.
+    content: content.slice(0, 1400),
+    at: Date.now(),
+  } satisfies GenerationCodeEvent)
 }
 
 /** Буферизованные стадии проекта — отдаём позднему подписчику при подключении. */

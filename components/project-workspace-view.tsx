@@ -1427,6 +1427,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
                  «Попробовать снова» после провала. */
               actionLabel={isGenerating ? undefined : nextAction.action?.actionLabel}
               onAction={isGenerating || !nextAction.action ? undefined : goToNextAction}
+              codePreview={genStream.code}
             />
           )}
           {/* Пока приложения ещё нет, пустая рамка «Живой запуск» с недоступной

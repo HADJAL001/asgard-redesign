@@ -90,6 +90,8 @@ export type LiveMeter = {
   tokenLimit: number | null
 }
 
+export type GenerationCodeEvent = { type: "code"; projectId: number; path: string; content: string; at: number }
+
 export type GenerationStreamConnection = "idle" | "connecting" | "live" | "reconnecting" | "paused"
 
 export function isTerminalStage(stage: GenerationStage): boolean {
@@ -109,6 +111,7 @@ type StreamState = {
    *  (важно отличать от «нуля потрачено»: шаблонная сборка может обойтись
    *  вообще без обращений к моделям, и это надо показать словами, а не нулём). */
   meter: LiveMeter | null
+  code: GenerationCodeEvent | null
   /** true на терминале ready, если приложение заработало без единого ремонта. */
   firstTry: boolean | null
   /** Состояние канала прогресса. Серверный polling продолжает работать независимо от него. */
@@ -121,6 +124,7 @@ const INITIAL: StreamState = {
   progress: 0,
   done: false,
   meter: null,
+  code: null,
   firstTry: null,
   connection: "idle",
 }
@@ -246,11 +250,14 @@ export function useProjectGenerationStream(
         try {
           const msg = JSON.parse(e.data) as { type?: string; status?: string } &
             Partial<Omit<GenerationStageEvent, "type">> &
-            Partial<Omit<GenerationMeterEvent, "type">>
+            Partial<Omit<GenerationMeterEvent, "type">> &
+            Partial<Omit<GenerationCodeEvent, "type">>
           if (msg.type === "stage" && msg.stage) {
             applyStage(msg as GenerationStageEvent)
           } else if (msg.type === "meter") {
             applyMeter(msg as GenerationMeterEvent)
+          } else if (msg.type === "code" && msg.path && msg.content) {
+            applyCode(msg as GenerationCodeEvent)
           }
           // snapshot ({type:"snapshot", status}) не несёт стадии — игнорируем, статус берём из стора.
         } catch {
@@ -271,6 +278,10 @@ export function useProjectGenerationStream(
         const delay = Math.round(baseDelay * (0.8 + Math.random() * 0.4))
         reconnectTimer = setTimeout(connect, delay)
       }
+    }
+
+    const applyCode = (evt: GenerationCodeEvent) => {
+      setState((prev) => ({ ...prev, code: evt }))
     }
 
     const handleVisibilityChange = () => {
