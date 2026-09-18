@@ -191,7 +191,14 @@ export function DevStudioView() {
           <span className="text-[12px]" style={{ color: "rgb(148 163 184 / 80%)" }}>
             {sharing ? "Живой экран виден только вам в этой сессии" : "Поделитесь экраном во время показа результата"}
           </span>
-          {sharing ? <video ref={shareVideoRef} muted playsInline className="mt-2 max-h-40 w-full rounded-md border border-slate-700 object-contain" aria-label="Предпросмотр экрана" /> : null}
+          {sharing ? (
+            <div className="relative mt-2 w-full overflow-hidden rounded-md border border-slate-700 bg-black">
+              <video ref={shareVideoRef} muted playsInline className="max-h-40 w-full object-contain" aria-label="Предпросмотр экрана" />
+              <span className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium" style={{ color: "#F5C451" }}>
+                OSGARD STUDIO · osgard.io/studio
+              </span>
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-start">
