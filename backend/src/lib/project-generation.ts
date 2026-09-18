@@ -32,6 +32,7 @@ import {
 import { getForgeBonusForUser } from "./forge-loadout"
 import { nextFloats } from "./provably-fair"
 import { addArchitectXp } from "./architect-progression"
+import { evaluateGenerationBadges } from "./user-badges"
 import { deriveDesignBrief, renderDesignSystemFiles, DESIGN_SYSTEM_PATHS, type DesignBrief } from "./design-system"
 import { explainDesignQuality } from "./design-qa"
 import { runEngineeringContour, summarizeVerdict, type EngineeringReport } from "./project-engineering"
@@ -498,6 +499,7 @@ async function runAppGenerationJob(...args: Parameters<typeof runAppGenerationJo
       { tokenLimit },
     )
     finishGenerationUsageRun(usageRunId, result ? "completed" : "failed", latest)
+    if (result) evaluateGenerationBadges(userId, latest)
     return result
   } catch (error) {
     finishGenerationUsageRun(usageRunId, "failed", latest)

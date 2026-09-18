@@ -6,6 +6,7 @@ import os from "node:os"
 import archiver from "archiver"
 import db from "../lib/db"
 import { normalizeAppProfile } from "../lib/app-profiles"
+import { evaluateDeployBadge } from "../lib/user-badges"
 import { captureError } from "../lib/sentry"
 import { recordRealBuildFailure } from "../lib/engineering-gate"
 import { buildNextStaticExport, isDockerAvailable } from "./sandbox.service"
@@ -139,7 +140,7 @@ export async function runNetlifyDeployJob(projectId: number) {
   }
 
   const project: any = db
-    .prepare(`SELECT id, name, netlify_site_id, app_profile FROM projects WHERE id = ?`)
+    .prepare(`SELECT id, name, netlify_site_id, app_profile, user_id, deploy_attempts FROM projects WHERE id = ?`)
     .get(projectId)
   if (!project) return
 
@@ -201,6 +202,7 @@ export async function runNetlifyDeployJob(projectId: number) {
       db.prepare(
         `UPDATE projects SET deploy_status = 'deployed', deploy_error = NULL, live_url = ?, netlify_site_id = ? WHERE id = ?`,
       ).run(liveUrl, site.id, projectId)
+      if (project.user_id) evaluateDeployBadge(project.user_id, project.deploy_attempts ?? 1)
     } finally {
       await fs.rm(zipPath, { force: true })
     }

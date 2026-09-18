@@ -264,10 +264,16 @@ function ArchitectMastery() {
   const { user } = useAuth()
   const architect = useOsgardStore((s) => s.architect)
   const fetchArchitect = useOsgardStore((s) => s.fetchArchitect)
+  const badges = useOsgardStore((s) => s.badges)
+  const fetchBadges = useOsgardStore((s) => s.fetchBadges)
 
   useEffect(() => {
     if (user && !architect) fetchArchitect({ skipAuthRedirect: true })
   }, [user, architect, fetchArchitect])
+
+  useEffect(() => {
+    if (user && badges === null) fetchBadges({ skipAuthRedirect: true })
+  }, [user, badges, fetchBadges])
 
   if (!architect) return null
 
@@ -340,6 +346,23 @@ function ArchitectMastery() {
           {t("architect.teachBody")}
         </p>
       </div>
+
+      {/* Бейджи за стиль работы — отдельная лестница от ранга, моментальные знаки
+          отличия за конкретное событие (скорость, провайдеры, чистый деплой, риск). */}
+      {badges && badges.length > 0 && (
+        <div className="mt-5 flex flex-wrap gap-2">
+          {badges.map((b) => (
+            <span
+              key={b.badgeKey}
+              className="inline-flex items-center rounded-full px-3 py-1.5 text-[12px] font-medium"
+              style={{ border: "1px solid rgba(212,175,55,0.3)", color: "rgba(255,255,255,0.85)" }}
+              title={new Date(b.earnedAt).toLocaleDateString()}
+            >
+              {b.label}
+            </span>
+          ))}
+        </div>
+      )}
     </section>
   )
 }

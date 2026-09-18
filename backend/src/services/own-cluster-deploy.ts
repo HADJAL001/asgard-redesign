@@ -6,6 +6,7 @@ import os from "node:os"
 import db from "../lib/db"
 import { captureError } from "../lib/sentry"
 import { recordClusterBuildSuccess, recordRealBuildFailure } from "../lib/engineering-gate"
+import { evaluateDeployBadge } from "../lib/user-badges"
 
 /* ================================================================
    OSGARD · Деплой сгенерированных приложений на СВОЮ инфраструктуру
@@ -563,7 +564,7 @@ export async function runOwnClusterDeployJob(projectId: number) {
     return
   }
 
-  const project: any = db.prepare(`SELECT id, name FROM projects WHERE id = ?`).get(projectId)
+  const project: any = db.prepare(`SELECT id, name, user_id, deploy_attempts FROM projects WHERE id = ?`).get(projectId)
   if (!project) return
 
   const files = db
@@ -604,6 +605,7 @@ export async function runOwnClusterDeployJob(projectId: number) {
     db.prepare(
       `UPDATE projects SET deploy_status = 'deployed', deploy_error = NULL, live_url = ?, cluster_slug = ? WHERE id = ?`,
     ).run(liveUrl, slug, projectId)
+    if (project.user_id) evaluateDeployBadge(project.user_id, project.deploy_attempts ?? 1)
   } catch (err: any) {
     const message = redactSecrets(
       String(err?.message || "Неизвестная ошибка деплоя"),

@@ -361,6 +361,7 @@ import "./migrations/107_timecoin_rebalance"
 import "./migrations/108_billing_reconciliation"
 import "./migrations/109_platega_payments"
 import { runRemoveDuoPlanMigration } from "./migrations/110_remove_duo_plan"
+import { runUserBadgesMigration } from "./migrations/112_user_badges"
 import { scheduleBillingReconciliation } from "./services/billing-reconciliation.service"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
@@ -409,6 +410,9 @@ runPlanTiersMigration()
 /* Убирает план 'duo' (дубль Supreme с наценкой, продаж не было) из CHECK-ограничения
    subscriptions.plan. См. migrations/110_remove_duo_plan.ts. */
 runRemoveDuoPlanMigration()
+
+/* Гарантируем наличие таблицы user_badges (бейджи за стиль работы) при старте сервера. */
+runUserBadgesMigration()
 
 /* Гарантируем наличие таблицы tc_convert_log (лог конвертаций ∞ ↔ TC) при старте сервера. */
 runTcConvertMigration()

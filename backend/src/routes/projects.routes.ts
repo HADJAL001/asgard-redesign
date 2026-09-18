@@ -31,6 +31,7 @@ import { allowsServerCode, normalizeAppProfile } from "../lib/app-profiles"
 import { getAppDatabase, releaseAppDatabase } from "../services/app-database-binding"
 import { estimateAllDepths, loadGenerationSamples, type GenerationPath } from "../lib/generation-estimate"
 import { resolveMonthlyLimit, quotaRemaining, getMonthStartMs, getNextMonthStartMs } from "../lib/generation-quota"
+import { evaluateCreditsBadge } from "../lib/user-badges"
 import {
   attachMakegoodProject,
   consumeMakegood,
@@ -759,6 +760,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
        VALUES (?, 'project_generation', ?, 'OSGARD', ?, 'credits', 'done')`,
     ).run(userId, `Генерация (${depthCfg.label}): ${resolvedName}`, cost)
     db.exec("COMMIT")
+    evaluateCreditsBadge(userId, fresh.credits, fresh.credits - cost)
   } catch (err) {
     db.exec("ROLLBACK")
     throw err
@@ -1390,7 +1392,9 @@ const deployProjectHandler = asyncHandler(async (req: AuthRequest, res) => {
     }
   }
 
-  db.prepare(`UPDATE projects SET deploy_status = 'deploying', deploy_error = NULL WHERE id = ?`).run(id)
+  db.prepare(
+    `UPDATE projects SET deploy_status = 'deploying', deploy_error = NULL, deploy_attempts = deploy_attempts + 1 WHERE id = ?`,
+  ).run(id)
   const updated = db.prepare(`SELECT ${PROJECT_SELECT_COLUMNS} FROM projects WHERE id = ?`).get(id)
 
   // Площадку отдаём клиенту явно: пользователь должен видеть, куда именно

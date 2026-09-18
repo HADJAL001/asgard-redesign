@@ -935,20 +935,20 @@
     "inDevelopmentText": "Live chat support is still being built. Reach us through the feedback form — every message gets a reply — or check the Docs."
   },
   "architect": {
-    "title": "Architect Mastery",
-    "tier": "Tier",
+    "title": "Vibecoder Rank",
+    "tier": "Rank",
     "xp": "{{xp}} XP",
     "toNext": "To “{{tier}}” — {{xp}} XP",
-    "maxed": "Top tier reached",
+    "maxed": "Top rank reached",
     "progress": "Progress",
     "teachTitle": "This is not the daily reward.",
-    "teachBody": "Mastery grows from real work — generating projects, forging and selling artifacts. Each new tier earns you a rare regalia from the Forge. Credits for daily login are a separate reward.",
+    "teachBody": "Rank grows from real work — generating projects, forging and selling artifacts. Each new rank earns you a rare regalia from the Forge. Credits for daily login are a separate reward.",
     "tiers": {
-      "apprentice": "Apprentice",
-      "smith": "Smith",
-      "architect": "Architect",
-      "magister": "Magister",
-      "legend": "Legend"
+      "apprentice": "Newcomer",
+      "smith": "Apprentice",
+      "architect": "Vibecoder",
+      "magister": "Universe Architect",
+      "legend": "Platform Legend"
     }
   },
   "signature": {

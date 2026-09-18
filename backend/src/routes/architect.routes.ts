@@ -1,6 +1,7 @@
 import { Router } from "express"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { getArchitectState, ARCHITECT_TIERS } from "../lib/architect-progression"
+import { listUserBadges } from "../lib/user-badges"
 
 /* ================================================================
    OSGARD · «Мастерство Архитектора» — состояние прогрессии
@@ -24,6 +25,13 @@ router.get("/state", requireAuth, (req: AuthRequest, res) => {
     // Справочник тиров (ключ + порог) — чтобы фронт мог отрисовать всю лестницу.
     tiers: ARCHITECT_TIERS.map((t) => ({ key: t.key, name: t.name, minXp: t.minXp })),
   })
+})
+
+/* ---------------- GET /architect/badges ----------------
+   Бейджи за стиль работы (🚀 Скорострел, 🧠 Философ, 🛡️ Чистюля, 🔥 На грани) —
+   отдельная лестница от тира мастерства, см. lib/user-badges.ts. */
+router.get("/badges", requireAuth, (req: AuthRequest, res) => {
+  res.json({ badges: listUserBadges(req.user!.userId) })
 })
 
 export default router

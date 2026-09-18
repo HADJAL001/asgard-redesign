@@ -253,6 +253,14 @@ export interface ArchitectTierInfo {
   minXp: number
 }
 
+/** Бейдж за стиль работы (GET /architect/badges → badges). Отдельная лестница
+ *  от тира мастерства — моментальный знак отличия за конкретное событие. */
+export interface UserBadge {
+  badgeKey: string
+  label: string
+  earnedAt: string
+}
+
 /** Запись рейтинга архитекторов (см. GET /leaderboard). */
 export interface LeaderboardEntry {
   userId: number
@@ -822,6 +830,10 @@ export interface OsgardStoreState {
   architectTiers: ArchitectTierInfo[]
   /** GET /architect/state — текущий тир + XP + прогресс к следующему тиру. */
   fetchArchitect: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
+  /** Бейджи за стиль работы (null = ещё не загружены). */
+  badges: UserBadge[] | null
+  /** GET /architect/badges — список заработанных бейджей. */
+  fetchBadges: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
 
   /* ---- маркетплейс ---- */
   /** GET /marketplace/listings — список всех активных лотов на продаже. */
@@ -988,6 +1000,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   forgeLoadout: EMPTY_FORGE_LOADOUT,
   architect: null,
   architectTiers: [],
+  badges: null,
   marketplaceListings: [],
   leaderboard: [],
   transactions: [],
@@ -1536,6 +1549,16 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
     }
   },
 
+  /* ---- fetch: GET /architect/badges — бейджи за стиль работы ---- */
+  fetchBadges: async (opts) => {
+    try {
+      const res = await apiClient.get<{ badges: UserBadge[] }>("/architect/badges", opts)
+      set({ badges: res.badges ?? [] })
+    } catch {
+      /* best-effort — бейджи не критичны для рендера профиля */
+    }
+  },
+
   /* ---- fetch: GET /marketplace/listings — все активные лоты маркетплейса ---- */
   fetchListings: async (opts) => {
     try {
@@ -2044,6 +2067,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       forgeLoadout: EMPTY_FORGE_LOADOUT,
       architect: null,
       architectTiers: [],
+      badges: null,
       marketplaceListings: [],
       leaderboard: [],
       transactions: [],
