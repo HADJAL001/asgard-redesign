@@ -22,6 +22,7 @@
    упавшей сборки.
    ================================================================ */
 
+import { useEffect, useRef } from "react"
 import type { ComponentType } from "react"
 import { CheckCircle2, Loader2, XCircle } from "lucide-react"
 import { COLORS } from "@/lib/economy"
@@ -57,6 +58,26 @@ export function GenerationStory({
 }) {
   const activeIndex = steps.findIndex((s) => s.state === "active")
   const doneCount = steps.filter((s) => s.state === "done").length
+  const lastSoundIndex = useRef(-1)
+
+  useEffect(() => {
+    if (activeIndex < 0 || activeIndex === lastSoundIndex.current || typeof window === "undefined") return
+    lastSoundIndex.current = activeIndex
+    const AudioContextCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!AudioContextCtor) return
+    const context = new AudioContextCtor()
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+    oscillator.type = "sine"
+    oscillator.frequency.value = 440 + activeIndex * 55
+    gain.gain.setValueAtTime(0.0001, context.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.035, context.currentTime + 0.015)
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.12)
+    oscillator.connect(gain).connect(context.destination)
+    oscillator.start()
+    oscillator.stop(context.currentTime + 0.13)
+    oscillator.addEventListener("ended", () => void context.close(), { once: true })
+  }, [activeIndex])
 
   return (
     <div className="eg-surface flex flex-col items-center gap-6 rounded-2xl px-6 py-10 text-center md:py-14">
