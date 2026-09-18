@@ -23,7 +23,7 @@
    ================================================================ */
 
 import { useEffect, useState } from "react"
-import { BadgeCheck, ShieldCheck, Crown, Rocket, Share2, Check, Loader2, AlertTriangle, Code2 } from "lucide-react"
+import { BadgeCheck, ShieldCheck, Crown, Rocket, Share2, Check, Loader2, AlertTriangle, Code2, Video } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-store"
 
@@ -70,6 +70,7 @@ export function CertifiedCredential() {
   const [claimErr, setClaimErr] = useState<string | null>(null)
   const [shared, setShared] = useState(false)
   const [mdCopied, setMdCopied] = useState(false)
+  const [videoBusy, setVideoBusy] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -134,6 +135,64 @@ export function CertifiedCredential() {
       setTimeout(() => setMdCopied(false), 2000)
     } catch {
       /* буфер недоступен — тихо игнорируем */
+    }
+  }
+
+  async function handleExportVideo() {
+    if (!cert || typeof document === "undefined") return
+    setVideoBusy(true)
+    try {
+      const canvas = document.createElement("canvas")
+      canvas.width = 1280
+      canvas.height = 720
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+      const draw = (progress: number) => {
+        ctx.fillStyle = "#080a12"
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.fillStyle = "#d4af37"
+        ctx.fillRect(80, 80, 8, 560 * progress)
+        ctx.fillStyle = "#f8f4e8"
+        ctx.font = "700 58px Georgia"
+        ctx.fillText("OSGARD", 140, 190)
+        ctx.font = "400 34px Inter, sans-serif"
+        ctx.fillStyle = "#d4af37"
+        ctx.fillText("CERTIFIED VIBECODER", 145, 255)
+        ctx.fillStyle = "#ffffff"
+        ctx.font = "600 44px Inter, sans-serif"
+        ctx.fillText(cert.holderName || "Vibecoder", 145, 385)
+        ctx.font = "400 24px monospace"
+        ctx.fillStyle = "#9ca3af"
+        ctx.fillText(cert.serial, 145, 455)
+        ctx.fillText("Verified creative work, publicly checkable", 145, 535)
+      }
+      const stream = typeof canvas.captureStream === "function" && typeof MediaRecorder !== "undefined" ? canvas.captureStream(30) : null
+      if (!stream) {
+        draw(1)
+        const link = document.createElement("a")
+        link.href = canvas.toDataURL("image/png")
+        link.download = `osgard-${cert.serial}.png`
+        link.click()
+        return
+      }
+      const chunks: BlobPart[] = []
+      const recorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp9" })
+      recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data) }
+      const done = new Promise<void>((resolve) => { recorder.onstop = () => resolve() })
+      recorder.start()
+      for (let frame = 0; frame <= 60; frame += 1) {
+        draw(frame / 60)
+        await new Promise((resolve) => window.setTimeout(resolve, 100))
+      }
+      recorder.stop()
+      await done
+      const link = document.createElement("a")
+      link.href = URL.createObjectURL(new Blob(chunks, { type: "video/webm" }))
+      link.download = `osgard-${cert.serial}.webm`
+      link.click()
+      window.setTimeout(() => URL.revokeObjectURL(link.href), 1000)
+    } finally {
+      setVideoBusy(false)
     }
   }
 
@@ -230,6 +289,10 @@ export function CertifiedCredential() {
         <button type="button" className="acd-cred-share" onClick={handleShare}>
           {shared ? <Check size={15} strokeWidth={2.4} /> : <Share2 size={15} strokeWidth={1.9} />}
           {shared ? "Ссылка скопирована" : "Поделиться · проверить публично"}
+        </button>
+        <button type="button" className="acd-cred-embed" onClick={() => void handleExportVideo()} disabled={videoBusy}>
+          {videoBusy ? <Loader2 size={15} className="acd-cred-spin" /> : <Video size={15} />}
+          {videoBusy ? "Рендерим видео…" : "Скачать видео-свидетельство"}
         </button>
         <p className="acd-cred-verify-hint">Любой может проверить подлинность по /certified/{cert.serial}</p>
 
