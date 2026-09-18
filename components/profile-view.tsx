@@ -286,6 +286,12 @@ function ArchitectMastery() {
     : architect.nextTierName
   const pct = Math.round(Math.max(0, Math.min(1, architect.progress)) * 100)
   const maxed = architect.nextTierKey === null || architect.xpForNextTier === null
+  const rankLabels: Record<string, string> = {
+    prompt_apprentice: "Prompt Apprentice",
+    code_whisperer: "Code Whisperer",
+    vibe_architect: "Vibe Architect",
+    osgard_legend: "OSGARD Legend",
+  }
 
   return (
     <section
@@ -352,7 +358,7 @@ function ArchitectMastery() {
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Ранги Vibecoder">
           {projectRanks.map((rank) => (
             <div key={rank.key} className="rounded-lg px-3 py-2" style={{ border: `1px solid ${rank.achieved ? "rgba(212,175,55,.55)" : "rgba(158,178,188,.2)"}`, background: rank.achieved ? "rgba(212,175,55,.08)" : "transparent" }}>
-              <p className="text-[11px] leading-tight" style={{ color: rank.achieved ? "var(--color-gold)" : "#9eb2bc" }}>{rank.key.replaceAll("_", " ")}</p>
+              <p className="text-[11px] leading-tight" style={{ color: rank.achieved ? "var(--color-gold)" : "#9eb2bc" }}>{rankLabels[rank.key] ?? rank.key}</p>
               <p className="mt-1 text-[11px]" style={{ color: "rgba(255,255,255,.66)" }}>{rank.achieved ? "Получен" : `${rank.threshold} проектов`}</p>
             </div>
           ))}
