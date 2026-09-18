@@ -23,7 +23,7 @@
    ================================================================ */
 
 import { useEffect, useState } from "react"
-import { BadgeCheck, ShieldCheck, Crown, Rocket, Share2, Check, Loader2, AlertTriangle, Code2, Video } from "lucide-react"
+import { BadgeCheck, ShieldCheck, Crown, Rocket, Share2, Check, Loader2, AlertTriangle, Code2, Video, Linkedin } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-store"
 
@@ -136,6 +136,16 @@ export function CertifiedCredential() {
     } catch {
       /* буфер недоступен — тихо игнорируем */
     }
+  }
+
+  function openSocialShare(provider: "linkedin" | "x") {
+    if (!cert || typeof window === "undefined") return
+    const url = `${window.location.origin}/certified/${cert.serial}`
+    const text = `${cert.holderName ?? "Vibecoder"} — OSGARD Certified Vibecoder`
+    const target = provider === "linkedin"
+      ? `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`
+      : `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`
+    window.open(target, "osgard-share", "noopener,noreferrer,width=640,height=640")
   }
 
   async function handleExportVideo() {
@@ -295,6 +305,10 @@ export function CertifiedCredential() {
           {shared ? <Check size={15} strokeWidth={2.4} /> : <Share2 size={15} strokeWidth={1.9} />}
           {shared ? "Ссылка скопирована" : "Поделиться · проверить публично"}
         </button>
+        <div className="acd-cred-social-row">
+          <button type="button" className="acd-cred-social" onClick={() => openSocialShare("linkedin")}><Linkedin size={14} /> LinkedIn</button>
+          <button type="button" className="acd-cred-social" onClick={() => openSocialShare("x")}>𝕏 Post</button>
+        </div>
         <button type="button" className="acd-cred-embed" onClick={() => void handleExportVideo()} disabled={videoBusy}>
           {videoBusy ? <Loader2 size={15} className="acd-cred-spin" /> : <Video size={15} />}
           {videoBusy ? "Рендерим видео…" : "Скачать видео-свидетельство"}
@@ -385,6 +399,9 @@ const CRED_CSS = `
   transition: transform .25s cubic-bezier(0.16,1,0.3,1), box-shadow .25s ease;
 }
 .acd-cred-share:hover { transform: scale(1.02); box-shadow: 0 14px 40px rgba(212,175,55,0.4); }
+.acd-cred-social-row { display: flex; justify-content: center; gap: 8px; margin-top: 9px; }
+.acd-cred-social { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border: 1px solid rgba(212,175,55,.25); border-radius: 7px; color: #d9c98e; background: rgba(212,175,55,.06); font-size: 12px; cursor: pointer; }
+.acd-cred-social:hover { background: rgba(212,175,55,.14); }
 .acd-cred-verify-hint {
   position: relative; margin: 12px 0 0; font-size: 11.5px; color: #8B8574; word-break: break-word;
 }
