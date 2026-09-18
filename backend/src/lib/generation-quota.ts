@@ -75,6 +75,20 @@ export function resolveMonthlyLimit(plan: string): number | null {
   return planLimit(PROJECT_GENERATION_MONTHLY_LIMITS, plan)
 }
 
+/** Weekly Elite bonuses are additive and expire independently of a paid plan. */
+export function resolveMonthlyLimitForUser(plan: string, userId: number): number | null {
+  const base = resolveMonthlyLimit(plan)
+  if (base === null) return null
+  try {
+    // Delayed require keeps the pure quota helpers usable by isolated tests.
+    const db = require("./db").default as { prepare: (sql: string) => { get: (...args: unknown[]) => { bonus?: number } } }
+    const row = db.prepare(`SELECT COALESCE(SUM(bonus_generations), 0) as bonus FROM weekly_generation_bonuses WHERE user_id = ? AND expires_at > ?`).get(userId, Date.now())
+    return base + Math.max(0, Number(row?.bonus ?? 0))
+  } catch {
+    return base
+  }
+}
+
 /** Остаток попыток на текущий месяц. null — без ограничений (это не то же, что 0). */
 export function quotaRemaining(monthlyLimit: number | null, usedThisMonth: number): number | null {
   return monthlyLimit === null ? null : Math.max(0, monthlyLimit - usedThisMonth)

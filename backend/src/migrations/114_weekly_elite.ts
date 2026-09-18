@@ -13,5 +13,11 @@ export function runWeeklyEliteMigration() {
       likes INTEGER NOT NULL,
       granted_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS weekly_generation_bonuses (
+      week_key TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      bonus_generations INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    );
   `)
 }

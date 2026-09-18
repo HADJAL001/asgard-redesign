@@ -30,7 +30,7 @@ import { GENERATION_DEPTHS, resolveDepth, serializeDepths, type GenerationDepth 
 import { allowsServerCode, normalizeAppProfile } from "../lib/app-profiles"
 import { getAppDatabase, releaseAppDatabase } from "../services/app-database-binding"
 import { estimateAllDepths, loadGenerationSamples, type GenerationPath } from "../lib/generation-estimate"
-import { resolveMonthlyLimit, quotaRemaining, getMonthStartMs, getNextMonthStartMs } from "../lib/generation-quota"
+import { resolveMonthlyLimitForUser, quotaRemaining, getMonthStartMs, getNextMonthStartMs } from "../lib/generation-quota"
 import { evaluateCreditsBadge } from "../lib/user-badges"
 import {
   attachMakegoodProject,
@@ -93,7 +93,7 @@ const GUEST_CAP_RESPONSE = {
 router.get("/generation-limits", requireAuth, (req: AuthRequest, res) => {
   const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(req.user!.userId)
   const plan = userRow?.plan || "free"
-  const monthlyLimit = resolveMonthlyLimit(plan)
+  const monthlyLimit = resolveMonthlyLimitForUser(plan, req.user!.userId)
 
   const monthStart = getMonthStartMs()
   // Квоту тратят только бесплатные (quick) генерации; платные (standard/deep) — нет.
@@ -158,7 +158,7 @@ router.post(
        для быстрой генерации цена измеряется не кредитами, а остатком попыток. */
     const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
     const plan = userRow?.plan || "free"
-    const monthlyLimit = resolveMonthlyLimit(plan)
+    const monthlyLimit = resolveMonthlyLimitForUser(plan, userId)
     const { count: usedThisMonth } = db
       .prepare(
         `SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND created_at >= ? AND generation_depth = 'quick'`,
@@ -627,7 +627,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
   if (depthCfg.countsAgainstQuota) {
     const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
     const plan = userRow?.plan || "free"
-    const monthlyLimit = resolveMonthlyLimit(plan)
+    const monthlyLimit = resolveMonthlyLimitForUser(plan, userId)
 
     /* Право на перегенерацию за счёт платформы (lib/generation-makegood) списывается
        здесь ТОЛЬКО при исчерпанной квоте — то есть ровно тогда, когда без него человек

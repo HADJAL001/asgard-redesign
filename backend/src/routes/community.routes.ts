@@ -111,8 +111,9 @@ router.post("/weekly-elite/claim", requireAuth, (req: AuthRequest, res) => {
     if (!winner || winner.user_id !== userId) return { granted: false, reason: "not_winner" as const, winner }
     const inserted = db.prepare(`INSERT OR IGNORE INTO weekly_elite_rewards (week_key, user_id, post_id, likes, granted_at) VALUES (?, ?, ?, ?, ?)`).run(week.key, userId, winner.post_id, winner.likes, Date.now())
     if (inserted.changes === 0) return { granted: false, reason: "already_granted" as const, winner }
-    const until = week.end
+    const until = Date.now() + 7 * 24 * 60 * 60 * 1000
     db.prepare(`UPDATE users SET weekly_elite_until = ? WHERE id = ?`).run(until, userId)
+    db.prepare(`INSERT OR IGNORE INTO weekly_generation_bonuses (week_key, user_id, bonus_generations, expires_at) VALUES (?, ?, 100, ?)`).run(week.key, userId, until)
     return { granted: true, until, winner }
   })
   res.json(grant)

@@ -4,7 +4,7 @@ import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { asyncHandler } from "../utils/async-handler"
 import { ChainManager, pipelineEvents, getTaskStatus } from "../services/chain-manager"
 import { DEFAULT_PIPELINE } from "../services/pipeline-agents"
-import { resolveMonthlyLimit, quotaRemaining, getMonthStartMs, getNextMonthStartMs } from "../lib/generation-quota"
+import { resolveMonthlyLimitForUser, quotaRemaining, getMonthStartMs, getNextMonthStartMs } from "../lib/generation-quota"
 import type { PlanKey } from "../lib/stripe"
 
 /* ================================================================
@@ -50,7 +50,7 @@ router.post(
     const userRow: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(userId)
     const plan: PlanKey = userRow?.plan ?? "free"
 
-    const monthlyLimit = resolveMonthlyLimit(plan)
+    const monthlyLimit = resolveMonthlyLimitForUser(plan, userId)
     if (monthlyLimit !== null) {
       const { count: usedThisMonth } = db
         .prepare(
