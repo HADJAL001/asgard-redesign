@@ -13,6 +13,13 @@ const MAX_COMMENT_LENGTH = 2000
 const POSTS_PAGE_SIZE = 50
 const COMMENTS_PAGE_SIZE = 200
 
+function currentWeek() {
+  const now = new Date()
+  const day = now.getUTCDay() || 7
+  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - day + 1))
+  return { key: monday.toISOString().slice(0, 10), start: monday.getTime(), end: monday.getTime() + 7 * 24 * 60 * 60 * 1000 }
+}
+
 type AuthorRow = {
   id: number
   username: string
@@ -70,6 +77,45 @@ router.get("/", optionalAuth, (req: AuthRequest, res) => {
   }))
 
   res.json({ success: true, posts, offset, limit })
+})
+
+/* Недельный топ строится из реальных лайков постов. Выдача Elite идемпотентна
+   по week_key и не зависит от данных, присланных клиентом. */
+router.get("/weekly-elite", (_req, res) => {
+  const week = currentWeek()
+  const winner = db.prepare(`
+    SELECT p.id as post_id, p.user_id, COUNT(pl.user_id) as likes, p.title, p.text,
+           u.username, u.display_name
+    FROM posts p
+    JOIN users u ON u.id = p.user_id
+    LEFT JOIN post_likes pl ON pl.post_id = p.id
+    WHERE p.created_at >= ? AND p.created_at < ? AND u.banned = 0
+    GROUP BY p.id
+    ORDER BY likes DESC, p.created_at ASC, p.id ASC
+    LIMIT 1
+  `).get(week.start, week.end) as { post_id: number; user_id: number; likes: number; title: string | null; text: string; username: string; display_name: string | null } | undefined
+  const reward = db.prepare(`SELECT user_id, granted_at FROM weekly_elite_rewards WHERE week_key = ?`).get(week.key) as { user_id: number; granted_at: number } | undefined
+  res.json({ week: week.key, winner: winner ? { postId: winner.post_id, userId: winner.user_id, likes: winner.likes, title: winner.title, author: winner.display_name || winner.username } : null, granted: reward ? { userId: reward.user_id, at: reward.granted_at } : null })
+})
+
+router.post("/weekly-elite/claim", requireAuth, (req: AuthRequest, res) => {
+  const week = currentWeek()
+  const userId = req.user!.userId
+  const grant = db.transaction(() => {
+    const winner = db.prepare(`
+      SELECT p.id as post_id, p.user_id, COUNT(pl.user_id) as likes
+      FROM posts p LEFT JOIN post_likes pl ON pl.post_id = p.id
+      WHERE p.created_at >= ? AND p.created_at < ?
+      GROUP BY p.id ORDER BY likes DESC, p.created_at ASC, p.id ASC LIMIT 1
+    `).get(week.start, week.end) as { post_id: number; user_id: number; likes: number } | undefined
+    if (!winner || winner.user_id !== userId) return { granted: false, reason: "not_winner" as const, winner }
+    const inserted = db.prepare(`INSERT OR IGNORE INTO weekly_elite_rewards (week_key, user_id, post_id, likes, granted_at) VALUES (?, ?, ?, ?, ?)`).run(week.key, userId, winner.post_id, winner.likes, Date.now())
+    if (inserted.changes === 0) return { granted: false, reason: "already_granted" as const, winner }
+    const until = week.end
+    db.prepare(`UPDATE users SET weekly_elite_until = ? WHERE id = ?`).run(until, userId)
+    return { granted: true, until, winner }
+  })
+  res.json(grant)
 })
 
 /* ---------------- POST /posts ---------------- */

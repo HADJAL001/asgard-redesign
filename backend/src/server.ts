@@ -239,6 +239,7 @@ import feedRoutes from "./routes/feed.routes"
 import architectRoutes from "./routes/architect.routes"
 import questsRoutes from "./routes/quests.routes"
 import { runCreatorQuestsMigration } from "./migrations/113_creator_quests"
+import { runWeeklyEliteMigration } from "./migrations/114_weekly_elite"
 import provenanceRoutes from "./routes/provenance.routes"
 import { runOrderBookMigration } from "./migrations/001_order_book"
 import { runReferralMigration } from "./migrations/002_referral_system"
@@ -416,6 +417,7 @@ runRemoveDuoPlanMigration()
 /* Гарантируем наличие таблицы user_badges (бейджи за стиль работы) при старте сервера. */
 runUserBadgesMigration()
 runCreatorQuestsMigration()
+runWeeklyEliteMigration()
 
 /* Гарантируем наличие таблицы tc_convert_log (лог конвертаций ∞ ↔ TC) при старте сервера. */
 runTcConvertMigration()
