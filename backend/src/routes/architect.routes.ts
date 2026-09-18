@@ -2,6 +2,7 @@ import { Router } from "express"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { getArchitectState, ARCHITECT_TIERS } from "../lib/architect-progression"
 import { listUserBadges } from "../lib/user-badges"
+import db from "../lib/db"
 
 /* ================================================================
    OSGARD · «Мастерство Архитектора» — состояние прогрессии
@@ -19,9 +20,14 @@ const router = Router()
 
 /* ---------------- GET /architect/state ---------------- */
 router.get("/state", requireAuth, (req: AuthRequest, res) => {
-  const architect = getArchitectState(req.user!.userId)
+  const userId = req.user!.userId
+  const architect = getArchitectState(userId)
+  const projectCount = (db.prepare(`SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND status != 'failed'`).get(userId) as { count: number }).count
+  const projectRanks = [1, 5, 10, 100].map((threshold, index) => ({ threshold, key: ["first_build", "maker", "architect", "legendary_builder"][index], achieved: projectCount >= threshold }))
   res.json({
     architect,
+    projectCount,
+    projectRanks,
     // Справочник тиров (ключ + порог) — чтобы фронт мог отрисовать всю лестницу.
     tiers: ARCHITECT_TIERS.map((t) => ({ key: t.key, name: t.name, minXp: t.minXp })),
   })
