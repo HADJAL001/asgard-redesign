@@ -253,6 +253,14 @@ export interface ArchitectTierInfo {
   minXp: number
 }
 
+export interface ProjectRank {
+  threshold: number
+  key: string
+  achieved: boolean
+  requirements: Record<string, number | boolean>
+  eligibleProjects?: number
+}
+
 /** Бейдж за стиль работы (GET /architect/badges → badges). Отдельная лестница
  *  от тира мастерства — моментальный знак отличия за конкретное событие. */
 export interface UserBadge {
@@ -828,6 +836,7 @@ export interface OsgardStoreState {
   architect: ArchitectState | null
   /** Справочник тиров лестницы мастерства (для отрисовки всей шкалы). */
   architectTiers: ArchitectTierInfo[]
+  projectRanks: ProjectRank[]
   /** GET /architect/state — текущий тир + XP + прогресс к следующему тиру. */
   fetchArchitect: (opts?: { skipAuthRedirect?: boolean }) => Promise<void>
   /** Бейджи за стиль работы (null = ещё не загружены). */
@@ -1000,6 +1009,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   forgeLoadout: EMPTY_FORGE_LOADOUT,
   architect: null,
   architectTiers: [],
+  projectRanks: [],
   badges: null,
   marketplaceListings: [],
   leaderboard: [],
@@ -1539,11 +1549,11 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
   /* ---- fetch: GET /architect/state — «Мастерство Архитектора» ---- */
   fetchArchitect: async (opts) => {
     try {
-      const res = await apiClient.get<{ architect: ArchitectState; tiers: ArchitectTierInfo[] }>(
+      const res = await apiClient.get<{ architect: ArchitectState; tiers: ArchitectTierInfo[]; projectRanks?: ProjectRank[] }>(
         "/architect/state",
         opts,
       )
-      set({ architect: res.architect, architectTiers: res.tiers ?? [], error: null })
+      set({ architect: res.architect, architectTiers: res.tiers ?? [], projectRanks: res.projectRanks ?? [], error: null })
     } catch (err) {
       set({ error: extractErrorMessage(err, "Не удалось загрузить прогресс мастерства") })
     }
@@ -2067,6 +2077,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
       forgeLoadout: EMPTY_FORGE_LOADOUT,
       architect: null,
       architectTiers: [],
+      projectRanks: [],
       badges: null,
       marketplaceListings: [],
       leaderboard: [],

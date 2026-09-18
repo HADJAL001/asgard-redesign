@@ -263,6 +263,7 @@ function ArchitectMastery() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const architect = useOsgardStore((s) => s.architect)
+  const projectRanks = useOsgardStore((s) => s.projectRanks)
   const fetchArchitect = useOsgardStore((s) => s.fetchArchitect)
   const badges = useOsgardStore((s) => s.badges)
   const fetchBadges = useOsgardStore((s) => s.fetchBadges)
@@ -346,6 +347,17 @@ function ArchitectMastery() {
           {t("architect.teachBody")}
         </p>
       </div>
+
+      {projectRanks.length > 0 && (
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Ранги Vibecoder">
+          {projectRanks.map((rank) => (
+            <div key={rank.key} className="rounded-lg px-3 py-2" style={{ border: `1px solid ${rank.achieved ? "rgba(212,175,55,.55)" : "rgba(158,178,188,.2)"}`, background: rank.achieved ? "rgba(212,175,55,.08)" : "transparent" }}>
+              <p className="text-[11px] leading-tight" style={{ color: rank.achieved ? "var(--color-gold)" : "#9eb2bc" }}>{rank.key.replaceAll("_", " ")}</p>
+              <p className="mt-1 text-[11px]" style={{ color: "rgba(255,255,255,.66)" }}>{rank.achieved ? "Получен" : `${rank.threshold} проектов`}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Бейджи за стиль работы — отдельная лестница от ранга, моментальные знаки
           отличия за конкретное событие (скорость, провайдеры, чистый деплой, риск). */}
