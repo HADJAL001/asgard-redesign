@@ -24,7 +24,7 @@ import { useRouter } from "next/navigation"
 import {
   Loader2, Sparkles, FolderKanban, CircleCheck, CircleAlert, CircleDashed,
   Mic, Pencil, ArrowRight, CheckCircle2,
-  Video, VideoOff,
+  Video, VideoOff, Dices,
 } from "lucide-react"
 import { useOsgardStore, type OsgardProject } from "@/lib/store/osgard-store"
 import { ProjectCreateWizard } from "@/components/project-create-wizard"
@@ -46,6 +46,12 @@ const IDEA_SPARKS = [
   { label: "Трекер привычек", value: "Трекер привычек с дневным планом и серией" },
   { label: "SaaS для фрилансеров", value: "SaaS для фрилансеров с задачами, счетами и клиентами" },
   { label: "Telegram-бот", value: "Telegram-бот для записи на консультации с напоминаниями" },
+]
+const LUCKY_IDEAS = [
+  "Интерактивная карта тихих мест города с отзывами и маршрутами",
+  "Приложение для обмена домашними растениями между соседями",
+  "Портфолио фотографа с бронированием съёмки",
+  "Планировщик путешествия с бюджетом и чек-листом",
 ]
 
 const CREATIVE_QUESTS = [
@@ -226,6 +232,14 @@ export function DevStudioView() {
               {spark.label}
             </button>
           ))}
+          <button type="button" className="dev-btn dev-btn--gold text-[12px]" onClick={() => {
+            setIdea(LUCKY_IDEAS[Math.floor(Math.random() * LUCKY_IDEAS.length)])
+            setHeard(null)
+            window.setTimeout(() => setWizardOpen(true), 260)
+          }}>
+            <Dices size={13} strokeWidth={1.8} aria-hidden="true" />
+            Мне повезёт
+          </button>
         </div>
 
         <div className="dev-card mt-5 flex flex-wrap items-center justify-between gap-3 px-4 py-3.5" style={{ borderColor: "rgb(245 196 81 / 28%)" }}>
