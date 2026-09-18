@@ -58,7 +58,9 @@
    (см. DevAgentsView/DevDeployView, i18n сюда не заведён).
    ================================================================ */
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Canvas, useFrame } from "@react-three/fiber"
+import * as THREE from "three"
 import { Brain, Loader2, GraduationCap, EyeOff, Package, RefreshCw, AlertTriangle } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 
@@ -168,6 +170,25 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   )
 }
 
+function MemorySphereNodes({ count }: { count: number }) {
+  const group = useRef<THREE.Group>(null)
+  useFrame((_state, delta) => {
+    if (group.current) group.current.rotation.y += delta * 0.13
+  })
+  const points = Array.from({ length: Math.min(48, Math.max(8, count)) }, (_, index) => {
+    const goldenAngle = Math.PI * (3 - Math.sqrt(5))
+    const y = 1 - (index / Math.max(1, Math.min(48, Math.max(8, count)) - 1)) * 2
+    const radius = Math.sqrt(1 - y * y)
+    return new THREE.Vector3(Math.cos(goldenAngle * index) * radius, y, Math.sin(goldenAngle * index) * radius)
+  })
+  return <group ref={group}>{points.map((position, index) => (
+    <mesh key={index} position={position.multiplyScalar(2.05)}>
+      <sphereGeometry args={[index % 5 === 0 ? 0.075 : 0.045, 12, 12]} />
+      <meshBasicMaterial color={index % 5 === 0 ? "#f5c451" : "#7dd3fc"} />
+    </mesh>
+  ))}</group>
+}
+
 function MemoryConstellation({ learned, waiting, silent, failed }: { learned: number; waiting: number; silent: number; failed: number }) {
   const total = Math.max(1, learned + waiting + silent + failed)
   const nodes = Array.from({ length: Math.min(24, total) }, (_, index) => {
@@ -177,6 +198,12 @@ function MemoryConstellation({ learned, waiting, silent, failed }: { learned: nu
   })
   return (
     <section className="memory-constellation mt-7" aria-label="Нейронная карта памяти платформы">
+      <Canvas className="memory-constellation__canvas" camera={{ position: [0, 0, 6.2], fov: 42 }} dpr={[1, 1.5]}>
+        <ambientLight intensity={0.8} />
+        <pointLight position={[2, 2, 4]} intensity={1.8} color="#f5c451" />
+        <mesh><sphereGeometry args={[2, 32, 32]} /><meshBasicMaterial color="#7dd3fc" wireframe transparent opacity={0.12} /></mesh>
+        <MemorySphereNodes count={total} />
+      </Canvas>
       <div className="memory-constellation__core"><Brain size={24} strokeWidth={1.4} aria-hidden="true" /></div>
       {nodes.map((node, index) => <span key={index} className="memory-constellation__node" style={{ left: `${node.left}%`, top: `${node.top}%`, animationDelay: node.delay }} />)}
       <div className="memory-constellation__legend">
