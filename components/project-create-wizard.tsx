@@ -72,9 +72,11 @@ type Props = {
    *  без этого текст пришлось бы вводить повторно. Необязателен: обычный
    *  режим вызывает мастер без него и работает ровно как раньше. */
   initialDescription?: string
+  /** Studio autopilot: skips empty setup but still requires the final cost-aware confirmation. */
+  luckyStart?: boolean
 }
 
-export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "" }: Props) {
+export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "", luckyStart = false }: Props) {
   const { t } = useTranslation()
   const { generateProject } = useOsgardStore()
   const wallet = useOsgardStore((s) => s.wallet)
@@ -149,6 +151,22 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
     })
     setStep(3)
   }
+
+  useEffect(() => {
+    if (!luckyStart) return
+    const pick = THEMES[Math.floor(Math.random() * THEMES.length)]
+    setTheme(pick)
+    setName((current) => current.trim() || pick.label)
+    setBrief({
+      audience: t("projectWizard.luckyAudience"),
+      outcome: t("projectWizard.luckyOutcome"),
+      essentials: t("projectWizard.luckyEssentials"),
+      constraints: "",
+    })
+    setStep(3)
+    // luckyStart is immutable for one modal instance; translations are ready at mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [luckyStart])
 
   function goNext() {
     setError(null)

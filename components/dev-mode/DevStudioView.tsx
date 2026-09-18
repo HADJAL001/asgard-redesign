@@ -74,6 +74,7 @@ export function DevStudioView() {
   const { projects, fetchProjects, loading, error } = useOsgardStore()
   const [idea, setIdea] = useState("")
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [luckyStart, setLuckyStart] = useState(false)
   const [questDone, setQuestDone] = useState(false)
   const [serverQuest, setServerQuest] = useState<ServerQuest | null>(null)
   const [sharing, setSharing] = useState(false)
@@ -121,6 +122,7 @@ export function DevStudioView() {
 
   function startProjectCreation() {
     if (!canCreateProject) return
+    setLuckyStart(false)
     setWizardOpen(true)
   }
 
@@ -242,6 +244,7 @@ export function DevStudioView() {
           <button type="button" className="dev-btn dev-btn--gold text-[12px]" onClick={() => {
             setIdea(LUCKY_IDEAS[Math.floor(Math.random() * LUCKY_IDEAS.length)])
             setHeard(null)
+            setLuckyStart(true)
             window.setTimeout(() => setWizardOpen(true), 260)
           }}>
             <Dices size={13} strokeWidth={1.8} aria-hidden="true" />
@@ -401,9 +404,11 @@ export function DevStudioView() {
       {wizardOpen ? (
         <ProjectCreateWizard
           initialDescription={idea}
-          onClose={() => setWizardOpen(false)}
+          luckyStart={luckyStart}
+          onClose={() => { setWizardOpen(false); setLuckyStart(false) }}
           onCreated={(projectId: number) => {
             setWizardOpen(false)
+            setLuckyStart(false)
             setIdea("")
             setHeard(null)
             if (serverQuest && !serverQuest.completed) {
