@@ -24,6 +24,7 @@ import { useRouter } from "next/navigation"
 import {
   Loader2, Sparkles, FolderKanban, CircleCheck, CircleAlert, CircleDashed,
   Mic, Pencil, ArrowRight, CheckCircle2,
+  Video, VideoOff,
 } from "lucide-react"
 import { useOsgardStore, type OsgardProject } from "@/lib/store/osgard-store"
 import { ProjectCreateWizard } from "@/components/project-create-wizard"
@@ -69,6 +70,8 @@ export function DevStudioView() {
   const [wizardOpen, setWizardOpen] = useState(false)
   const [questDone, setQuestDone] = useState(false)
   const [serverQuest, setServerQuest] = useState<ServerQuest | null>(null)
+  const [sharing, setSharing] = useState(false)
+  const shareVideoRef = useRef<HTMLVideoElement>(null)
   const canCreateProject = idea.trim().length > 0
 
   useEffect(() => {
@@ -84,6 +87,28 @@ export function DevStudioView() {
       })
   }, [])
   const dailyQuest = serverQuest?.title ?? CREATIVE_QUESTS[new Date().getDate() % CREATIVE_QUESTS.length]
+
+  async function toggleScreenShare() {
+    if (sharing) {
+      const stream = shareVideoRef.current?.srcObject as MediaStream | null
+      stream?.getTracks().forEach((track) => track.stop())
+      if (shareVideoRef.current) shareVideoRef.current.srcObject = null
+      setSharing(false)
+      return
+    }
+    if (!navigator.mediaDevices?.getDisplayMedia) return
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
+      if (shareVideoRef.current) {
+        shareVideoRef.current.srcObject = stream
+        await shareVideoRef.current.play().catch(() => undefined)
+      }
+      stream.getVideoTracks()[0]?.addEventListener("ended", () => setSharing(false), { once: true })
+      setSharing(true)
+    } catch {
+      setSharing(false)
+    }
+  }
 
   // Один случайный выбор на монтирование — не меняется при ре-рендерах экрана.
   const [greeting] = useState(() => AGENT_GREETINGS[Math.floor(Math.random() * AGENT_GREETINGS.length)])
@@ -150,6 +175,17 @@ export function DevStudioView() {
               </span>
             </div>
           ))}
+        </div>
+
+        <div className="dev-card mt-4 flex flex-wrap items-center gap-3 px-4 py-3" style={{ borderColor: sharing ? "rgb(125 211 252 / 45%)" : "rgb(148 163 184 / 18%)" }}>
+          <button type="button" className="dev-btn dev-btn--ghost text-[12px]" onClick={toggleScreenShare}>
+            {sharing ? <VideoOff size={14} aria-hidden="true" /> : <Video size={14} aria-hidden="true" />}
+            {sharing ? "Остановить показ" : "Показать экран"}
+          </button>
+          <span className="text-[12px]" style={{ color: "rgb(148 163 184 / 80%)" }}>
+            {sharing ? "Живой экран виден только вам в этой сессии" : "Поделитесь экраном во время показа результата"}
+          </span>
+          {sharing ? <video ref={shareVideoRef} muted playsInline className="mt-2 max-h-40 w-full rounded-md border border-slate-700 object-contain" aria-label="Предпросмотр экрана" /> : null}
         </div>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-start">
