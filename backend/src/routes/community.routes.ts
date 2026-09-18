@@ -13,10 +13,10 @@ const MAX_COMMENT_LENGTH = 2000
 const POSTS_PAGE_SIZE = 50
 const COMMENTS_PAGE_SIZE = 200
 
-function currentWeek() {
+function lastCompletedWeek() {
   const now = new Date()
   const day = now.getUTCDay() || 7
-  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - day + 1))
+  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - day - 6))
   return { key: monday.toISOString().slice(0, 10), start: monday.getTime(), end: monday.getTime() + 7 * 24 * 60 * 60 * 1000 }
 }
 
@@ -82,7 +82,7 @@ router.get("/", optionalAuth, (req: AuthRequest, res) => {
 /* Недельный топ строится из реальных лайков постов. Выдача Elite идемпотентна
    по week_key и не зависит от данных, присланных клиентом. */
 router.get("/weekly-elite", (_req, res) => {
-  const week = currentWeek()
+  const week = lastCompletedWeek()
   const winner = db.prepare(`
     SELECT p.id as post_id, p.user_id, COUNT(pl.user_id) as likes, p.title, p.text,
            u.username, u.display_name
@@ -99,7 +99,7 @@ router.get("/weekly-elite", (_req, res) => {
 })
 
 router.post("/weekly-elite/claim", requireAuth, (req: AuthRequest, res) => {
-  const week = currentWeek()
+  const week = lastCompletedWeek()
   const userId = req.user!.userId
   const grant = db.transaction(() => {
     const winner = db.prepare(`
