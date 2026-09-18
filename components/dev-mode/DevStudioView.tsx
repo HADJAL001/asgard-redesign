@@ -39,6 +39,13 @@ const AGENT_GREETINGS = [
   { agent: "БЛИЗНЕЦ", text: "Голос работает не хуже текста — можно просто рассказать, что нужно." },
 ]
 
+const IDEA_SPARKS = [
+  { label: "Сайт кофейни", value: "Сайт кофейни с меню и бронированием столиков" },
+  { label: "Трекер привычек", value: "Трекер привычек с дневным планом и серией" },
+  { label: "SaaS для фрилансеров", value: "SaaS для фрилансеров с задачами, счетами и клиентами" },
+  { label: "Telegram-бот", value: "Telegram-бот для записи на консультации с напоминаниями" },
+]
+
 /** Человеческий статус проекта — без экономических метрик.
  *  Формулировки честные: «Собирается» не обещает успех заранее. */
 function statusOf(project: OsgardProject): { label: string; color: string; Icon: typeof CircleCheck } {
@@ -110,6 +117,17 @@ export function DevStudioView() {
           <span style={{ color: "#d7ae57", fontWeight: 500 }}>{greeting.agent}:</span> {greeting.text}
         </p>
 
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3" aria-label="Агенты просыпаются">
+          {AGENT_GREETINGS.map((entry, index) => (
+            <div key={entry.agent} className="dev-card flex items-start gap-2.5 px-3 py-2.5" style={{ animation: `dev-agent-awaken 700ms ease ${index * 140}ms both` }}>
+              <span className="mt-1 size-2 shrink-0 rounded-full" style={{ background: index === 0 ? "#F5C451" : index === 1 ? "#7DD3FC" : "#C4B5FD" }} />
+              <span className="min-w-0 text-[12px] leading-relaxed" style={{ color: "rgb(226 232 240 / 88%)" }}>
+                <strong style={{ color: "#F5C451" }}>{entry.agent}</strong> · {entry.text}
+              </span>
+            </div>
+          ))}
+        </div>
+
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-start">
           <label htmlFor="dev-idea" className="sr-only">
             Описание приложения, которое нужно создать
@@ -141,6 +159,15 @@ export function DevStudioView() {
         </div>
 
         {/* Слушаю — человек должен видеть, что микрофон правда работает. */}
+        <div className="mt-3 flex flex-wrap gap-2" aria-label="Искры идей">
+          {IDEA_SPARKS.map((spark) => (
+            <button key={spark.label} type="button" className="dev-btn dev-btn--ghost text-[12px]" onClick={() => { setIdea(spark.value); setHeard(null) }}>
+              <Sparkles size={13} strokeWidth={1.7} aria-hidden="true" />
+              {spark.label}
+            </button>
+          ))}
+        </div>
+
         {voice.isListening ? (
           <p
             className="mt-3 inline-flex items-center gap-2 text-[13.5px]"
