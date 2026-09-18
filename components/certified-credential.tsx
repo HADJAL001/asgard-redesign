@@ -184,8 +184,9 @@ export function CertifiedCredential() {
       recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data) }
       const done = new Promise<void>((resolve) => { recorder.onstop = () => resolve() })
       recorder.start()
-      for (let frame = 0; frame <= 60; frame += 1) {
-        draw(frame / 60)
+      const durationFrames = 100 // 10-second certificate reveal at 100ms/frame.
+      for (let frame = 0; frame <= durationFrames; frame += 1) {
+        draw(frame / durationFrames)
         await new Promise((resolve) => window.setTimeout(resolve, 100))
       }
       recorder.stop()
