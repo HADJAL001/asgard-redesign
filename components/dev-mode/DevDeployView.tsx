@@ -47,6 +47,8 @@ function DeployRow({ project, primary }: { project: OsgardProject; primary: bool
   const canDeploy = project.status === "ready" && !deploying
 
   async function handleDeploy(opts?: { acknowledgeBroken?: boolean }) {
+    // Reserve a tab from the click gesture; the deploy result arrives asynchronously.
+    const previewWindow = typeof window !== "undefined" ? window.open("about:blank", "_blank", "noopener,noreferrer") : null
     setBusy("deploy")
     setError(null)
     const res = await deployProject(project.id, opts)
@@ -56,6 +58,7 @@ function DeployRow({ project, primary }: { project: OsgardProject; primary: bool
          кнопки ничего не изменит. Показываем осознанный обход отдельной
          ссылкой (backend/src/lib/engineering-gate). */
       setBlockedDefects(res.blockedByEngineering ? res.defects ?? 0 : null)
+      previewWindow?.close()
       setBusy(null)
       return
     }
@@ -65,6 +68,8 @@ function DeployRow({ project, primary }: { project: OsgardProject; primary: bool
     if (finished?.deployStatus === "failed") {
       setError(finished.deployError || "Публикация завершилась ошибкой.")
     }
+    if (finished?.deployStatus === "failed") previewWindow?.close()
+    else if (finished?.liveUrl && previewWindow) previewWindow.location.href = finished.liveUrl
     await fetchProjects({ skipAuthRedirect: true })
     setBusy(null)
   }
