@@ -24,11 +24,12 @@ router.get("/state", requireAuth, (req: AuthRequest, res) => {
   const architect = getArchitectState(userId)
   const projectCount = (db.prepare(`SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND status != 'failed'`).get(userId) as { count: number }).count
   const soldProjects = (db.prepare(`SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND sold > 0`).get(userId) as { count: number }).count
+  const rankEligibleProjects = (db.prepare(`SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND status != 'failed' AND has_manual_editor_edits IS NOT NULL`).get(userId) as { count: number }).count
+  const untouchedProjects = (db.prepare(`SELECT COUNT(*) as count FROM projects WHERE user_id = ? AND status != 'failed' AND has_manual_editor_edits = 0`).get(userId) as { count: number }).count
   const trainedTwin = Boolean(db.prepare(`SELECT 1 FROM user_twins WHERE user_id = ? AND trained_samples > 0`).get(userId))
   const projectRanks = [
     { threshold: 1, key: "prompt_apprentice", achieved: projectCount >= 1, requirements: { projects: 1 } },
-    // Исторически ручное редактирование не логировалось: не выдаём награду по неподтверждённому условию.
-    { threshold: 5, key: "code_whisperer", achieved: false, requirements: { projects: 5, noManualEditor: true }, unavailable: ["noManualEditor"] },
+    { threshold: 5, key: "code_whisperer", achieved: rankEligibleProjects >= 5 && untouchedProjects >= 5, requirements: { projects: 5, noManualEditor: true }, eligibleProjects: rankEligibleProjects },
     { threshold: 10, key: "vibe_architect", achieved: projectCount >= 10 && soldProjects >= 1, requirements: { projects: 10, soldProjects: 1 } },
     { threshold: 100, key: "osgard_legend", achieved: projectCount >= 100 && trainedTwin, requirements: { projects: 100, trainedTwin: true } },
   ]
@@ -36,6 +37,8 @@ router.get("/state", requireAuth, (req: AuthRequest, res) => {
     architect,
     projectCount,
     soldProjects,
+    rankEligibleProjects,
+    untouchedProjects,
     trainedTwin,
     projectRanks,
     // Справочник тиров (ключ + порог) — чтобы фронт мог отрисовать всю лестницу.

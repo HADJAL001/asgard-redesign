@@ -425,7 +425,7 @@ router.put("/:id/files/*", requireAuth, (req: AuthRequest, res) => {
     .all(id) as GeneratedAppFile[]
   const errors = validateGeneratedFiles(allFiles)
 
-  db.prepare(`UPDATE projects SET generation_error = ? WHERE id = ?`).run(
+  db.prepare(`UPDATE projects SET generation_error = ?, has_manual_editor_edits = 1 WHERE id = ?`).run(
     errors.length > 0 ? errors.join("\n") : null,
     id,
   )

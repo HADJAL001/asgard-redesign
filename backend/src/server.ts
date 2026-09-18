@@ -240,6 +240,7 @@ import architectRoutes from "./routes/architect.routes"
 import questsRoutes from "./routes/quests.routes"
 import { runCreatorQuestsMigration } from "./migrations/113_creator_quests"
 import { runWeeklyEliteMigration } from "./migrations/114_weekly_elite"
+import { runProjectManualEditsMigration } from "./migrations/115_project_manual_edits"
 import provenanceRoutes from "./routes/provenance.routes"
 import { runOrderBookMigration } from "./migrations/001_order_book"
 import { runReferralMigration } from "./migrations/002_referral_system"
@@ -418,6 +419,7 @@ runRemoveDuoPlanMigration()
 runUserBadgesMigration()
 runCreatorQuestsMigration()
 runWeeklyEliteMigration()
+runProjectManualEditsMigration()
 
 /* Гарантируем наличие таблицы tc_convert_log (лог конвертаций ∞ ↔ TC) при старте сервера. */
 runTcConvertMigration()
