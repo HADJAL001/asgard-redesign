@@ -29,6 +29,7 @@ import { useOsgardStore, type OsgardProject } from "@/lib/store/osgard-store"
 import { ProjectCreateWizard } from "@/components/project-create-wizard"
 import { VoiceInputButton } from "@/components/voice-input-button"
 import { useVoice } from "@/lib/hooks/useVoice"
+import { apiClient } from "@/lib/api-client"
 
 /** Живые реплики-приветствия агентов при входе в студию — парасоциальная
  *  оживлённость интерфейса без затрат на инфраструктуру (просто текст,
@@ -51,6 +52,7 @@ const CREATIVE_QUESTS = [
   "Добавь Telegram-интеграцию в новый проект",
   "Собери лендинг, который можно показать клиенту сегодня",
 ]
+type ServerQuest = { key: string; title: string; reward: number; progress: number; completed: boolean }
 
 /** Человеческий статус проекта — без экономических метрик.
  *  Формулировки честные: «Собирается» не обещает успех заранее. */
@@ -66,13 +68,22 @@ export function DevStudioView() {
   const [idea, setIdea] = useState("")
   const [wizardOpen, setWizardOpen] = useState(false)
   const [questDone, setQuestDone] = useState(false)
+  const [serverQuest, setServerQuest] = useState<ServerQuest | null>(null)
   const canCreateProject = idea.trim().length > 0
 
   useEffect(() => {
-    const key = `osgard-quest-${new Date().toISOString().slice(0, 10)}`
-    setQuestDone(window.localStorage.getItem(key) === "done")
+    apiClient.get<{ quests: ServerQuest[] }>("/quests/today", { skipAuthRedirect: true })
+      .then(({ quests }) => {
+        const quest = quests[0] ?? null
+        setServerQuest(quest)
+        setQuestDone(Boolean(quest?.completed))
+      })
+      .catch(() => {
+        const key = `osgard-quest-${new Date().toISOString().slice(0, 10)}`
+        setQuestDone(window.localStorage.getItem(key) === "done")
+      })
   }, [])
-  const dailyQuest = CREATIVE_QUESTS[new Date().getDate() % CREATIVE_QUESTS.length]
+  const dailyQuest = serverQuest?.title ?? CREATIVE_QUESTS[new Date().getDate() % CREATIVE_QUESTS.length]
 
   // Один случайный выбор на монтирование — не меняется при ре-рендерах экрана.
   const [greeting] = useState(() => AGENT_GREETINGS[Math.floor(Math.random() * AGENT_GREETINGS.length)])
@@ -194,8 +205,10 @@ export function DevStudioView() {
             className="dev-btn dev-btn--ghost shrink-0 text-[12px]"
             onClick={() => {
               setIdea(dailyQuest)
-              setQuestDone(true)
-              window.localStorage.setItem(`osgard-quest-${new Date().toISOString().slice(0, 10)}`, "done")
+              if (!serverQuest) {
+                setQuestDone(true)
+                window.localStorage.setItem(`osgard-quest-${new Date().toISOString().slice(0, 10)}`, "done")
+              }
             }}
           >
             {questDone ? <CheckCircle2 size={14} aria-hidden="true" /> : <ArrowRight size={14} aria-hidden="true" />}
@@ -336,6 +349,11 @@ export function DevStudioView() {
             setWizardOpen(false)
             setIdea("")
             setHeard(null)
+            if (serverQuest && !serverQuest.completed) {
+              apiClient.post(`/quests/${serverQuest.key}/complete`, { projectId })
+                .then(() => setQuestDone(true))
+                .catch(() => undefined)
+            }
             // Тот же сценарий, что и в обычном режиме (сразу внутрь Мастерской,
             // где видно рождение приложения), но роутом студии: с /projects/...
             // человек вывалился бы обратно в мир с его навигацией.

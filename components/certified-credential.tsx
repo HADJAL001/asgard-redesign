@@ -176,7 +176,11 @@ export function CertifiedCredential() {
         return
       }
       const chunks: BlobPart[] = []
-      const recorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp9" })
+      const preferredMime = "video/webm;codecs=vp9"
+      const mimeType = typeof MediaRecorder.isTypeSupported === "function" && MediaRecorder.isTypeSupported(preferredMime)
+        ? preferredMime
+        : (typeof MediaRecorder.isTypeSupported !== "function" || MediaRecorder.isTypeSupported("video/webm") ? "video/webm" : "")
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
       recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data) }
       const done = new Promise<void>((resolve) => { recorder.onstop = () => resolve() })
       recorder.start()
