@@ -23,7 +23,7 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   Loader2, Sparkles, FolderKanban, CircleCheck, CircleAlert, CircleDashed,
-  Mic, Pencil, ArrowRight,
+  Mic, Pencil, ArrowRight, CheckCircle2,
 } from "lucide-react"
 import { useOsgardStore, type OsgardProject } from "@/lib/store/osgard-store"
 import { ProjectCreateWizard } from "@/components/project-create-wizard"
@@ -46,6 +46,12 @@ const IDEA_SPARKS = [
   { label: "Telegram-бот", value: "Telegram-бот для записи на консультации с напоминаниями" },
 ]
 
+const CREATIVE_QUESTS = [
+  "Сделай приложение, которое решает одну экологическую проблему",
+  "Добавь Telegram-интеграцию в новый проект",
+  "Собери лендинг, который можно показать клиенту сегодня",
+]
+
 /** Человеческий статус проекта — без экономических метрик.
  *  Формулировки честные: «Собирается» не обещает успех заранее. */
 function statusOf(project: OsgardProject): { label: string; color: string; Icon: typeof CircleCheck } {
@@ -59,7 +65,14 @@ export function DevStudioView() {
   const { projects, fetchProjects, loading, error } = useOsgardStore()
   const [idea, setIdea] = useState("")
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [questDone, setQuestDone] = useState(false)
   const canCreateProject = idea.trim().length > 0
+
+  useEffect(() => {
+    const key = `osgard-quest-${new Date().toISOString().slice(0, 10)}`
+    setQuestDone(window.localStorage.getItem(key) === "done")
+  }, [])
+  const dailyQuest = CREATIVE_QUESTS[new Date().getDate() % CREATIVE_QUESTS.length]
 
   // Один случайный выбор на монтирование — не меняется при ре-рендерах экрана.
   const [greeting] = useState(() => AGENT_GREETINGS[Math.floor(Math.random() * AGENT_GREETINGS.length)])
@@ -166,6 +179,28 @@ export function DevStudioView() {
               {spark.label}
             </button>
           ))}
+        </div>
+
+        <div className="dev-card mt-5 flex flex-wrap items-center justify-between gap-3 px-4 py-3.5" style={{ borderColor: "rgb(245 196 81 / 28%)" }}>
+          <div className="flex items-start gap-3">
+            <Sparkles size={17} className="mt-0.5 shrink-0" style={{ color: "#F5C451" }} aria-hidden="true" />
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "rgb(245 196 81 / 75%)" }}>Квест дня</p>
+              <p className="mt-1 text-[13px]" style={{ color: "#F1F5F9" }}>{dailyQuest}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="dev-btn dev-btn--ghost shrink-0 text-[12px]"
+            onClick={() => {
+              setIdea(dailyQuest)
+              setQuestDone(true)
+              window.localStorage.setItem(`osgard-quest-${new Date().toISOString().slice(0, 10)}`, "done")
+            }}
+          >
+            {questDone ? <CheckCircle2 size={14} aria-hidden="true" /> : <ArrowRight size={14} aria-hidden="true" />}
+            {questDone ? "Квест выбран" : "Взять квест"}
+          </button>
         </div>
 
         {voice.isListening ? (

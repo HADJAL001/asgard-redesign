@@ -1263,6 +1263,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="flex min-h-screen flex-col">
           <div className="flex-1">{children}</div>
           <footer className="border-t border-border bg-surface">
+            <div className="ds-container flex flex-wrap items-center justify-between gap-3 border-b border-border py-ds-3 text-sm">
+              <a href="https://osgard.io" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 font-medium text-ink hover:text-primary focus-visible:text-primary">
+                <span aria-hidden="true">✦</span>
+                Built with OSGARD
+              </a>
+              <a href="https://osgard.io/studio" target="_blank" rel="noreferrer" className="text-ink-muted hover:text-ink focus-visible:text-ink">
+                Создать свой проект бесплатно
+              </a>
+            </div>
             <nav aria-label="Документы и поддержка" className="ds-container flex flex-wrap items-center gap-x-ds-3 gap-y-ds-1 py-ds-3 text-sm text-ink-muted">
               <a href="/privacy" className="hover:text-ink focus-visible:text-ink">Политика конфиденциальности</a>
               <a href="/terms" className="hover:text-ink focus-visible:text-ink">Условия использования</a>
