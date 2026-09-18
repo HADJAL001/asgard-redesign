@@ -23,7 +23,7 @@
    ================================================================ */
 
 import { useEffect, useState } from "react"
-import { BadgeCheck, ShieldCheck, Crown, Rocket, Share2, Check, Loader2, AlertTriangle, Code2, Video, Linkedin } from "lucide-react"
+import { BadgeCheck, ShieldCheck, Crown, Rocket, Share2, Check, Loader2, AlertTriangle, Code2, Video } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-store"
 
@@ -306,7 +306,7 @@ export function CertifiedCredential() {
           {shared ? "Ссылка скопирована" : "Поделиться · проверить публично"}
         </button>
         <div className="acd-cred-social-row">
-          <button type="button" className="acd-cred-social" onClick={() => openSocialShare("linkedin")}><Linkedin size={14} /> LinkedIn</button>
+          <button type="button" className="acd-cred-social" onClick={() => openSocialShare("linkedin")}><Share2 size={14} /> LinkedIn</button>
           <button type="button" className="acd-cred-social" onClick={() => openSocialShare("x")}>𝕏 Post</button>
         </div>
         <button type="button" className="acd-cred-embed" onClick={() => void handleExportVideo()} disabled={videoBusy}>
