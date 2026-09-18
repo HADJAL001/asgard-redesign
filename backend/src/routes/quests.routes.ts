@@ -14,17 +14,24 @@ function periodKey() {
   return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`
 }
 
+function dailyQuest() {
+  const now = new Date()
+  const dayIndex = Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 86_400_000)
+  return QUESTS[dayIndex % QUESTS.length]
+}
+
 router.get("/today", requireAuth, (req: AuthRequest, res) => {
   const period = periodKey()
   const userId = req.user!.userId
   const rows = db.prepare(`SELECT quest_key as questKey, progress, completed_at as completedAt FROM creator_quests WHERE user_id = ? AND period_key = ?`).all(userId, period) as Array<{ questKey: string; progress: number; completedAt: number | null }>
   const byKey = new Map(rows.map((row) => [row.questKey, row]))
-  res.json({ period, quests: QUESTS.map((quest) => ({ ...quest, progress: byKey.get(quest.key)?.progress ?? 0, completed: Boolean(byKey.get(quest.key)?.completedAt) })) })
+  const quest = dailyQuest()
+  res.json({ period, quests: [{ ...quest, progress: byKey.get(quest.key)?.progress ?? 0, completed: Boolean(byKey.get(quest.key)?.completedAt) }] })
 })
 
 router.post("/:key/complete", requireAuth, (req: AuthRequest, res) => {
-  const quest = QUESTS.find((item) => item.key === req.params.key)
-  if (!quest) return res.status(404).json({ error: "Quest not found" })
+  const quest = dailyQuest()
+  if (req.params.key !== quest.key) return res.status(404).json({ error: "Quest is not active today" })
   const period = periodKey()
   const userId = req.user!.userId
   const projectId = Number(req.body?.projectId)
