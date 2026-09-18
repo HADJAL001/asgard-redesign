@@ -1092,14 +1092,15 @@ async function runAppGenerationJobInner(
          ON CONFLICT(project_id, path) DO UPDATE SET content = excluded.content, updated_at = excluded.updated_at`,
       )
       const now = Date.now()
+      const codePreviews = files.slice(0, 3)
       db.exec("BEGIN IMMEDIATE")
       try {
         if (refinement) db.prepare(`DELETE FROM project_files WHERE project_id = ?`).run(projectId)
-        for (const [index, file] of files.entries()) {
+        for (const file of files) {
           insertFile.run(projectId, file.path, file.content, now)
-          if (index < 3) emitGenerationCode(projectId, file.path, file.content)
         }
         db.exec("COMMIT")
+        for (const file of codePreviews) emitGenerationCode(projectId, file.path, file.content)
       } catch (error) {
         db.exec("ROLLBACK")
         throw error
