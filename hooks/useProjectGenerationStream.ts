@@ -214,6 +214,7 @@ export function useProjectGenerationStream(
           progress: evt.progress,
           done: isTerminalStage(evt.stage),
           meter: meterFrom(evt, prev.meter),
+          code: prev.code,
           // firstTry приходит только на терминале ready; до него ответа нет.
           firstTry: evt.firstTry ?? prev.firstTry,
           connection: prev.connection,
