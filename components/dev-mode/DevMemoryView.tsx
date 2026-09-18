@@ -168,6 +168,27 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   )
 }
 
+function MemoryConstellation({ learned, waiting, silent, failed }: { learned: number; waiting: number; silent: number; failed: number }) {
+  const total = Math.max(1, learned + waiting + silent + failed)
+  const nodes = Array.from({ length: Math.min(24, total) }, (_, index) => {
+    const angle = (index / Math.max(1, Math.min(24, total))) * Math.PI * 2
+    const radius = 34 + (index % 3) * 8
+    return { left: 50 + Math.cos(angle) * radius, top: 50 + Math.sin(angle) * radius, delay: `${index * 70}ms` }
+  })
+  return (
+    <section className="memory-constellation mt-7" aria-label="Нейронная карта памяти платформы">
+      <div className="memory-constellation__core"><Brain size={24} strokeWidth={1.4} aria-hidden="true" /></div>
+      {nodes.map((node, index) => <span key={index} className="memory-constellation__node" style={{ left: `${node.left}%`, top: `${node.top}%`, animationDelay: node.delay }} />)}
+      <div className="memory-constellation__legend">
+        <span><i className="memory-dot memory-dot--learned" />выучено {learned}</span>
+        <span><i className="memory-dot memory-dot--waiting" />в очереди {waiting}</span>
+        <span><i className="memory-dot memory-dot--silent" />без формулировки {silent}</span>
+        <span><i className="memory-dot memory-dot--failed" />не сработало {failed}</span>
+      </div>
+    </section>
+  )
+}
+
 export function DevMemoryView() {
   const [data, setData] = useState<PlatformMemory | null>(null)
   const [loading, setLoading] = useState(true)
@@ -350,6 +371,8 @@ export function DevMemoryView() {
               hint={m.silentRules > 0 ? "нет формулировки — модель их не видит" : "таких правил нет"}
             />
           </div>
+
+          <MemoryConstellation learned={m.taught.length} waiting={waiting} silent={m.silentRules} failed={data.effectiveness?.failing ?? 0} />
 
           {/* Рост знания, которого не было в коде. Это и есть ответ на вопрос «платформа
               умнеет сама или только когда её правит разработчик». */}
