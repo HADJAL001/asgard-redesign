@@ -132,7 +132,7 @@ router.post("/generate", async (req: Request, res: Response) => {
         magic,
         speed,
         price: Math.round((power + defense + magic + speed) * 5),
-        listCurrency: "credits",
+        listCurrency: "timecoin",
       }
     })
 

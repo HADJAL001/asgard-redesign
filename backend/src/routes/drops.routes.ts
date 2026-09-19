@@ -127,7 +127,7 @@ router.post("/:id/claim", requireAuth, (req: AuthRequest, res) => {
     return res.status(400).json({ error: `Недостаточно средств (${drop.currency})` })
   }
 
-  const listCurrency = LIST_CURRENCY_BY_RARITY[drop.rarity] || "credits"
+  const listCurrency = LIST_CURRENCY_BY_RARITY[drop.rarity] || "timecoin"
   const idemKey = normalizeIdemKey(req.header("Idempotency-Key") ?? (req.body as any)?.idempotencyKey)
   let artifactId = 0
 

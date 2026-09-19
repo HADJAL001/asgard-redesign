@@ -242,9 +242,9 @@ if (!demoExists) {
   ]
   const listCurrencyByRarity: Record<string, string> = {
     common: "credits",
-    rare: "shards",
-    epic: "shards",
-    legendary: "crystals",
+    rare: "timecoin",
+    epic: "timecoin",
+    legendary: "timecoin",
     mythic: "timecoin",
   }
   const rarityMult: Record<string, number> = { common: 1, rare: 2, epic: 3, legendary: 4, mythic: 5 }

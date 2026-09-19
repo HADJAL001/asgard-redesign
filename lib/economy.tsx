@@ -180,18 +180,8 @@ export type Artifact = {
 
 /** Natural listing currency by rarity tier (seller default). */
 export function defaultListCurrency(rarity: Rarity): CurrencyId {
-  switch (rarity) {
-    case "common":
-      return "credits"
-    case "rare":
-      return "shards"
-    case "epic":
-      return "shards"
-    case "legendary":
-      return "crystals"
-    case "mythic":
-      return "timecoin"
-  }
+  void rarity
+  return "timecoin"
 }
 
 export type Architect = {
