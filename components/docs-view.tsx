@@ -11,7 +11,6 @@ import {
   Workflow,
   Search,
   X,
-  Pencil,
   Download,
   Share2,
   Eye,
@@ -545,6 +544,23 @@ export function DocsView() {
 }
 
 function ArticleModal({ article, onClose }: { article: Article; onClose: () => void }) {
+  function exportArticle() {
+    const content = [article.title, "", article.description, "", ...article.sections.flatMap((section) => [section.heading, section.body, ""])].join("\n")
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `osgard-${article.id}.txt`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function shareArticle() {
+    const url = `${window.location.origin}/docs?article=${encodeURIComponent(article.id)}`
+    if (navigator.share) await navigator.share({ title: article.title, text: article.description, url })
+    else await navigator.clipboard.writeText(url)
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -635,17 +651,19 @@ function ArticleModal({ article, onClose }: { article: Article; onClose: () => v
         >
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[14px] font-medium transition-opacity"
+            className="hidden"
+            onClick={exportArticle}
             style={{ backgroundColor: ACCENT, color: BG }}
             onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
             onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
           >
-            <Pencil size={16} strokeWidth={1.75} />
+            <Download size={16} strokeWidth={1.75} />
             Редактировать
           </button>
           <button
             type="button"
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[14px] transition-colors"
+            onClick={exportArticle}
             style={{ border: `1px solid ${BORDER}`, color: "rgba(255,255,255,0.8)" }}
             onMouseEnter={(e) => (e.currentTarget.style.borderColor = ACCENT)}
             onMouseLeave={(e) => (e.currentTarget.style.borderColor = BORDER)}
@@ -656,6 +674,7 @@ function ArticleModal({ article, onClose }: { article: Article; onClose: () => v
           <button
             type="button"
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[14px] transition-colors"
+            onClick={() => void shareArticle()}
             style={{ border: `1px solid ${BORDER}`, color: "rgba(255,255,255,0.8)" }}
             onMouseEnter={(e) => (e.currentTarget.style.borderColor = ACCENT)}
             onMouseLeave={(e) => (e.currentTarget.style.borderColor = BORDER)}
