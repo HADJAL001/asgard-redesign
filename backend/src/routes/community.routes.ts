@@ -198,6 +198,25 @@ router.get("/:id/comments", optionalAuth, (req, res) => {
   res.json({ success: true, comments, offset, limit })
 })
 
+/* A lightweight live stream for the comments currently open on screen. */
+router.get("/:id/comments/stream", optionalAuth, (req, res) => {
+  const postId = Number(req.params.id)
+  if (!Number.isInteger(postId)) return res.status(400).end()
+  let latestId = Math.max(0, Number(req.query.after) || 0)
+  res.status(200).set({ "Content-Type": "text/event-stream", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive" })
+  res.flushHeaders()
+  const send = () => {
+    const rows = db.prepare(`SELECT c.id, c.text, c.created_at, u.id AS author_id, u.username, u.display_name, u.avatar_url, u.level FROM comments c JOIN users u ON u.id = c.user_id WHERE c.post_id = ? AND c.id > ? AND u.banned = 0 ORDER BY c.id ASC`).all(postId, latestId) as any[]
+    for (const row of rows) {
+      latestId = row.id
+      res.write(`event: comment\ndata: ${JSON.stringify({ id: row.id, text: row.text, createdAt: row.created_at, author: mapAuthor({ id: row.author_id, username: row.username, display_name: row.display_name, avatar_url: row.avatar_url, level: row.level }) })}\n\n`)
+    }
+  }
+  send()
+  const timer = setInterval(send, 4_000)
+  req.on("close", () => clearInterval(timer))
+})
+
 /* ---------------- POST /posts/:id/comments ---------------- */
 router.post("/:id/comments", requireAuth, (req: AuthRequest, res) => {
   const userId = req.user?.userId

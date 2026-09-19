@@ -136,6 +136,22 @@ export function CommunityView() {
     Promise.resolve().then(() => loadPosts())
   }, [loadPosts])
 
+  useEffect(() => {
+    if (!expandedPostId || typeof window === "undefined") return
+    const after = (comments[expandedPostId] || []).at(-1)?.id || 0
+    const source = new EventSource(`/api/posts/${expandedPostId}/comments/stream?after=${after}`, { withCredentials: true })
+    source.addEventListener("comment", (event) => {
+      const comment = JSON.parse((event as MessageEvent).data) as Comment
+      setComments((prev) => {
+        const current = prev[expandedPostId] || []
+        if (current.some((item) => item.id === comment.id)) return prev
+        return { ...prev, [expandedPostId]: [...current, comment] }
+      })
+      setPosts((prev) => prev.map((post) => post.id === expandedPostId ? { ...post, commentsCount: Math.max(post.commentsCount, (comments[expandedPostId] || []).length + 1) } : post))
+    })
+    return () => source.close()
+  }, [expandedPostId, comments])
+
   /* Ctrl+N (см. хук хоткеев) редиректит сюда с ?new=1 — сразу открываем модалку */
   useEffect(() => {
     if (typeof window === "undefined") return
