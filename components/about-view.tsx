@@ -8,6 +8,7 @@
    Ссылка в верхней навигации (navbar → «Справка»).
    ================================================================ */
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Sparkles, Rocket, Coins, Users, TrendingUp, Boxes, ArrowRight, Quote } from "lucide-react"
 import { Navbar } from "./navbar"
@@ -33,6 +34,71 @@ function Card({ children, tint = GOLD }: { children: React.ReactNode; tint?: str
     >
       {children}
     </div>
+  )
+}
+
+const WORLD_SCENES = [
+  {
+    label: "CREATE",
+    title: "An idea becomes a working product.",
+    image: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1800&q=85",
+  },
+  {
+    label: "OWN",
+    title: "Every release leaves a trace you can build on.",
+    image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1800&q=85",
+  },
+  {
+    label: "GROW",
+    title: "Your work connects to a living economy.",
+    image: "https://images.unsplash.com/photo-1519608487953-e999c86e7452?auto=format&fit=crop&w=1800&q=85",
+  },
+]
+
+function WorldScenes() {
+  const [active, setActive] = useState(0)
+
+  useEffect(() => {
+    const onScroll = () => setActive(Math.min(WORLD_SCENES.length - 1, Math.floor(window.scrollY / 620)))
+    onScroll()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
+
+  return (
+    <section className="relative mx-auto mt-16 max-w-[1160px] overflow-hidden rounded-lg border" style={{ borderColor: "rgba(230,200,104,0.28)", minHeight: "420px" }}>
+      {WORLD_SCENES.map((scene, index) => (
+        <div
+          key={scene.label}
+          className="absolute inset-0 transition-opacity duration-700 motion-reduce:transition-none"
+          style={{
+            opacity: active === index ? 1 : 0,
+            backgroundImage: `linear-gradient(90deg, rgba(5,7,15,0.94) 0%, rgba(5,7,15,0.55) 52%, rgba(5,7,15,0.2) 100%), url(${scene.image})`,
+            backgroundPosition: "center",
+            backgroundSize: "cover",
+          }}
+          aria-hidden={active !== index}
+        />
+      ))}
+      <div className="relative z-10 flex min-h-[420px] max-w-[590px] flex-col justify-end p-7 sm:p-10">
+        <p className="text-[12px] font-semibold" style={{ color: GOLD }}>{WORLD_SCENES[active].label}</p>
+        <h2 className="mt-3 text-[30px] font-semibold leading-tight sm:text-[42px]">{WORLD_SCENES[active].title}</h2>
+        <div className="mt-8 flex gap-2" role="tablist" aria-label="World scenes">
+          {WORLD_SCENES.map((scene, index) => (
+            <button
+              key={scene.label}
+              type="button"
+              role="tab"
+              aria-selected={active === index}
+              aria-label={scene.title}
+              onClick={() => setActive(index)}
+              className="h-1.5 w-12 transition-colors"
+              style={{ backgroundColor: active === index ? GOLD : "rgba(255,255,255,0.3)" }}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -68,6 +134,8 @@ export function AboutView() {
         </div>
 
         {/* Стендап-монолог */}
+        <WorldScenes />
+
         <Section>
           <Card>
             <Quote size={22} style={{ color: GOLD }} />
