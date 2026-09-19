@@ -267,6 +267,21 @@ export function DevDeployView() {
         </p>
       </section>
 
+      <section className={`dev-launch-console mt-7${projects.some((project) => project.deployStatus === "deploying") ? " dev-launch-console--firing" : ""}`} aria-label="Статус публикации">
+        <div className="dev-launch-console__sky" aria-hidden="true"><span /><span /><span /></div>
+        <div className="dev-launch-console__rocket" aria-hidden="true"><Rocket size={38} strokeWidth={1.25} /></div>
+        <div className="dev-launch-console__body">
+          <p className="dev-launch-console__eyebrow">Publication sequence</p>
+          <h2>{projects.some((project) => project.deployStatus === "deploying") ? "Проект выходит в сеть" : live.length ? "Проекты уже в эфире" : "Следующий проект готовится к старту"}</h2>
+          <div className="dev-launch-console__steps" aria-label="Этапы публикации">
+            <span className={projects.length ? "is-done" : ""}>Build</span>
+            <span className={primaryId || live.length ? "is-done" : ""}>Verify</span>
+            <span className={projects.some((project) => project.deployStatus === "deploying") ? "is-live" : live.length ? "is-done" : ""}>Launch</span>
+          </div>
+        </div>
+        <div className="dev-launch-console__readout"><strong>{live.length}</strong><span>live address{live.length === 1 ? "" : "es"}</span></div>
+      </section>
+
       {loading && projects.length === 0 ? (
         <div className="mt-8 flex items-center gap-2.5" role="status">
           <Loader2 size={18} className="animate-spin" style={{ color: "#94A3B8" }} aria-hidden="true" />

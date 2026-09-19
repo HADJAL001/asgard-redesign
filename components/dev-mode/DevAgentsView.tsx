@@ -22,7 +22,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
-  Bot, Loader2, CheckCircle2, XCircle, Sparkles, ArrowRight, MoonStar,
+  Bot, Loader2, CheckCircle2, XCircle, Sparkles, ArrowRight, MoonStar, BrainCircuit, ScanLine, Wrench, ShieldCheck,
 } from "lucide-react"
 import { useOsgardStore, type OsgardProject } from "@/lib/store/osgard-store"
 import { useProjectGenerationStream } from "@/hooks/useProjectGenerationStream"
@@ -43,6 +43,13 @@ const STAGE_LABEL: Record<string, string> = {
   ready: "Готово",
   failed: "Не получилось",
 }
+
+const AGENT_CREW = [
+  { id: "jarvis", name: "JARVIS", role: "Architecture", color: "#D7AE57", Icon: BrainCircuit },
+  { id: "wally", name: "WALLI", role: "Interface", color: "#42C7F5", Icon: ScanLine },
+  { id: "twin", name: "TWIN", role: "Implementation", color: "#B98CFF", Icon: Wrench },
+  { id: "sentinel", name: "SENTINEL", role: "Verification", color: "#E56A6A", Icon: ShieldCheck },
+] as const
 
 /* ── Один активный агент: живая подписка на поток своей сборки ── */
 function AgentRow({ project }: { project: OsgardProject }) {
@@ -182,6 +189,28 @@ export function DevAgentsView() {
             ? `Сейчас в работе: ${working.length}. Стадия обновляется вживую.`
             : "Сейчас никто не занят — опишите идею в Студии, и агенты возьмутся за дело."}
         </p>
+      </section>
+
+      <section className="dev-command-grid mt-7" aria-label="Командный центр агентов">
+        <div className={`dev-command-core${working.length ? " dev-command-core--active" : ""}`}>
+          <div className="dev-command-core__orbit dev-command-core__orbit--a" aria-hidden="true" />
+          <div className="dev-command-core__orbit dev-command-core__orbit--b" aria-hidden="true" />
+          <div className="dev-command-core__signal" aria-hidden="true"><Bot size={28} /></div>
+          <strong>{working.length ? "SYSTEM ACTIVE" : "SYSTEM READY"}</strong>
+          <span>{working.length ? `${working.length} task${working.length === 1 ? "" : "s"} in flight` : "Waiting for a project brief"}</span>
+        </div>
+        <div className="dev-command-crew">
+          {AGENT_CREW.map(({ id, name, role, color, Icon }, index) => {
+            const active = working.length > 0 && index < Math.min(working.length + 1, AGENT_CREW.length)
+            return (
+              <article key={id} className={`dev-agent-unit${active ? " dev-agent-unit--active" : ""}`} style={{ "--agent-color": color } as React.CSSProperties}>
+                <div className="dev-agent-unit__avatar"><Icon size={20} strokeWidth={1.5} /></div>
+                <div><p>{name}</p><span>{active ? "processing signal" : "standing by"}</span></div>
+                <small>{role}</small>
+              </article>
+            )
+          })}
+        </div>
       </section>
 
       {loading && projects.length === 0 ? (
