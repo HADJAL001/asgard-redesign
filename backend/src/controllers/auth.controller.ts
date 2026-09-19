@@ -155,7 +155,7 @@ export class AuthController {
 
             db.exec('BEGIN IMMEDIATE');
             try {
-              const guardPassed = treasuryTc !== null && canEmitUnbackedSync(10, treasuryTc);
+              const guardPassed = treasuryTc !== null && canEmitUnbackedSync(10, treasuryTc!);
               if (guardPassed) {
                 db.prepare(`UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?`).run(TIMECOIN_PRICES.referralOwnerReward, referredBy!);
                 db.prepare(`
@@ -165,7 +165,7 @@ export class AuthController {
                 // Двусторонняя реферралка: приглашённый тоже получает welcome-бонус (+5 ∞),
                 // но только если казна тянет полную эмиссию (10 рефереру + 5 новичку = 15).
                 // Реферер уже начислен по своему 10-guard'у выше — эта проверка его не откатывает.
-                if (canEmitUnbackedSync(15, treasuryTc)) {
+                if (canEmitUnbackedSync(15, treasuryTc!)) {
                   db.prepare(`UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?`).run(TIMECOIN_PRICES.referralNewUserReward, userId);
                 }
               } else {
