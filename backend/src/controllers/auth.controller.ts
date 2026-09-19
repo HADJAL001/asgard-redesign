@@ -13,12 +13,12 @@ import { track, GrowthEvent } from '../lib/analytics';
 import { TIMECOIN_PRICES } from '../lib/timecoin-economy';
 
 const SOCIAL_PROVIDERS: SocialProvider[] = ['google', 'github'];
+const MAX_REFERRAL_REWARDS_PER_USER = 20;
 
 /* Максимум вознаграждаемых рефералов на одного реферера — защита от фарма
    ∞ через массовую регистрацию подставных аккаунтов по своей же реф-ссылке.
    Сверх лимита реферал всё равно засчитывается (видим в статистике), но
    без начисления +10 ∞. */
-const MAX_REFERRAL_REWARDS_PER_USER = 20;
 
 const changePasswordSchema = Joi.object({
   oldPassword: Joi.string().required(),
@@ -112,6 +112,19 @@ export class AuthController {
       // и увидит уже зарезервированный 'pending'-слот. Сетевой canEmitUnbacked
       // выполняется вне блокировки, финализация статуса — снова под блокировкой.
       if (referredBy) {
+        // Registration only records referral attribution. It never emits TimeCoin.
+        try {
+          db.prepare(`
+            INSERT OR IGNORE INTO referrals (referrer_id, referee_id, reward_amount, status)
+            VALUES (?, ?, 0, 'registered')
+          `).run(referredBy, userId);
+        } catch {
+          // Older databases can be upgraded without blocking registration.
+        }
+        referredBy = null;
+      }
+
+      if (referredBy) {
         try {
           let reserved: 'pending' | 'referral_cap_reached';
 
@@ -134,7 +147,7 @@ export class AuthController {
             throw txErr;
           }
 
-          if (reserved === 'pending') {
+          if (false && reserved === 'pending') {
             // Сетевой запрос баланса казны — до открытия транзакции (внутри
             // BEGIN IMMEDIATE нельзя await). Сама проверка резерва — синхронно
             // внутри транзакции ниже, вместе с самим начислением бонуса.
@@ -144,11 +157,11 @@ export class AuthController {
             try {
               const guardPassed = treasuryTc !== null && canEmitUnbackedSync(10, treasuryTc);
               if (guardPassed) {
-                db.prepare(`UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?`).run(TIMECOIN_PRICES.referralOwnerReward, referredBy);
+                db.prepare(`UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?`).run(TIMECOIN_PRICES.referralOwnerReward, referredBy!);
                 db.prepare(`
                   UPDATE referrals SET status = 'active', reward_amount = 10
                   WHERE referrer_id = ? AND referee_id = ? AND status = 'pending'
-                `).run(referredBy, userId);
+                `).run(referredBy!, userId);
                 // Двусторонняя реферралка: приглашённый тоже получает welcome-бонус (+5 ∞),
                 // но только если казна тянет полную эмиссию (10 рефереру + 5 новичку = 15).
                 // Реферер уже начислен по своему 10-guard'у выше — эта проверка его не откатывает.
