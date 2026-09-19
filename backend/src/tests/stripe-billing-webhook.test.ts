@@ -30,6 +30,7 @@ const tsxCliPath = require.resolve("tsx/cli")
 const FAKE_SECRET_KEY = "sk_test_fake_00000000000000000000000000"
 const SUBSCRIPTION_WEBHOOK_SECRET = "whsec_test_subscription_secret"
 const ADDONS_WEBHOOK_SECRET = "whsec_test_addons_secret"
+const SECRET_ROOM_WEBHOOK_SECRET = "whsec_test_secret_room_secret"
 const FAKE_PRICE_PRO = "price_test_pro_123"
 
 const stripeSigner = new Stripe(FAKE_SECRET_KEY, { apiVersion: "2025-08-27.basil" as any })
@@ -94,6 +95,7 @@ before(async () => {
       STRIPE_SECRET_KEY: FAKE_SECRET_KEY,
       STRIPE_WEBHOOK_SECRET: SUBSCRIPTION_WEBHOOK_SECRET,
       STRIPE_WEBHOOK_SECRET_ADDONS: ADDONS_WEBHOOK_SECRET,
+      STRIPE_WEBHOOK_SECRET_SECRET_ROOM: SECRET_ROOM_WEBHOOK_SECRET,
       STRIPE_PRICE_PRO: FAKE_PRICE_PRO,
     },
     stdio: "ignore",
@@ -147,6 +149,26 @@ test("webhook с неверной подписью отклоняется с 400
     body: JSON.stringify({ id: "evt_bad_signature", type: "customer.subscription.updated", data: { object: {} } }),
   })
   assert.equal(res.status, 400)
+})
+
+test("Secret Room webhook validates its own signature and grants access once", async () => {
+  const { userId } = await registerUser("striperoom")
+  const event = {
+    id: `evt_room_${userId}`,
+    type: "checkout.session.completed",
+    data: { object: { id: `cs_room_${userId}`, metadata: { userId: String(userId), roomPurchase: "access" } } },
+  }
+  const invalid = await postWebhook("/secret-room/webhook", event, SUBSCRIPTION_WEBHOOK_SECRET)
+  assert.equal(invalid.status, 400)
+  assert.equal((await postWebhook("/secret-room/webhook", event, SECRET_ROOM_WEBHOOK_SECRET)).status, 200)
+  assert.equal((await postWebhook("/secret-room/webhook", event, SECRET_ROOM_WEBHOOK_SECRET)).status, 200)
+
+  const conn = new Database(dbAbsolutePath)
+  const room = conn.prepare(`SELECT access_until AS accessUntil FROM secret_rooms WHERE owner_id = ?`).get(userId) as { accessUntil: number }
+  const count = (conn.prepare(`SELECT COUNT(*) AS count FROM secret_rooms WHERE owner_id = ?`).get(userId) as { count: number }).count
+  conn.close()
+  assert.equal(count, 1)
+  assert.ok(room.accessUntil > Date.now())
 })
 
 test("TimeCoin checkout credits paid exact-price sessions exactly once", async () => {
