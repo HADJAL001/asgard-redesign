@@ -125,7 +125,7 @@ export function SanctumView() {
               </h2>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
-              {CURRENCY_ORDER.map((id) => {
+              {CURRENCY_ORDER.filter((id) => id === "credits" || id === "timecoin").map((id) => {
                 const c = CURRENCIES[id]
                 return (
                   <div

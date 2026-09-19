@@ -536,7 +536,7 @@ export function Navbar() {
           aria-label={t("nav.currencyBalances")}
         >
 
-          {CURRENCY_ORDER.map((id) => {
+          {CURRENCY_ORDER.filter((id) => id === "credits" || id === "timecoin").map((id) => {
             const c = CURRENCIES[id]
             const CIcon = c.Icon
             return (
