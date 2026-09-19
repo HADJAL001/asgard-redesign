@@ -16,7 +16,9 @@ permissions:
   contents: write
 
 env:
-  BASE_URL: https://osgardnewworld.com
+  # Railway API base URL. Keep it in Actions secrets: the public frontend does
+  # not expose this backend-only reserve endpoint.
+  BASE_URL: ${{ secrets.RESERVE_API_URL }}
   LOW_RATIO: "0.10"
   HIGH_RATIO: "0.90"
 
@@ -45,6 +47,12 @@ jobs:
         continue-on-error: true
         run: |
           set +e
+          if [ -z "$BASE_URL" ]; then
+            echo "::notice::RESERVE_API_URL is not configured; reserve check skipped"
+            echo "code=000" >> "$GITHUB_OUTPUT"
+            echo "ok=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           OUT=$(curl -s -o /tmp/reserve_body.json -w "%{http_code}" --max-time 15 "$BASE_URL/api/tc/reserve-status")
           CODE="$OUT"
           echo "code=${CODE:-000}" >> "$GITHUB_OUTPUT"
