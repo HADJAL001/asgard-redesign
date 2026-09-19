@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Zap, Gem, Diamond, Infinity as InfinityIcon, DollarSign, Gift, Check, Loader2 } from "lucide-react"
+import { ArrowLeft, Zap, Gem, Infinity as InfinityIcon, Gift, Check, Loader2 } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { apiClient } from "@/lib/api-client"
 import { SectionHelp } from "./section-help"
@@ -10,11 +10,9 @@ import { SectionHelp } from "./section-help"
 /* Palette: bg #10181d · card #17242a · accent #d7ae57 · label #9eb2bc · border #30424b */
 
 const STEPS = [
-  { nameKey: "step1Name", descKey: "step1Desc", Icon: Zap, color: "#9eb2bc" },
-  { nameKey: "step2Name", descKey: "step2Desc", Icon: Gem, color: "#8A8AA0" },
-  { nameKey: "step3Name", descKey: "step3Desc", Icon: Diamond, color: "#d7ae57" },
-  { nameKey: "step4Name", descKey: "step4Desc", Icon: InfinityIcon, color: "#C9A84C" },
-  { nameKey: "step5Name", descKey: "step5Desc", Icon: DollarSign, color: "#4CD980" },
+  { name: "Credits", description: "Soft currency earned through activity. It pays for generations and forge materials; it cannot be withdrawn.", Icon: Zap, color: "#9eb2bc" },
+  { name: "Forge materials", description: "Shards and crystals are materials, not money. Buy them with Credits and consume them in the recipe for a specific artifact.", Icon: Gem, color: "#8A8AA0" },
+  { name: "TimeCoin", description: "Hard currency earned through marketplace sales, staking and challenges. It pays for premium upgrades, twin rental and can be withdrawn to USDC.", Icon: InfinityIcon, color: "#C9A84C" },
 ] as const
 
 export function EconomyMapView() {
@@ -92,7 +90,7 @@ export function EconomyMapView() {
           {STEPS.map((step, i) => {
             const isLast = i === STEPS.length - 1
             return (
-              <div key={step.nameKey} className="relative flex gap-5">
+              <div key={step.name} className="relative flex gap-5">
                 <div className="flex flex-col items-center">
                   <div
                     className="flex size-12 shrink-0 items-center justify-center rounded-full"
@@ -114,10 +112,10 @@ export function EconomyMapView() {
 
                 <div className="pb-10">
                   <h2 className="mb-1 text-[17px] font-semibold" style={{ color: step.color }}>
-                    {i + 1}. {t(`docsEconomyMap.${step.nameKey}`)}
+                    {i + 1}. {step.name}
                   </h2>
                   <p className="max-w-xl text-[14px] leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>
-                    {t(`docsEconomyMap.${step.descKey}`)}
+                    {step.description}
                   </p>
                 </div>
               </div>
@@ -129,7 +127,7 @@ export function EconomyMapView() {
           className="mb-8 text-center text-[13px] italic"
           style={{ color: "#9eb2bc" }}
         >
-          {t("docsEconomyMap.ladderCaption")}
+          Two currencies for value, two materials for crafting.
         </p>
 
         {/* Награда за прохождение обучения (одноразовая) */}
