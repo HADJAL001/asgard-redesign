@@ -33,7 +33,7 @@ const COLORS = {
 type VaultResponse = {
   success: boolean
   vault: {
-    artifacts: { total: number; createdByYou: number; byRarity: Record<string, number> }
+    artifacts: { total: number; createdByYou: number; byRarity: Record<string, number>; items: Array<{ id: number; name: string; rarity: string; level: number }> }
     security: {
       twoFactorEnabled: boolean
       encryptionConfigured: boolean
@@ -166,6 +166,20 @@ export function VaultView() {
             </div>
           )}
         </section>
+
+        {artifacts.items.length > 0 && <section className="mt-8">
+          <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLORS.faint }}>{t("vault.ledger")}</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {artifacts.items.map((artifact) => {
+              const color = rarityColor(artifact.rarity)
+              return <Link key={artifact.id} href={`/vault?artifact=${artifact.id}`} className="group min-w-0 rounded-xl p-3 transition-transform hover:-translate-y-1 focus-visible:outline-2" style={{ border: `1px solid ${color}66`, background: `${color}0c` }}>
+                <span className="mb-2 block size-9 rounded-md transition-transform group-hover:rotate-6" aria-hidden="true" style={{ background: `linear-gradient(135deg, ${color}, #17242a 75%)`, boxShadow: `6px 6px 0 ${color}28` }} />
+                <span className="block truncate text-[13px] font-medium">{artifact.name}</span>
+                <span className="mt-1 block text-[11px]" style={{ color }}>{RARITY[artifact.rarity as Rarity]?.label ?? artifact.rarity} · {t("vault.level")} {artifact.level}</span>
+              </Link>
+            })}
+          </div>
+        </section>}
 
         {/* Статус защиты — честный, реальный */}
         <section

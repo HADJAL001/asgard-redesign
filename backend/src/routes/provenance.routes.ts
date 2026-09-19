@@ -167,6 +167,10 @@ router.get("/vault", requireAuth, (req: AuthRequest, res) => {
   const byRarity: Record<string, number> = {}
   for (const r of rarityRows) byRarity[r.rarity] = r.n
 
+  const items = db
+    .prepare(`SELECT id, name, rarity, level FROM artifacts WHERE owner_id = ? ORDER BY created_at DESC, id DESC LIMIT 24`)
+    .all(userId) as Array<{ id: number; name: string; rarity: string; level: number }>
+
   // Реальный статус безопасности — не декорация.
   const twofa = db.prepare(`SELECT twofa_enabled FROM users WHERE id = ?`).get(userId) as
     | { twofa_enabled: number | null }
@@ -198,7 +202,7 @@ router.get("/vault", requireAuth, (req: AuthRequest, res) => {
   res.json({
     success: true,
     vault: {
-      artifacts: { total, createdByYou, byRarity },
+      artifacts: { total, createdByYou, byRarity, items },
       security,
       recent, // честный пустой массив, если событий ещё нет
       at: new Date().toISOString(),
