@@ -66,6 +66,7 @@ type ChatMessage = {
 }
 
 const REPLY_MODE_KEY = "jarvis_reply_mode"
+const GREETING_SEEN_KEY = "jarvis_greeting_seen"
 
 const REPLY_MODE_META: Record<ReplyMode, { label: string; icon: string }> = {
   text: { label: "Только текст", icon: "💬" },
@@ -97,6 +98,25 @@ function saveReplyMode(mode: ReplyMode) {
   }
 }
 
+function initialMessages(): ChatMessage[] {
+  if (typeof window !== "undefined") {
+    try {
+      if (sessionStorage.getItem(GREETING_SEEN_KEY) === "1") return []
+      sessionStorage.setItem(GREETING_SEEN_KEY, "1")
+    } catch {
+      /* Storage can be unavailable in private or restricted contexts. */
+    }
+  }
+
+  return [
+    {
+      id: "welcome",
+      role: "assistant",
+      content: "Привет! Я ДЖАРВИС. Спроси меня о балансе, артефактах, проектах или цепочках оркестратора — или задай любой другой вопрос.",
+    },
+  ]
+}
+
 /* ----------------------------------------------------------------
    Компонент
    ---------------------------------------------------------------- */
@@ -104,13 +124,7 @@ function saveReplyMode(mode: ReplyMode) {
 export function JarvisChat() {
   const { t } = useTranslation()
   const router = useRouter()
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      content: "Привет! Я ДЖАРВИС. Спроси меня о балансе, артефактах, проектах или цепочках оркестратора — или задай любой другой вопрос.",
-    },
-  ])
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [replyMode, setReplyMode] = useState<ReplyMode>("both")
@@ -706,5 +720,4 @@ const JARVIS_CHAT_CSS = `
   .jarvis-mode-label { display: none; }
 }
 `
-
 
