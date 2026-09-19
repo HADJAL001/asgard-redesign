@@ -39,6 +39,7 @@ export const isStripeConfigured = !!stripe
    docs/stripe-live-checklist.md. */
 export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ""
 export const STRIPE_WEBHOOK_SECRET_ADDONS = process.env.STRIPE_WEBHOOK_SECRET_ADDONS || STRIPE_WEBHOOK_SECRET
+export const STRIPE_WEBHOOK_SECRET_SECRET_ROOM = process.env.STRIPE_WEBHOOK_SECRET_SECRET_ROOM || STRIPE_WEBHOOK_SECRET
 
 export type PlanKey = "free" | "pro" | "supreme" | "elite"
 

@@ -1,6 +1,9 @@
 import { Router } from "express"
 import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
+import stripe, { FRONTEND_URL, isStripeConfigured, STRIPE_WEBHOOK_SECRET_SECRET_ROOM } from "../lib/stripe"
+import { captureError } from "../lib/sentry"
+import { logAudit } from "../lib/audit"
 
 /* ================================================================
    OSGARD · Secret Room API — супер-тайная приватная комната
@@ -25,6 +28,21 @@ export const ROOM_PRICING = {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
+
+type RoomCheckoutKind = "access" | "friend_slot"
+
+function grantRoomAccess(userId: number, accessUntil: number) {
+  const now = Date.now()
+  const existing = roomOf(userId)
+  if (existing) {
+    db.prepare(`UPDATE secret_rooms SET access_until = MAX(access_until, ?), updated_at = ? WHERE owner_id = ?`).run(accessUntil, now, userId)
+  } else {
+    db.prepare(
+      `INSERT INTO secret_rooms (owner_id, name, background, items, friend_slots, access_until, created_at, updated_at)
+       VALUES (?, 'Secret Room', 'nebula', '[]', ?, ?, ?, ?)`,
+    ).run(userId, ROOM_PRICING.freeFriendSlots, accessUntil, now, now)
+  }
+}
 
 /** Допустимые фоны и каталог предметов — валидируем ввод против них. */
 const BACKGROUNDS = ["nebula", "noir", "gold", "matrix", "sunset", "aurora"]
@@ -85,6 +103,75 @@ router.get("/", requireAuth, (req: AuthRequest, res) => {
 })
 
 /* ---------------- POST /secret-room/unlock — грант доступа (после оплаты $99 + $9/мес) ---------------- */
+/* Stripe is the only authority that may create paid room access or slots. */
+router.post("/create-checkout", requireAuth, async (req: AuthRequest, res) => {
+  const kind = req.body?.kind as RoomCheckoutKind
+  if (kind !== "access" && kind !== "friend_slot") return res.status(400).json({ error: "Unknown Secret Room purchase" })
+  if (!isStripeConfigured || !stripe) return res.status(503).json({ error: "Payment is temporarily unavailable", code: "PAYMENT_UNAVAILABLE" })
+
+  const userId = req.user!.userId
+  const user = db.prepare(`SELECT username, email FROM users WHERE id = ?`).get(userId) as { username: string; email: string | null } | undefined
+  if (!user) return res.status(404).json({ error: "User not found" })
+  if (kind === "friend_slot" && (!roomOf(userId) || roomOf(userId).access_until <= Date.now())) return res.status(403).json({ error: "An active Secret Room is required" })
+
+  try {
+    const metadata = { roomPurchase: kind, userId: String(userId) }
+    const common = { customer_email: user.email || undefined, success_url: `${FRONTEND_URL}/room?checkout=success`, cancel_url: `${FRONTEND_URL}/room?checkout=cancel`, metadata }
+    const session = kind === "access"
+      ? await stripe.checkout.sessions.create({ ...common, mode: "subscription", line_items: [
+          { price_data: { currency: "usd", product_data: { name: "Secret Room entry" }, unit_amount: ROOM_PRICING.entryUsd * 100 }, quantity: 1 },
+          { price_data: { currency: "usd", product_data: { name: "Secret Room membership" }, unit_amount: ROOM_PRICING.monthlyUsd * 100, recurring: { interval: "month" } }, quantity: 1 },
+        ], subscription_data: { metadata } })
+      : await stripe.checkout.sessions.create({ ...common, mode: "payment", line_items: [{ price_data: { currency: "usd", product_data: { name: "Secret Room friend slot" }, unit_amount: ROOM_PRICING.extraFriendUsd * 100 }, quantity: 1 }] })
+    return res.json({ url: session.url, sessionId: session.id })
+  } catch (error) {
+    captureError("[secret-room/create-checkout] Stripe error:", error)
+    return res.status(502).json({ error: "Could not start secure checkout" })
+  }
+})
+
+router.post("/webhook", async (req, res) => {
+  if (!isStripeConfigured || !stripe || !STRIPE_WEBHOOK_SECRET_SECRET_ROOM) return res.status(503).json({ error: "Webhook is not configured" })
+  const signature = req.headers["stripe-signature"] as string | undefined
+  if (!signature) return res.status(400).json({ error: "Missing Stripe signature" })
+  let event: any
+  try { event = stripe.webhooks.constructEvent(req.body, signature, STRIPE_WEBHOOK_SECRET_SECRET_ROOM) }
+  catch { return res.status(400).json({ error: "Invalid Stripe signature" }) }
+  const claim = db.prepare(`INSERT INTO stripe_events (id, type, created_at) VALUES (?, ?, ?) ON CONFLICT(id) DO NOTHING`).run(event.id, event.type, Date.now())
+  if (!claim.changes) return res.json({ received: true, duplicate: true })
+  try {
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object
+      const userId = Number(session.metadata?.userId)
+      const kind = session.metadata?.roomPurchase as RoomCheckoutKind
+      if (!userId || (kind !== "access" && kind !== "friend_slot")) throw new Error("Missing Secret Room checkout metadata")
+      if (kind === "access") {
+        let accessUntil = Date.now() + ROOM_PRICING.periodDays * DAY_MS
+        const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id
+        if (subscriptionId) {
+          const subscription: any = await stripe.subscriptions.retrieve(subscriptionId)
+          accessUntil = Number(subscription.current_period_end) * 1000 || accessUntil
+        }
+        grantRoomAccess(userId, accessUntil)
+        logAudit(userId, "credit", ROOM_PRICING.entryUsd, "secret_room_checkout", { stripeEventId: event.id, accessUntil })
+      } else {
+        const room = roomOf(userId)
+        if (!room || room.access_until <= Date.now()) throw new Error("Room was inactive when paid slot completed")
+        db.prepare(`UPDATE secret_rooms SET friend_slots = friend_slots + 1, updated_at = ? WHERE id = ?`).run(Date.now(), room.id)
+        logAudit(userId, "credit", ROOM_PRICING.extraFriendUsd, "secret_room_friend_slot", { stripeEventId: event.id })
+      }
+    } else if (event.type === "customer.subscription.updated") {
+      const subscription = event.data.object
+      if (subscription.metadata?.roomPurchase === "access" && Number(subscription.metadata?.userId) && ["active", "trialing"].includes(subscription.status)) grantRoomAccess(Number(subscription.metadata.userId), Number(subscription.current_period_end) * 1000)
+    }
+    return res.json({ received: true })
+  } catch (error) {
+    db.prepare(`DELETE FROM stripe_events WHERE id = ?`).run(event.id)
+    captureError("[secret-room/webhook] handler error:", error)
+    return res.status(500).json({ error: "Webhook processing failed" })
+  }
+})
+
 router.post("/unlock", requireAuth, (req: AuthRequest, res) => {
   // A client request is never payment proof. This endpoint used to mint paid
   // access for free; grants must now originate in a verified billing webhook.

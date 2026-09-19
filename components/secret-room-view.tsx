@@ -72,9 +72,9 @@ export function SecretRoomView() {
   async function unlock() {
     setBusy(true); setMsg(null)
     try {
-      const r = await apiClient.post<any>("/secret-room/unlock")
-      setRoom(r.room); setMembers(r.members || []); setHasAccess(true); setIsOwner(true)
-      setMsg("Доступ открыт. Добро пожаловать в тайную комнату.")
+      const r = await apiClient.post<{ url: string | null }>("/secret-room/create-checkout", { kind: "access" })
+      if (!r.url) throw new Error("Не удалось открыть защищённую оплату")
+      window.location.assign(r.url)
     } catch (e: any) { setMsg(e?.message || "Не удалось открыть доступ") } finally { setBusy(false) }
   }
 
@@ -112,7 +112,11 @@ export function SecretRoomView() {
   }
   async function buySlot() {
     setBusy(true); setMsg(null)
-    try { const r = await apiClient.post<any>("/secret-room/friend-slots/buy"); setRoom(r.room); setMsg("Слот добавлен.") }
+    try {
+      const r = await apiClient.post<{ url: string | null }>("/secret-room/create-checkout", { kind: "friend_slot" })
+      if (!r.url) throw new Error("Не удалось открыть защищённую оплату")
+      window.location.assign(r.url)
+    }
     catch (e: any) { setMsg(e?.message || "Не удалось купить слот") } finally { setBusy(false) }
   }
   async function removeFriend(userId: number) {

@@ -153,6 +153,11 @@ app.use(
   express.raw({ type: "application/json" }),
 )
 
+app.use(
+  "/secret-room/webhook",
+  express.raw({ type: "application/json" }),
+)
+
 /* Аналогично — отдельный Stripe webhook для «Founders Program» (Академия).
    Свой signing secret STRIPE_WEBHOOK_SECRET_ACADEMY (с фолбэком). За фичефлагом. */
 import academyRoutes from "./routes/academy.routes"
