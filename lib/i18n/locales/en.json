@@ -186,7 +186,7 @@
   },
   "wallet": {
     "title": "Wallet",
-    "subtitle": "Balance of all OSGARD currencies and cross-tier exchange",
+    "subtitle": "Credits for activity and TimeCoin for marketplace, staking and withdrawal",
     "topUpTimeCoin": "Top up TimeCoin",
     "cash": "Cash",
     "cashSub": "Fiat balance",

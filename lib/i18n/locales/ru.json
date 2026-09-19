@@ -186,7 +186,7 @@
   },
   "wallet": {
     "title": "Кошелёк",
-    "subtitle": "Баланс всех валют OSGARD и обмен между уровнями",
+    "subtitle": "Credits для активности и TimeCoin для маркетплейса, стейкинга и вывода",
     "topUpTimeCoin": "Пополнить TimeCoin",
     "cash": "Наличные",
     "cashSub": "Фиатный баланс",
