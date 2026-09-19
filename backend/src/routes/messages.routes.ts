@@ -29,7 +29,7 @@ router.get("/", requireAuth, (req: AuthRequest, res) => {
       SELECT partner_id, MAX(id) AS message_id FROM mine GROUP BY partner_id
     )
     SELECT m.id, m.body, m.created_at, m.sender_id, m.recipient_id, m.partner_id,
-           u.username, u.display_name, u.avatar_url,
+           u.id AS user_id, u.username, u.display_name, u.avatar_url,
            (SELECT COUNT(*) FROM direct_messages unread WHERE unread.sender_id = m.partner_id AND unread.recipient_id = ? AND unread.read_at IS NULL) AS unread_count
     FROM mine m
     JOIN latest l ON l.message_id = m.id
@@ -40,7 +40,7 @@ router.get("/", requireAuth, (req: AuthRequest, res) => {
   `).all(userId, userId, userId, userId) as Array<any>
 
   res.json({ conversations: rows.map((row) => ({
-    user: mapUser(row),
+    user: mapUser({ id: row.user_id, username: row.username, display_name: row.display_name, avatar_url: row.avatar_url }),
     lastMessage: { id: row.id, text: row.body, createdAt: row.created_at, mine: row.sender_id === userId },
     unreadCount: row.unread_count,
   })) })
