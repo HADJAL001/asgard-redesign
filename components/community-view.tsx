@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image"
-import { Heart, MessageCircle, Share2, Pin, Plus, X, Send, Loader2 } from "lucide-react"
+import { Heart, MessageCircle, Share2, Pin, Plus, X, Send, Loader2, Trophy } from "lucide-react"
 import { Navbar } from "./navbar"
 import { apiClient, ApiError } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-store"
@@ -39,6 +39,17 @@ type Comment = {
   text: string
   createdAt: number
   author: Author
+}
+
+type WeeklyElite = {
+  week: string
+  winner: {
+    postId: number
+    userId: number
+    likes: number
+    title: string | null
+    author: string
+  } | null
 }
 
 function formatTime(ts: number) {
@@ -90,6 +101,7 @@ function LikeButton({
 export function CommunityView() {
   const [creating, setCreating] = useState(false)
   const [posts, setPosts] = useState<Post[]>([])
+  const [weeklyElite, setWeeklyElite] = useState<WeeklyElite | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null)
@@ -107,8 +119,12 @@ export function CommunityView() {
     setLoading(true)
     setError(null)
     try {
-      const data = await apiClient.get<{ posts: Post[] }>("/posts", { skipAuthRedirect: true })
+      const [data, elite] = await Promise.all([
+        apiClient.get<{ posts: Post[] }>("/posts", { skipAuthRedirect: true }),
+        apiClient.get<WeeklyElite>("/posts/weekly-elite", { skipAuthRedirect: true }).catch(() => null),
+      ])
       setPosts(data.posts)
+      setWeeklyElite(elite)
     } catch (err: any) {
       setError(err?.message || "Не удалось загрузить посты")
     } finally {
@@ -281,15 +297,41 @@ export function CommunityView() {
           </ReadonlyGate>
         </div>
 
-        {/* Metrics */}
-        <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {metrics.map((m) => (
-            <div key={m.l} className="rounded-xl p-5" style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}>
-              <p className="text-[24px] font-medium">{m.n}</p>
-              <p className="mt-1 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>{m.l}</p>
+        {weeklyElite?.winner && (
+          <section className="mt-8 overflow-hidden rounded-lg" style={{ backgroundColor: "#17242a", border: "1px solid rgba(215,174,87,0.55)" }}>
+            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "rgba(215,174,87,0.14)", color: "#d7ae57" }}>
+                  <Trophy size={19} aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-medium uppercase" style={{ color: "#d7ae57" }}>Тренд недели</p>
+                  <p className="mt-1 truncate text-[16px] font-medium">{weeklyElite.winner.title || "Идея недели"}</p>
+                  <p className="mt-1 text-[13px]" style={{ color: "#9eb2bc" }}>Автор: {weeklyElite.winner.author}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => document.getElementById(`post-${weeklyElite.winner!.postId}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                className="shrink-0 text-left text-[13px] font-medium sm:text-right"
+                style={{ color: "#d7ae57" }}
+              >
+                {weeklyElite.winner.likes} оценок
+              </button>
             </div>
-          ))}
-        </div>
+          </section>
+        )}
+
+        {posts.length > 0 && (
+          <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {metrics.map((m) => (
+              <div key={m.l} className="rounded-lg p-5" style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}>
+                <p className="text-[24px] font-medium">{m.n}</p>
+                <p className="mt-1 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>{m.l}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Feed */}
         {loading && (
@@ -364,6 +406,7 @@ const PostCard = memo(function PostCard({
 }) {
   return (
     <article
+      id={`post-${p.id}`}
       className="rounded-xl p-6 transition-all duration-200"
       style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
     >
