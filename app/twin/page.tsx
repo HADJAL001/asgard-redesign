@@ -15,6 +15,7 @@
    ================================================================ */
 
 import { useEffect, useState } from "react"
+import dynamic from "next/dynamic"
 import {
   Sparkles,
   Zap,
@@ -30,6 +31,11 @@ import { Navbar } from "@/components/navbar"
 import { apiClient } from "@/lib/api-client"
 import { useRequireAuth } from "@/lib/auth-store"
 import { useTranslation } from "@/lib/i18n/use-translation"
+
+const TwinTrainingScene = dynamic(() => import("@/components/twin-training-scene").then((module) => module.TwinTrainingScene), {
+  ssr: false,
+  loading: () => <div className="h-48 rounded-lg" style={{ backgroundColor: "#10181d", border: "1px solid #30424b" }} />,
+})
 
 type Twin = {
   id: number
@@ -113,6 +119,7 @@ export default function TwinPage() {
   const [nameDraft, setNameDraft] = useState("")
   const [rentalPriceDraft, setRentalPriceDraft] = useState("")
   const [rentDaysDraft, setRentDaysDraft] = useState<Record<number, string>>({})
+  const [draggingArtifact, setDraggingArtifact] = useState<number | null>(null)
 
   async function loadAll() {
     setLoading(true)
@@ -368,6 +375,13 @@ export default function TwinPage() {
               {/* ---- Обучение близнеца ---- */}
               <div className="rounded-xl p-5" style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}>
                 <h3 className="mb-3 font-medium">{t("twinPage.trainBtn")}</h3>
+                <div
+                  className="mb-3"
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => { event.preventDefault(); const id = Number(event.dataTransfer.getData("application/x-osgard-artifact")); if (id) void handleTrain(id); setDraggingArtifact(null) }}
+                >
+                  <TwinTrainingScene level={twin.level} training={draggingArtifact !== null || busy} />
+                </div>
                 {myArtifacts.length === 0 ? (
                   <p className="text-sm" style={{ color: "#9eb2bc" }}>
                     {t("artifacts.notFound")}
@@ -377,8 +391,11 @@ export default function TwinPage() {
                     {myArtifacts.map((a) => (
                       <div
                         key={a.id}
+                        draggable={!busy}
+                        onDragStart={(event) => { event.dataTransfer.setData("application/x-osgard-artifact", String(a.id)); event.dataTransfer.effectAllowed = "copy"; setDraggingArtifact(a.id) }}
+                        onDragEnd={() => setDraggingArtifact(null)}
                         className="flex items-center justify-between rounded-lg px-3 py-2"
-                        style={{ backgroundColor: "#10181d", border: "1px solid #30424b" }}
+                        style={{ backgroundColor: "#10181d", border: `1px solid ${draggingArtifact === a.id ? "#d7ae57" : "#30424b"}`, cursor: busy ? "default" : "grab" }}
                       >
                         <div>
                           <div className="text-sm">{a.name}</div>
