@@ -62,6 +62,17 @@ const CREATIVE_QUESTS = [
 type ServerQuest = { key: string; title: string; reward: number; progress: number; completed: boolean }
 type WeeklyQuest = { key: string; title: string; reward: { generationBonus: number }; progress: number; completed: boolean }
 
+const FALLBACK_WEEKLY_QUESTS: WeeklyQuest[] = [
+  { key: "weekly-telegram", title: "Создай и опубликуй проект с интеграцией Telegram", reward: { generationBonus: 100 }, progress: 0, completed: false },
+  { key: "weekly-showcase", title: "Создай проект, который можно показать клиенту", reward: { generationBonus: 100 }, progress: 0, completed: false },
+]
+
+function fallbackWeeklyQuest(now = new Date()): WeeklyQuest {
+  const start = new Date(Date.UTC(now.getUTCFullYear(), 0, 1))
+  const week = Math.ceil((((Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - start.getTime()) / 86_400_000) + 1) / 7)
+  return FALLBACK_WEEKLY_QUESTS[(now.getUTCFullYear() + week) % FALLBACK_WEEKLY_QUESTS.length]
+}
+
 /** Человеческий статус проекта — без экономических метрик.
  *  Формулировки честные: «Собирается» не обещает успех заранее. */
 function statusOf(project: OsgardProject): { label: string; color: string; Icon: typeof CircleCheck } {
@@ -78,7 +89,8 @@ export function DevStudioView() {
   const [luckyStart, setLuckyStart] = useState(false)
   const [questDone, setQuestDone] = useState(false)
   const [serverQuest, setServerQuest] = useState<ServerQuest | null>(null)
-  const [weeklyQuest, setWeeklyQuest] = useState<WeeklyQuest | null>(null)
+  const [weeklyQuest, setWeeklyQuest] = useState<WeeklyQuest>(() => fallbackWeeklyQuest())
+  const [weeklyQuestFromServer, setWeeklyQuestFromServer] = useState(false)
   const [weeklyQuestDone, setWeeklyQuestDone] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [broadcastState, setBroadcastState] = useState<"idle" | "connecting" | "live" | "error">("idle")
@@ -94,11 +106,13 @@ export function DevStudioView() {
         setServerQuest(daily)
         setQuestDone(Boolean(daily?.completed))
         setWeeklyQuest(weekly)
+        setWeeklyQuestFromServer(true)
         setWeeklyQuestDone(Boolean(weekly?.completed))
       })
       .catch(() => {
         const key = `osgard-quest-${new Date().toISOString().slice(0, 10)}`
         setQuestDone(window.localStorage.getItem(key) === "done")
+        setWeeklyQuestFromServer(false)
       })
   }, [])
   const dailyQuest = serverQuest?.title ?? CREATIVE_QUESTS[new Date().getDate() % CREATIVE_QUESTS.length]
@@ -375,8 +389,7 @@ export function DevStudioView() {
           </button>
         </div>
 
-        {weeklyQuest ? (
-          <div className="dev-card mt-3 flex flex-wrap items-center justify-between gap-3 px-4 py-3.5" style={{ borderColor: "rgb(125 211 252 / 28%)" }}>
+        <div className="dev-card mt-3 flex flex-wrap items-center justify-between gap-3 px-4 py-3.5" style={{ borderColor: "rgb(125 211 252 / 28%)" }}>
             <div className="flex items-start gap-3">
               <Sparkles size={17} className="mt-0.5 shrink-0" style={{ color: "#7DD3FC" }} aria-hidden="true" />
               <div>
@@ -394,7 +407,6 @@ export function DevStudioView() {
               {weeklyQuestDone ? "Completed" : "Take challenge"}
             </button>
           </div>
-        ) : null}
 
         {voice.isListening ? (
           <p
@@ -536,7 +548,7 @@ export function DevStudioView() {
                 .then(() => setQuestDone(true))
                 .catch(() => undefined)
             }
-            if (weeklyQuest && !weeklyQuest.completed) {
+            if (weeklyQuestFromServer && !weeklyQuest.completed) {
               apiClient.post(`/quests/${weeklyQuest.key}/complete`, { projectId })
                 .then(() => setWeeklyQuestDone(true))
                 .catch(() => undefined)
