@@ -5,6 +5,7 @@ import stripe, { FRONTEND_URL, isStripeConfigured, STRIPE_WEBHOOK_SECRET_SECRET_
 import { captureError } from "../lib/sentry"
 import { logAudit } from "../lib/audit"
 import { createNotification } from "../lib/notifications"
+import { getAlphaAccess } from "../lib/secret-room-alpha"
 
 /* ================================================================
    OSGARD · Secret Room API — супер-тайная приватная комната
@@ -193,6 +194,11 @@ router.get("/activity", requireAuth, (req: AuthRequest, res) => {
   const room = accessibleRoom(req.user!.userId)
   if (!room) return res.status(403).json({ error: "An active Secret Room invitation is required" })
   res.json({ activity: activityOf(room.id) })
+})
+
+/* Early access is a real release entitlement, not a client-side badge. */
+router.get("/alpha-access", requireAuth, (req: AuthRequest, res) => {
+  res.json(getAlphaAccess(req.user!.userId))
 })
 
 /* ---------------- POST /secret-room/creator-line ----------------
