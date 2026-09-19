@@ -5,7 +5,6 @@ import Link from "next/link"
 import { ArrowLeft, Zap, Gem, Infinity as InfinityIcon, Gift, Check, Loader2 } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { apiClient } from "@/lib/api-client"
-import { SectionHelp } from "./section-help"
 
 /* Palette: bg #10181d · card #17242a · accent #d7ae57 · label #9eb2bc · border #30424b */
 
@@ -57,20 +56,6 @@ export function EconomyMapView() {
       className="min-h-screen px-6 py-12"
       style={{ background: "linear-gradient(180deg, #10181d 0%, #0F0F1A 100%)" }}
     >
-      <SectionHelp
-        title="Карта экономики OSGARD"
-        what="Экономика OSGARD — это лестница из пяти валют: от стартовых кредитов до реальных денег. Каждая ступень — шаг доверия миру. Пройдите обучение и заберите награду."
-        goals={[
-          { goal: "Понять путь денег", steps: ["Кредиты — за активность", "Шарды и кристаллы — за артефакты", "TimeCoin — валюта с рыночной ценой", "Доллары — вывод в реальные деньги"] },
-          { goal: "Забрать награду за обучение", steps: ["Пролистайте пять ступеней", "Внизу нажмите «Забрать награду»", "Кредиты зачислятся один раз"] },
-        ]}
-        tour={[
-          { title: "1. Кредиты", text: "Стартовая валюта — зарабатывается за активность: онбординг, посты, ежедневные действия." },
-          { title: "2–3. Шарды и кристаллы", text: "Обмениваются на артефакты начального и качественного уровня, открывают премиум-усиления." },
-          { title: "4. TimeCoin", text: "Валюта с реальной рыночной стоимостью: стейкинг, продажа на бирже, вывод." },
-          { title: "5. Доллары", text: "Финальная ступень: TimeCoin конвертируется в реальные деньги. Это и есть цель лестницы." },
-        ]}
-      />
       <div className="mx-auto max-w-3xl">
         <Link
           href="/docs"

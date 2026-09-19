@@ -915,7 +915,7 @@
   },
   "docsEconomyMap": {
     "title": "OSGARD Economy Map",
-    "subtitle": "Five currencies and a path of trust — from the first click to real money",
+    "subtitle": "Two currencies for value, plus materials for crafting",
     "backToDocs": "← Back to Docs",
     "step1Name": "Credits",
     "step1Desc": "Starting currency. Earned through activity: onboarding, posts, daily actions.",
@@ -928,7 +928,7 @@
     "step5Name": "Dollars",
     "step5Desc": "The final rung: TimeCoin converts to real money via the exchange or a Solana wallet withdrawal.",
     "ladderCaption": "Each rung of the ladder is a step of trust in the OSGARD world",
-    "footerNote": "Current exchange rates — on the Wallet and Exchange pages."
+    "footerNote": "Credits pay for activity and generations. TimeCoin is used for marketplace, staking and withdrawal."
   },
   "support": {
     "inDevelopmentTitle": "Section under development",
