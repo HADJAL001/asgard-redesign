@@ -249,6 +249,7 @@ import { runProjectManualEditsMigration } from "./migrations/115_project_manual_
 import { runAdminTestArtifactsMigration } from "./migrations/116_admin_test_artifacts"
 import { runPromoCreditsMigration } from "./migrations/117_promo_credits"
 import { runCurrencySimplificationMigration } from "./migrations/118_currency_simplification"
+import { runCreditResetMigration } from "./migrations/119_reset_credits"
 import provenanceRoutes from "./routes/provenance.routes"
 import { runOrderBookMigration } from "./migrations/001_order_book"
 import { runReferralMigration } from "./migrations/002_referral_system"
@@ -431,6 +432,7 @@ runProjectManualEditsMigration()
 runAdminTestArtifactsMigration()
 runPromoCreditsMigration()
 runCurrencySimplificationMigration()
+runCreditResetMigration()
 
 /* Гарантируем наличие таблицы tc_convert_log (лог конвертаций ∞ ↔ TC) при старте сервера. */
 runTcConvertMigration()

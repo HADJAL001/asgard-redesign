@@ -11,7 +11,7 @@ const TOTAL_STEPS = 8
 /* Награды за каждый шаг онбординга (тур по ключевым фичам платформы) */
 const ONBOARDING_REWARDS: Record<
   number,
-  { credits?: number; crystals?: number; badge?: string }
+  { credits?: number; badge?: string }
 > = {
   1: { credits: 15 }, // Знакомство — переход на главную
   2: { credits: 20 }, // Мастер кузницы — демо-генерация в Forge
@@ -20,7 +20,7 @@ const ONBOARDING_REWARDS: Record<
   5: { credits: 18 }, // Голос — пост/комментарий в сообществе
   6: { credits: 18 }, // Личность — профиль
   7: { credits: 15 }, // Властелин — админ-панель
-  8: { crystals: 25, badge: "pervoprohodets" }, // Первопроходец — финал онбординга, «Посвящение»
+  8: { credits: 80, badge: "pervoprohodets" }, // Первопроходец — финал онбординга, «Посвящение»
 }
 
 /* ---------------- GET /onboarding/status ---------------- */
@@ -70,12 +70,6 @@ router.post("/step", requireAuth, (req: AuthRequest, res) => {
     ).run(reward.credits, now, req.user!.userId)
   }
 
-  if (reward.crystals) {
-    db.prepare(
-      `UPDATE wallets SET crystals = crystals + ?, updated_at = ? WHERE user_id = ?`,
-    ).run(reward.crystals, now, req.user!.userId)
-  }
-
   if (reward.badge) {
     db.prepare(
       `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
@@ -90,7 +84,6 @@ router.post("/step", requireAuth, (req: AuthRequest, res) => {
 
   const rewardParts: string[] = []
   if (reward.credits) rewardParts.push(`${reward.credits} credits`)
-  if (reward.crystals) rewardParts.push(`${reward.crystals} crystals`)
   if (reward.badge) rewardParts.push(`бейдж "${reward.badge}"`)
 
   db.prepare(
@@ -99,10 +92,10 @@ router.post("/step", requireAuth, (req: AuthRequest, res) => {
   ).run(
     req.user!.userId,
     `Шаг ${stepNum}: ${rewardParts.join(", ")}`,
-    reward.credits || reward.crystals || 0,
-    reward.credits ? "credits" : reward.crystals ? "crystals" : "badge",
+    reward.credits || 0,
+    reward.credits ? "credits" : "badge",
   )
-  logAudit(req.user!.userId, "credit", reward.credits || reward.crystals || 0, "onboarding_reward", { step: stepNum, badge: reward.badge })
+  logAudit(req.user!.userId, "credit", reward.credits || 0, "onboarding_reward", { step: stepNum, badge: reward.badge })
 
   const completed = stepNum >= TOTAL_STEPS
 
