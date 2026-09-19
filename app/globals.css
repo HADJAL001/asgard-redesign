@@ -1864,6 +1864,25 @@ svg { width: 1rem; height: 1rem; flex: none; }
   transition: border-color 0.2s ease, transform 0.2s var(--ease-out-soft, cubic-bezier(.16,1,.3,1)),
               background 0.2s ease;
 }
+
+.dev-mode-layout {
+  --dev-rank-color: #E2E8F0;
+  --dev-rank-glow: rgba(226, 232, 240, 0.12);
+}
+
+.dev-mode-layout:has(.dev-deploy-rank-reveal) .dev-card {
+  border-color: color-mix(in srgb, var(--dev-rank-color) 42%, rgb(226 232 240 / 18%));
+}
+
+.dev-deploy-rank-reveal {
+  animation: dev-rank-reveal 620ms cubic-bezier(.22, 1, .36, 1) both;
+  box-shadow: 0 0 22px var(--dev-rank-glow);
+}
+
+@keyframes dev-rank-reveal {
+  from { opacity: 0; transform: translateY(8px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 .dev-card:hover {
   border-color: rgb(226 232 240 / 30%);
   background: rgb(255 255 255 / 6%);

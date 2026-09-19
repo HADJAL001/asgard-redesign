@@ -26,6 +26,9 @@ import {
   ShoppingBag,
   Tag,
   ChevronRight,
+  Sparkles,
+  WandSparkles,
+  Landmark,
   type LucideIcon,
 } from "lucide-react"
 import { Infinity as InfinityIcon, Lock, DollarSign, Brain } from "lucide-react"
@@ -38,6 +41,7 @@ import { UP, DAY_MS } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { useSignature } from "@/hooks/useSignature"
 import { Volume2 } from "lucide-react"
+import { getActiveVibecoderRank } from "@/lib/dev-mode/vibecoder-rank"
 
 /* ---- Palette ----
    bg #10181d · card #17242a · accent #d7ae57 · text #FFFFFF · label #9eb2bc · border #30424b */
@@ -292,6 +296,8 @@ function ArchitectMastery() {
     vibe_architect: "Vibe Architect",
     osgard_legend: "OSGARD Legend",
   }
+  const activeRank = getActiveVibecoderRank(projectRanks)
+  const RankIcon = activeRank?.key === "osgard_legend" ? Crown : activeRank?.key === "vibe_architect" ? Landmark : activeRank?.key === "code_whisperer" ? WandSparkles : Sparkles
 
   return (
     <section
@@ -302,9 +308,9 @@ function ArchitectMastery() {
         <div className="flex items-center gap-3">
           <span
             className="flex size-11 shrink-0 items-center justify-center rounded-xl"
-            style={{ border: "1px solid var(--color-gold)", boxShadow: "0 0 14px rgba(212,175,55,0.28)" }}
+            style={{ border: `1px solid ${activeRank?.color ?? "var(--color-gold)"}`, boxShadow: `0 0 14px ${activeRank?.glow ?? "rgba(212,175,55,0.28)"}` }}
           >
-            <Hammer size={20} strokeWidth={1.6} style={{ color: "var(--color-gold)" }} aria-hidden="true" />
+            <RankIcon size={20} strokeWidth={1.6} style={{ color: activeRank?.color ?? "var(--color-gold)" }} aria-hidden="true" />
           </span>
           <div>
             <p className="text-[12px] uppercase tracking-[0.12em]" style={{ color: "#9eb2bc" }}>
@@ -313,6 +319,7 @@ function ArchitectMastery() {
             <h3 className="serif-title mt-0.5 text-[20px] leading-tight" style={{ color: "var(--color-gold)" }}>
               {tierName}
             </h3>
+            {activeRank ? <p className="mt-1 text-[11px] font-medium" style={{ color: activeRank.color }}>{activeRank.label}</p> : null}
           </div>
         </div>
         <div className="text-right">

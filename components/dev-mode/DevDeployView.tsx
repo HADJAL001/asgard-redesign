@@ -21,13 +21,14 @@ import { useRouter } from "next/navigation"
 import {
   // GitBranch, а не Github: в этой версии lucide-react бренд-иконок нет
   // (их вынесли из пакета). Тот же выбор уже сделан в navbar.tsx.
-  Rocket, Loader2, ExternalLink, GitBranch, CircleCheck, TriangleAlert, PackageOpen,
+  Rocket, Loader2, ExternalLink, GitBranch, CircleCheck, TriangleAlert, PackageOpen, Sparkles,
 } from "lucide-react"
 import { useOsgardStore, type OsgardProject } from "@/lib/store/osgard-store"
+import { getActiveVibecoderRank } from "@/lib/dev-mode/vibecoder-rank"
 
 type RowBusy = "deploy" | "github" | null
 
-function DeployRow({ project, primary }: { project: OsgardProject; primary: boolean }) {
+function DeployRow({ project, primary, rank }: { project: OsgardProject; primary: boolean; rank: ReturnType<typeof getActiveVibecoderRank> }) {
   const router = useRouter()
   const { deployProject, pollDeployStatus, publishProjectToGithub, fetchProjects } = useOsgardStore()
 
@@ -36,6 +37,7 @@ function DeployRow({ project, primary }: { project: OsgardProject; primary: bool
   const [repoUrl, setRepoUrl] = useState<string | null>(null)
   /** Не null — сервер не пустил публикацию: приложение не собирается. */
   const [blockedDefects, setBlockedDefects] = useState<number | null>(null)
+  const [justDeployed, setJustDeployed] = useState(false)
 
   // Проект мог начать деплоиться в другом месте (Мастерская) — тогда
   // строка обязана показывать «публикуется», даже если кнопку жали не здесь.
@@ -69,7 +71,10 @@ function DeployRow({ project, primary }: { project: OsgardProject; primary: bool
       setError(finished.deployError || "Публикация завершилась ошибкой.")
     }
     if (finished?.deployStatus === "failed") previewWindow?.close()
-    else if (finished?.liveUrl && previewWindow) previewWindow.location.href = finished.liveUrl
+    else if (finished?.liveUrl) {
+      setJustDeployed(true)
+      if (previewWindow) previewWindow.location.href = finished.liveUrl
+    }
     await fetchProjects({ skipAuthRedirect: true })
     setBusy(null)
   }
@@ -135,6 +140,17 @@ function DeployRow({ project, primary }: { project: OsgardProject; primary: bool
               {project.liveUrl.replace(/^https?:\/\//, "")}
               <ExternalLink size={12} strokeWidth={1.75} aria-hidden="true" />
             </a>
+          ) : null}
+
+          {justDeployed && rank ? (
+            <div
+              className="dev-deploy-rank-reveal mt-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium"
+              role="status"
+              style={{ color: rank.color, border: `1px solid ${rank.color}`, background: rank.glow }}
+            >
+              <Sparkles size={15} strokeWidth={1.8} aria-hidden="true" />
+              <span>{rank.label}: проект опубликован</span>
+            </div>
           ) : null}
 
           {repoUrl ? (
@@ -224,7 +240,8 @@ function DeployRow({ project, primary }: { project: OsgardProject; primary: bool
 
 export function DevDeployView() {
   const router = useRouter()
-  const { projects, fetchProjects, loading } = useOsgardStore()
+  const { projects, fetchProjects, loading, projectRanks } = useOsgardStore()
+  const rank = getActiveVibecoderRank(projectRanks)
 
   useEffect(() => {
     fetchProjects({ skipAuthRedirect: true })
@@ -278,7 +295,7 @@ export function DevDeployView() {
       {projects.length > 0 ? (
         <ul className="mt-7 grid list-none grid-cols-1 gap-3 p-0">
           {projects.map((project) => (
-            <DeployRow key={project.id} project={project} primary={project.id === primaryId} />
+            <DeployRow key={project.id} project={project} primary={project.id === primaryId} rank={rank} />
           ))}
         </ul>
       ) : null}

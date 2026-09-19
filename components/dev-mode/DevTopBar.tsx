@@ -13,12 +13,17 @@
    Всё остальное на экране принадлежит задаче человека, а не платформе.
    ================================================================ */
 
-import { Volume2, VolumeX, ArrowLeft, ArrowUp } from "lucide-react"
+import { Volume2, VolumeX, ArrowLeft, ArrowUp, Sparkles, WandSparkles, Landmark, Crown } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useDevMode, DEV_MODE_ROUTE } from "@/lib/dev-mode"
+import { getActiveVibecoderRank } from "@/lib/dev-mode/vibecoder-rank"
+import { useOsgardStore } from "@/lib/store/osgard-store"
 
 export function DevTopBar({ children }: { children?: React.ReactNode }) {
   const { switchMode, transitioning, soundEnabled, toggleSound, modeChosen } = useDevMode()
+  const projectRanks = useOsgardStore((state) => state.projectRanks)
+  const rank = getActiveVibecoderRank(projectRanks)
+  const RankIcon = rank?.key === "osgard_legend" ? Crown : rank?.key === "vibe_architect" ? Landmark : rank?.key === "code_whisperer" ? WandSparkles : Sparkles
 
   /* Студия теперь вход по умолчанию — значит человек попадает сюда, ни о чём
      не спрашивая, и может не догадаться, что вторая вселенная вообще есть.
@@ -48,6 +53,16 @@ export function DevTopBar({ children }: { children?: React.ReactNode }) {
           ⌘
         </span>
         <span className="dev-title shrink-0 text-[15px] tracking-[0.14em]">OSGARD DEV</span>
+        {rank ? (
+          <span
+            className="hidden items-center gap-1.5 text-[11px] font-medium sm:inline-flex"
+            style={{ color: rank.color }}
+            title={rank.label}
+          >
+            <RankIcon size={14} strokeWidth={1.8} aria-hidden="true" />
+            <span className="max-w-[126px] truncate">{rank.label}</span>
+          </span>
+        ) : null}
         {/* Слот контекста экрана — например название проекта в Мастерской. */}
         {children}
       </div>
