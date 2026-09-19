@@ -14,5 +14,14 @@ export function runPromoCreditsMigration() {
       created_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_promo_credit_spend ON promo_credit_grants(user_id, expires_at, id);
+    CREATE TABLE IF NOT EXISTS promo_credit_charges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      grant_id INTEGER NOT NULL REFERENCES promo_credit_grants(id),
+      refinement_id INTEGER REFERENCES project_refinements(id) ON DELETE CASCADE,
+      amount REAL NOT NULL CHECK(amount > 0),
+      refunded_at INTEGER,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_promo_charge_refinement ON promo_credit_charges(refinement_id, refunded_at);
   `)
 }
