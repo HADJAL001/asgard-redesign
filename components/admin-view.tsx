@@ -113,7 +113,12 @@ type AdminGenerationBudget = {
     tokensOut: number
     totalTokens: number
     unmeasuredCalls: number
+    pricedUsd: number
+    pricedCalls: number
+    unpricedCalls: number
+    estimatedCostCalls: number
     byProvider: Record<string, { calls: number; tokens: number }>
+    byModel: Record<string, { provider: string; model: string; calls: number; inputTokens: number; outputTokens: number; estimatedCalls: number }>
     byKind: Record<string, { runs: number; tokens: number }>
   }
   methodology: { minimumSamples: number }
@@ -839,6 +844,13 @@ export function AdminView() {
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px]" style={{ color: "rgba(255,255,255,0.64)" }}>
+                    <span>Рассчитанная себестоимость: <strong style={{ color: "rgba(255,255,255,0.9)" }}>${generationBudget.usage.pricedUsd.toFixed(4)}</strong></span>
+                    <span>Покрыто тарифами: {generationBudget.usage.pricedCalls} вызовов</span>
+                    {generationBudget.usage.unpricedCalls > 0 ? <span style={{ color: "#f4bc5a" }}>Без тарифа: {generationBudget.usage.unpricedCalls} вызовов</span> : null}
+                    {generationBudget.usage.estimatedCostCalls > 0 ? <span style={{ color: "#f4bc5a" }}>Оцененных по токенам: {generationBudget.usage.estimatedCostCalls}</span> : null}
                   </div>
 
                   <div className="mt-5 flex flex-wrap gap-2">

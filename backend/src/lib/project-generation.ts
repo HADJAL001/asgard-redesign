@@ -405,6 +405,8 @@ function persistProjectUsageDelta(
     unmeasured: 0,
     failed: 0,
     byProvider: {},
+    byModel: {},
+    cost: { pricedUsd: 0, pricedCalls: 0, unpricedCalls: 0, estimatedCalls: 0 },
   }
   const calls = Math.max(0, current.calls - before.calls)
   const tokensIn = Math.max(0, current.inputTokens - before.inputTokens)

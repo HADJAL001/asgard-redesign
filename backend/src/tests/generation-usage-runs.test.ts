@@ -15,6 +15,17 @@ function snapshot(tokensIn: number, tokensOut: number): TelemetrySnapshot {
     unmeasured: 0,
     failed: 0,
     byProvider: { deepseek: { calls: 1, tokens: tokensIn + tokensOut } },
+    byModel: {
+      "deepseek:deepseek-v4-flash": {
+        provider: "deepseek",
+        model: "deepseek-v4-flash",
+        calls: 1,
+        inputTokens: tokensIn,
+        outputTokens: tokensOut,
+        estimatedCalls: 0,
+      },
+    },
+    cost: { pricedUsd: 0.001, pricedCalls: 1, unpricedCalls: 0, estimatedCalls: 0 },
   }
 }
 
@@ -55,6 +66,9 @@ test("usage runs preserve completed and failed attempts separately", async () =>
   assert.equal(report.completed, 1)
   assert.equal(report.totalTokens, 3000)
   assert.deepEqual(report.byProvider.deepseek, { calls: 2, tokens: 3000 })
+  assert.equal(report.pricedCalls, 2)
+  assert.equal(report.pricedUsd, 0.002)
+  assert.equal(report.byModel["deepseek:deepseek-v4-flash"].inputTokens, 2400)
 })
 
 test("startup recovery preserves fresh and actively leased usage runs", async () => {

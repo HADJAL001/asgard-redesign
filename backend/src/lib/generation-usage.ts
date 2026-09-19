@@ -9,6 +9,8 @@ export type GenerationUsageStatus = "completed" | "failed"
 function serializeMeter(snapshot: TelemetrySnapshot): string {
   return JSON.stringify({
     byProvider: snapshot.byProvider,
+    byModel: snapshot.byModel,
+    cost: snapshot.cost,
     aiMs: snapshot.aiMs,
     unmeasured: snapshot.unmeasured,
     failedCalls: snapshot.failed,
@@ -91,7 +93,12 @@ export function getGenerationUsageReport() {
     totalTokens: 0,
     durationMs: 0,
     unmeasuredCalls: 0,
+    pricedUsd: 0,
+    pricedCalls: 0,
+    unpricedCalls: 0,
+    estimatedCostCalls: 0,
     byProvider: {} as Record<string, { calls: number; tokens: number }>,
+    byModel: {} as Record<string, { provider: string; model: string; calls: number; inputTokens: number; outputTokens: number; estimatedCalls: number }>,
     byKind: {} as Record<string, { runs: number; tokens: number }>,
   }
 
@@ -106,9 +113,13 @@ export function getGenerationUsageReport() {
               COALESCE(SUM(tokens_out), 0) AS tokensOut,
               COALESCE(SUM(duration_ms), 0) AS durationMs,
               COALESCE(SUM(CASE WHEN json_valid(meter)
-                THEN COALESCE(json_extract(meter, '$.unmeasured'), 0) ELSE 0 END), 0) AS unmeasuredCalls
+                THEN COALESCE(json_extract(meter, '$.unmeasured'), 0) ELSE 0 END), 0) AS unmeasuredCalls,
+              COALESCE(SUM(CASE WHEN json_valid(meter) THEN COALESCE(json_extract(meter, '$.cost.pricedUsd'), 0) ELSE 0 END), 0) AS pricedUsd,
+              COALESCE(SUM(CASE WHEN json_valid(meter) THEN COALESCE(json_extract(meter, '$.cost.pricedCalls'), 0) ELSE 0 END), 0) AS pricedCalls,
+              COALESCE(SUM(CASE WHEN json_valid(meter) THEN COALESCE(json_extract(meter, '$.cost.unpricedCalls'), 0) ELSE 0 END), 0) AS unpricedCalls,
+              COALESCE(SUM(CASE WHEN json_valid(meter) THEN COALESCE(json_extract(meter, '$.cost.estimatedCalls'), 0) ELSE 0 END), 0) AS estimatedCostCalls
          FROM generation_usage_runs`,
-    ).get() as Omit<typeof empty, "totalTokens" | "byProvider" | "byKind">
+    ).get() as Omit<typeof empty, "totalTokens" | "byProvider" | "byModel" | "byKind">
 
     const byKindRows = db.prepare(
       `SELECT kind, COUNT(*) AS runs, COALESCE(SUM(tokens_in + tokens_out), 0) AS tokens
@@ -123,15 +134,29 @@ export function getGenerationUsageReport() {
               json_each(CASE WHEN json_valid(meter) THEN meter ELSE '{}' END, '$.byProvider') AS provider
         GROUP BY provider.key`,
     ).all() as Array<{ provider: string; calls: number; tokens: number }>
+    const byModelRows = db.prepare(
+      `SELECT model.key AS key,
+              json_extract(model.value, '$.provider') AS provider,
+              json_extract(model.value, '$.model') AS model,
+              COALESCE(SUM(json_extract(model.value, '$.calls')), 0) AS calls,
+              COALESCE(SUM(json_extract(model.value, '$.inputTokens')), 0) AS inputTokens,
+              COALESCE(SUM(json_extract(model.value, '$.outputTokens')), 0) AS outputTokens,
+              COALESCE(SUM(json_extract(model.value, '$.estimatedCalls')), 0) AS estimatedCalls
+         FROM generation_usage_runs,
+              json_each(CASE WHEN json_valid(meter) THEN meter ELSE '{}' END, '$.byModel') AS model
+        GROUP BY model.key`,
+    ).all() as Array<{ key: string; provider: string; model: string; calls: number; inputTokens: number; outputTokens: number; estimatedCalls: number }>
 
     const report = {
       ...totals,
       totalTokens: totals.tokensIn + totals.tokensOut,
       byProvider: {} as Record<string, { calls: number; tokens: number }>,
+      byModel: {} as Record<string, { provider: string; model: string; calls: number; inputTokens: number; outputTokens: number; estimatedCalls: number }>,
       byKind: {} as Record<string, { runs: number; tokens: number }>,
     }
     for (const row of byKindRows) report.byKind[row.kind] = { runs: row.runs, tokens: row.tokens }
     for (const row of byProviderRows) report.byProvider[row.provider] = { calls: row.calls, tokens: row.tokens }
+    for (const row of byModelRows) report.byModel[row.key] = { provider: row.provider, model: row.model, calls: row.calls, inputTokens: row.inputTokens, outputTokens: row.outputTokens, estimatedCalls: row.estimatedCalls }
     return report
   } catch {
     // Deploys that have not run migration 104 yet report an empty, honest baseline.

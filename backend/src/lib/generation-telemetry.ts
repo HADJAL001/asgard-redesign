@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks"
+import { summarizeAiCost, type AiCostSummary } from "./ai-costs"
 
 /* ================================================================
    OSGARD · Телеметрия генерации — честный счётчик расхода
@@ -53,6 +54,8 @@ export type TelemetrySnapshot = {
   failed: number
   /** Разбивка по провайдерам — видно, кто сколько съел. */
   byProvider: Record<string, { calls: number; tokens: number }>
+  byModel: Record<string, { provider: string; model: string; calls: number; inputTokens: number; outputTokens: number; estimatedCalls: number }>
+  cost: AiCostSummary
   tokenLimit?: number | null
   tokensRemaining?: number | null
 }
@@ -99,6 +102,8 @@ function emptySnapshot(startedAt: number, tokenLimit: number | null = null): Tel
     unmeasured: 0,
     failed: 0,
     byProvider: {},
+    byModel: {},
+    cost: { pricedUsd: 0, pricedCalls: 0, unpricedCalls: 0, estimatedCalls: 0 },
     tokenLimit,
     tokensRemaining: tokenLimit,
   }
@@ -117,8 +122,16 @@ function summarize(ctx: TelemetryContext): TelemetrySnapshot {
     bucket.calls += 1
     bucket.tokens += r.inputTokens + r.outputTokens
     snapshot.byProvider[r.provider] = bucket
+    const key = `${r.provider}:${r.model}`
+    const model = snapshot.byModel[key] || { provider: r.provider, model: r.model, calls: 0, inputTokens: 0, outputTokens: 0, estimatedCalls: 0 }
+    model.calls += 1
+    model.inputTokens += r.inputTokens
+    model.outputTokens += r.outputTokens
+    if (r.estimated) model.estimatedCalls += 1
+    snapshot.byModel[key] = model
   }
   snapshot.totalTokens = snapshot.inputTokens + snapshot.outputTokens
+  snapshot.cost = summarizeAiCost(ctx.records)
   snapshot.tokensRemaining = ctx.tokenLimit === null
     ? null
     : Math.max(0, ctx.tokenLimit - snapshot.totalTokens - ctx.reservedTokens)
