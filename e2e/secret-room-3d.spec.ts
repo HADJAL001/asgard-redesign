@@ -8,6 +8,7 @@ test("renders the Secret Room headquarters canvas", async ({ page }) => {
     isOwner: true,
     room: {
       id: 1, name: "OSGARD HQ", background: "aurora", friendSlots: 3, active: true, accessUntil: 1_893_456_000_000,
+      avatarGltf: null,
       items: [{ type: "lamp", x: 15, y: 20 }, { type: "throne", x: 75, y: 65 }, { type: "aquarium", x: 18, y: 58 }, { type: "painting", x: 55, y: 25 }, { type: "crystal", x: 80, y: 26 }],
     },
     members: [], pricing: { entryUsd: 99, monthlyUsd: 9, extraFriendUsd: 49, freeFriendSlots: 3, periodDays: 30 },

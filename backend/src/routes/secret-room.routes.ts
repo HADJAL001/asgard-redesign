@@ -30,6 +30,7 @@ export const ROOM_PRICING = {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const CREATOR_MESSAGE_MAX_LENGTH = 2_000
+const MAX_AVATAR_GLTF_BYTES = 512 * 1024
 
 type RoomCheckoutKind = "access" | "friend_slot"
 
@@ -74,10 +75,39 @@ function serializeRoom(room: any) {
     name: room.name,
     background: room.background,
     items,
+    avatarGltf: typeof room.avatar_gltf === "string" ? room.avatar_gltf : null,
     friendSlots: room.friend_slots,
     accessUntil: room.access_until,
     active: room.access_until > Date.now(),
   }
+}
+
+/** Accept only compact, self-contained glTF JSON. No external URLs, images,
+ * animations, or extension code can be pulled into another member's browser. */
+function validateAvatarGltf(value: unknown): string | null {
+  if (value === null) return null
+  if (typeof value !== "string" || Buffer.byteLength(value, "utf8") > MAX_AVATAR_GLTF_BYTES) {
+    throw new Error("Avatar must be a glTF JSON file smaller than 512 KB")
+  }
+  let document: any
+  try { document = JSON.parse(value) } catch { throw new Error("Avatar is not valid glTF JSON") }
+  if (!document || document.asset?.version !== "2.0" || !Array.isArray(document.scenes) || !Array.isArray(document.nodes)) {
+    throw new Error("Avatar must use glTF 2.0")
+  }
+  const arrays = [document.nodes, document.meshes, document.accessors, document.bufferViews, document.buffers]
+  const limits = [64, 32, 128, 128, 1]
+  if (arrays.some((items, index) => items !== undefined && (!Array.isArray(items) || items.length > limits[index]))) {
+    throw new Error("Avatar exceeds the room complexity limit")
+  }
+  if ((document.images?.length || document.animations?.length || document.extensionsRequired?.length)) {
+    throw new Error("Avatar cannot include textures, animations, or required extensions")
+  }
+  const buffers = document.buffers || []
+  const byteLength = buffers.reduce((total: number, buffer: any) => total + Math.max(0, Number(buffer?.byteLength) || 0), 0)
+  if (byteLength > MAX_AVATAR_GLTF_BYTES || buffers.some((buffer: any) => typeof buffer?.uri !== "string" || !buffer.uri.startsWith("data:application/"))) {
+    throw new Error("Avatar must embed its geometry and cannot load external files")
+  }
+  return value
 }
 function logRoomActivity(roomId: number, actorId: number | null, kind: string, detail = "") {
   db.prepare(`INSERT INTO secret_room_activity (room_id, actor_id, kind, detail, created_at) VALUES (?, ?, ?, ?, ?)`).run(roomId, actorId, kind, detail.slice(0, 160), Date.now())
@@ -358,7 +388,7 @@ router.patch("/", requireAuth, (req: AuthRequest, res) => {
   if (!room || room.access_until <= Date.now()) {
     return res.status(403).json({ error: "Нет активного доступа к комнате" })
   }
-  const { name, background, items } = req.body || {}
+  const { name, background, items, avatarGltf } = req.body || {}
 
   const nextName = typeof name === "string" && name.trim() ? name.trim().slice(0, 40) : room.name
   const nextBg = typeof background === "string" && BACKGROUNDS.includes(background) ? background : room.background
@@ -375,15 +405,21 @@ router.patch("/", requireAuth, (req: AuthRequest, res) => {
       }))
     nextItems = JSON.stringify(clean)
   }
+  let nextAvatar = room.avatar_gltf || null
+  if (avatarGltf !== undefined) {
+    try { nextAvatar = validateAvatarGltf(avatarGltf) }
+    catch (error: any) { return res.status(400).json({ error: error.message || "Invalid avatar" }) }
+  }
 
-  db.prepare(`UPDATE secret_rooms SET name = ?, background = ?, items = ?, updated_at = ? WHERE owner_id = ?`).run(
+  db.prepare(`UPDATE secret_rooms SET name = ?, background = ?, items = ?, avatar_gltf = ?, updated_at = ? WHERE owner_id = ?`).run(
     nextName,
     nextBg,
     nextItems,
+    nextAvatar,
     Date.now(),
     uid,
   )
-  if (nextName !== room.name || nextBg !== room.background || nextItems !== room.items) logRoomActivity(room.id, uid, "room_customized")
+  if (nextName !== room.name || nextBg !== room.background || nextItems !== room.items || nextAvatar !== (room.avatar_gltf || null)) logRoomActivity(room.id, uid, "room_customized")
   res.json({ ok: true, room: serializeRoom(roomOf(uid)) })
 })
 

@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
 import { OrbitControls } from "@react-three/drei"
-import type { Group } from "three"
+import { Box3, Group, Vector3 } from "three"
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
 
 export type SecretRoomItem = { type: string; x: number; y: number }
 type Theme = { floor: string; wall: string; accent: string; fill: string }
@@ -55,12 +56,32 @@ function HoloTable({ accent, reducedMotion }: { accent: string; reducedMotion: b
   return <group position={[0, 0.55, 0]}><mesh rotation={[-Math.PI / 2, 0, 0]}><cylinderGeometry args={[1.15, 1.15, 0.08, 48]} /><meshStandardMaterial color="#10222c" metalness={0.8} roughness={0.22} /></mesh><group ref={ring}><mesh rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[0.83, 0.024, 8, 48]} /><meshBasicMaterial color={accent} transparent opacity={0.85} /></mesh></group><mesh position={[0, -0.45, 0]}><cylinderGeometry args={[0.1, 0.42, 0.9, 20]} /><meshStandardMaterial color="#11151b" metalness={0.9} roughness={0.25} /></mesh></group>
 }
 
-function Headquarters({ items, background, isOwner, onRemove }: { items: SecretRoomItem[]; background: string; isOwner: boolean; onRemove: (index: number) => void }) {
+function CustomAvatar({ gltf }: { gltf: string | null }) {
+  const [avatar, setAvatar] = useState<Group | null>(null)
+  useEffect(() => {
+    if (!gltf) { setAvatar(null); return }
+    let active = true
+    new GLTFLoader().parse(gltf, "", (loaded) => {
+      if (!active) return
+      const scene = loaded.scene
+      const bounds = new Box3().setFromObject(scene)
+      const size = bounds.getSize(new Vector3())
+      const largest = Math.max(size.x, size.y, size.z, 0.01)
+      scene.scale.setScalar(1.35 / largest)
+      scene.position.y -= bounds.min.y * scene.scale.y
+      setAvatar(scene)
+    }, () => { if (active) setAvatar(null) })
+    return () => { active = false }
+  }, [gltf])
+  return avatar ? <primitive object={avatar} position={[2.6, 0, -1.8]} rotation={[0, -0.45, 0]} /> : null
+}
+
+function Headquarters({ items, avatarGltf, background, isOwner, onRemove }: { items: SecretRoomItem[]; avatarGltf: string | null; background: string; isOwner: boolean; onRemove: (index: number) => void }) {
   const [reducedMotion, setReducedMotion] = useState(false)
   const theme = THEMES[background] || THEMES.nebula
   useEffect(() => { const query = window.matchMedia("(prefers-reduced-motion: reduce)"); const sync = () => setReducedMotion(query.matches); sync(); query.addEventListener("change", sync); return () => query.removeEventListener("change", sync) }, [])
   const props = useMemo(() => items.map((item, index) => <RoomProp key={`${item.type}-${index}-${item.x}-${item.y}`} item={item} accent={theme.accent} fill={theme.fill} index={index} isOwner={isOwner} onRemove={onRemove} />), [items, theme.accent, theme.fill, isOwner, onRemove])
-  return <Canvas camera={{ position: [6.4, 4.8, 7.8], fov: 43 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: false }}><color attach="background" args={[theme.wall]} /><fog attach="fog" args={[theme.wall, 7, 16]} /><ambientLight intensity={0.65} color="#dbeeff" /><directionalLight position={[3, 7, 4]} intensity={1.4} color={theme.accent} /><pointLight position={[-4, 2.5, 2]} intensity={18} distance={7} color={theme.accent} /><mesh rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[12, 8]} /><meshStandardMaterial color={theme.floor} metalness={0.78} roughness={0.32} /></mesh><mesh position={[0, 2.8, -3.1]}><boxGeometry args={[10, 5.6, 0.2]} /><meshStandardMaterial color={theme.wall} metalness={0.22} roughness={0.56} /></mesh><mesh position={[0, 2.3, -2.95]}><boxGeometry args={[3.2, 1.45, 0.04]} /><meshBasicMaterial color={theme.accent} transparent opacity={0.2} /></mesh><HoloTable accent={theme.accent} reducedMotion={reducedMotion} />{props}<OrbitControls enablePan={false} enableZoom={false} minPolarAngle={0.85} maxPolarAngle={1.35} autoRotate={!reducedMotion} autoRotateSpeed={0.25} target={[0, 0.7, 0]} /></Canvas>
+  return <Canvas camera={{ position: [6.4, 4.8, 7.8], fov: 43 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: false }}><color attach="background" args={[theme.wall]} /><fog attach="fog" args={[theme.wall, 7, 16]} /><ambientLight intensity={0.65} color="#dbeeff" /><directionalLight position={[3, 7, 4]} intensity={1.4} color={theme.accent} /><pointLight position={[-4, 2.5, 2]} intensity={18} distance={7} color={theme.accent} /><mesh rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[12, 8]} /><meshStandardMaterial color={theme.floor} metalness={0.78} roughness={0.32} /></mesh><mesh position={[0, 2.8, -3.1]}><boxGeometry args={[10, 5.6, 0.2]} /><meshStandardMaterial color={theme.wall} metalness={0.22} roughness={0.56} /></mesh><mesh position={[0, 2.3, -2.95]}><boxGeometry args={[3.2, 1.45, 0.04]} /><meshBasicMaterial color={theme.accent} transparent opacity={0.2} /></mesh><HoloTable accent={theme.accent} reducedMotion={reducedMotion} /><CustomAvatar gltf={avatarGltf} />{props}<OrbitControls enablePan={false} enableZoom={false} minPolarAngle={0.85} maxPolarAngle={1.35} autoRotate={!reducedMotion} autoRotateSpeed={0.25} target={[0, 0.7, 0]} /></Canvas>
 }
 
-export function SecretRoomScene(props: { items: SecretRoomItem[]; background: string; isOwner: boolean; onRemove: (index: number) => void }) { return <Headquarters {...props} /> }
+export function SecretRoomScene(props: { items: SecretRoomItem[]; avatarGltf: string | null; background: string; isOwner: boolean; onRemove: (index: number) => void }) { return <Headquarters {...props} /> }

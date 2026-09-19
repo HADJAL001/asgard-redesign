@@ -67,3 +67,17 @@ test("Secret Room creator line is member-only and opens a direct conversation wi
   assert.deepEqual(db.prepare(`SELECT sender_id, recipient_id, body FROM direct_messages ORDER BY id DESC LIMIT 1`).get(), { sender_id: member.user.id, recipient_id: creator.user.id, body: "Need feedback on my launch." })
   db.close()
 })
+
+test("Secret Room stores only self-contained compact glTF avatars", async () => {
+  const owner = await register("avatarowner")
+  const db = new Database(DB_PATH)
+  const now = Date.now()
+  db.prepare(`INSERT INTO secret_rooms (owner_id, name, background, items, friend_slots, access_until, created_at, updated_at) VALUES (?, 'Avatar', 'nebula', '[]', 3, ?, ?, ?)`).run(owner.user.id, now + 86_400_000, now, now)
+  const avatar = JSON.stringify({ asset: { version: "2.0" }, scenes: [{ nodes: [] }], nodes: [] })
+  const saved = await fetch(`${BASE}/secret-room`, { method: "PATCH", headers: auth(owner.token), body: JSON.stringify({ avatarGltf: avatar }) })
+  assert.equal(saved.status, 200)
+  assert.equal((await saved.json() as any).room.avatarGltf, avatar)
+  const rejected = await fetch(`${BASE}/secret-room`, { method: "PATCH", headers: auth(owner.token), body: JSON.stringify({ avatarGltf: JSON.stringify({ asset: { version: "2.0" }, scenes: [], nodes: [], buffers: [{ byteLength: 1, uri: "https://example.test/model.bin" }] }) }) })
+  assert.equal(rejected.status, 400)
+  db.close()
+})

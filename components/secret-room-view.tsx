@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { Lock, Loader2, Plus, Trash2, UserPlus, Sparkles, KeyRound, Check, CalendarDays, Ticket, Send } from "lucide-react"
+import { Lock, Loader2, Plus, Trash2, UserPlus, Sparkles, KeyRound, Check, CalendarDays, Ticket, Send, Upload, X } from "lucide-react"
 import { Navbar } from "./navbar"
 import { PremiumBackground } from "./premium-bg"
 import { COLORS } from "@/lib/economy"
@@ -25,7 +25,7 @@ const SecretRoomScene = dynamic(() => import("./secret-room-scene").then((module
 const GOLD = "#E6C868"
 
 type RoomItem = { type: string; x: number; y: number }
-type Room = { id: number; name: string; background: string; items: RoomItem[]; friendSlots: number; accessUntil: number; active: boolean }
+type Room = { id: number; name: string; background: string; items: RoomItem[]; avatarGltf: string | null; friendSlots: number; accessUntil: number; active: boolean }
 type Member = { userId: number; username: string; displayName?: string; addedAt: number }
 type Pricing = { entryUsd: number; monthlyUsd: number; extraFriendUsd: number; freeFriendSlots: number; periodDays: number }
 type RoomEvent = { id: number; title: string; description: string; startsAt: number; capacity: number; priceTimecoin: number; status: "active" | "cancelled"; attendeeCount: number; booked: boolean; isOwner: boolean }
@@ -129,7 +129,7 @@ export function SecretRoomView() {
     } catch (e: any) { setMsg(e?.message || "Не удалось открыть доступ") } finally { setBusy(false) }
   }
 
-  async function patch(next: Partial<Pick<Room, "name" | "background" | "items">>) {
+  async function patch(next: Partial<Pick<Room, "name" | "background" | "items" | "avatarGltf">>) {
     if (!room || !isOwner) return
     const optimistic = { ...room, ...next }
     setRoom(optimistic)
@@ -148,6 +148,19 @@ export function SecretRoomView() {
   function removeItem(idx: number) {
     if (!room) return
     patch({ items: room.items.filter((_, i) => i !== idx) })
+  }
+  async function uploadAvatar(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+    if (!file.name.toLowerCase().endsWith(".gltf") || file.size > 512 * 1024) {
+      setMsg("Upload a self-contained .gltf avatar up to 512 KB.")
+      return
+    }
+    setBusy(true); setMsg(null)
+    try { await patch({ avatarGltf: await file.text() }) }
+    catch (error: any) { setMsg(error?.message || "Could not upload the avatar") }
+    finally { setBusy(false) }
   }
 
   async function addFriend() {
@@ -249,7 +262,7 @@ export function SecretRoomView() {
                 className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl"
                 style={{ background: BACKGROUNDS[room.background] || BACKGROUNDS.nebula, border: `1px solid ${GOLD}33`, boxShadow: "inset 0 0 60px rgba(0,0,0,0.5)" }}
               >
-                <SecretRoomScene items={room.items} background={room.background} isOwner={isOwner} onRemove={removeItem} />
+                <SecretRoomScene items={room.items} avatarGltf={room.avatarGltf} background={room.background} isOwner={isOwner} onRemove={removeItem} />
                 {room.items.length === 0 && (
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[13px]" style={{ color: "rgba(255,255,255,0.35)" }}>
                     {isOwner ? "Добавьте мебель и картины из палитры справа →" : "Хозяин ещё обставляет комнату"}
@@ -309,6 +322,13 @@ export function SecretRoomView() {
                         {ITEMS[it]}
                       </button>
                     ))}
+                  </div>
+                  <div className="mt-5 flex items-center gap-2">
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium" style={{ border: `1px solid ${GOLD}55`, color: GOLD }}>
+                      <Upload size={14} /> Upload avatar
+                      <input type="file" accept="model/gltf+json,.gltf" className="sr-only" onChange={uploadAvatar} disabled={busy} />
+                    </label>
+                    {room.avatarGltf && <button type="button" onClick={() => patch({ avatarGltf: null })} disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] text-white/55 disabled:opacity-45" style={{ border: "1px solid rgba(255,255,255,0.12)" }}><X size={14} /> Remove avatar</button>}
                   </div>
                 </>
               )}
