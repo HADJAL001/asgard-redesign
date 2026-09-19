@@ -32,7 +32,7 @@ import { getAppDatabase, releaseAppDatabase } from "../services/app-database-bin
 import { estimateAllDepths, loadGenerationSamples, type GenerationPath } from "../lib/generation-estimate"
 import { resolveMonthlyLimitForUser, quotaRemaining, getMonthStartMs, getNextMonthStartMs } from "../lib/generation-quota"
 import { evaluateCreditsBadge } from "../lib/user-badges"
-import { availablePromoCredits } from "../lib/promo-credits"
+import { availablePromoCredits, chargeCreditsWithPromo, refundPromoCharge } from "../lib/promo-credits"
 import {
   attachMakegoodProject,
   consumeMakegood,
@@ -749,20 +749,22 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
   }
 
   const now = Date.now()
+  let generationCharge: ReturnType<typeof chargeCreditsWithPromo> = null
   db.exec("BEGIN IMMEDIATE")
   try {
     const fresh = db.prepare(`SELECT credits FROM wallets WHERE user_id = ?`).get(userId) as { credits: number }
-    if (fresh.credits < cost) {
+    const charged = chargeCreditsWithPromo(userId, cost, now)
+    if (!charged) {
       db.exec("ROLLBACK")
       return res.status(402).json({ error: "Недостаточно кредитов", code: "INSUFFICIENT_CREDITS" })
     }
-    db.prepare(`UPDATE wallets SET credits = credits - ?, updated_at = ? WHERE user_id = ?`).run(cost, now, userId)
+    generationCharge = charged
     db.prepare(
       `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
        VALUES (?, 'project_generation', ?, 'OSGARD', ?, 'credits', 'done')`,
     ).run(userId, `Генерация (${depthCfg.label}): ${resolvedName}`, cost)
     db.exec("COMMIT")
-    evaluateCreditsBadge(userId, fresh.credits, fresh.credits - cost)
+    evaluateCreditsBadge(userId, fresh.credits, fresh.credits - charged.regular)
   } catch (err) {
     db.exec("ROLLBACK")
     throw err
@@ -786,7 +788,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     /* Синхронный сбой создания — честно возвращаем кредиты. */
     db.exec("BEGIN IMMEDIATE")
     try {
-      db.prepare(`UPDATE wallets SET credits = credits + ?, updated_at = ? WHERE user_id = ?`).run(cost, Date.now(), userId)
+      if (generationCharge) refundPromoCharge(generationCharge, userId, Date.now())
       db.exec("COMMIT")
     } catch {
       db.exec("ROLLBACK")
