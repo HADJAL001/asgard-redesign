@@ -104,5 +104,5 @@ test("the landing footer appears after the primary project flow is stable", asyn
   const response = await page.goto("/")
 
   expect(await response?.text()).not.toContain("<footer")
-  await expect(page.locator("footer")).toBeVisible()
+  await expect(page.getByRole("contentinfo")).toBeVisible()
 })
