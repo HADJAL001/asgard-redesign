@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useMemo, useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useAuth } from "@/lib/auth-store"
@@ -67,34 +67,35 @@ type Achievement = {
   tier: string
 }
 
-const ACHIEVEMENTS: Achievement[] = [
-  { Icon: Crown, name: "Мастер", progress: "12/12", ratio: 1, color: "#E5E4E2", tier: "Платина" },
-  { Icon: Trophy, name: "Золото", progress: "8/12", ratio: 8 / 12, color: "#FBBF24", tier: "Золото" },
-  { Icon: Medal, name: "Серебро", progress: "5/12", ratio: 5 / 12, color: "#CBD5E1", tier: "Серебро" },
-  { Icon: Award, name: "Бронза", progress: "3/12", ratio: 3 / 12, color: "#D97706", tier: "Бронза" },
-  { Icon: Gem, name: "Коллекционер", progress: "10/12", ratio: 10 / 12, color: "#E5E4E2", tier: "Платина" },
-  { Icon: Star, name: "Легенда", progress: "6/12", ratio: 6 / 12, color: "#FBBF24", tier: "Золото" },
-  { Icon: Hammer, name: "Кузнец", progress: "4/12", ratio: 4 / 12, color: "#CBD5E1", tier: "Серебро" },
-  { Icon: MessageSquare, name: "Оратор", progress: "2/12", ratio: 2 / 12, color: "#D97706", tier: "Бронза" },
-]
-
 const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-
-// deterministic activity levels 0..4 for 7 days x 4 weeks
-const HEATMAP: number[][] = [
-  [2, 3, 1, 4, 0, 3, 2],
-  [1, 2, 3, 2, 4, 1, 0],
-  [3, 4, 2, 3, 1, 2, 4],
-  [0, 1, 3, 4, 2, 3, 1],
-]
 
 const LEVEL_COLOR = ["#17242a", "#0E3A4A", "#0F5566", "#0FA0B8", "#d7ae57"]
 
-const ACTIVITY_STATS = [
-  { Icon: MessageSquare, n: "128", l: "Постов" },
-  { Icon: MessageCircle, n: "342", l: "Комментариев" },
-  { Icon: Hammer, n: "56", l: "Улучшений" },
-]
+function buildAchievements(projects: { status: string }[], artifacts: { status: string }[]): Achievement[] {
+  const readyProjects = projects.filter((project) => project.status === "ready").length
+  const listedArtifacts = artifacts.filter((artifact) => artifact.status === "listed" || artifact.status === "sold").length
+  const soldArtifacts = artifacts.filter((artifact) => artifact.status === "sold").length
+  return [
+    { Icon: FolderKanban, name: "Projects", progress: `${projects.length}/10`, ratio: Math.min(projects.length / 10, 1), color: "#FBBF24", tier: "Builder" },
+    { Icon: Trophy, name: "Launched", progress: `${readyProjects}/5`, ratio: Math.min(readyProjects / 5, 1), color: "#d7ae57", tier: "Launch" },
+    { Icon: Hammer, name: "Artifacts", progress: `${artifacts.length}/25`, ratio: Math.min(artifacts.length / 25, 1), color: "#CBD5E1", tier: "Forge" },
+    { Icon: Tag, name: "Market", progress: `${listedArtifacts}/10`, ratio: Math.min(listedArtifacts / 10, 1), color: "#9B59B6", tier: "Trader" },
+    { Icon: ShoppingBag, name: "Sales", progress: `${soldArtifacts}/5`, ratio: Math.min(soldArtifacts / 5, 1), color: "#E5E4E2", tier: "Seller" },
+  ]
+}
+
+function buildActivityWeeks(items: { createdAt: number }[]) {
+  const levels = Array.from({ length: 28 }, () => 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  for (const item of items) {
+    const created = new Date(item.createdAt)
+    created.setHours(0, 0, 0, 0)
+    const age = Math.floor((today.getTime() - created.getTime()) / 86_400_000)
+    if (age >= 0 && age < levels.length) levels[levels.length - age - 1] += 1
+  }
+  return Array.from({ length: 4 }, (_, week) => levels.slice(week * 7, week * 7 + 7).map((count) => Math.min(count, 4)))
+}
 
 export function ProfileView() {
   const [tab, setTab] = useState<Tab>("overview")
@@ -475,6 +476,9 @@ function AchievementCard({ a }: { a: Achievement }) {
 }
 
 function OverviewTab() {
+  const projects = useOsgardStore((s) => s.projects)
+  const artifacts = useOsgardStore((s) => s.artifacts)
+  const achievements = useMemo(() => buildAchievements(projects, artifacts), [projects, artifacts])
   return (
     <div className="flex flex-col gap-6">
       <TCHoldingsPanel />
@@ -483,7 +487,7 @@ function OverviewTab() {
 
       <Panel title="Достижения">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {ACHIEVEMENTS.slice(0, 4).map((a) => (
+          {achievements.slice(0, 4).map((a) => (
             <AchievementCard key={a.name} a={a} />
           ))}
         </div>
@@ -690,10 +694,7 @@ function ArtifactsPanel() {
 function AchievementsTab() {
   const projects = useOsgardStore((s) => s.projects)
   const artifacts = useOsgardStore((s) => s.artifacts)
-  const achievements: Achievement[] = [
-    { Icon: FolderKanban, name: "Projects", progress: `${projects.length}/10`, ratio: Math.min(projects.length / 10, 1), color: "#FBBF24", tier: "Builder" },
-    { Icon: Hammer, name: "Artifacts", progress: `${artifacts.length}/25`, ratio: Math.min(artifacts.length / 25, 1), color: "#CBD5E1", tier: "Forge" },
-  ]
+  const achievements = useMemo(() => buildAchievements(projects, artifacts), [projects, artifacts])
 
   return (
     <Panel title="Достижения">
@@ -706,7 +707,7 @@ function AchievementsTab() {
   )
 }
 
-function Heatmap() {
+function Heatmap({ weeks }: { weeks: number[][] }) {
   return (
     <div className="max-w-xl">
       {/* Day labels */}
@@ -719,7 +720,7 @@ function Heatmap() {
       </div>
       {/* Weeks */}
       <div className="mt-2 flex flex-col gap-2">
-        {HEATMAP.map((week, wi) => (
+        {weeks.map((week, wi) => (
           <div key={wi} className="grid grid-cols-7 gap-2">
             {week.map((lvl, di) => (
               <div
@@ -755,6 +756,7 @@ function ActivityTab() {
   const leaderboard = useOsgardStore((s) => s.leaderboard)
   const { user } = useAuth()
   const rank = user ? leaderboard.findIndex((entry) => entry.userId === user.id) + 1 : 0
+  const weeks = useMemo(() => buildActivityWeeks([...projects, ...artifacts]), [projects, artifacts])
   const stats = [
     { Icon: FolderKanban, n: String(projects.length), l: "Projects" },
     { Icon: Hammer, n: String(artifacts.length), l: "Artifacts" },
@@ -763,7 +765,7 @@ function ActivityTab() {
   return (
     <div className="flex flex-col gap-6">
       <Panel title="Активность за месяц">
-        <Heatmap />
+        <Heatmap weeks={weeks} />
       </Panel>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
