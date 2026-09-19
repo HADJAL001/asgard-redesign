@@ -2298,6 +2298,14 @@ svg { width: 1rem; height: 1rem; flex: none; }
   flex-shrink: 0;
 }
 
+/* On narrow screens the persistent desktop callout covers the studio heading.
+   The mode-switch button remains available with its accessible name. */
+@media (max-width: 640px) {
+  .dev-hint {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dev-rail__item { transition: none !important; }
   .dev-statusbar__dot--active { animation: none !important; }
