@@ -31,8 +31,8 @@ function usePrefersReducedMotion(): boolean {
   return reduced
 }
 
-/** Фиксированная стоимость создания артефакта (см. backend/artifacts.routes.ts FORGE_COST_TC). */
-const FORGE_COST_TC = 50
+/** AI-creation follows the same soft-currency policy as project generation. */
+const AI_GENERATE_COST_CREDITS = 120
 
 /* Ковка за любую монету, но слабее (зеркалит FORGE_CURRENCIES на бэкенде):
    слабее/дешевле валюта → ниже множитель характеристик артефакта. */
@@ -40,13 +40,10 @@ const FORGE_CURRENCIES_LEGACY = [
   { id: "credits", label: "Кредиты", cost: 200, mult: 0.4, color: "#d7ae57" },
   { id: "shards", label: "Шарды", cost: 80, mult: 0.6, color: "#B57BFF" },
   { id: "crystals", label: "Кристаллы", cost: 30, mult: 0.85, color: "#5AC8FA" },
-  { id: "timecoin", label: "TimeCoin", cost: FORGE_COST_TC, mult: 1.0, color: "#F1C40F" },
+  { id: "timecoin", label: "TimeCoin", cost: 50, mult: 1.0, color: "#F1C40F" },
 ] as const
 const FORGE_CURRENCIES = [{ id: "credits", label: "Credits", cost: 120, mult: 1, color: "#d7ae57" }] as const
 type ForgeCurrencyId = (typeof FORGE_CURRENCIES)[number]["id"]
-
-/** Стоимость AI-генерации артефакта (см. backend/artifacts.routes.ts AI_GENERATE_COST_TC = FORGE_COST_TC). */
-const AI_GENERATE_COST_TC = FORGE_COST_TC
 
 /** 1:1 с backend/artifacts.routes.ts DAILY_AI_GENERATION_LIMIT и mobile/types/artifact.ts DAILY_AI_GENERATION_SOFT_LIMIT. */
 const DAILY_AI_GENERATION_SOFT_LIMIT = 3
@@ -384,7 +381,7 @@ export function ForgeView() {
         count: DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount,
         noun: pluralizeGenerations(DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount),
       })
-  const canGenerateAi = !aiSubmitting && !submitting && wallet.timecoin >= AI_GENERATE_COST_TC && !aiLimitReached
+  const canGenerateAi = !aiSubmitting && !submitting && wallet.credits >= AI_GENERATE_COST_CREDITS && !aiLimitReached
   const aiResultRarity: Rarity = (aiResult?.rarity as Rarity) || "common"
 
   const resultRarity: Rarity = (result?.rarity as Rarity) || "common"
@@ -680,7 +677,7 @@ export function ForgeView() {
                 {forgePhase === "charging"
                   ? forgeKind === "ai"
                     ? "Советуемся с нейросетью..."
-                    : "Накапливаем энергию TimeCoin..."
+                    : "Используем Credits для создания..."
                   : revealed?.name || name || "Новый артефакт"}
               </p>
               {forgePhase === "reveal" && (
@@ -1043,22 +1040,22 @@ export function ForgeView() {
               title={
                 aiLimitReached
                   ? t("forge.aiGenerate.limitDepleted")
-                  : wallet.timecoin < AI_GENERATE_COST_TC
-                    ? t("forge.aiGenerate.button", { amount: fmtTC(AI_GENERATE_COST_TC) })
+                  : wallet.credits < AI_GENERATE_COST_CREDITS
+                    ? t("forge.aiGenerate.button", { amount: `${AI_GENERATE_COST_CREDITS} Credits` })
                     : undefined
               }
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               style={{ backgroundColor: "transparent", border: `1px solid ${COLORS.accent}`, color: COLORS.accent }}
             >
               {aiSubmitting && <Loader2 size={16} className="animate-spin" />}
-              {t("forge.aiGenerate.button", { amount: fmtTC(AI_GENERATE_COST_TC) })}
+              {t("forge.aiGenerate.button", { amount: `${AI_GENERATE_COST_CREDITS} Credits` })}
             </button>
 
-            {!aiNotice && !aiSubmitting && (aiLimitReached || wallet.timecoin < AI_GENERATE_COST_TC) && (
+            {!aiNotice && !aiSubmitting && (aiLimitReached || wallet.credits < AI_GENERATE_COST_CREDITS) && (
               <p className="mt-3 text-[13px]" role="status" style={{ color: COLORS.red }}>
                 {aiLimitReached
                   ? t("forge.aiGenerate.limitDepleted")
-                  : t("forge.aiGenerate.needMore", { amount: fmtTC(AI_GENERATE_COST_TC) })}
+                  : t("forge.aiGenerate.needMore", { amount: `${AI_GENERATE_COST_CREDITS} Credits` })}
               </p>
             )}
 
@@ -1342,8 +1339,8 @@ export function ForgeView() {
           doGenerateAi()
         }}
         title={t("forge.confirmAi.title")}
-        message={t("forge.confirmAi.message", { amount: fmtTC(AI_GENERATE_COST_TC) })}
-        confirmLabel={t("forge.confirmAi.confirmLabel", { amount: fmtTC(AI_GENERATE_COST_TC) })}
+        message={t("forge.confirmAi.message", { amount: `${AI_GENERATE_COST_CREDITS} Credits` })}
+        confirmLabel={t("forge.confirmAi.confirmLabel", { amount: `${AI_GENERATE_COST_CREDITS} Credits` })}
         cancelLabel={t("forge.confirmAi.cancelLabel")}
         loading={aiSubmitting}
       />
