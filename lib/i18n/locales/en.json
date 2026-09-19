@@ -866,11 +866,11 @@
       },
       "step2": {
         "title": "Forge Master",
-        "description": "One generation costs 2 ∞ TimeCoin. First \"Charging the core…\", then \"Synthesizing artifact…\" — and a few seconds later, a result: rarity is random, from common to the rarest, mythic, with no guarantees. There's a personal counter — 3 generations a day, but it's not a hard limit: generation stays available either way."
+        "description": "Forge recipes use Credits and the required materials. Shards and crystals are crafting materials, not money. Each result has its own rarity and recipe requirements."
       },
       "step3": {
         "title": "Economy",
-        "description": "In OSGARD, value climbs a ladder: credits → shards → crystals → TimeCoin → dollars. Each rung is a step of trust in the world. You're already earning credits right now — for completing this tour. Open the Wallet and see what your balance looks like on each rung.",
+        "description": "OSGARD has two currencies: Credits for activity and generations, and TimeCoin for marketplace, staking and withdrawal. Shards and crystals are materials used only in Forge recipes. Open the Wallet to see your balance.",
         "mapLink": "View the economy map →"
       },
       "step4": {
