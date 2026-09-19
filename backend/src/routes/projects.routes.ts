@@ -32,6 +32,7 @@ import { getAppDatabase, releaseAppDatabase } from "../services/app-database-bin
 import { estimateAllDepths, loadGenerationSamples, type GenerationPath } from "../lib/generation-estimate"
 import { resolveMonthlyLimitForUser, quotaRemaining, getMonthStartMs, getNextMonthStartMs } from "../lib/generation-quota"
 import { evaluateCreditsBadge } from "../lib/user-badges"
+import { availablePromoCredits } from "../lib/promo-credits"
 import {
   attachMakegoodProject,
   consumeMakegood,
@@ -734,7 +735,8 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     | { credits: number }
     | undefined
   if (!wallet) return res.status(402).json({ error: "Кошелёк не найден", code: "NO_WALLET" })
-  if (wallet.credits < cost) {
+  const promoAvailable = availablePromoCredits(userId)
+  if (wallet.credits + promoAvailable < cost) {
     // The TimeCoin admission charge happens before the depth-specific credit check.
     // Return it before rejecting so an unavailable paid depth never costs the user.
     refundProjectCharge()
@@ -742,7 +744,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
       error: `Недостаточно кредитов для глубины «${depthCfg.label}». Требуется ${cost}, доступно ${wallet.credits}.`,
       code: "INSUFFICIENT_CREDITS",
       required: cost,
-      available: wallet.credits,
+      available: wallet.credits + promoAvailable,
     })
   }
 
