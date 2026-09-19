@@ -181,6 +181,7 @@ export function AdminView() {
   const [grantingUserId, setGrantingUserId] = useState<number | null>(null)
   const [grantCredits, setGrantCredits] = useState("")
   const [grantTimecoin, setGrantTimecoin] = useState("")
+  const [promoCredits, setPromoCredits] = useState("")
   const [grantReason, setGrantReason] = useState("")
   const [grantSubmitting, setGrantSubmitting] = useState(false)
 
@@ -297,6 +298,7 @@ export function AdminView() {
     setActionError(null)
     setGrantCredits("")
     setGrantTimecoin("")
+    setPromoCredits("")
     setGrantReason("")
     setGrantingUserId((prev) => (prev === u.id ? null : u.id))
   }
@@ -321,10 +323,36 @@ export function AdminView() {
       setGrantingUserId(null)
       setGrantCredits("")
       setGrantTimecoin("")
+      setPromoCredits("")
       setGrantReason("")
       if (tab === "logs") loadLogs(logsPage)
     } catch (err: any) {
       setActionError(err?.message || "Не удалось выдать токены")
+    } finally {
+      setGrantSubmitting(false)
+    }
+  }
+
+  const submitPromoGrant = async (userId: number) => {
+    setActionError(null)
+    const amount = Number(promoCredits)
+    const reason = grantReason.trim()
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setActionError("Укажите положительное число промо-кредитов")
+      return
+    }
+    if (!reason) {
+      setActionError("Укажите причину выдачи промо-кредитов")
+      return
+    }
+    setGrantSubmitting(true)
+    try {
+      await apiClient.post(`/admin/users/${userId}/promo-credits`, { amount, reason })
+      setPromoCredits("")
+      setGrantReason("")
+      if (tab === "logs") loadLogs(logsPage)
+    } catch (err: any) {
+      setActionError(err?.message || "Не удалось выдать промо-кредиты")
     } finally {
       setGrantSubmitting(false)
     }
@@ -603,6 +631,18 @@ export function AdminView() {
                                 style={{ backgroundColor: "#17242a", border: `1px solid ${BORDER}`, color: "#FFFFFF" }}
                               />
                             </label>
+                            <label className="block">
+                              <span className="mb-1 block text-[11px]" style={{ color: ACCENT }}>Промо Credits · 7 дней</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={promoCredits}
+                                onChange={(e) => setPromoCredits(e.target.value)}
+                                placeholder="0"
+                                className="w-32 rounded-lg px-3 py-1.5 text-[13px] outline-none"
+                                style={{ backgroundColor: "#17242a", border: `1px solid ${ACCENT}66`, color: "#FFFFFF" }}
+                              />
+                            </label>
                             <label className="block flex-1 min-w-[180px]">
                               <span className="mb-1 block text-[11px]" style={{ color: LABEL }}>Причина</span>
                               <input
@@ -622,6 +662,15 @@ export function AdminView() {
                               style={{ backgroundColor: ACCENT, color: "#10181d" }}
                             >
                               Выдать
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => submitPromoGrant(u.id)}
+                              disabled={grantSubmitting || !promoCredits.trim() || !grantReason.trim()}
+                              className="rounded-lg px-4 py-1.5 text-[13px] font-medium disabled:opacity-50"
+                              style={{ border: `1px solid ${ACCENT}`, color: ACCENT }}
+                            >
+                              Выдать промо
                             </button>
                             <button
                               type="button"
