@@ -490,7 +490,7 @@ function OverviewTab() {
       </Panel>
 
       <Panel title="Активность">
-        <Heatmap />
+        <p className="text-[14px]" style={{ color: "#9eb2bc" }}>Your progress is based on real projects, artifacts, and leaderboard position.</p>
       </Panel>
     </div>
   )
@@ -743,6 +743,16 @@ function Heatmap() {
 }
 
 function ActivityTab() {
+  const projects = useOsgardStore((s) => s.projects)
+  const artifacts = useOsgardStore((s) => s.artifacts)
+  const leaderboard = useOsgardStore((s) => s.leaderboard)
+  const { user } = useAuth()
+  const rank = user ? leaderboard.findIndex((entry) => entry.userId === user.id) + 1 : 0
+  const stats = [
+    { Icon: FolderKanban, n: String(projects.length), l: "Projects" },
+    { Icon: Hammer, n: String(artifacts.length), l: "Artifacts" },
+    { Icon: Trophy, n: rank > 0 ? `#${rank}` : "-", l: "Rating" },
+  ]
   return (
     <div className="flex flex-col gap-6">
       <Panel title="Активность за месяц">
@@ -750,7 +760,7 @@ function ActivityTab() {
       </Panel>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {ACTIVITY_STATS.map(({ Icon, n, l }) => (
+        {stats.map(({ Icon, n, l }) => (
           <div
             key={l}
             className="rounded-xl p-5"
