@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image"
-import { Heart, MessageCircle, Share2, Pin, Plus, X, Send, Loader2, Trophy } from "lucide-react"
+import { Heart, MessageCircle, Share2, Pin, Plus, X, Send, Loader2, Trophy, ExternalLink, Rocket } from "lucide-react"
 import { Navbar } from "./navbar"
 import { apiClient, ApiError } from "@/lib/api-client"
 import { useAuth } from "@/lib/auth-store"
@@ -50,6 +50,16 @@ type WeeklyElite = {
     title: string | null
     author: string
   } | null
+}
+
+type TrendingProject = {
+  id: number
+  name: string
+  description: string
+  badge: string
+  liveUrl: string
+  createdAt: number
+  author: string
 }
 
 function formatTime(ts: number) {
@@ -102,6 +112,7 @@ export function CommunityView() {
   const [creating, setCreating] = useState(false)
   const [posts, setPosts] = useState<Post[]>([])
   const [weeklyElite, setWeeklyElite] = useState<WeeklyElite | null>(null)
+  const [trendingProjects, setTrendingProjects] = useState<TrendingProject[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null)
@@ -119,12 +130,14 @@ export function CommunityView() {
     setLoading(true)
     setError(null)
     try {
-      const [data, elite] = await Promise.all([
+      const [data, elite, trends] = await Promise.all([
         apiClient.get<{ posts: Post[] }>("/posts", { skipAuthRedirect: true }),
         apiClient.get<WeeklyElite>("/posts/weekly-elite", { skipAuthRedirect: true }).catch(() => null),
+        apiClient.get<{ projects: TrendingProject[] }>("/posts/trending-projects", { skipAuthRedirect: true }).catch(() => ({ projects: [] })),
       ])
       setPosts(data.posts)
       setWeeklyElite(elite)
+      setTrendingProjects(trends.projects)
     } catch (err: any) {
       setError(err?.message || "Не удалось загрузить посты")
     } finally {
@@ -363,7 +376,36 @@ export function CommunityView() {
           </div>
         )}
 
-        {!loading && !error && posts.length === 0 && (
+        {!loading && !error && posts.length === 0 && trendingProjects.length > 0 && (
+          <section className="mt-10">
+            <div className="flex items-center gap-2">
+              <Rocket size={18} style={{ color: "#d7ae57" }} aria-hidden="true" />
+              <h2 className="text-[18px] font-semibold">Weekly trends</h2>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              {trendingProjects.map((project) => (
+                <a
+                  key={project.id}
+                  href={project.liveUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group rounded-xl p-5 transition-transform hover:-translate-y-1"
+                  style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="rounded-full px-2.5 py-1 text-[11px]" style={{ color: "#d7ae57", backgroundColor: "rgba(215,174,87,0.12)" }}>{project.badge || "Live"}</span>
+                    <ExternalLink size={16} style={{ color: "#9eb2bc" }} aria-hidden="true" />
+                  </div>
+                  <h3 className="mt-5 truncate text-[16px] font-medium">{project.name}</h3>
+                  <p className="mt-2 line-clamp-3 text-[13px] leading-relaxed" style={{ color: "#9eb2bc" }}>{project.description || "Publicly deployed project"}</p>
+                  <p className="mt-5 text-[12px]" style={{ color: "rgba(255,255,255,0.48)" }}>{project.author}</p>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {!loading && !error && posts.length === 0 && trendingProjects.length === 0 && (
           <div className="mt-10 rounded-xl p-8 text-center text-[14px]" style={{ backgroundColor: "#17242a", border: "1px solid #30424b", color: "#9eb2bc" }}>
             Пока нет постов. Будь первым архитектором, кто поделится идеей.
           </div>

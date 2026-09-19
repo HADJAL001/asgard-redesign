@@ -98,6 +98,32 @@ router.get("/weekly-elite", (_req, res) => {
   res.json({ week: week.key, winner: winner ? { postId: winner.post_id, userId: winner.user_id, likes: winner.likes, title: winner.title, author: winner.display_name || winner.username } : null, granted: reward ? { userId: reward.user_id, at: reward.granted_at } : null })
 })
 
+/* Public deployments are the only projects suitable for a community fallback.
+   This deliberately exposes no project files and never includes undeployed work. */
+router.get("/trending-projects", (_req, res) => {
+  const projects = db.prepare(`
+    SELECT p.id, p.name, p.description, p.badge, p.live_url as liveUrl, p.created_at as createdAt,
+           u.display_name as displayName, u.username
+    FROM projects p
+    JOIN users u ON u.id = p.user_id
+    WHERE p.deploy_status = 'deployed'
+      AND p.live_url IS NOT NULL
+      AND TRIM(p.live_url) <> ''
+      AND u.banned = 0
+    ORDER BY p.created_at DESC, p.id DESC
+    LIMIT 3
+  `).all().map((project: any) => ({
+    id: project.id,
+    name: project.name,
+    description: project.description || "",
+    badge: project.badge || "",
+    liveUrl: project.liveUrl,
+    createdAt: project.createdAt,
+    author: project.displayName || project.username,
+  }))
+  res.json({ projects })
+})
+
 router.post("/weekly-elite/claim", requireAuth, (req: AuthRequest, res) => {
   const week = lastCompletedWeek()
   const userId = req.user!.userId
