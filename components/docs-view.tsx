@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   BookOpen,
   BrainCircuit,
@@ -289,6 +289,26 @@ export function DocsView() {
   const [query, setQuery] = useState("")
   const [showAll, setShowAll] = useState(false)
   const [open, setOpen] = useState<Article | null>(null)
+  const [readArticleIds, setReadArticleIds] = useState<string[]>([])
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("osgard_docs_read") || "[]")
+      if (Array.isArray(saved)) setReadArticleIds(saved.filter((id): id is string => typeof id === "string"))
+    } catch {
+      // A malformed local preference must not block the documentation.
+    }
+  }, [])
+
+  function openArticle(article: Article) {
+    setOpen(article)
+    setReadArticleIds((current) => {
+      if (current.includes(article.id)) return current
+      const next = [...current, article.id]
+      localStorage.setItem("osgard_docs_read", JSON.stringify(next))
+      return next
+    })
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -334,6 +354,16 @@ export function DocsView() {
             />
           </div>
         </div>
+
+        <section className="mt-6 rounded-xl p-4" style={{ backgroundColor: CARD, border: `1px solid ${BORDER}` }}>
+          <div className="flex items-center justify-between gap-4 text-[13px]">
+            <span style={{ color: "rgba(255,255,255,0.72)" }}>Изучено статей</span>
+            <span className="shrink-0 font-medium" style={{ color: ACCENT }}>{readArticleIds.length} из {ARTICLES.length}</span>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
+            <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${Math.round((readArticleIds.length / ARTICLES.length) * 100)}%`, backgroundColor: ACCENT }} />
+          </div>
+        </section>
 
         {/* Two columns */}
         <div className="mt-8 flex flex-col gap-6 lg:flex-row">
@@ -425,7 +455,7 @@ export function DocsView() {
                   <li key={a.id}>
                     <button
                       type="button"
-                      onClick={() => setOpen(a)}
+                      onClick={() => openArticle(a)}
                       className="group flex w-full items-center gap-4 rounded-lg px-3 py-4 text-left transition-colors"
                       style={{
                         borderTop: i === 0 ? "none" : `1px solid ${BORDER}`,
@@ -480,7 +510,7 @@ export function DocsView() {
               <li key={a.id}>
                 <button
                   type="button"
-                  onClick={() => setOpen(a)}
+                  onClick={() => openArticle(a)}
                   className="flex w-full items-center gap-4 rounded-lg px-3 py-3 text-left transition-colors"
                   style={{ border: `1px solid ${BORDER}` }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = ACCENT)}
