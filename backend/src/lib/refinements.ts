@@ -100,15 +100,42 @@ export function failRefinementWithRefund(refinementId: number): FailedRefinement
       .run(refinementId)
     if (transitioned.changes !== 1) return null
 
+    const promoRows = db.prepare(
+      `SELECT grant_id AS grantId, amount FROM promo_credit_charges
+       WHERE refinement_id = ? AND refunded_at IS NULL`,
+    ).all(refinementId) as Array<{ grantId: number; amount: number }>
+    const promoRefunded = promoRows.reduce((total, entry) => total + Number(entry.amount), 0)
     const refundedCredits = Math.max(0, row.costCredits)
-    if (refundedCredits > 0) {
+    const regularRefund = Math.max(0, refundedCredits - promoRefunded)
+
+    if (promoRows.length > 0) {
+      const restoreGrant = db.prepare(
+        `UPDATE promo_credit_grants SET remaining = MIN(amount, remaining + ?) WHERE id = ? AND user_id = ?`,
+      )
+      const markRefunded = db.prepare(
+        `UPDATE promo_credit_charges SET refunded_at = ? WHERE refinement_id = ? AND grant_id = ? AND refunded_at IS NULL`,
+      )
+      const now = Date.now()
+      for (const entry of promoRows) {
+        if (restoreGrant.run(entry.amount, entry.grantId, row.userId).changes !== 1) {
+          throw new Error(`Promo grant not found for failed refinement ${refinementId}`)
+        }
+        markRefunded.run(now, refinementId, entry.grantId)
+      }
+    }
+
+    if (regularRefund > 0) {
       const wallet = db
         .prepare(`UPDATE wallets SET credits = credits + ?, updated_at = ? WHERE user_id = ?`)
-        .run(refundedCredits, Date.now(), row.userId)
+        .run(regularRefund, Date.now(), row.userId)
       if (wallet.changes !== 1) throw new Error(`Wallet not found for failed refinement ${refinementId}`)
+    }
+    if (refundedCredits > 0) {
       logAudit(row.userId, "credit", refundedCredits, "project_refinement_refund", {
         projectId: row.projectId,
         refinementId,
+        promoCredits: promoRefunded,
+        regularCredits: regularRefund,
       })
     }
 

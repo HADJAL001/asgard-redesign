@@ -32,7 +32,7 @@ import { getAppDatabase, releaseAppDatabase } from "../services/app-database-bin
 import { estimateAllDepths, loadGenerationSamples, type GenerationPath } from "../lib/generation-estimate"
 import { resolveMonthlyLimitForUser, quotaRemaining, getMonthStartMs, getNextMonthStartMs } from "../lib/generation-quota"
 import { evaluateCreditsBadge } from "../lib/user-badges"
-import { availablePromoCredits, chargeCreditsWithPromo, refundPromoCharge } from "../lib/promo-credits"
+import { availablePromoCredits, chargeCreditsWithPromo, recordPromoRefinementCharges, refundPromoCharge } from "../lib/promo-credits"
 import {
   attachMakegoodProject,
   consumeMakegood,
@@ -857,6 +857,7 @@ router.post("/:id/refine", requireAuth, asyncHandler(async (req: AuthRequest, re
   const remaining = refinementsRemaining(userId)
   const isFree = remaining > 0
   const cost = isFree ? 0 : REFINEMENT_CREDIT_COST
+  let refinementId: number | undefined
 
   // Платная доработка (грант исчерпан): честное списание кредитов транзакцией.
   if (!isFree) {
@@ -886,6 +887,8 @@ router.post("/:id/refine", requireAuth, asyncHandler(async (req: AuthRequest, re
         `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
          VALUES (?, 'project_refinement', ?, 'OSGARD', ?, 'credits', 'done')`,
       ).run(userId, `Доработка проекта #${projectId}`, cost)
+      refinementId = recordRefinement({ userId, projectId, prompt, kind, costCredits: cost })
+      recordPromoRefinementCharges(refinementId, charged.promo, now)
       db.exec("COMMIT")
     } catch (err) {
       db.exec("ROLLBACK")
@@ -894,8 +897,9 @@ router.post("/:id/refine", requireAuth, asyncHandler(async (req: AuthRequest, re
     logAudit(userId, "debit", cost, "project_refinement", { projectId })
   }
 
-  // Строка леджера (cost_credits=0 у бесплатных — так считается остаток гранта).
-  const refinementId = recordRefinement({ userId, projectId, prompt, kind, costCredits: cost })
+  // Free refinements do not have a payment allocation to persist.
+  if (isFree) refinementId = recordRefinement({ userId, projectId, prompt, kind, costCredits: cost })
+  if (refinementId === undefined) throw new Error("Refinement payment was committed without a ledger entry")
 
   // Запуск регенерации файлов по промпту. onDone отметит статус строки в леджере.
   const started = refineGeneratedProject({

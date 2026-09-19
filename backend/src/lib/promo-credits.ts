@@ -2,6 +2,14 @@ import db from "./db"
 
 export type PromoCharge = { grantId: number; amount: number }
 
+/** Must run in the transaction that creates the paid refinement. */
+export function recordPromoRefinementCharges(refinementId: number, charges: PromoCharge[], now = Date.now()): void {
+  const insert = db.prepare(
+    `INSERT INTO promo_credit_charges (grant_id, refinement_id, amount, created_at) VALUES (?, ?, ?, ?)`,
+  )
+  for (const charge of charges) insert.run(charge.grantId, refinementId, charge.amount, now)
+}
+
 export function availablePromoCredits(userId: number, now = Date.now()): number {
   const row = db.prepare(`SELECT COALESCE(SUM(remaining), 0) AS amount FROM promo_credit_grants WHERE user_id = ? AND expires_at > ?`).get(userId, now) as { amount: number }
   return Number(row.amount || 0)

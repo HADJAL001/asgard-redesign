@@ -14,6 +14,8 @@ beforeEach(() => {
     DROP TABLE IF EXISTS project_refinements;
     DROP TABLE IF EXISTS wallets;
     DROP TABLE IF EXISTS audit_log;
+    DROP TABLE IF EXISTS promo_credit_charges;
+    DROP TABLE IF EXISTS promo_credit_grants;
     CREATE TABLE project_refinements (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -34,6 +36,20 @@ beforeEach(() => {
       reason TEXT NOT NULL,
       meta TEXT,
       created_at INTEGER NOT NULL
+    );
+    CREATE TABLE promo_credit_grants (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      remaining REAL NOT NULL,
+      expires_at INTEGER NOT NULL
+    );
+    CREATE TABLE promo_credit_charges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      grant_id INTEGER NOT NULL,
+      refinement_id INTEGER,
+      amount REAL NOT NULL,
+      refunded_at INTEGER
     );
   `)
 })
@@ -101,4 +117,37 @@ test("refund helper participates in an existing durable-worker transaction", () 
   }
 
   assert.equal((db.prepare(`SELECT credits FROM wallets WHERE user_id = 9`).get() as { credits: number }).credits, 20)
+})
+
+test("failed paid refinement restores its promo allocation without minting wallet credits", () => {
+  db.prepare(`INSERT INTO wallets (user_id, credits, updated_at) VALUES (12, 7, 1)`).run()
+  const grantId = Number(
+    db.prepare(`INSERT INTO promo_credit_grants (user_id, amount, remaining, expires_at) VALUES (12, 20, 0, ?)`).run(Date.now() + 60_000).lastInsertRowid,
+  )
+  const refinementId = Number(
+    db.prepare(`INSERT INTO project_refinements (user_id, project_id, status, cost_credits) VALUES (12, 11, 'generating', 20)`).run().lastInsertRowid,
+  )
+  db.prepare(`INSERT INTO promo_credit_charges (grant_id, refinement_id, amount) VALUES (?, ?, 20)`).run(grantId, refinementId)
+
+  assert.deepEqual(failRefinementWithRefund(refinementId), { userId: 12, projectId: 11, refundedCredits: 20 })
+  assert.equal((db.prepare(`SELECT credits FROM wallets WHERE user_id = 12`).get() as { credits: number }).credits, 7)
+  assert.equal((db.prepare(`SELECT remaining FROM promo_credit_grants WHERE id = ?`).get(grantId) as { remaining: number }).remaining, 20)
+  assert.ok((db.prepare(`SELECT refunded_at FROM promo_credit_charges WHERE refinement_id = ?`).get(refinementId) as { refunded_at: number }).refunded_at)
+  assert.equal(failRefinementWithRefund(refinementId), null)
+  assert.equal((db.prepare(`SELECT remaining FROM promo_credit_grants WHERE id = ?`).get(grantId) as { remaining: number }).remaining, 20)
+})
+
+test("failed mixed payment restores only the ordinary portion to wallet", () => {
+  db.prepare(`INSERT INTO wallets (user_id, credits, updated_at) VALUES (13, 5, 1)`).run()
+  const grantId = Number(
+    db.prepare(`INSERT INTO promo_credit_grants (user_id, amount, remaining, expires_at) VALUES (13, 15, 0, ?)`).run(Date.now() + 60_000).lastInsertRowid,
+  )
+  const refinementId = Number(
+    db.prepare(`INSERT INTO project_refinements (user_id, project_id, status, cost_credits) VALUES (13, 12, 'generating', 20)`).run().lastInsertRowid,
+  )
+  db.prepare(`INSERT INTO promo_credit_charges (grant_id, refinement_id, amount) VALUES (?, ?, 15)`).run(grantId, refinementId)
+
+  failRefinementWithRefund(refinementId)
+  assert.equal((db.prepare(`SELECT credits FROM wallets WHERE user_id = 13`).get() as { credits: number }).credits, 10)
+  assert.equal((db.prepare(`SELECT remaining FROM promo_credit_grants WHERE id = ?`).get(grantId) as { remaining: number }).remaining, 15)
 })
