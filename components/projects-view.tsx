@@ -143,8 +143,8 @@ export function ProjectsView() {
           {loading ? t("projects.loading") : ""}
         </p>
 
-        {/* Summary */}
-        <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {/* Summary only appears when it describes actual work, rather than four empty counters. */}
+        {projects.length > 0 ? <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
           {[
             { n: `${projects.length}`, l: t("projects.totalProjects"), Icon: FolderKanban, c: COLORS.accent },
             { n: `${projects.reduce((s, p) => s + p.artifactCount, 0)}`, l: t("projects.totalArtifacts"), Icon: Boxes, c: "#9B59B6" },
@@ -157,7 +157,7 @@ export function ProjectsView() {
               <p className="mt-2 text-[12px]" style={{ color: COLORS.label }}>{m.l}</p>
             </div>
           ))}
-        </div>
+        </div> : null}
 
         {/* Loading */}
         {loading && projects.length === 0 && (
@@ -176,9 +176,12 @@ export function ProjectsView() {
 
         {/* Empty state */}
         {!loading && projects.length === 0 ? (
-          <div className="mt-16 flex flex-col items-center gap-4 rounded-2xl px-6 py-16 text-center" style={{ backgroundColor: COLORS.card, border: `1px dashed ${COLORS.border}` }}>
-            <FolderKanban size={40} strokeWidth={1.25} style={{ color: COLORS.label }} aria-hidden="true" />
-            <p className="text-[15px]" style={{ color: COLORS.label }}>{t("projects.empty")}</p>
+          <div className="project-first-startup mt-12 flex flex-col items-center gap-4 rounded-2xl px-6 py-16 text-center" style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}>
+            <div className="project-first-startup__orb" aria-hidden="true"><FolderKanban size={42} strokeWidth={1.2} /></div>
+            <div>
+              <p className="text-[20px] font-semibold">Ваш первый стартап ждёт</p>
+              <p className="mx-auto mt-2 max-w-md text-[14px] leading-relaxed" style={{ color: COLORS.label }}>Опишите идею, а OSGARD соберёт рабочий проект, который можно развивать и запускать.</p>
+            </div>
             <div className="mt-2 flex flex-wrap justify-center gap-2">
               <button
                 type="button"
