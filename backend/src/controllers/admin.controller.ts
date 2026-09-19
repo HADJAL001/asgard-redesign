@@ -223,6 +223,35 @@ export class AdminController {
     }
   }
 
+  // ===== POST /admin/test-artifacts =====
+  // Fixtures are explicitly soulbound and never enter the user economy.
+  static async createTestArtifact(req: AuthRequest, res: Response) {
+    try {
+      const { ownerId, name, type = "matrix", rarity = "common" } = req.body || {}
+      const targetId = Number(ownerId)
+      const safeName = typeof name === "string" ? name.trim().slice(0, 80) : ""
+      if (!targetId || !safeName || typeof type !== "string" || typeof rarity !== "string") {
+        return res.status(400).json({ error: "Invalid test artifact payload" })
+      }
+      const target = db.prepare(`SELECT id FROM users WHERE id = ?`).get(targetId)
+      if (!target) return res.status(404).json({ error: "User not found" })
+
+      const since = Date.now() - 86_400_000
+      const used = (db.prepare(`SELECT COUNT(*) as count FROM artifacts WHERE is_test = 1 AND test_created_by = ? AND created_at >= ?`).get(req.user!.userId, since) as { count: number }).count
+      if (used >= 50) return res.status(429).json({ error: "Daily test artifact pool exhausted", limit: 50 })
+
+      const info = db.prepare(
+        `INSERT INTO artifacts (owner_id, name, type, rarity, level, power, defense, magic, speed, status, views_24h, supply, price, list_currency, is_test, test_created_by, created_at)
+         VALUES (?, ?, ?, ?, 1, 1, 1, 1, 1, 'kept', 0, 1, 0, 'credits', 1, ?, ?)`,
+      ).run(targetId, `[TEST] ${safeName}`, type, rarity, req.user!.userId, Date.now())
+      recordAdminAction(req, "create_test_artifact", targetId, { artifactId: Number(info.lastInsertRowid), name: safeName, type, rarity, poolUsed: used + 1, poolLimit: 50 })
+      res.status(201).json({ success: true, artifactId: Number(info.lastInsertRowid), soulbound: true, pool: { used: used + 1, limit: 50 } })
+    } catch (error) {
+      captureError("Admin createTestArtifact error:", error)
+      res.status(500).json({ error: "Internal server error" })
+    }
+  }
+
   // ===== GET /admin/analytics/funnel?days= =====
   static async funnel(req: AuthRequest, res: Response) {
     try {

@@ -107,6 +107,9 @@ router.post("/list", requireAuth, (req: AuthRequest, res) => {
   if (artifact.owner_id !== req.user!.userId) {
     return res.status(403).json({ error: "Нет доступа к этому артефакту" })
   }
+  if (artifact.is_test === 1) {
+    return res.status(400).json({ error: "TEST / SOULBOUND artifacts cannot be listed or sold", code: "SOULBOUND_ARTIFACT" })
+  }
   if (listCurrency === "timecoin") {
     const minimum = artifactTimecoinFloor(artifact)
     if (listPrice < minimum) {
