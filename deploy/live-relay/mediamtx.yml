@@ -1,0 +1,27 @@
+# OSGARD browser-to-Twitch relay. The Twitch destination is never exposed to
+# the browser: MediaMTX starts publish-to-twitch.sh only after a WebRTC source
+# becomes available on the `live` path.
+logLevel: info
+
+rtsp: true
+rtspAddress: 127.0.0.1:8554
+rtspTransports: [tcp]
+
+rtmp: false
+hls: false
+srt: false
+moq: false
+
+webrtc: true
+webrtcAddress: 127.0.0.1:8889
+webrtcAllowOrigins:
+  - https://osgardos.com
+webrtcLocalUDPAddress: :8189
+webrtcAdditionalHosts:
+  - osgardos.com
+
+paths:
+  live:
+    source: publisher
+    runOnAvailable: /opt/osgard/live-relay/publish-to-twitch.sh
+    runOnAvailableRestart: true
