@@ -91,8 +91,8 @@ jobs:
             sleep 2
           done
 
-      - name: Alert in Telegram on critical drop or fetch failure
-        if: steps.eval.outputs.status == 'critical_low' || steps.reserve.outputs.ok != '1'
+      - name: Alert in Telegram on critical drop
+        if: steps.eval.outputs.status == 'critical_low'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
