@@ -237,13 +237,11 @@ router.patch("/", requireAuth, (req: AuthRequest, res) => {
 
 /* ---------------- POST /secret-room/friend-slots/buy — купить +1 слот ($49) ---------------- */
 router.post("/friend-slots/buy", requireAuth, (req: AuthRequest, res) => {
-  const uid = req.user!.userId
-  const room = roomOf(uid)
-  if (!room || room.access_until <= Date.now()) {
-    return res.status(403).json({ error: "Нет активного доступа к комнате" })
-  }
-  db.prepare(`UPDATE secret_rooms SET friend_slots = friend_slots + 1, updated_at = ? WHERE owner_id = ?`).run(Date.now(), uid)
-  res.json({ ok: true, room: serializeRoom(roomOf(uid)) })
+  return res.status(402).json({
+    error: "Payment verification is required before a friend slot is granted",
+    code: "PAYMENT_REQUIRED",
+    checkout: "/secret-room/create-checkout",
+  })
 })
 
 /* ---------------- POST /secret-room/members — добавить друга ---------------- */
