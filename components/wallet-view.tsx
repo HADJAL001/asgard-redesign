@@ -29,7 +29,7 @@ import Link from "next/link"
 import { ArrowRight, Plus, Info, DollarSign, Loader2, ArrowDownToLine, ArrowUpFromLine, Send, AlertTriangle, Coins } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useOsgardStore, type CurrencyKey } from "@/lib/store/osgard-store"
-import { COLORS, CURRENCIES, CURRENCY_ORDER, formatTokens } from "@/lib/economy"
+import { COLORS, CURRENCIES, CURRENCY_ORDER, formatTokens, type CurrencyId } from "@/lib/economy"
 import { UP } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { apiClient } from "@/lib/api-client"
@@ -343,8 +343,8 @@ export function WalletView() {
         </div>
 
         {/* Currency balances */}
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {CURRENCY_ORDER.map((id) => {
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {CURRENCY_ORDER.filter((id) => id === "credits" || id === "timecoin").map((id) => {
             const c = CURRENCIES[id]
             return (
               <div
@@ -393,7 +393,7 @@ export function WalletView() {
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           {/* Exchange */}
           <section
-            className="rounded-2xl p-6"
+            className="hidden"
             style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
           >
             <h2 className="text-[16px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLORS.label }}>
@@ -509,7 +509,7 @@ export function WalletView() {
               {t("wallet.hierarchyTitle")}
             </h2>
             <ul className="mt-5 flex flex-col gap-3">
-              {CURRENCY_ORDER.map((id, i) => {
+              {(["credits", "timecoin"] as CurrencyId[]).map((id, i) => {
                 const c = CURRENCIES[id]
                 return (
                   <li key={id} className="flex items-center gap-3">
@@ -522,7 +522,7 @@ export function WalletView() {
                     <div className="min-w-0 flex-1">
                       <p className="text-[14px]">{c.label}</p>
                       <p className="text-[12px]" style={{ color: COLORS.label }}>
-                        {i === 0 ? t("wallet.baseCurrency") : `${formatTokens(c.ratePerLower)} ${CURRENCIES[CURRENCY_ORDER[i - 1]].symbol} = 1 ${c.symbol}`}
+                        {i === 0 ? "Activity and generation only" : "Marketplace, staking and withdrawal"}
                       </p>
                     </div>
                   </li>
