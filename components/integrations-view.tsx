@@ -9,7 +9,7 @@
    DELETE /integrations/:id        — удалить подключение
    ================================================================ */
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Plug, Plus, Trash2, Loader2, CheckCircle2, XCircle, MinusCircle } from "lucide-react"
 import { Navbar } from "./navbar"
@@ -28,6 +28,19 @@ export function IntegrationsView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+
+  const recommendations = useMemo(() => {
+    const connected = new Set(integrations.map((integration) => integration.connectorId))
+    const priority = ["github", "telegram", "notion", "slack", "sendgrid"]
+    return connectors
+      .filter((connector) => !connected.has(connector.id))
+      .toSorted((left, right) => {
+        const leftPriority = priority.indexOf(left.id)
+        const rightPriority = priority.indexOf(right.id)
+        return (leftPriority === -1 ? priority.length : leftPriority) - (rightPriority === -1 ? priority.length : rightPriority)
+      })
+      .slice(0, 3)
+  }, [connectors, integrations])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -109,6 +122,32 @@ export function IntegrationsView() {
           </div>
         ) : (
           <>
+            {recommendations.length > 0 && (
+              <section className="mt-8">
+                <div className="flex items-baseline justify-between gap-3">
+                  <h2 className="text-[18px] font-medium">Рекомендуем подключить</h2>
+                  <span className="text-[12px]" style={{ color: COLORS.label }}>Следующий полезный сервис для сценариев</span>
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                  {recommendations.map((connector) => (
+                    <button
+                      key={connector.id}
+                      type="button"
+                      onClick={() => router.push(`/integrations/new?connector=${connector.id}`)}
+                      className="flex min-h-24 items-center gap-3 rounded-lg p-4 text-left transition-colors"
+                      style={{ backgroundColor: "rgba(215,174,87,0.06)", border: `1px solid rgba(215,174,87,0.28)` }}
+                    >
+                      <ConnectorIcon icon={connector.icon} color={COLORS.accent} />
+                      <span className="min-w-0">
+                        <span className="block text-[14px] font-medium">{connector.name}</span>
+                        <span className="mt-1 block line-clamp-2 text-[12px]" style={{ color: COLORS.label }}>{connector.description}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* Мои интеграции */}
             <section className="mt-8">
               <h2 className="text-[18px] font-medium">Мои интеграции</h2>
