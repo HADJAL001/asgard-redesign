@@ -62,6 +62,14 @@ type Expiring = { value: number; expires: number }
 const memScore = new Map<string, Expiring>()
 const memBlock = new Map<string, number>() // ip -> expires
 
+function isBlocklistExempt(ip: string): boolean {
+  return (process.env.THREAT_BLOCKLIST_EXEMPT_IPS || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .includes(ip)
+}
+
 function memAddScore(ip: string, weight: number): number {
   const now = Date.now()
   const rec = memScore.get(ip)
@@ -101,6 +109,7 @@ async function blockIp(ip: string, reason: string) {
 
 /** Проверка блокировки IP (Redis → fallback in-memory). */
 export async function isBlocked(ip: string): Promise<boolean> {
+  if (isBlocklistExempt(ip)) return false
   if (await ensureRedisConnected()) {
     try {
       const v = await redisClient!.get(`threat:block:${ip}`)
@@ -114,7 +123,7 @@ export async function isBlocked(ip: string): Promise<boolean> {
 
 /** Начисляет IP очки подозрительности; при превышении порога — авто-блок. */
 export async function recordOffense(ip: string | null, reason: string, weight = 1): Promise<void> {
-  if (!ip) return
+  if (!ip || isBlocklistExempt(ip)) return
   let total = memAddScore(ip, weight)
 
   if (await ensureRedisConnected()) {
