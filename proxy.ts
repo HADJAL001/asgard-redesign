@@ -52,9 +52,15 @@ export function proxy(request: NextRequest) {
   }
 
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64")
+  // Turbopack's dev runtime does not propagate request nonces to every HMR
+  // script. Production remains nonce-based; development needs its own policy
+  // so React can hydrate and use source-mapped eval() without a blank page.
+  const scriptSrc = process.env.NODE_ENV === "development"
+    ? "'self' 'unsafe-inline' 'unsafe-eval'"
+    : `'self' 'nonce-${nonce}' 'strict-dynamic'`
   const cspHeader = `
     default-src 'self';
-    script-src 'self' 'nonce-${nonce}' 'strict-dynamic';
+    script-src ${scriptSrc};
     style-src 'self' 'unsafe-inline';
     img-src 'self' blob: data: https:;
     font-src 'self' data:;
