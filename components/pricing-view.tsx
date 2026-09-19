@@ -420,7 +420,7 @@ export function PricingView() {
       if (!result.url) throw new Error("Platega не вернула ссылку на оплату")
       window.location.assign(result.url)
     } catch (error: any) {
-      setNotice({ ok: false, text: error?.message || "Оплата через Platega временно недоступна" })
+      setNotice({ ok: false, text: error?.message || "Не удалось начать оплату через Platega" })
     } finally {
       setPlategaBusy(null)
     }
@@ -668,17 +668,16 @@ export function PricingView() {
                       <span className="text-[13px] ml-1" style={{ color: LABEL }}>/мес</span>
                   )}
 
-                  {!isActive && plan.stripePlan && (
+                  {!isActive && plan.stripePlan && plategaAvailable !== false && (
                     <button
                       type="button"
                       onClick={() => void startPlatega(plan)}
-                      disabled={plategaBusy !== null || plategaAvailable === false}
-                      aria-disabled={plategaAvailable === false}
+                      disabled={plategaBusy !== null}
                       className="flex items-center justify-center gap-2 w-full rounded-xl py-2.5 mt-2 text-[13px] font-medium transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ background: "transparent", border: `1px solid ${plan.color}30`, color: LABEL }}
                     >
                       {plategaBusy === plan.stripePlan ? <Loader2 size={14} className="animate-spin" /> : null}
-                      {plategaAvailable === false ? "Оплата временно недоступна" : "Оплатить в RUB (Platega)"}
+                      Оплатить в RUB (Platega)
                     </button>
                   )}
                 </div>
