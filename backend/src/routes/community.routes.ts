@@ -13,6 +13,13 @@ const MAX_COMMENT_LENGTH = 2000
 const POSTS_PAGE_SIZE = 50
 const COMMENTS_PAGE_SIZE = 200
 
+function safeProjectDescription(value: unknown) {
+  const text = typeof value === "string" ? value.trim() : ""
+  // Legacy rows can contain replacement characters from an irreversible bad import.
+  // Keep the public showcase readable without altering the owner's stored project.
+  return text.includes("\uFFFD") ? "" : text
+}
+
 function lastCompletedWeek() {
   const now = new Date()
   const day = now.getUTCDay() || 7
@@ -115,7 +122,7 @@ router.get("/trending-projects", (_req, res) => {
   `).all().map((project: any) => ({
     id: project.id,
     name: project.name,
-    description: project.description || "",
+    description: safeProjectDescription(project.description),
     badge: project.badge || "",
     liveUrl: project.liveUrl,
     createdAt: project.createdAt,
