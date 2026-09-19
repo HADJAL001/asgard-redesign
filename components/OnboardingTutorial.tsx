@@ -41,7 +41,6 @@ import {
   Crown,
   PartyPopper,
   Coins,
-  Gem,
   Award,
   X,
   Loader2,
@@ -75,7 +74,6 @@ const ONBOARDING_CSS = `
 
 type StepReward = {
   credits?: number
-  crystals?: number
   badge?: string
 }
 
@@ -96,7 +94,7 @@ const STEPS: OnboardingStep[] = [
   { step: 5, i18nKey: "step5", reward: { credits: 18 }, Icon: MessageCircle },
   { step: 6, i18nKey: "step6", reward: { credits: 18 }, Icon: User },
   { step: 7, i18nKey: "step7", reward: { credits: 15 }, Icon: Crown, hasAdminDescription: true },
-  { step: 8, i18nKey: "step8", reward: { badge: "pervoprohodets", crystals: 25 }, Icon: PartyPopper },
+  { step: 8, i18nKey: "step8", reward: { badge: "pervoprohodets", credits: 80 }, Icon: PartyPopper },
 ]
 
 function RewardBadge({
@@ -112,14 +110,6 @@ function RewardBadge({
       <span key="credits" className="inline-flex items-center gap-1">
         <Coins size={14} style={{ color: "#FFD54A" }} />
         {t("onboarding.creditsUnit", { count: reward.credits })}
-      </span>,
-    )
-  }
-  if (reward.crystals) {
-    parts.push(
-      <span key="crystals" className="inline-flex items-center gap-1">
-        <Gem size={14} style={{ color: ACCENT }} />
-        {t(reward.crystals === 1 ? "onboarding.crystalUnit" : "onboarding.crystalsUnit", { count: reward.crystals })}
       </span>,
     )
   }
