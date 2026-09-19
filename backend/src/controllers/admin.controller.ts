@@ -252,6 +252,26 @@ export class AdminController {
     }
   }
 
+  // ===== POST /admin/users/:id/promo-credits =====
+  static async grantPromoCredits(req: AuthRequest, res: Response) {
+    try {
+      const id = Number(req.params.id)
+      const amount = Number(req.body?.amount)
+      const reason = typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 300) : ""
+      if (!id || !Number.isFinite(amount) || amount <= 0 || !reason) return res.status(400).json({ error: "Amount and reason are required" })
+      if (!db.prepare(`SELECT 1 FROM users WHERE id = ?`).get(id)) return res.status(404).json({ error: "User not found" })
+      const now = Date.now()
+      const expiresAt = now + 7 * 86_400_000
+      const grant = db.prepare(`INSERT INTO promo_credit_grants (user_id, amount, remaining, reason, issued_by, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+        .run(id, amount, amount, reason, req.user!.userId, expiresAt, now)
+      recordAdminAction(req, "grant_promo_credits", id, { grantId: Number(grant.lastInsertRowid), amount, reason, expiresAt })
+      res.status(201).json({ success: true, grantId: Number(grant.lastInsertRowid), amount, expiresAt })
+    } catch (error) {
+      captureError("Admin grantPromoCredits error:", error)
+      res.status(500).json({ error: "Internal server error" })
+    }
+  }
+
   // ===== GET /admin/analytics/funnel?days= =====
   static async funnel(req: AuthRequest, res: Response) {
     try {
