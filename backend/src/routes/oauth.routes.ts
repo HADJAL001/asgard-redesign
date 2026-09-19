@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { randomBytes } from 'crypto';
 import db from '../db/database';
 import { UserModel } from '../models/user.model';
 import { AuthService } from '../services/auth.service';
@@ -58,8 +59,12 @@ function sanitizeMobileRedirectUri(value: unknown): string | undefined {
   } catch {
     return undefined;
   }
-  if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return undefined;
-  return value;
+  if (
+    parsed.protocol === 'osgard:' &&
+    parsed.hostname === 'oauth-callback' &&
+    parsed.pathname === '/oauth-callback'
+  ) return value;
+  return undefined;
 }
 
 /** Scope для подключения GitHub с целью публикации репозиториев (Git Data API). */
@@ -67,6 +72,20 @@ const GITHUB_PUBLISH_SCOPE = 'repo read:user';
 
 const STATE_TTL_MS = 5 * 60 * 1000;
 const stateStore = new Map<string, OAuthStateEntry>();
+const MOBILE_EXCHANGE_TTL_MS = 60 * 1000;
+const mobileExchangeStore = new Map<string, { token: string; refreshToken: string; createdAt: number }>();
+
+function callbackUrl(base: string, key: string, value: string): string {
+  const url = new URL(base);
+  url.searchParams.set(key, value);
+  return url.toString();
+}
+
+function createSessionExchangeCode(token: string, refreshToken: string): string {
+  const code = randomBytes(32).toString('base64url');
+  mobileExchangeStore.set(code, { token, refreshToken, createdAt: Date.now() });
+  return code;
+}
 
 setInterval(() => {
   const now = Date.now();
@@ -76,6 +95,24 @@ setInterval(() => {
     }
   }
 }, STATE_TTL_MS);
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [code, entry] of mobileExchangeStore.entries()) {
+    if (now - entry.createdAt > MOBILE_EXCHANGE_TTL_MS) mobileExchangeStore.delete(code);
+  }
+}, MOBILE_EXCHANGE_TTL_MS);
+
+router.post('/exchange', (req: Request, res: Response) => {
+  const code = typeof req.body?.code === 'string' ? req.body.code : '';
+  const entry = mobileExchangeStore.get(code);
+  // Delete before replying: concurrent callers cannot exchange the same code twice.
+  if (entry) mobileExchangeStore.delete(code);
+  if (!entry || Date.now() - entry.createdAt > MOBILE_EXCHANGE_TTL_MS) {
+    return res.status(400).json({ error: 'invalid_or_expired_code' });
+  }
+  return res.json({ token: entry.token, refreshToken: entry.refreshToken });
+});
 
 function generateUniqueUsername(seed: string, fallback: string): string {
   const base = (seed || fallback)
@@ -177,11 +214,11 @@ router.get('/:provider/callback', async (req: Request, res: Response) => {
   // при ошибке/отказе пользователя) — это единственный способ узнать platform/mobileRedirectUri
   // для редиректа ошибки обратно в мобильное приложение, а не на веб-фронтенд.
   const pendingEntry = state ? stateStore.get(state) : undefined;
-  const isMobile = pendingEntry?.platform === 'mobile' && !!pendingEntry.mobileRedirectUri;
+  const mobileCallback = pendingEntry?.platform === 'mobile' ? pendingEntry.mobileRedirectUri : undefined;
 
   const redirectError = (errCode: string) => {
-    if (isMobile) {
-      return res.redirect(`${pendingEntry!.mobileRedirectUri}?error=${encodeURIComponent(errCode)}`);
+    if (mobileCallback) {
+      return res.redirect(callbackUrl(mobileCallback, 'error', errCode));
     }
     return res.redirect(`${FRONTEND_URL}/login?oauthError=${encodeURIComponent(errCode)}`);
   };
@@ -268,15 +305,12 @@ router.get('/:provider/callback', async (req: Request, res: Response) => {
     // 15 минут (когда истекал access-токен), а вход по паролю жил нормально.
     const refreshToken = RefreshTokenService.issue(user.id);
 
-    if (isMobile) {
-      return res.redirect(
-        `${pendingEntry!.mobileRedirectUri}?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}`
-      );
+    const sessionCode = createSessionExchangeCode(token, refreshToken);
+    if (entry.platform === 'mobile' && entry.mobileRedirectUri) {
+      return res.redirect(callbackUrl(entry.mobileRedirectUri, 'code', sessionCode));
     }
 
-    res.redirect(
-      `${FRONTEND_URL}/auth/callback?token=${encodeURIComponent(token)}&refreshToken=${encodeURIComponent(refreshToken)}`
-    );
+    res.redirect(`${FRONTEND_URL}/auth/callback?code=${encodeURIComponent(sessionCode)}`);
   } catch (e: any) {
     captureError(`OAuth callback error (${provider}):`, e);
     redirectError('oauth_failed');

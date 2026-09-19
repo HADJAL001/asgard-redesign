@@ -12,8 +12,8 @@ export type OAuthResult =
 /**
  * Открывает системный браузер на бэкенд-эндпоинте OAuth (PKCE, см.
  * backend/src/routes/oauth.routes.ts) и ждёт редиректа обратно на deep link приложения.
- * Бэкенд сам обменивает code на токены и кладёт их в query параметры финального редиректа —
- * клиенту не нужно ничего знать о client secret / code exchange.
+ * Бэкенд сам обменивает code провайдера. В deep link приходит только короткоживущий
+ * одноразовый код, который приложение обменивает на сессию по HTTPS.
  */
 export async function signInWithProvider(provider: OAuthProvider): Promise<OAuthResult> {
   const redirectUri = Linking.createURL('oauth-callback');
@@ -26,15 +26,28 @@ export async function signInWithProvider(provider: OAuthProvider): Promise<OAuth
   }
 
   const parsed = Linking.parse(result.url);
-  const { token, refreshToken, error } = parsed.queryParams as Record<string, string | undefined>;
+  const { code, error } = parsed.queryParams as Record<string, string | undefined>;
 
   if (error) {
     return { ok: false, message: describeOAuthError(error) };
   }
-  if (!token || !refreshToken) {
-    return { ok: false, message: 'Провайдер не вернул токены доступа' };
+  if (!code) {
+    return { ok: false, message: 'Провайдер не вернул код подтверждения' };
   }
-  return { ok: true, token, refreshToken };
+  try {
+    const response = await fetch(`${API_URL}/auth/exchange`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+    const session = await response.json() as { token?: string; refreshToken?: string };
+    if (!response.ok || !session.token || !session.refreshToken) {
+      return { ok: false, message: 'Код подтверждения устарел. Попробуйте войти снова' };
+    }
+    return { ok: true, token: session.token, refreshToken: session.refreshToken };
+  } catch {
+    return { ok: false, message: 'Не удалось подтвердить вход' };
+  }
 }
 
 function describeOAuthError(code: string): string {

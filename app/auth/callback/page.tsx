@@ -32,6 +32,30 @@ function AuthCallbackInner() {
     if (ran.current) return
     ran.current = true
 
+    const code = searchParams.get("code")
+    if (code) {
+      fetch("/api/auth/exchange", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      })
+        .then(async (response) => ({ response, payload: await response.json() as { token?: string; refreshToken?: string; error?: string } }))
+        .then(({ response, payload }) => {
+          if (!response.ok || !payload.token) throw new Error(payload.error || "exchange_failed")
+          return loginWithToken(payload.token, payload.refreshToken)
+        })
+        .then((result) => {
+          if (result.ok) router.replace("/dashboard")
+          else throw new Error(result.message || "login_failed")
+        })
+        .catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : "login_failed"
+          setError("Sign-in could not be completed")
+          router.replace(`/login?oauthError=${encodeURIComponent(message)}`)
+        })
+      return
+    }
+
     const token = searchParams.get("token")
     const refreshToken = searchParams.get("refreshToken") || undefined
     const oauthError = searchParams.get("error")

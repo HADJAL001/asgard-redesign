@@ -338,6 +338,16 @@ test('renderLayout: footer keeps individual links to all user documents', () => 
   for (const path of ['/privacy', '/terms', '/pricing', '/support']) assert.ok(layout.includes(`href="${path}"`), `нет ссылки ${path}`);
 });
 
+test('renderLayout: output trail links generated apps to the live OSGARD studio', () => {
+  const brief = deriveDesignBrief({ name: 'Project' });
+  const layout = renderDesignSystemFiles(brief, 'Project', '').find((file) => file.path === 'app/layout.tsx')!.content;
+
+  assert.ok(layout.includes('Built with OSGARD'), 'branded output trail is present in the footer');
+  assert.ok(layout.includes('https://osgardnewworld.com'), 'the output trail uses the live production domain');
+  assert.ok(layout.includes('https://osgardnewworld.com/dev'), 'the CTA leads to the working Studio');
+  assert.ok(!layout.includes('https://osgard.io'), 'the deprecated domain cannot return');
+});
+
 test('legal-ready pages use owner placeholders and never claim network restriction bypass', () => {
   const files = renderDesignSystemFiles(deriveDesignBrief({ name: 'VPN' }), 'VPN', '');
   const legal = files.filter((file) => /^app\/(privacy|terms|pricing|support)\/page\.tsx$/.test(file.path));
