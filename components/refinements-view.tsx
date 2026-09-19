@@ -199,6 +199,13 @@ export function RefinementsView() {
                           </p>
                         </div>
 
+                        <div className="refine-evolution" aria-label="Эволюция проекта">
+                          {["Идея", "Сборка", "Развитие"].map((stage, index) => {
+                            const active = index === 0 || (index === 1 && p.artifactCount > 0) || (index === 2 && p.sold > 0)
+                            return <span key={stage} className={active ? "refine-evolution__node is-active" : "refine-evolution__node"}>{stage}</span>
+                          })}
+                        </div>
+
                         <div style={{ display: "flex", alignItems: "center", gap: 16, color: "#8899bb", fontSize: ".82rem", marginTop: "auto" }}>
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                             <Boxes size={13} strokeWidth={1.75} aria-hidden="true" />
@@ -299,6 +306,13 @@ export function RefinementsView() {
           border-color: var(--elite-gold, #f5c451);
           box-shadow: 0 24px 60px -28px rgba(245, 196, 81, 0.45);
         }
+        .refine-evolution { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 2px; }
+        .refine-evolution__node { position: relative; padding-top: 11px; color: #64748b; font-size: 10px; text-align: center; }
+        .refine-evolution__node::before { content: ""; position: absolute; top: 2px; left: 0; right: 0; height: 2px; background: #34404c; }
+        .refine-evolution__node:first-child::before { left: 50%; }
+        .refine-evolution__node:last-child::before { right: 50%; }
+        .refine-evolution__node.is-active { color: var(--elite-gold, #f5c451); }
+        .refine-evolution__node.is-active::before { background: var(--elite-gold, #f5c451); box-shadow: 0 0 9px rgb(245 196 81 / .5); }
       `}</style>
     </div>
   )
