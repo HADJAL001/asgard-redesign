@@ -82,6 +82,7 @@ export function DevStudioView() {
   const shareVideoRef = useRef<HTMLVideoElement>(null)
   const broadcastPeerRef = useRef<RTCPeerConnection | null>(null)
   const broadcastSessionRef = useRef<string | null>(null)
+  const broadcastTicketRef = useRef<string | null>(null)
   const canCreateProject = idea.trim().length > 0
 
   useEffect(() => {
@@ -101,9 +102,15 @@ export function DevStudioView() {
   function stopBroadcast() {
     const session = broadcastSessionRef.current
     if (session) {
-      fetch(session, { method: "DELETE", keepalive: true }).catch(() => undefined)
+      const ticket = broadcastTicketRef.current
+      fetch(session, {
+        method: "DELETE",
+        keepalive: true,
+        headers: ticket ? { "X-Osgard-Live-Ticket": ticket } : undefined,
+      }).catch(() => undefined)
       broadcastSessionRef.current = null
     }
+    broadcastTicketRef.current = null
     broadcastPeerRef.current?.close()
     broadcastPeerRef.current = null
     setBroadcastState("idle")
@@ -152,6 +159,15 @@ export function DevStudioView() {
     stream.getTracks().forEach((track) => peer.addTrack(track, stream!))
 
     try {
+      const ticketResponse = await fetch("/api/live-ticket", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+      })
+      if (!ticketResponse.ok) throw new Error("Live relay access was denied")
+      const { ticket } = await ticketResponse.json() as { ticket?: string }
+      if (!ticket) throw new Error("Live relay ticket is missing")
+
       const offer = await peer.createOffer()
       await peer.setLocalDescription(offer)
       await new Promise<void>((resolve) => {
@@ -164,16 +180,18 @@ export function DevStudioView() {
           }
         }, { once: true })
       })
-      const response = await fetch("https://osgardos.com/live/whip", {
+      const relayUrl = new URL("/live/whip", window.location.origin).toString()
+      const response = await fetch(relayUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/sdp" },
+        headers: { "Content-Type": "application/sdp", "X-Osgard-Live-Ticket": ticket },
         body: peer.localDescription?.sdp,
       })
       if (!response.ok) throw new Error("Live relay rejected the stream")
       const answer = await response.text()
       await peer.setRemoteDescription({ type: "answer", sdp: answer })
       const location = response.headers.get("location")
-      broadcastSessionRef.current = location ? new URL(location, "https://osgardos.com").toString() : null
+      broadcastTicketRef.current = ticket
+      broadcastSessionRef.current = location ? new URL(location, relayUrl).toString() : null
       peer.addEventListener("connectionstatechange", () => {
         if (peer.connectionState === "failed" || peer.connectionState === "disconnected") setBroadcastState("error")
       })

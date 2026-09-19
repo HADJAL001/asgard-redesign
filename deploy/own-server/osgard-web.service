@@ -1,0 +1,25 @@
+[Unit]
+Description=OSGARD Next.js web application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=osgard
+Group=osgard
+WorkingDirectory=/opt/osgard-platform/current
+EnvironmentFile=/etc/osgard-platform/web.env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=127.0.0.1
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/osgard-platform
+
+[Install]
+WantedBy=multi-user.target
