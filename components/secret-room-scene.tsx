@@ -8,6 +8,24 @@ import type { Group } from "three"
 export type SecretRoomItem = { type: string; x: number; y: number }
 type Theme = { floor: string; wall: string; accent: string; fill: string }
 
+function playRoomTone(kind: string) {
+  const AudioContextClass = window.AudioContext
+  if (!AudioContextClass) return
+  const context = new AudioContextClass()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = kind === "crystal" || kind === "trophy" ? "sine" : "triangle"
+  oscillator.frequency.setValueAtTime(kind === "lamp" ? 740 : 440, context.currentTime)
+  oscillator.frequency.exponentialRampToValueAtTime(kind === "crystal" ? 990 : 330, context.currentTime + 0.16)
+  gain.gain.setValueAtTime(0.0001, context.currentTime)
+  gain.gain.exponentialRampToValueAtTime(0.055, context.currentTime + 0.015)
+  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.18)
+  oscillator.connect(gain).connect(context.destination)
+  oscillator.start()
+  oscillator.stop(context.currentTime + 0.19)
+  oscillator.addEventListener("ended", () => void context.close())
+}
+
 const THEMES: Record<string, Theme> = {
   nebula: { floor: "#090919", wall: "#1c1438", accent: "#9e7bff", fill: "#4a2a86" }, noir: { floor: "#09090b", wall: "#1a1a1e", accent: "#d6d7df", fill: "#3a3b45" },
   gold: { floor: "#100e09", wall: "#2a2213", accent: "#e6c868", fill: "#8a6824" }, matrix: { floor: "#030a06", wall: "#062114", accent: "#5df09a", fill: "#16633b" },
@@ -16,7 +34,7 @@ const THEMES: Record<string, Theme> = {
 
 function RoomProp({ item, accent, fill, index, isOwner, onRemove }: { item: SecretRoomItem; accent: string; fill: string; index: number; isOwner: boolean; onRemove: (index: number) => void }) {
   const pos: [number, number, number] = [((item.x - 50) / 50) * 4.5, 0, ((item.y - 50) / 50) * 2.45]
-  const click = isOwner ? { onClick: (event: { stopPropagation: () => void }) => { event.stopPropagation(); onRemove(index) } } : {}
+  const click = { onClick: (event: { stopPropagation: () => void }) => { event.stopPropagation(); playRoomTone(item.type); if (isOwner) onRemove(index) } }
   const base = <meshStandardMaterial color={fill} metalness={0.58} roughness={0.3} />
   const glow = <meshBasicMaterial color={accent} transparent opacity={0.78} />
   if (item.type === "lamp") return <group position={pos} {...click}><mesh position={[0, 0.92, 0]}>{base}<cylinderGeometry args={[0.06, 0.08, 1.84, 12]} /></mesh><mesh position={[0, 1.92, 0]}>{glow}<sphereGeometry args={[0.23, 16, 12]} /></mesh></group>
