@@ -79,6 +79,20 @@ test("the landing globe renders and keeps moving", async ({ page }) => {
   expect(browserWarnings.some((message) => message.includes("THREE.Clock"))).toBe(false)
 })
 
+test("the mobile landing keeps the first action and globe in frame", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true })
+  const page = await context.newPage()
+
+  await page.goto("/")
+  await expect(page.locator('input[name="projectIdea"]:visible')).toBeVisible()
+  await expect(page.locator(".artifact-form button")).toBeVisible()
+  await expect(page.locator("#three-container canvas")).toBeVisible({ timeout: 6_000 })
+
+  const viewport = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, width: window.innerWidth }))
+  expect(viewport.scrollWidth).toBeLessThanOrEqual(viewport.width)
+  await context.close()
+})
+
 test("the landing defers global assistant UI until the creator enters the product", async ({ page }) => {
   await page.goto("/")
   await page.waitForTimeout(1_700)
