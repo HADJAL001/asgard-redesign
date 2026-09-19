@@ -45,3 +45,20 @@ test("Secret Room event booking is member-only, capacity-bound, and transfers Ti
   assert.equal((db.prepare(`SELECT COUNT(*) AS count FROM secret_room_event_attendees WHERE event_id = ?`).get(event.id) as any).count, 1)
   db.close()
 })
+
+test("Secret Room creator line is member-only and opens a direct conversation with the team", async () => {
+  const creator = await register("roomcreator"), member = await register("lineMember"), outsider = await register("lineOutsider")
+  const db = new Database(DB_PATH)
+  const now = Date.now()
+  db.prepare(`UPDATE users SET role = 'admin' WHERE id = ?`).run(creator.user.id)
+  const roomId = Number(db.prepare(`INSERT INTO secret_rooms (owner_id, name, background, items, friend_slots, access_until, created_at, updated_at) VALUES (?, 'Line', 'nebula', '[]', 3, ?, ?, ?)`).run(creator.user.id, now + 86_400_000, now, now).lastInsertRowid)
+  db.prepare(`INSERT INTO secret_room_members (room_id, user_id, added_at) VALUES (?, ?, ?)`).run(roomId, member.user.id, now)
+
+  const forbidden = await fetch(`${BASE}/secret-room/creator-line`, { method: "POST", headers: auth(outsider.token), body: JSON.stringify({ text: "Can anyone help?" }) })
+  assert.equal(forbidden.status, 403)
+  const sent = await fetch(`${BASE}/secret-room/creator-line`, { method: "POST", headers: auth(member.token), body: JSON.stringify({ text: "Need feedback on my launch." }) })
+  assert.equal(sent.status, 201)
+  assert.equal((await sent.json() as any).creator.userId, creator.user.id)
+  assert.deepEqual(db.prepare(`SELECT sender_id, recipient_id, body FROM direct_messages ORDER BY id DESC LIMIT 1`).get(), { sender_id: member.user.id, recipient_id: creator.user.id, body: "Need feedback on my launch." })
+  db.close()
+})

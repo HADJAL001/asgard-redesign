@@ -29,6 +29,7 @@ export const ROOM_PRICING = {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const CREATOR_MESSAGE_MAX_LENGTH = 2_000
 
 type RoomCheckoutKind = "access" | "friend_slot"
 
@@ -148,6 +149,45 @@ router.get("/events", requireAuth, (req: AuthRequest, res) => {
   if (!room) return res.status(403).json({ error: "An active Secret Room invitation is required" })
   const events = db.prepare(`SELECT * FROM secret_room_events WHERE room_id = ? AND (status = 'active' OR owner_id = ?) ORDER BY starts_at ASC`).all(room.id, req.user!.userId)
   res.json({ events: events.map((event: any) => serializeEvent(event, req.user!.userId)) })
+})
+
+/* ---------------- POST /secret-room/creator-line ----------------
+   Members receive a real private line to the team. It deliberately reuses the
+   audited direct-message ledger: replies arrive in the user's normal inbox. */
+router.post("/creator-line", requireAuth, (req: AuthRequest, res) => {
+  const userId = req.user!.userId
+  if (!accessibleRoom(userId)) return res.status(403).json({ error: "An active Secret Room invitation is required" })
+  const text = typeof req.body?.text === "string" ? req.body.text.trim() : ""
+  if (!text || text.length > CREATOR_MESSAGE_MAX_LENGTH) {
+    return res.status(400).json({ error: `Message must contain 1 to ${CREATOR_MESSAGE_MAX_LENGTH} characters` })
+  }
+
+  const creator = db.prepare(
+    `SELECT id, username, display_name AS displayName, avatar_url AS avatarUrl
+       FROM users
+      WHERE role = 'admin' AND COALESCE(banned, 0) = 0 AND id <> ?
+      ORDER BY id ASC LIMIT 1`,
+  ).get(userId) as { id: number; username: string; displayName: string | null; avatarUrl: string | null } | undefined
+  if (!creator) return res.status(503).json({ error: "The creator line is temporarily unavailable" })
+
+  const createdAt = Date.now()
+  const result = db.prepare(
+    `INSERT INTO direct_messages (sender_id, recipient_id, body, created_at) VALUES (?, ?, ?, ?)`,
+  ).run(userId, creator.id, text, createdAt)
+  const messageId = Number(result.lastInsertRowid)
+  createNotification({
+    userId: creator.id,
+    actorId: userId,
+    type: "message",
+    entityType: "secret_room_creator_line",
+    entityId: messageId,
+    text: "New message from a Secret Room member",
+  })
+  logAudit(userId, "credit", 0, "secret_room_creator_message", { messageId, recipientId: creator.id })
+  res.status(201).json({
+    message: { id: messageId, text, createdAt, mine: true, readAt: null },
+    creator: { userId: creator.id, username: creator.username, displayName: creator.displayName || creator.username, avatarUrl: creator.avatarUrl },
+  })
 })
 
 router.post("/events", requireAuth, (req: AuthRequest, res) => {

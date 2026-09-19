@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Lock, Loader2, Plus, Trash2, UserPlus, Sparkles, KeyRound, Check, CalendarDays, Ticket } from "lucide-react"
+import { Lock, Loader2, Plus, Trash2, UserPlus, Sparkles, KeyRound, Check, CalendarDays, Ticket, Send } from "lucide-react"
 import { Navbar } from "./navbar"
 import { PremiumBackground } from "./premium-bg"
 import { COLORS } from "@/lib/economy"
@@ -56,6 +56,8 @@ export function SecretRoomView() {
   const [eventStart, setEventStart] = useState("")
   const [eventCapacity, setEventCapacity] = useState("10")
   const [eventPrice, setEventPrice] = useState("0")
+  const [creatorMessage, setCreatorMessage] = useState("")
+  const [creatorContacted, setCreatorContacted] = useState(false)
 
   async function loadEvents() {
     const response = await apiClient.get<{ events: RoomEvent[] }>("/secret-room/events", { skipAuthRedirect: true })
@@ -159,6 +161,15 @@ export function SecretRoomView() {
   async function removeFriend(userId: number) {
     try { const r = await apiClient.delete<any>(`/secret-room/members/${userId}`); setMembers(r.members) }
     catch (e: any) { setMsg(e?.message || "Не удалось убрать друга") }
+  }
+  async function messageCreators() {
+    if (!creatorMessage.trim()) return
+    setBusy(true); setMsg(null); setCreatorContacted(false)
+    try {
+      await apiClient.post("/secret-room/creator-line", { text: creatorMessage.trim() })
+      setCreatorMessage("")
+      setCreatorContacted(true)
+    } catch (e: any) { setMsg(e?.message || "Could not send a message to the creators") } finally { setBusy(false) }
   }
 
   return (
@@ -334,9 +345,12 @@ export function SecretRoomView() {
               )}
 
               {msg && <p className="mt-3 text-[12px]" style={{ color: "rgba(255,255,255,0.6)" }}>{msg}</p>}
-              <Link href="/feedback" className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-[12px]" style={{ border: `1px solid ${GOLD}55`, color: GOLD }}>
-                <Sparkles size={13} /> Contact the creators
-              </Link>
+              <div className="mt-4 border-t pt-4" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
+                <p className="flex items-center gap-1.5 text-[12px] font-medium" style={{ color: GOLD }}><Sparkles size={13} /> Direct line to the creators</p>
+                <textarea value={creatorMessage} onChange={(event) => setCreatorMessage(event.target.value)} maxLength={2000} rows={3} placeholder="Ask the team anything..." className="mt-2 w-full resize-none rounded-lg px-3 py-2 text-[12px] outline-none" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" }} />
+                <button type="button" onClick={messageCreators} disabled={busy || !creatorMessage.trim()} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-[12px] font-medium disabled:opacity-45" style={{ border: `1px solid ${GOLD}55`, color: GOLD }}><Send size={13} /> Send to creators</button>
+                {creatorContacted && <Link href="/messages" className="mt-2 block text-center text-[11px]" style={{ color: "rgba(255,255,255,0.62)" }}>Sent. Open the private conversation.</Link>}
+              </div>
               <button type="button" onClick={unlock} disabled={busy} className="mt-5 flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-[12px]" style={{ border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.6)" }}>
                 <Check size={13} /> Продлить на {pricing.periodDays} дн. (${pricing.monthlyUsd})
               </button>
