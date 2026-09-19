@@ -8,8 +8,8 @@ import type { GuestCodeAdapter } from "@/hooks/useGuestCodeGeneration"
      POST /api/demo/code/start {name, hint} → 202 {taskId}
      GET  /api/demo/code/:taskId            → {status, result?, error?}
 
-   SSE пока нет (backend не публикует stream) — хук работает через
-   polling, поэтому subscribeStream не задаём.
+   SSE доступен через GET /api/demo/code/:taskId/stream. Polling остается
+   резервным каналом на случай обрыва потокового соединения.
    ================================================================ */
 
 async function readError(r: Response, fallback: string): Promise<string> {

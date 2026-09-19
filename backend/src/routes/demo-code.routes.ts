@@ -25,8 +25,8 @@ import { rateLimit } from "../middleware/rateLimiter"
    GET  /demo/code/:taskId/archive.zip → runnable project archive
 
    Контракт совпадает с фронтовым hooks/useGuestCodeGeneration.ts.
-   SSE-стрим пока не реализован — фронт-хук работает и через polling;
-   для SSE понадобится regex в app/api/[...path]/route.ts (зона A).
+   GET /demo/code/:taskId/stream отдает SSE-прогресс. Next-прокси пропускает
+   поток без буферизации, а polling на клиенте остается резервным механизмом.
 
    IP-лимит: свой лёгкий in-memory (независим от demo.routes.ts, чтобы
    не тянуть его приватный лимитер). Сбрасывается при рестарте.
