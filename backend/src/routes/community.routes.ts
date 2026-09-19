@@ -205,6 +205,7 @@ router.get("/:id/comments/stream", optionalAuth, (req, res) => {
   let latestId = Math.max(0, Number(req.query.after) || 0)
   res.status(200).set({ "Content-Type": "text/event-stream", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive" })
   res.flushHeaders()
+  res.write(": connected\n\n")
   const send = () => {
     const rows = db.prepare(`SELECT c.id, c.text, c.created_at, u.id AS author_id, u.username, u.display_name, u.avatar_url, u.level FROM comments c JOIN users u ON u.id = c.user_id WHERE c.post_id = ? AND c.id > ? AND u.banned = 0 ORDER BY c.id ASC`).all(postId, latestId) as any[]
     for (const row of rows) {
@@ -214,7 +215,8 @@ router.get("/:id/comments/stream", optionalAuth, (req, res) => {
   }
   send()
   const timer = setInterval(send, 4_000)
-  req.on("close", () => clearInterval(timer))
+  const keepAlive = setInterval(() => res.write(": keep-alive\n\n"), 15_000)
+  req.on("close", () => { clearInterval(timer); clearInterval(keepAlive) })
 })
 
 /* ---------------- POST /posts/:id/comments ---------------- */
