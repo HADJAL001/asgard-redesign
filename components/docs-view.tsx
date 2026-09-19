@@ -299,6 +299,13 @@ export function DocsView() {
     }
   }, [])
 
+  useEffect(() => {
+    const articleId = new URLSearchParams(window.location.search).get("article")
+    if (!articleId) return
+    const article = ARTICLES.find((item) => item.id === articleId)
+    if (article) setOpen(article)
+  }, [])
+
   function openArticle(article: Article) {
     setOpen(article)
     setReadArticleIds((current) => {
@@ -649,17 +656,6 @@ function ArticleModal({ article, onClose }: { article: Article; onClose: () => v
           className="flex shrink-0 flex-wrap items-center gap-3 px-6 py-4"
           style={{ borderTop: `1px solid ${BORDER}` }}
         >
-          <button
-            type="button"
-            className="hidden"
-            onClick={exportArticle}
-            style={{ backgroundColor: ACCENT, color: BG }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-          >
-            <Download size={16} strokeWidth={1.75} />
-            Редактировать
-          </button>
           <button
             type="button"
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[14px] transition-colors"
