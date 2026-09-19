@@ -80,7 +80,7 @@ function ChartTooltip({ active, payload, currency }: Partial<TooltipContentProps
 
 export function ExchangeView() {
   const { wallet, spend, credit } = useOsgard()
-  const [mode, setMode] = useState<"tc" | "artifacts">("tc")
+  const [mode] = useState<"tc" | "artifacts">("tc")
   const [currency, setCurrency] = useState<CurrencyId>("credits")
   const [assetId, setAssetId] = useState<number>(ASSETS[0]?.id ?? 1)
   const [rarityFilter, setRarityFilter] = useState<Rarity | "all">("all")
@@ -150,55 +150,14 @@ export function ExchangeView() {
               Биржа OSGARD
             </h1>
             <p className="mt-1 text-[15px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-              {mode === "tc" ? "Рынок TimeCoin · цена формируется реальными сделками" : "Торговый терминал артефактов"}
+              Рынок TimeCoin · цена формируется реальными сделками
             </p>
-            {/* Market mode toggle */}
-            <div className="mt-4 flex items-center gap-1 rounded-full p-1" style={{ border: `1px solid ${BORDER}`, width: "fit-content" }} role="group" aria-label="Режим биржи">
-              {([
-                { id: "tc" as const, label: "TimeCoin ∞", Icon: InfinityIcon },
-                { id: "artifacts" as const, label: "Артефакты", Icon: Boxes },
-              ]).map((m) => {
-                const active = mode === m.id
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setMode(m.id)}
-                    aria-pressed={active}
-                    className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors"
-                    style={{ backgroundColor: active ? ACCENT : "transparent", color: active ? "#10181d" : "rgba(255,255,255,0.6)" }}
-                  >
-                    <m.Icon size={14} strokeWidth={2} aria-hidden="true" />
-                    {m.label}
-                  </button>
-                )
-              })}
-            </div>
           </div>
 
-          {/* Display currency selector (artifact terminal only) */}
-          {mode === "artifacts" && (
-          <div className="flex items-center gap-1 rounded-full p-1" style={{ border: `1px solid ${BORDER}` }} role="group" aria-label="Валюта терминала">
-            {CURRENCY_ORDER.map((id) => {
-              const c = CURRENCIES[id]
-              const CIcon = c.Icon
-              const active = currency === id
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setCurrency(id)}
-                  aria-pressed={active}
-                  className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors"
-                  style={{ backgroundColor: active ? c.color : "transparent", color: active ? "#10181d" : c.color }}
-                >
-                  <CIcon size={14} strokeWidth={2} aria-hidden="true" />
-                  {c.label}
-                </button>
-              )
-            })}
-          </div>
-          )}
+          <a href="/marketplace" className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium" style={{ border: `1px solid ${BORDER}`, color: ACCENT }}>
+            <Boxes size={16} strokeWidth={1.75} aria-hidden="true" />
+            Артефакты на Marketplace
+          </a>
         </div>
 
         {mode === "tc" && <TCMarketPanel />}
