@@ -90,7 +90,7 @@ export class AuthController {
         providerId: validProvider ? providerId : undefined
       });
 
-      // Создаём кошелёк в таблице wallets (стартовый бонус 100 credits)
+      // Создаём кошелёк без стартовых Credits.
       try {
         db.prepare(`
           INSERT OR IGNORE INTO wallets (user_id, credits, shards, crystals, timecoin, cash_usd)
