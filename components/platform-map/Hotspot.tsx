@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, type RefObject } from "react"
 import { useRouter } from "next/navigation"
 import { useFrame } from "@react-three/fiber"
 import { Html } from "@react-three/drei"
-import { Mesh, Object3D, Vector3 } from "three"
+import { Group, Mesh, Object3D, Vector3 } from "three"
 
 import type { PlatformHotspot } from "./hotspots"
 
@@ -29,11 +29,20 @@ type HotspotProps = {
 
 export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }: HotspotProps) {
   const router = useRouter()
+  const orbitRef = useRef<Group>(null)
   const markerRef = useRef<Mesh>(null)
   const [isActive, setIsActive] = useState(false)
   const position = useMemo(() => latLonToVector3(hotspot.lat, hotspot.lon, radius), [hotspot.lat, hotspot.lon, radius])
+  const orbitAxis = useMemo(() => new Vector3(0, 1, 0), [])
+  const phase = useMemo(() => (hotspot.lat * 0.013 + hotspot.lon * 0.007) % (Math.PI * 2), [hotspot.lat, hotspot.lon])
 
   useFrame(({ clock }) => {
+    if (orbitRef.current) {
+      // Each portal is a satellite, not a static map pin. Hovering holds it in
+      // place so its preview stays readable before the person chooses a route.
+      const angle = phase + (isActive || reducedMotion ? 0 : clock.elapsedTime * 0.045)
+      orbitRef.current.position.copy(position).applyAxisAngle(orbitAxis, angle)
+    }
     if (!markerRef.current) return
     const pulse = reducedMotion ? 1 : 0.82 + Math.sin(clock.elapsedTime * 2 + hotspot.lon) * 0.18
     markerRef.current.scale.setScalar(pulse)
@@ -42,7 +51,7 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
   const { Icon } = hotspot
 
   return (
-    <group position={position}>
+    <group ref={orbitRef} position={position}>
       <mesh ref={markerRef} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.055, 0.008, 8, 20]} />
         <meshBasicMaterial color={hotspot.color} transparent opacity={0.85} />
