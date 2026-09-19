@@ -1909,6 +1909,46 @@ svg { width: 1rem; height: 1rem; flex: none; }
   background: rgb(226 232 240 / 9%);
 }
 
+/* Studio bridge: the idea input is deliberately built around a single live core,
+   not an empty rectangle. The surrounding details remain quiet so creation stays primary. */
+.dev-studio-bridge { --dev-pointer-x: 0px; --dev-pointer-y: 0px; isolation: isolate; }
+.dev-studio-bridge::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  width: min(72vw, 720px); height: 340px; left: 50%; top: 118px; transform: translateX(-50%);
+  background: radial-gradient(ellipse, rgb(80 184 255 / 12%), transparent 68%);
+  filter: blur(18px);
+}
+.dev-studio-bridge--flash::after {
+  content: ""; position: absolute; pointer-events: none; z-index: 3; inset: 80px 0 auto;
+  height: 300px; background: radial-gradient(circle at 50% 44%, rgb(255 225 139 / 44%), transparent 45%);
+  animation: dev-lucky-flash 680ms ease-out both;
+}
+.dev-core-console { position: relative; min-height: 126px; padding: 12px 14px; border: 1px solid rgb(125 211 252 / 24%); border-radius: 18px; background: linear-gradient(100deg, rgb(8 19 35 / 86%), rgb(19 33 56 / 62%)); box-shadow: inset 0 1px rgb(226 232 240 / 6%), 0 16px 40px rgb(0 0 0 / 18%); }
+.dev-core { position: relative; display: grid; flex: 0 0 94px; place-items: center; width: 94px; height: 94px; margin: 0 2px; }
+.dev-core__orb { width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle at 34% 30%, #eefcff, #78d7ff 24%, #3c6fff 57%, #1c2358 74%); box-shadow: 0 0 12px #9eeaff, 0 0 36px rgb(70 129 255 / 72%), inset -8px -9px 14px rgb(5 13 41 / 70%); animation: dev-core-breathe 3.4s ease-in-out infinite; }
+.dev-core__ring { position: absolute; width: 82px; height: 36px; border: 1px solid rgb(125 211 252 / 76%); border-radius: 50%; box-shadow: 0 0 12px rgb(125 211 252 / 26%); }
+.dev-core__ring--one { transform: rotate(18deg) rotateX(66deg); animation: dev-core-orbit 6s linear infinite; }
+.dev-core__ring--two { width: 74px; transform: rotate(-46deg) rotateX(67deg); border-color: rgb(252 211 77 / 72%); animation: dev-core-orbit 8s linear infinite reverse; }
+.dev-core--active .dev-core__orb { animation-duration: 1.25s; box-shadow: 0 0 18px #9eeaff, 0 0 52px rgb(70 129 255 / 95%), inset -8px -9px 14px rgb(5 13 41 / 70%); }
+.dev-core--active .dev-core__ring { border-color: #f9dd79; }
+.dev-core-console__input { min-height: 96px; border-color: rgb(125 211 252 / 25%); background: rgb(3 11 25 / 48%); }
+.dev-spark, .dev-lucky-lever { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 8px 13px; border-radius: 9px; cursor: pointer; font-weight: 600; }
+.dev-spark { color: #dbeafe; border: 1px solid rgb(125 211 252 / 27%); background: linear-gradient(135deg, rgb(43 113 172 / 24%), rgb(32 51 102 / 18%)); box-shadow: inset 0 1px rgb(226 232 240 / 8%); transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.dev-spark:hover { transform: rotate(-1deg) translateY(-2px); border-color: rgb(125 211 252 / 68%); box-shadow: 0 8px 20px rgb(45 137 219 / 19%); }
+.dev-lucky-lever { color: #211707; border: 1px solid rgb(255 228 138 / 70%); background: linear-gradient(180deg, #ffe9a4, #d4a82b 48%, #8d6413); box-shadow: inset 0 2px rgb(255 255 255 / 60%), 0 5px 0 #79520d, 0 13px 24px rgb(212 175 55 / 27%); transition: transform .14s ease, box-shadow .14s ease; }
+.dev-lucky-lever:active { transform: translateY(4px); box-shadow: inset 0 2px rgb(255 255 255 / 32%), 0 1px 0 #79520d; }
+.dev-studio-drone { position: absolute; z-index: -1; display: flex; gap: 8px; width: 50px; height: 27px; border: 1px solid rgb(125 211 252 / 35%); border-radius: 50% 50% 42% 42%; background: linear-gradient(145deg, rgb(29 55 91 / 76%), rgb(7 17 35 / 80%)); box-shadow: 0 0 22px rgb(82 184 255 / 16%); opacity: .74; animation: dev-drone-hover 5s ease-in-out infinite; }
+.dev-studio-drone i { width: 7px; height: 7px; margin-top: 9px; border-radius: 50%; background: #92e6ff; box-shadow: var(--dev-pointer-x) var(--dev-pointer-y) 8px rgb(135 230 255 / 66%); }
+.dev-studio-drone--jarvis { top: 146px; left: -12px; }
+.dev-studio-drone--wally { top: 292px; right: -4px; animation-delay: -1.8s; }
+.dev-studio-drone--twin { top: 516px; left: 4%; animation-delay: -3.2s; }
+@keyframes dev-core-breathe { 0%,100% { transform: scale(.92); } 50% { transform: scale(1.12); } }
+@keyframes dev-core-orbit { to { rotate: 360deg; } }
+@keyframes dev-drone-hover { 0%,100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(0, -13px, 0); } }
+@keyframes dev-lucky-flash { from { opacity: 0; transform: scale(.82); } 35% { opacity: 1; } to { opacity: 0; transform: scale(1.25); } }
+@media (max-width: 640px) { .dev-studio-drone { display: none; } .dev-core-console { align-items: flex-start; } .dev-core { flex-basis: 70px; width: 70px; height: 70px; } .dev-core__ring { width: 62px; } .dev-core__ring--two { width: 56px; } }
+@media (prefers-reduced-motion: reduce) { .dev-core__orb, .dev-core__ring, .dev-studio-drone, .dev-studio-bridge--flash::after { animation: none !important; } .dev-spark, .dev-lucky-lever { transition: none; } }
+
 /* Тонкий заголовок студии — «дорогая» типографика. */
 .dev-title {
   font-weight: 300;

@@ -94,6 +94,7 @@ export function DevStudioView() {
   const [weeklyQuestDone, setWeeklyQuestDone] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [broadcastState, setBroadcastState] = useState<"idle" | "connecting" | "live" | "error">("idle")
+  const [luckyFlash, setLuckyFlash] = useState(false)
   const shareVideoRef = useRef<HTMLVideoElement>(null)
   const broadcastPeerRef = useRef<RTCPeerConnection | null>(null)
   const broadcastSessionRef = useRef<string | null>(null)
@@ -246,6 +247,7 @@ export function DevStudioView() {
     setIdea((prev) => (prev ? `${prev} ${clean}` : clean))
     setHeard(clean)
   })
+  const coreActive = idea.trim().length > 0 || voice.isListening
 
   /** Правка голосового: убираем карточку и отдаём фокус полю с курсором в конце. */
   function editHeard() {
@@ -264,7 +266,17 @@ export function DevStudioView() {
   return (
     <>
       {/* ── Главное действие ── */}
-      <section className="pt-6 md:pt-10">
+      <section
+        className={`dev-studio-bridge relative pt-6 md:pt-10 ${luckyFlash ? "dev-studio-bridge--flash" : ""}`}
+        onPointerMove={(event) => {
+          const bounds = event.currentTarget.getBoundingClientRect()
+          event.currentTarget.style.setProperty("--dev-pointer-x", `${((event.clientX - bounds.left) / bounds.width - 0.5) * 10}px`)
+          event.currentTarget.style.setProperty("--dev-pointer-y", `${((event.clientY - bounds.top) / bounds.height - 0.5) * 10}px`)
+        }}
+      >
+        <div className="dev-studio-drone dev-studio-drone--jarvis" aria-hidden="true"><i /><i /></div>
+        <div className="dev-studio-drone dev-studio-drone--wally" aria-hidden="true"><i /><i /></div>
+        <div className="dev-studio-drone dev-studio-drone--twin" aria-hidden="true"><i /><i /></div>
         <h1 className="dev-title text-[30px] leading-tight md:text-[38px]">Какой проект создаём?</h1>
         <p className="mt-2 text-[14px]" style={{ color: "rgb(148 163 184 / 90%)" }}>
           Опишите идею голосом или текстом — OSGARD создаст проект и подготовит его к развитию.
@@ -316,7 +328,12 @@ export function DevStudioView() {
           ) : null}
         </div>
 
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-start">
+        <div className="dev-core-console mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className={`dev-core ${coreActive ? "dev-core--active" : ""}`} aria-hidden="true">
+            <span className="dev-core__ring dev-core__ring--one" />
+            <span className="dev-core__ring dev-core__ring--two" />
+            <span className="dev-core__orb" />
+          </div>
           <label htmlFor="dev-idea" className="sr-only">
             Описание приложения, которое нужно создать
           </label>
@@ -331,7 +348,7 @@ export function DevStudioView() {
             }}
             rows={3}
             placeholder="Например: сайт кофейни с меню и бронированием столика"
-            className="dev-input flex-1 resize-none px-4 py-3.5 text-[15px]"
+            className="dev-input dev-core-console__input flex-1 resize-none px-4 py-3.5 text-[15px]"
           />
           <div className="flex items-center gap-3 sm:flex-col sm:pt-1">
             {voice.supported ? (
@@ -349,15 +366,17 @@ export function DevStudioView() {
         {/* Слушаю — человек должен видеть, что микрофон правда работает. */}
         <div className="mt-3 flex flex-wrap gap-2" aria-label="Искры идей">
           {IDEA_SPARKS.map((spark) => (
-            <button key={spark.label} type="button" className="dev-btn dev-btn--ghost text-[12px]" onClick={() => { setIdea(spark.value); setHeard(null) }}>
+            <button key={spark.label} type="button" className="dev-spark text-[12px]" onClick={() => { setIdea(spark.value); setHeard(null) }}>
               <Sparkles size={13} strokeWidth={1.7} aria-hidden="true" />
               {spark.label}
             </button>
           ))}
-          <button type="button" className="dev-btn dev-btn--gold text-[12px]" onClick={() => {
+          <button type="button" className="dev-lucky-lever text-[12px]" onClick={() => {
             setIdea(LUCKY_IDEAS[Math.floor(Math.random() * LUCKY_IDEAS.length)])
             setHeard(null)
             setLuckyStart(true)
+            setLuckyFlash(true)
+            window.setTimeout(() => setLuckyFlash(false), 680)
             window.setTimeout(() => setWizardOpen(true), 260)
           }}>
             <Dices size={13} strokeWidth={1.8} aria-hidden="true" />
