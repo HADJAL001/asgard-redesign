@@ -30,6 +30,7 @@ type Member = { userId: number; username: string; displayName?: string; addedAt:
 type Pricing = { entryUsd: number; monthlyUsd: number; extraFriendUsd: number; freeFriendSlots: number; periodDays: number }
 type RoomEvent = { id: number; title: string; description: string; startsAt: number; capacity: number; priceTimecoin: number; status: "active" | "cancelled"; attendeeCount: number; booked: boolean; isOwner: boolean }
 type RoomActivity = { id: number; kind: string; detail: string; createdAt: number; username?: string; displayName?: string }
+type AlphaAccess = { entitled: boolean; member: boolean; release: { version: string; notes: string; publishedAt: number } | null }
 
 const BACKGROUNDS: Record<string, string> = {
   nebula: "radial-gradient(120% 120% at 30% 20%, #241a45, #0a0b1a 70%)",
@@ -66,6 +67,7 @@ export function SecretRoomView() {
   const [eventPrice, setEventPrice] = useState("0")
   const [creatorMessage, setCreatorMessage] = useState("")
   const [creatorContacted, setCreatorContacted] = useState(false)
+  const [alphaAccess, setAlphaAccess] = useState<AlphaAccess | null>(null)
 
   async function loadEvents() {
     const [eventsResponse, activityResponse] = await Promise.all([
@@ -80,8 +82,12 @@ export function SecretRoomView() {
     let cancelled = false
     ;(async () => {
       try {
-        const r = await apiClient.get<any>("/secret-room", { skipAuthRedirect: true })
+        const [r, alpha] = await Promise.all([
+          apiClient.get<any>("/secret-room", { skipAuthRedirect: true }),
+          apiClient.get<AlphaAccess>("/secret-room/alpha-access", { skipAuthRedirect: true }),
+        ])
         if (cancelled) return
+        setAlphaAccess(alpha)
         setHasAccess(!!r.hasAccess)
         setIsOwner(!!r.isOwner)
         setRoom(r.room || null)
@@ -202,7 +208,7 @@ export function SecretRoomView() {
       <PremiumBackground variant="gold" />
       <Navbar />
       <main className="relative z-10 mx-auto max-w-[1100px] px-6 py-10 md:px-10 md:py-12">
-        <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
           <span className="flex size-11 items-center justify-center rounded-xl" style={{ border: `1px solid ${GOLD}66`, boxShadow: `0 0 18px ${GOLD}33` }}>
             <Lock size={20} style={{ color: GOLD }} />
           </span>
@@ -257,6 +263,17 @@ export function SecretRoomView() {
                   активна до {new Date(room.accessUntil).toLocaleDateString("ru-RU")}
                 </span>
               </div>
+
+              <section className="mt-5 flex items-center justify-between gap-4 rounded-xl px-4 py-3" style={{ background: alphaAccess?.entitled ? `${GOLD}12` : "rgba(255,255,255,0.035)", border: `1px solid ${alphaAccess?.entitled ? `${GOLD}55` : "rgba(255,255,255,0.1)"}` }}>
+                <div className="flex min-w-0 items-center gap-3">
+                  <Sparkles size={16} style={{ color: alphaAccess?.entitled ? GOLD : "rgba(255,255,255,0.45)" }} />
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold uppercase tracking-wide" style={{ color: alphaAccess?.entitled ? GOLD : "rgba(255,255,255,0.5)" }}>Alpha preview</p>
+                    <p className="truncate text-[13px] text-white/70">{alphaAccess?.release ? alphaAccess.release.version : "Релиз ещё не опубликован"}</p>
+                  </div>
+                </div>
+                <span className="shrink-0 text-[11px]" style={{ color: alphaAccess?.entitled ? GOLD : "rgba(255,255,255,0.4)" }}>{alphaAccess?.entitled ? "Доступ открыт" : "Ожидание релиза"}</span>
+              </section>
 
               <div
                 className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl"
