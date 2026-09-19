@@ -86,6 +86,14 @@ router.get("/", requireAuth, (req: AuthRequest, res) => {
 
 /* ---------------- POST /secret-room/unlock — грант доступа (после оплаты $99 + $9/мес) ---------------- */
 router.post("/unlock", requireAuth, (req: AuthRequest, res) => {
+  // A client request is never payment proof. This endpoint used to mint paid
+  // access for free; grants must now originate in a verified billing webhook.
+  return res.status(402).json({
+    error: "Payment verification is required before Secret Room access is granted",
+    code: "PAYMENT_REQUIRED",
+    pricing: ROOM_PRICING,
+  })
+  /*
   const uid = req.user!.userId
   const now = Date.now()
   const existing = roomOf(uid)
@@ -102,6 +110,7 @@ router.post("/unlock", requireAuth, (req: AuthRequest, res) => {
   }
   const room = roomOf(uid)
   res.json({ ok: true, room: serializeRoom(room), members: membersOf(room.id), pricing: ROOM_PRICING })
+  */
 })
 
 /* ---------------- PATCH /secret-room — кастомизация (владелец) ---------------- */

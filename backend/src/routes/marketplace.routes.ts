@@ -7,6 +7,7 @@ import { createNotification } from "../lib/notifications"
 import { addArchitectXp } from "../lib/architect-progression"
 import { computeCreatorRoyalty } from "../lib/creator-royalty"
 import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
+import { secretRoomMarketFeeRate } from "../lib/secret-room-perks"
 
 const router = Router()
 
@@ -17,6 +18,8 @@ const MARKET_FEE = 0.05 /* базовая комиссия маркетплей�
    «до 1% вместо 5%»). Берём наименьшую из двух ставок. */
 const PLAN_FEE: Record<string, number> = { free: 0.05, pro: 0.04, supreme: 0.03, elite: 0.01 }
 function marketFeeRateFor(sellerId: number): number {
+  const roomRate = secretRoomMarketFeeRate(sellerId)
+  if (roomRate !== null) return roomRate
   const u: any = db.prepare(`SELECT plan FROM users WHERE id = ?`).get(sellerId)
   const staked: any = db
     .prepare(`SELECT COALESCE(SUM(amount_tc), 0) AS s FROM stakes WHERE user_id = ? AND status = 'active'`)
