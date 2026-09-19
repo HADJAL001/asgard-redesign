@@ -59,7 +59,7 @@ function HoloTable({ accent, reducedMotion }: { accent: string; reducedMotion: b
 function CustomAvatar({ gltf }: { gltf: string | null }) {
   const [avatar, setAvatar] = useState<Group | null>(null)
   useEffect(() => {
-    if (!gltf) { setAvatar(null); return }
+    if (!gltf) return
     let active = true
     new GLTFLoader().parse(gltf, "", (loaded) => {
       if (!active) return
@@ -73,7 +73,7 @@ function CustomAvatar({ gltf }: { gltf: string | null }) {
     }, () => { if (active) setAvatar(null) })
     return () => { active = false }
   }, [gltf])
-  return avatar ? <primitive object={avatar} position={[2.6, 0, -1.8]} rotation={[0, -0.45, 0]} /> : null
+  return gltf && avatar ? <primitive object={avatar} position={[2.6, 0, -1.8]} rotation={[0, -0.45, 0]} /> : null
 }
 
 function Headquarters({ items, avatarGltf, background, isOwner, onRemove }: { items: SecretRoomItem[]; avatarGltf: string | null; background: string; isOwner: boolean; onRemove: (index: number) => void }) {

@@ -65,9 +65,11 @@ export function GenerationStory({
 
   useEffect(() => {
     const target = codePreview?.content ?? ""
-    if (!target) return
+    if (!target) {
+      const clearTimer = window.setTimeout(() => setTypedCode(""), 0)
+      return () => window.clearTimeout(clearTimer)
+    }
     let offset = 0
-    setTypedCode("")
     const timer = window.setInterval(() => {
       offset = Math.min(target.length, offset + 24)
       setTypedCode(target.slice(0, offset))

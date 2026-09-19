@@ -48,7 +48,10 @@ export function MessagesView() {
   }, [])
 
   useEffect(() => {
-    reloadConversations().catch(() => setError("Не удалось загрузить переписки")).finally(() => setLoading(false))
+    const timer = window.setTimeout(() => {
+      void reloadConversations().catch(() => setError("Не удалось загрузить переписки")).finally(() => setLoading(false))
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [reloadConversations])
 
   useEffect(() => {
@@ -59,7 +62,7 @@ export function MessagesView() {
 
   useEffect(() => {
     const query = search.trim()
-    if (query.length < 2) { setSearchResults([]); return }
+    if (query.length < 2) return
     const timer = window.setTimeout(() => {
       apiClient.get<{ users: ChatUser[] }>(`/messages/users?q=${encodeURIComponent(query)}`)
         .then((data) => setSearchResults(data.users))
@@ -87,6 +90,7 @@ export function MessagesView() {
     const query = search.trim().toLocaleLowerCase("ru-RU")
     return query ? conversations.filter(({ user }) => `${user.displayName} ${user.username}`.toLocaleLowerCase("ru-RU").includes(query)) : conversations
   }, [conversations, search])
+  const searchedUsers = search.trim().length >= 2 ? searchResults : []
 
   const sendMessage = useCallback(async () => {
     if (!activeUser || !draft.trim() || sending) return
@@ -154,7 +158,7 @@ export function MessagesView() {
             <div className="flex-1 overflow-y-auto">
               {loading ? (
                 <div className="flex h-full items-center justify-center px-6 py-12 text-center text-[13px]" style={{ color: "#9eb2bc" }}>Загружаем переписки...</div>
-              ) : visibleConversations.length === 0 && searchResults.length === 0 ? (
+              ) : visibleConversations.length === 0 && searchedUsers.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-12 text-center">
                   <MessagesSquare size={26} strokeWidth={1.25} style={{ color: "#9eb2bc" }} />
                   {recommendedUsers.length > 0 && !search.trim() && (
@@ -191,7 +195,7 @@ export function MessagesView() {
                 </div>
               ) : (
                 <>
-                {searchResults.map((user) => (
+                {searchedUsers.map((user) => (
                   <button key={`search-${user.id}`} type="button" onClick={() => openConversation(user)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors" style={{ borderBottom: "1px solid rgba(48,66,75,0.45)" }}>
                     <Image src={user.avatarUrl || "/placeholder.svg"} alt={user.displayName} width={28} height={28} className="size-7 rounded-full object-cover" />
                     <div className="min-w-0"><p className="truncate text-[14px] font-medium">{user.displayName}</p><p className="truncate text-[12px]" style={{ color: "#9eb2bc" }}>@{user.username}</p></div>

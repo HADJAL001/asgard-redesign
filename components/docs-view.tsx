@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import {
   BookOpen,
   BrainCircuit,
@@ -287,24 +287,21 @@ export function DocsView() {
   const [activeCategory, setActiveCategory] = useState<CategoryId>("intro")
   const [query, setQuery] = useState("")
   const [showAll, setShowAll] = useState(false)
-  const [open, setOpen] = useState<Article | null>(null)
-  const [readArticleIds, setReadArticleIds] = useState<string[]>([])
-
-  useEffect(() => {
+  const [open, setOpen] = useState<Article | null>(() => {
+    if (typeof window === "undefined") return null
+    const articleId = new URLSearchParams(window.location.search).get("article")
+    return articleId ? ARTICLES.find((item) => item.id === articleId) ?? null : null
+  })
+  const [readArticleIds, setReadArticleIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return []
     try {
       const saved = JSON.parse(localStorage.getItem("osgard_docs_read") || "[]")
-      if (Array.isArray(saved)) setReadArticleIds(saved.filter((id): id is string => typeof id === "string"))
+      return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === "string") : []
     } catch {
       // A malformed local preference must not block the documentation.
+      return []
     }
-  }, [])
-
-  useEffect(() => {
-    const articleId = new URLSearchParams(window.location.search).get("article")
-    if (!articleId) return
-    const article = ARTICLES.find((item) => item.id === articleId)
-    if (article) setOpen(article)
-  }, [])
+  })
 
   function openArticle(article: Article) {
     setOpen(article)

@@ -153,16 +153,19 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
 
   useEffect(() => {
     if (!luckyStart) return
-    const pick = THEMES[Math.floor(Math.random() * THEMES.length)]
-    setTheme(pick)
-    setName((current) => current.trim() || pick.label)
-    setBrief({
-      audience: t("projectWizard.luckyAudience"),
-      outcome: t("projectWizard.luckyOutcome"),
-      essentials: t("projectWizard.luckyEssentials"),
-      constraints: "",
-    })
-    setStep(3)
+    const timer = window.setTimeout(() => {
+      const pick = THEMES[Math.floor(Math.random() * THEMES.length)]
+      setTheme(pick)
+      setName((current) => current.trim() || pick.label)
+      setBrief({
+        audience: t("projectWizard.luckyAudience"),
+        outcome: t("projectWizard.luckyOutcome"),
+        essentials: t("projectWizard.luckyEssentials"),
+        constraints: "",
+      })
+      setStep(3)
+    }, 0)
+    return () => window.clearTimeout(timer)
     // luckyStart is immutable for one modal instance; translations are ready at mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [luckyStart])
