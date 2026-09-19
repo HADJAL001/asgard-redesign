@@ -84,7 +84,16 @@ jobs:
               STATUS="ok"
             fi
           fi
+          PREVIOUS_STATUS=""
+          if [ -f monitoring/reserve-log.csv ]; then
+            PREVIOUS_STATUS=$(tail -n 1 monitoring/reserve-log.csv | awk -F',' 'NR == 1 { print $5 }')
+          fi
+          ALERT=0
+          if [ "$STATUS" = "critical_low" ] && [ "$PREVIOUS_STATUS" != "critical_low" ]; then
+            ALERT=1
+          fi
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "alert=$ALERT" >> "$GITHUB_OUTPUT"
 
       - name: Log to monitoring-data
         run: |
@@ -100,7 +109,7 @@ jobs:
           done
 
       - name: Alert in Telegram on critical drop
-        if: steps.eval.outputs.status == 'critical_low'
+        if: steps.eval.outputs.status == 'critical_low' && steps.eval.outputs.alert == '1'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -127,7 +136,7 @@ jobs:
             --data-urlencode text="${TEXT}"
 
       - name: Alert in Telegram on excess reserve
-        if: steps.eval.outputs.status == 'high_excess'
+        if: ${{ false }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
