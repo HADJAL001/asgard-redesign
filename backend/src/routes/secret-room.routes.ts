@@ -4,6 +4,7 @@ import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import stripe, { FRONTEND_URL, isStripeConfigured, STRIPE_WEBHOOK_SECRET_SECRET_ROOM } from "../lib/stripe"
 import { captureError } from "../lib/sentry"
 import { logAudit } from "../lib/audit"
+import { createNotification } from "../lib/notifications"
 
 /* ================================================================
    OSGARD · Secret Room API — супер-тайная приватная комната
@@ -78,6 +79,18 @@ function serializeRoom(room: any) {
   }
 }
 
+function accessibleRoom(userId: number): any {
+  const own = roomOf(userId)
+  if (own?.access_until > Date.now()) return own
+  return db.prepare(`SELECT r.* FROM secret_rooms r JOIN secret_room_members m ON m.room_id = r.id WHERE m.user_id = ? AND r.access_until > ? LIMIT 1`).get(userId, Date.now())
+}
+
+function serializeEvent(event: any, viewerId: number) {
+  const attendees = (db.prepare(`SELECT COUNT(*) AS count FROM secret_room_event_attendees WHERE event_id = ?`).get(event.id) as any).count
+  const booked = !!db.prepare(`SELECT 1 FROM secret_room_event_attendees WHERE event_id = ? AND user_id = ?`).get(event.id, viewerId)
+  return { id: event.id, title: event.title, description: event.description, startsAt: event.starts_at, capacity: event.capacity, priceTimecoin: event.price_timecoin, status: event.status, attendeeCount: attendees, booked, isOwner: event.owner_id === viewerId }
+}
+
 /* ---------------- GET /secret-room ---------------- */
 router.get("/", requireAuth, (req: AuthRequest, res) => {
   const uid = req.user!.userId
@@ -128,6 +141,85 @@ router.post("/create-checkout", requireAuth, async (req: AuthRequest, res) => {
     captureError("[secret-room/create-checkout] Stripe error:", error)
     return res.status(502).json({ error: "Could not start secure checkout" })
   }
+})
+
+router.get("/events", requireAuth, (req: AuthRequest, res) => {
+  const room = accessibleRoom(req.user!.userId)
+  if (!room) return res.status(403).json({ error: "An active Secret Room invitation is required" })
+  const events = db.prepare(`SELECT * FROM secret_room_events WHERE room_id = ? AND (status = 'active' OR owner_id = ?) ORDER BY starts_at ASC`).all(room.id, req.user!.userId)
+  res.json({ events: events.map((event: any) => serializeEvent(event, req.user!.userId)) })
+})
+
+router.post("/events", requireAuth, (req: AuthRequest, res) => {
+  const userId = req.user!.userId
+  const room = roomOf(userId)
+  if (!room || room.access_until <= Date.now()) return res.status(403).json({ error: "Only the active room owner can create an event" })
+  const { title, description, startsAt, capacity, priceTimecoin } = req.body || {}
+  const start = Number(startsAt), seats = Number(capacity), price = Number(priceTimecoin)
+  if (typeof title !== "string" || !title.trim() || title.trim().length > 80 || !Number.isFinite(start) || start <= Date.now() || !Number.isInteger(seats) || seats < 1 || seats > 500 || !Number.isFinite(price) || price < 0 || price > 1_000_000) return res.status(400).json({ error: "Invalid event details" })
+  const now = Date.now()
+  const result = db.prepare(`INSERT INTO secret_room_events (room_id, owner_id, title, description, starts_at, capacity, price_timecoin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(room.id, userId, title.trim(), typeof description === "string" ? description.trim().slice(0, 1000) : "", start, seats, price, now, now)
+  const event: any = db.prepare(`SELECT * FROM secret_room_events WHERE id = ?`).get(result.lastInsertRowid)
+  logAudit(userId, "credit", 0, "secret_room_event_created", { eventId: event.id })
+  res.status(201).json({ event: serializeEvent(event, userId) })
+})
+
+router.patch("/events/:id", requireAuth, (req: AuthRequest, res) => {
+  const userId = req.user!.userId, eventId = Number(req.params.id)
+  const event: any = db.prepare(`SELECT * FROM secret_room_events WHERE id = ? AND owner_id = ?`).get(eventId, userId)
+  if (!event) return res.status(404).json({ error: "Event not found" })
+  if (event.status !== "active") return res.status(409).json({ error: "Cancelled events cannot be changed" })
+  const { title, description, startsAt, capacity } = req.body || {}
+  const booked = (db.prepare(`SELECT COUNT(*) AS count FROM secret_room_event_attendees WHERE event_id = ?`).get(eventId) as any).count
+  const nextTitle = typeof title === "string" && title.trim() ? title.trim().slice(0, 80) : event.title
+  const nextDescription = typeof description === "string" ? description.trim().slice(0, 1000) : event.description
+  const nextStart = startsAt === undefined ? event.starts_at : Number(startsAt)
+  const nextCapacity = capacity === undefined ? event.capacity : Number(capacity)
+  if (!Number.isFinite(nextStart) || nextStart <= Date.now() || !Number.isInteger(nextCapacity) || nextCapacity < Math.max(1, booked) || nextCapacity > 500) return res.status(400).json({ error: "Invalid event update" })
+  db.prepare(`UPDATE secret_room_events SET title = ?, description = ?, starts_at = ?, capacity = ?, updated_at = ? WHERE id = ?`).run(nextTitle, nextDescription, nextStart, nextCapacity, Date.now(), eventId)
+  res.json({ event: serializeEvent(db.prepare(`SELECT * FROM secret_room_events WHERE id = ?`).get(eventId), userId) })
+})
+
+router.post("/events/:id/cancel", requireAuth, (req: AuthRequest, res) => {
+  const userId = req.user!.userId, eventId = Number(req.params.id)
+  const event: any = db.prepare(`SELECT * FROM secret_room_events WHERE id = ? AND owner_id = ?`).get(eventId, userId)
+  if (!event) return res.status(404).json({ error: "Event not found" })
+  if (event.status === "cancelled") return res.json({ ok: true })
+  const attendees = db.prepare(`SELECT user_id, paid_timecoin FROM secret_room_event_attendees WHERE event_id = ?`).all(eventId) as any[]
+  if (attendees.length) return res.status(409).json({ error: "Booked events cannot be cancelled. Contact support to arrange verified refunds.", code: "EVENT_HAS_ATTENDEES" })
+  db.prepare(`UPDATE secret_room_events SET status = 'cancelled', updated_at = ? WHERE id = ?`).run(Date.now(), eventId)
+  logAudit(userId, "credit", 0, "secret_room_event_cancelled", { eventId })
+  res.json({ ok: true })
+})
+
+router.post("/events/:id/book", requireAuth, (req: AuthRequest, res) => {
+  const userId = req.user!.userId, eventId = Number(req.params.id)
+  const event: any = db.prepare(`SELECT * FROM secret_room_events WHERE id = ?`).get(eventId)
+  if (!event || event.status !== "active" || event.starts_at <= Date.now()) return res.status(404).json({ error: "Event is unavailable" })
+  if (event.owner_id === userId) return res.status(400).json({ error: "The room owner cannot book their own event" })
+  const room = accessibleRoom(userId)
+  if (!room || room.id !== event.room_id) return res.status(403).json({ error: "A room invitation is required to book this event" })
+  try {
+    const bookedNow = db.transaction(() => {
+      if (db.prepare(`SELECT 1 FROM secret_room_event_attendees WHERE event_id = ? AND user_id = ?`).get(eventId, userId)) return false
+      const count = (db.prepare(`SELECT COUNT(*) AS count FROM secret_room_event_attendees WHERE event_id = ?`).get(eventId) as any).count
+      if (count >= event.capacity) throw new Error("EVENT_FULL")
+      const debit = db.prepare(`UPDATE wallets SET timecoin = timecoin - ?, updated_at = ? WHERE user_id = ? AND timecoin >= ?`).run(event.price_timecoin, Date.now(), userId, event.price_timecoin)
+      if (!debit.changes) throw new Error("INSUFFICIENT_BALANCE")
+      db.prepare(`UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`).run(event.price_timecoin, Date.now(), event.owner_id)
+      db.prepare(`INSERT INTO secret_room_event_attendees (event_id, user_id, paid_timecoin, booked_at) VALUES (?, ?, ?, ?)`).run(eventId, userId, event.price_timecoin, Date.now())
+      return true
+    })()
+    if (!bookedNow) return res.json({ event: serializeEvent(db.prepare(`SELECT * FROM secret_room_events WHERE id = ?`).get(eventId), userId), duplicate: true })
+  } catch (error: any) {
+    if (error.message === "EVENT_FULL") return res.status(409).json({ error: "Event is full", code: "EVENT_FULL" })
+    if (error.message === "INSUFFICIENT_BALANCE") { logAudit(userId, "rejected", event.price_timecoin, "insufficient_balance", { action: "secret_room_event_book", eventId }); return res.status(402).json({ error: "Insufficient TimeCoin", code: "INSUFFICIENT_BALANCE" }) }
+    throw error
+  }
+  logAudit(userId, "debit", event.price_timecoin, "secret_room_event_booking", { eventId })
+  logAudit(event.owner_id, "credit", event.price_timecoin, "secret_room_event_sale", { eventId, attendeeId: userId })
+  createNotification({ userId: event.owner_id, actorId: userId, type: "message", entityType: "secret_room_event", entityId: eventId, text: `A member booked “${event.title}”.` })
+  res.status(201).json({ event: serializeEvent(db.prepare(`SELECT * FROM secret_room_events WHERE id = ?`).get(eventId), userId) })
 })
 
 router.post("/webhook", async (req, res) => {

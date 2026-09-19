@@ -9,7 +9,7 @@
    ================================================================ */
 
 import { useEffect, useState } from "react"
-import { Lock, Loader2, Plus, Trash2, UserPlus, X, Sparkles, KeyRound, Check } from "lucide-react"
+import { Lock, Loader2, Plus, Trash2, UserPlus, Sparkles, KeyRound, Check, CalendarDays, Ticket } from "lucide-react"
 import { Navbar } from "./navbar"
 import { PremiumBackground } from "./premium-bg"
 import { COLORS } from "@/lib/economy"
@@ -21,6 +21,7 @@ type RoomItem = { type: string; x: number; y: number }
 type Room = { id: number; name: string; background: string; items: RoomItem[]; friendSlots: number; accessUntil: number; active: boolean }
 type Member = { userId: number; username: string; displayName?: string; addedAt: number }
 type Pricing = { entryUsd: number; monthlyUsd: number; extraFriendUsd: number; freeFriendSlots: number; periodDays: number }
+type RoomEvent = { id: number; title: string; description: string; startsAt: number; capacity: number; priceTimecoin: number; status: "active" | "cancelled"; attendeeCount: number; booked: boolean; isOwner: boolean }
 
 const BACKGROUNDS: Record<string, string> = {
   nebula: "radial-gradient(120% 120% at 30% 20%, #241a45, #0a0b1a 70%)",
@@ -48,6 +49,17 @@ export function SecretRoomView() {
   const [pricing, setPricing] = useState<Pricing>({ entryUsd: 99, monthlyUsd: 9, extraFriendUsd: 49, freeFriendSlots: 3, periodDays: 30 })
   const [friendName, setFriendName] = useState("")
   const [msg, setMsg] = useState<string | null>(null)
+  const [events, setEvents] = useState<RoomEvent[]>([])
+  const [eventTitle, setEventTitle] = useState("")
+  const [eventDescription, setEventDescription] = useState("")
+  const [eventStart, setEventStart] = useState("")
+  const [eventCapacity, setEventCapacity] = useState("10")
+  const [eventPrice, setEventPrice] = useState("0")
+
+  async function loadEvents() {
+    const response = await apiClient.get<{ events: RoomEvent[] }>("/secret-room/events", { skipAuthRedirect: true })
+    setEvents(response.events || [])
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -60,6 +72,7 @@ export function SecretRoomView() {
         setRoom(r.room || null)
         setMembers(r.members || [])
         if (r.pricing) setPricing(r.pricing)
+        if (r.hasAccess) await loadEvents()
       } catch {
         if (!cancelled) setHasAccess(false)
       } finally {
@@ -68,6 +81,29 @@ export function SecretRoomView() {
     })()
     return () => { cancelled = true }
   }, [])
+
+  async function createEvent() {
+    const startsAt = new Date(eventStart).getTime()
+    if (!eventTitle.trim() || !Number.isFinite(startsAt)) { setMsg("Enter an event title and start time."); return }
+    setBusy(true); setMsg(null)
+    try {
+      await apiClient.post("/secret-room/events", { title: eventTitle, description: eventDescription, startsAt, capacity: Number(eventCapacity), priceTimecoin: Number(eventPrice) })
+      setEventTitle(""); setEventDescription(""); setEventStart(""); setEventCapacity("10"); setEventPrice("0")
+      await loadEvents()
+    } catch (e: any) { setMsg(e?.message || "Could not create event") } finally { setBusy(false) }
+  }
+
+  async function bookEvent(eventId: number) {
+    setBusy(true); setMsg(null)
+    try { await apiClient.post(`/secret-room/events/${eventId}/book`, {}); await loadEvents() }
+    catch (e: any) { setMsg(e?.message || "Could not book event") } finally { setBusy(false) }
+  }
+
+  async function cancelEvent(eventId: number) {
+    setBusy(true); setMsg(null)
+    try { await apiClient.post(`/secret-room/events/${eventId}/cancel`, {}); await loadEvents() }
+    catch (e: any) { setMsg(e?.message || "Could not cancel event") } finally { setBusy(false) }
+  }
 
   async function unlock() {
     setBusy(true); setMsg(null)
@@ -207,6 +243,26 @@ export function SecretRoomView() {
                   </div>
                 )}
               </div>
+
+              <section className="mt-6 border-t pt-5" style={{ borderColor: `${GOLD}33` }}>
+                <div className="flex items-center gap-2"><CalendarDays size={16} style={{ color: GOLD }} /><h2 className="text-[16px] font-semibold">Room events</h2></div>
+                <div className="mt-3 space-y-2">
+                  {events.filter((event) => event.status === "active").map((event) => (
+                    <div key={event.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg px-3 py-3" style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                      <div><p className="text-[13px] font-semibold">{event.title}</p>{event.description && <p className="mt-0.5 text-[12px] text-white/50">{event.description}</p>}<p className="mt-1 text-[11px] text-white/40">{new Date(event.startsAt).toLocaleString("ru-RU")} · {event.attendeeCount}/{event.capacity}</p></div>
+                      {event.isOwner ? <button type="button" onClick={() => cancelEvent(event.id)} disabled={busy || event.attendeeCount > 0} className="text-[12px] text-white/45 disabled:opacity-30">Cancel</button> : event.booked ? <span className="text-[12px]" style={{ color: GOLD }}>Booked</span> : <button type="button" onClick={() => bookEvent(event.id)} disabled={busy || event.attendeeCount >= event.capacity} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium disabled:opacity-40" style={{ border: `1px solid ${GOLD}66`, color: GOLD }}><Ticket size={13} />{event.priceTimecoin} TimeCoin</button>}
+                    </div>
+                  ))}
+                  {events.filter((event) => event.status === "active").length === 0 && <p className="text-[12px] text-white/40">No upcoming events yet.</p>}
+                </div>
+                {isOwner && <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <input value={eventTitle} onChange={(event) => setEventTitle(event.target.value)} placeholder="Event title" className="rounded-lg px-3 py-2 text-[13px]" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" }} />
+                  <input type="datetime-local" value={eventStart} onChange={(event) => setEventStart(event.target.value)} className="rounded-lg px-3 py-2 text-[13px]" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" }} />
+                  <input value={eventDescription} onChange={(event) => setEventDescription(event.target.value)} placeholder="Description" className="rounded-lg px-3 py-2 text-[13px]" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" }} />
+                  <div className="flex gap-2"><input type="number" min="1" value={eventCapacity} onChange={(event) => setEventCapacity(event.target.value)} aria-label="Capacity" className="min-w-0 flex-1 rounded-lg px-3 py-2 text-[13px]" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" }} /><input type="number" min="0" step="0.01" value={eventPrice} onChange={(event) => setEventPrice(event.target.value)} aria-label="TimeCoin price" className="min-w-0 flex-1 rounded-lg px-3 py-2 text-[13px]" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" }} /></div>
+                  <button type="button" onClick={createEvent} disabled={busy} className="rounded-lg px-3 py-2 text-[13px] font-medium disabled:opacity-50" style={{ background: `${GOLD}22`, color: GOLD, border: `1px solid ${GOLD}55` }}>Create event</button>
+                </div>}
+              </section>
 
               {isOwner && (
                 <>
