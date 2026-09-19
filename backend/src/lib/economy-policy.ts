@@ -10,6 +10,10 @@ export const MATERIAL_OFFERS: Record<CraftMaterial, { credits: number; quantity:
 
 export const FORGE_RECIPE: Record<string, { credits: number; material: CraftMaterial; materialAmount: number }> = {
   neural: { credits: 120, material: "shards", materialAmount: 4 },
+  crystal: { credits: 160, material: "crystals", materialAmount: 1 },
+  weapon: { credits: 120, material: "shards", materialAmount: 4 },
+  shield: { credits: 120, material: "shards", materialAmount: 4 },
+  artifact: { credits: 120, material: "shards", materialAmount: 4 },
   code: { credits: 120, material: "shards", materialAmount: 4 },
   design: { credits: 160, material: "crystals", materialAmount: 1 },
   strategy: { credits: 160, material: "crystals", materialAmount: 1 },

@@ -137,6 +137,7 @@ export function ForgeView() {
   const [forgeCurrency, setForgeCurrency] = useState<ForgeCurrencyId>("credits")
   const [projectId, setProjectId] = useState<number | "">("")
   const [submitting, setSubmitting] = useState(false)
+  const [buyingMaterial, setBuyingMaterial] = useState(false)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [result, setResult] = useState<OsgardArtifact | null>(null)
   /** Вердикт ковки к последнему result: разбор честности craftScore + нарративная идентичность. */
@@ -240,13 +241,33 @@ export function ForgeView() {
 
   const TypeIcon = ARTIFACT_TYPES[type].Icon
   const selCurrency = FORGE_CURRENCIES.find((c) => c.id === forgeCurrency)!
-  const forgeCost = selCurrency.cost
+  const forgeCost = type === "crystal" ? 160 : selCurrency.cost
   const forgeBalance = (wallet as unknown as Record<string, number>)[forgeCurrency] ?? 0
   /* Скидка от честного снаряжения Кузницы (см. backend/artifacts.routes.ts POST /forge:
      paidCost = max(1, cost - round(cost*discountRate)) — та же формула, тот же результат. */
   const discountRate = forgeLoadout.discount.discountRate
   const paidCost = Math.max(1, forgeCost - Math.round(forgeCost * discountRate))
-  const canForge = name.trim().length > 0 && forgeBalance >= paidCost
+  const material = type === "crystal" ? "crystals" : "shards"
+  const materialRequired = type === "crystal" ? 1 : 4
+  const materialPackCredits = material === "crystals" ? 120 : 40
+  const materialPackQuantity = material === "crystals" ? 1 : 10
+  const materialBalance = wallet[material]
+  const canForge = name.trim().length > 0 && forgeBalance >= paidCost && materialBalance >= materialRequired
+
+  async function buyMaterial() {
+    if (buyingMaterial) return
+    setBuyingMaterial(true)
+    setNotice(null)
+    try {
+      await apiClient.post("/wallet/materials/buy", { material, packs: 1 })
+      await fetchWallet({ skipAuthRedirect: true })
+      setNotice({ ok: true, text: `+${materialPackQuantity} ${material} added to your forge materials.` })
+    } catch (err: any) {
+      setNotice({ ok: false, text: err?.message || "Unable to buy forge materials." })
+    } finally {
+      setBuyingMaterial(false)
+    }
+  }
 
   // Кинематографический эффект при создании — общий для ручной ковки и AI-генерации,
   // forgeKind переключает только копирайт фазы charging (см. JSX ниже).
@@ -895,6 +916,12 @@ export function ForgeView() {
                   {forgeBalance} {selCurrency.label}
                 </span>
               </div>
+              <div className="flex items-center justify-between">
+                <span style={{ color: COLORS.label }}>Forge material</span>
+                <span style={{ color: materialBalance >= materialRequired ? COLORS.green : COLORS.red }}>
+                  {materialBalance} {material} / {materialRequired}
+                </span>
+              </div>
               <div className="flex items-center justify-between pt-1" style={{ borderTop: `1px solid ${COLORS.border}` }}>
                 <span>{t("forge.remainingAfter")}</span>
                 <span className="text-[15px] font-medium" style={{ color: "#FFFFFF" }}>
@@ -902,6 +929,19 @@ export function ForgeView() {
                 </span>
               </div>
             </div>
+
+            {materialBalance < materialRequired && (
+              <button
+                type="button"
+                onClick={buyMaterial}
+                disabled={buyingMaterial || wallet.credits < materialPackCredits}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-[13px] font-medium disabled:opacity-40"
+                style={{ borderColor: COLORS.border, color: COLORS.accent }}
+              >
+                {buyingMaterial && <Loader2 size={15} className="animate-spin" />}
+                Buy {materialPackQuantity} {material} for {materialPackCredits} Credits
+              </button>
+            )}
 
             <button
               type="button"
