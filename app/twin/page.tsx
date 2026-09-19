@@ -128,7 +128,7 @@ export default function TwinPage() {
       setArtifacts(artifactsData.artifacts)
       setMarketplace(marketplaceData.listings)
       setMyArtifacts(myArtifactsData.artifacts)
-      setRentalPriceDraft(String(twinData.twin.rentalPriceTc || ""))
+      setRentalPriceDraft(String(twinData.twin.rentalPriceTc || 0.1))
     } catch (err: any) {
       setNotice({ ok: false, text: err?.message || t("twinPage.loadFailed") })
     } finally {
@@ -222,6 +222,8 @@ export default function TwinPage() {
       setBusy(false)
     }
   }
+
+  const rentalDailyPreview = Math.max(0.1, Number(rentalPriceDraft) || twin?.rentalPriceTc || 0.1)
 
   if (loading) {
     return (
@@ -414,15 +416,19 @@ export default function TwinPage() {
                   </span>
                 </div>
                 <label className="mb-1 block text-xs" style={{ color: "#9eb2bc" }}>
-                  {t("twinPage.rentalPrice")}
+                  {t("twinPage.rentalPrice")} · {fmtTC(rentalDailyPreview)} / day
                 </label>
                 <input
-                  type="number"
+                  type="range"
+                  min="0.1"
+                  max="100"
+                  step="0.1"
                   value={rentalPriceDraft}
                   onChange={(e) => setRentalPriceDraft(e.target.value)}
-                  className="mb-3 w-full rounded-lg px-3 py-2 text-sm outline-none"
-                  style={{ backgroundColor: "#10181d", border: "1px solid #30424b", color: "#FFFFFF" }}
+                  className="mb-2 w-full accent-[#d7ae57]"
+                  aria-label={t("twinPage.rentalPrice")}
                 />
+                <p className="mb-3 text-xs" style={{ color: "#9eb2bc" }}>Forecast: {fmtTC(rentalDailyPreview)} per day, or {fmtTC(rentalDailyPreview * 30)} for 30 fully booked days.</p>
                 <button
                   onClick={handleToggleRental}
                   disabled={busy || (twin.trainedSamples === 0 && !twin.isRentable)}
