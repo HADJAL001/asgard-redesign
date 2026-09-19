@@ -181,7 +181,7 @@ export default function WalletScreen() {
             Перевести TimeCoin
           </Button>
           <Button variant="secondary" onPress={() => router.push('/wallet/convert')}>
-            Конвертировать валюту
+            Правила экономики
           </Button>
         </Card>
 

@@ -8,25 +8,10 @@ import { TwoFAService } from "../services/twofa.service"
 import { SolanaService } from "../services/solana.service"
 import { transferSchema } from "../validators/transfer.validator"
 import { logAudit } from "../lib/audit"
-import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
 import { CRAFT_MATERIALS, MATERIAL_OFFERS, type CraftMaterial } from "../lib/economy-policy"
 
 const router = Router()
 const solanaService = new SolanaService()
-
-type CurrencyKey = "credits" | "shards" | "crystals" | "timecoin" | "cash_usd"
-const CURRENCIES: CurrencyKey[] = ["credits", "shards", "crystals", "timecoin", "cash_usd"]
-
-/* Базовые курсы валют к cash_usd (условные, для конвертации между собой) */
-const RATE_TO_USD: Record<CurrencyKey, number> = {
-  credits: 0.01,
-  shards: 0.1,
-  crystals: 1,
-  timecoin: 12.4,
-  cash_usd: 1,
-}
-
-const CONVERT_FEE = 0.01 // 1% комиссия
 
 /* ---------------- GET /wallet ---------------- */
 router.get("/", requireAuth, (req: AuthRequest, res) => {
@@ -78,90 +63,12 @@ router.get("/tc-balance", requireAuth, asyncHandler(async (req: AuthRequest, res
   res.json({ reserveBalance, userBalance: wallet.timecoin })
 }))
 
-/* ---------------- POST /wallet/convert ---------------- */
-router.post("/convert", requireAuth, (req: AuthRequest, res) => {
-  const { from, to, amount } = req.body || {}
-
-  if (!CURRENCIES.includes(from) || !CURRENCIES.includes(to)) {
-    return res.status(400).json({ error: "Некорректная валюта" })
-  }
-  if (from === "shards" || from === "crystals" || to === "shards" || to === "crystals") {
-    return res.status(400).json({ error: "Shards and crystals are forge materials, not exchange currencies" })
-  }
-  if (from === to) {
-    return res.status(400).json({ error: "Валюты должны отличаться" })
-  }
-  if (from === "timecoin" || to === "timecoin") {
-    return res.status(400).json({
-      error: "TimeCoin нельзя конвертировать. Только покупка на бирже за $ или продажа артефактов.",
-    })
-  }
-
-  const amt = Number(amount)
-  if (!amt || amt <= 0) {
-    return res.status(400).json({ error: "Некорректная сумма" })
-  }
-
-  const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
-  if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
-
-  /* Курс/комиссия детерминированы (не зависят от текущего баланса) — считаем до
-     транзакции. from/to прошли whitelist CURRENCIES, поэтому интерполяция
-     ${from}/${to} в SQL безопасна (не свободный пользовательский ввод). */
-  const amountAfterFee = amt * (1 - CONVERT_FEE)
-  const usdValue = amountAfterFee * RATE_TO_USD[from as CurrencyKey]
-  const received = usdValue / RATE_TO_USD[to as CurrencyKey]
-  const now = Date.now()
-  const userId = req.user!.userId
-  const idemKey = normalizeIdemKey(req.header("Idempotency-Key") ?? (req.body as any)?.idempotencyKey)
-
-  try {
-    const opResult = runEconomyOp({
-      userId,
-      scope: "wallet_convert",
-      idemKey,
-      mutate: () => {
-        /* Списание и начисление — ОДНИМ условным UPDATE в транзакции. Прежде это
-           были два отдельных стейтмента поверх баланса, прочитанного ВНЕ
-           транзакции: параллельные конвертации могли уйти в минус (TOCTOU), а
-           падение между шагами оставляло частичное состояние. WHERE ${from} >= amt
-           делает списание авторитетным; changes!==1 → недостаточно средств. */
-        const upd = db
-          .prepare(
-            `UPDATE wallets SET ${from} = ${from} - ?, ${to} = ${to} + ?, updated_at = ?
-             WHERE user_id = ? AND ${from} >= ?`,
-          )
-          .run(amt, received, now, userId, amt)
-        if (upd.changes !== 1) {
-          throw new EconomyError("Недостаточно средств", 400)
-        }
-
-        db.prepare(
-          `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-           VALUES (?, 'convert', ?, ?, ?, ?, 'done')`,
-        ).run(userId, `${from} → ${to}`, "Обмен валют", amt, from)
-
-        const updatedWallet = db
-          .prepare(
-            `SELECT credits, shards, crystals, timecoin, cash_usd, updated_at as updatedAt
-             FROM wallets WHERE user_id = ?`,
-          )
-          .get(userId)
-
-        return {
-          wallet: updatedWallet,
-          conversion: { from, to, amountSent: amt, amountReceived: received, fee: CONVERT_FEE },
-        }
-      },
-    })
-
-    return res.json(opResult.result)
-  } catch (err) {
-    if (err instanceof EconomyError) {
-      return res.status(err.status).json({ error: err.message })
-    }
-    throw err
-  }
+/* Legacy endpoint retained only to provide a clear migration error to older clients.
+   Credits are non-transferable, materials are Forge-only, and TimeCoin trades on the market. */
+router.post("/convert", requireAuth, (_req: AuthRequest, res) => {
+  return res.status(410).json({
+    error: "Wallet conversion is unavailable: Credits are non-transferable, materials are Forge-only, and TimeCoin trades on the market.",
+  })
 })
 
 /* ================================================================

@@ -1300,6 +1300,11 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
 
   /* ---- action: POST /wallet/convert — конвертация валют кошелька ---- */
   convertCurrency: async (from, to, amount) => {
+    return {
+      success: false as const,
+      error: "Конвертация в кошельке недоступна: Credits не переводятся, материалы используются только в Кузнице, а TimeCoin торгуется на бирже.",
+    }
+
     set({ loading: true, error: null })
     try {
       const res = await apiClient.post<{
@@ -2393,14 +2398,17 @@ export function OsgardStoreProvider({ children }: { children: ReactNode }) {
     async (wantTo, from, to) => {
       if (from === to) return { ok: false, message: "Выберите разные валюты" }
       if (wantTo <= 0) return { ok: false, message: "Введите сумму" }
+      return { ok: false, message: "Обмен валют отключен: используйте Credits в Кузнице, а TimeCoin - на бирже." }
+
       const quote = convertQuote(wantTo, from, to)
       const res = await real.convertCurrency(from as CurrencyKey, to as CurrencyKey, quote.give)
-      if (!res.success || !res.conversion) {
+      const conversion = res.conversion
+      if (!res.success || !conversion) {
         return { ok: false, message: res.error || `Недостаточно ${CURRENCIES[from].label.toLowerCase()}` }
       }
       return {
         ok: true,
-        message: `Обмен выполнен: −${res.conversion.amountSent.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ${CURRENCIES[from].symbol} → +${res.conversion.amountReceived.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ${CURRENCIES[to].symbol}`,
+        message: `Обмен выполнен: −${conversion!.amountSent.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ${CURRENCIES[from].symbol} → +${conversion!.amountReceived.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ${CURRENCIES[to].symbol}`,
       }
     },
     [real],

@@ -1,17 +1,6 @@
 import { apiClient } from '@/lib/api-client';
-import type { CurrencyKey, RecipientLookupResult } from '@/types/market';
+import type { RecipientLookupResult } from '@/types/market';
 import type { OsgardWallet } from '@/types/artifact';
-
-export async function convertCurrency(
-  from: CurrencyKey,
-  to: CurrencyKey,
-  amount: number,
-): Promise<{
-  wallet: OsgardWallet;
-  conversion: { from: CurrencyKey; to: CurrencyKey; amountSent: number; amountReceived: number; fee: number };
-}> {
-  return apiClient.post('/wallet/convert', { from, to, amount });
-}
 
 export async function lookupRecipient(email: string): Promise<RecipientLookupResult> {
   return apiClient.get<RecipientLookupResult>(`/wallet/lookup-recipient?email=${encodeURIComponent(email)}`);

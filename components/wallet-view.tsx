@@ -18,67 +18,22 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowRight, Plus, Info, DollarSign, Loader2, ArrowDownToLine, ArrowUpFromLine, Send, AlertTriangle, Coins } from "lucide-react"
+import { Plus, DollarSign, Loader2, ArrowDownToLine, ArrowUpFromLine, Send, AlertTriangle, Coins } from "lucide-react"
 import { Navbar } from "./navbar"
-import { useOsgardStore, type CurrencyKey } from "@/lib/store/osgard-store"
+import { useOsgardStore } from "@/lib/store/osgard-store"
 import { COLORS, CURRENCIES, CURRENCY_ORDER, formatTokens, type CurrencyId } from "@/lib/economy"
 import { UP } from "@/lib/tc-market"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { apiClient } from "@/lib/api-client"
 import { ExtraPackagePurchase } from "./ExtraPackagePurchase"
-import { ConfirmModal } from "./ui/confirm-modal"
-
-/* Приблизительные курсы к cash_usd — используются ТОЛЬКО для предпросмотра
-   суммы конвертации на клиенте. Совпадают с RATE_TO_USD в
-   backend/src/routes/wallet.routes.ts. Итоговую сумму и комиссию всегда
-   определяет сервер. */
-const RATE_TO_USD: Record<CurrencyKey, number> = {
-  credits: 0.01,
-  shards: 0.1,
-  crystals: 1,
-  timecoin: 12.4,
-  cash_usd: 1,
-}
-const CONVERT_FEE_PREVIEW = 0.01 // 1% — совпадает с CONVERT_FEE на бэкенде
-
-/* TimeCoin исключён из конвертера: его можно только купить/продать на бирже
-   (POST /tc-market/buy, /sell) или получить продажей артефактов. Прямая
-   конвертация TimeCoin ↔ другие валюты запрещена на бэкенде (400). */
-const CONVERT_CURRENCIES: CurrencyKey[] = ["credits", "shards", "crystals", "cash_usd"]
-
-
-const CURRENCY_SYMBOL: Record<CurrencyKey, string> = {
-
-  credits: "⚡",
-  shards: "♦",
-  crystals: "💎",
-  timecoin: "∞",
-  cash_usd: "$",
-}
-
-function fmtAmount(id: CurrencyKey, n: number): string {
-  if (id === "credits" || id === "shards") return formatTokens(Math.round(n))
-  const rounded = Math.round(n * 1000) / 1000
-  return rounded.toLocaleString("ru-RU", { maximumFractionDigits: id === "cash_usd" ? 2 : 3 })
-}
 
 export function WalletView() {
   const { t } = useTranslation()
   const {
     wallet, tcPrice,
-    fetchWallet, fetchTcState, convertCurrency, convertToTc, convertFromTc,
+    fetchWallet, fetchTcState, convertToTc, convertFromTc,
     fetchTcBalance, tcReserveBalance, tcUserBalance, tcBalanceLoading,
-    loading, error,
   } = useOsgardStore()
-
-  /** Локализованные названия валют: cash_usd берётся из wallet.cash, остальные — из CURRENCIES (lib/economy.tsx). */
-  const CURRENCY_LABEL: Record<CurrencyKey, string> = {
-    credits: CURRENCIES.credits.label,
-    shards: CURRENCIES.shards.label,
-    crystals: CURRENCIES.crystals.label,
-    timecoin: CURRENCIES.timecoin.label,
-    cash_usd: t("wallet.cash"),
-  }
 
   // — модалка "Вывести TC" —
   const [withdrawOpen, setWithdrawOpen] = useState(false)
@@ -98,65 +53,12 @@ export function WalletView() {
   const [depositNotice, setDepositNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [depositBusy, setDepositBusy] = useState(false)
 
-  const [from, setFrom] = useState<CurrencyKey>("credits")
-  const [to, setTo] = useState<CurrencyKey>("shards")
-  // TimeCoin недоступен для конвертации — оба селектора всегда переключаются
-  // только между credits / shards / crystals / cash_usd.
-
-  const [amount, setAmount] = useState("")
-  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [convertConfirmOpen, setConvertConfirmOpen] = useState(false)
-
   useEffect(() => {
     fetchWallet({ skipAuthRedirect: true })
     fetchTcState({ skipAuthRedirect: true })
     fetchTcBalance({ skipAuthRedirect: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // amount = сколько списать из `from`
-  const giveAmount = Number(amount) || 0
-  const rate = from === to ? 0 : RATE_TO_USD[from] / RATE_TO_USD[to] // 1 `from` = rate `to`
-  const grossReceive = giveAmount * rate
-  const previewFee = grossReceive * CONVERT_FEE_PREVIEW
-  const previewReceive = Math.max(0, grossReceive - previewFee)
-  const affordable = wallet[from] >= giveAmount
-
-  async function doConvert() {
-    if (from === to) {
-      setNotice({ ok: false, text: t("wallet.differentCurrencies") })
-      return
-    }
-    const n = Number(amount)
-    if (!n || n <= 0) {
-      setNotice({ ok: false, text: t("wallet.enterAmount") })
-      return
-    }
-    if (!affordable) {
-      setNotice({ ok: false, text: t("wallet.insufficientFunds", { currency: CURRENCY_LABEL[from].toLowerCase() }) })
-      return
-    }
-    setSubmitting(true)
-    try {
-      const res = await convertCurrency(from, to, n)
-      if (res.success && res.conversion) {
-        setNotice({
-          ok: true,
-          text: t("wallet.exchangeDone", {
-            sent: `${fmtAmount(from, res.conversion.amountSent)} ${CURRENCY_SYMBOL[from]}`,
-            received: `${fmtAmount(to, res.conversion.amountReceived)} ${CURRENCY_SYMBOL[to]}`,
-          }),
-        })
-        setAmount("")
-        fetchTcBalance({ skipAuthRedirect: true })
-      } else {
-        setNotice({ ok: false, text: res.error || t("wallet.exchangeFailed") })
-      }
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
   async function doWithdraw() {
     // Вывод обрабатывается казначейством (POST /api/tc/withdraw), которое принимает
@@ -382,116 +284,7 @@ export function WalletView() {
           <ExtraPackagePurchase />
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          {/* Exchange */}
-          <section
-            className="hidden"
-            style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}` }}
-          >
-            <h2 className="text-[16px] font-semibold uppercase tracking-[0.14em]" style={{ color: COLORS.label }}>
-              {t("wallet.converterTitle")}
-            </h2>
-            <p className="mt-1 text-[12px]" style={{ color: COLORS.label }}>
-              {t("wallet.converterSub", { fee: Math.round(CONVERT_FEE_PREVIEW * 100) })}
-            </p>
-
-            {/* From / To selectors */}
-            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-              <CurrencySelect
-                label={t("wallet.from")}
-                value={from}
-                labels={CURRENCY_LABEL}
-                onChange={(id) => {
-                  setFrom(id)
-                  if (id === to) setTo(CONVERT_CURRENCIES.find((c) => c !== id)!)
-                  setNotice(null)
-                }}
-              />
-              <button
-                type="button"
-                aria-label={t("wallet.swap")}
-                onClick={() => {
-                  setFrom(to)
-                  setTo(from)
-                  setNotice(null)
-                }}
-                className="mx-auto flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-[color:var(--line)]/35"
-                style={{ border: `1px solid ${COLORS.border}`, color: COLORS.label }}
-              >
-                <ArrowRight size={16} strokeWidth={1.75} />
-              </button>
-              <CurrencySelect
-                label={t("wallet.to")}
-                value={to}
-                labels={CURRENCY_LABEL}
-                onChange={(id) => {
-                  setTo(id)
-                  if (id === from) setFrom(CONVERT_CURRENCIES.find((c) => c !== id)!)
-                  setNotice(null)
-                }}
-              />
-            </div>
-
-            <div className="mt-5">
-              <label htmlFor="ex-amt" className="mb-2 block text-[13px]" style={{ color: COLORS.label }}>
-                {t("wallet.give", { currency: CURRENCY_LABEL[from] })}
-              </label>
-              <input
-                id="ex-amt"
-                inputMode="decimal"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-                placeholder="0"
-                className="cal-input"
-              />
-              <p className="mt-1.5 text-[12px]" style={{ color: COLORS.label }}>
-                {t("wallet.available", { amount: `${fmtAmount(from, wallet[from])} ${CURRENCY_SYMBOL[from]}` })}
-              </p>
-            </div>
-
-            {/* Quote breakdown */}
-            <div className="mt-4 space-y-2 rounded-lg p-4 text-[13px]" style={{ backgroundColor: "#10181d", border: `1px solid ${COLORS.border}` }}>
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-1.5" style={{ color: COLORS.label }}>
-                  <Info size={13} strokeWidth={1.5} /> {t("wallet.rateApprox")}
-                </span>
-                <span>1 {CURRENCY_SYMBOL[from]} ≈ {rate.toLocaleString("ru-RU", { maximumFractionDigits: 4 })} {CURRENCY_SYMBOL[to]}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span style={{ color: COLORS.label }}>{t("wallet.fee", { fee: Math.round(CONVERT_FEE_PREVIEW * 100) })}</span>
-                <span>{fmtAmount(to, previewFee)} {CURRENCY_SYMBOL[to]}</span>
-              </div>
-              <div className="flex items-center justify-between pt-1" style={{ borderTop: `1px solid ${COLORS.border}` }}>
-                <span>{t("wallet.youReceive")}</span>
-                <span style={{ color: affordable ? "#FFFFFF" : COLORS.red }}>
-                  {fmtAmount(to, previewReceive)} {CURRENCY_SYMBOL[to]}
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setConvertConfirmOpen(true)}
-              disabled={!affordable || giveAmount <= 0 || from === to || submitting || loading}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg px-5 py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-              style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
-            >
-              {(submitting || loading) && <Loader2 size={16} className="animate-spin" />}
-              {t("wallet.exchangeBtn")}
-            </button>
-
-            {notice && (
-              <p className="mt-3 text-[13px]" role="status" style={{ color: notice.ok ? COLORS.green : COLORS.red }}>
-                {notice.text}
-              </p>
-            )}
-            {error && !notice && (
-              <p className="mt-3 text-[13px]" role="status" style={{ color: COLORS.red }}>
-                {error}
-              </p>
-            )}
-          </section>
-
+        <div className="mt-8">
           {/* Hierarchy reference */}
           <aside
             className="rounded-2xl p-6"
@@ -722,60 +515,6 @@ export function WalletView() {
         </div>
       )}
 
-      <ConfirmModal
-        open={convertConfirmOpen}
-        onCancel={() => setConvertConfirmOpen(false)}
-        onConfirm={() => {
-          setConvertConfirmOpen(false)
-          doConvert()
-        }}
-        title={t("wallet.confirmConvert.title")}
-        message={t("wallet.confirmConvert.message", {
-          give: `${fmtAmount(from, giveAmount)} ${CURRENCY_SYMBOL[from]}`,
-          receive: `${fmtAmount(to, previewReceive)} ${CURRENCY_SYMBOL[to]}`,
-          fee: Math.round(CONVERT_FEE_PREVIEW * 100),
-        })}
-        confirmLabel={t("wallet.confirmConvert.confirmLabel")}
-        cancelLabel={t("wallet.confirmConvert.cancelLabel")}
-        loading={submitting}
-      />
     </div>
-  )
-}
-
-function CurrencySelect({
-  label,
-  value,
-  labels,
-  onChange,
-}: {
-  label: string
-  value: CurrencyKey
-  labels: Record<CurrencyKey, string>
-  onChange: (id: CurrencyKey) => void
-}) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-[13px]" style={{ color: COLORS.label }}>
-        {label}
-      </span>
-      <div className="relative">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[15px]" style={{ color: "#FFFFFF" }}>
-          {CURRENCY_SYMBOL[value]}
-        </span>
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value as CurrencyKey)}
-          className="w-full appearance-none rounded-lg py-2.5 pl-9 pr-8 text-[14px]"
-          style={{ backgroundColor: "#10181d", border: `1px solid ${COLORS.border}`, color: "#FFFFFF" }}
-        >
-          {CONVERT_CURRENCIES.map((id) => (
-            <option key={id} value={id}>
-              {labels[id]}
-            </option>
-          ))}
-        </select>
-      </div>
-    </label>
   )
 }

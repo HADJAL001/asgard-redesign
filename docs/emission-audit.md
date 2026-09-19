@@ -59,7 +59,7 @@ export async function canEmitUnbacked(amount: number): Promise<boolean> {
 | Путь | Файл | Почему не эмиссия |
 |---|---|---|
 | `/wallet/transfer` | `wallet.routes.ts` | Перевод ∞ между существующими кошельками — сумма ∞ в системе не меняется |
-| `/wallet/convert` | `wallet.routes.ts` | Конвертация между внутренними валютами (credits/shards/crystals ↔ ∞ и т.п.), не создаёт новый ∞ из воздуха отдельно от уже существующего баланса |
+| `/wallet/convert` | `wallet.routes.ts` | Закрытый legacy endpoint: всегда возвращает `410`. Credits не обмениваются, Shards/Crystals - только материалы Кузницы, TimeCoin торгуется на бирже. |
 | Аренда twin (`twin.routes.ts`) | `twin.routes.ts` | Перевод ∞ между арендатором и владельцем |
 | `matching-engine.ts` → `executeTrade()` | `matching-engine.ts` | Исполнение сделки на внутреннем ордербуке — ∞ переходит от покупателя к продавцу, не создаётся |
 | `/tc-market/sell` burn-fallback | `tcmarket.routes.ts` | Сжигание (`burn`) ∞ при нехватке bids — уменьшает объём ∞ в обращении, обратное эмиссии, guard не нужен |

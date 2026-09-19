@@ -21,8 +21,8 @@
 
 ### Wallet
 - `GET /wallet` (auth) → `{ wallet: { credits, shards, crystals, timecoin, cash_usd, updatedAt } }`
-- `POST /wallet/convert` (auth) `{ from, to, amount }` → `{ wallet, conversion: { from, to, amountSent, amountReceived, fee } }`
-  - Валюты: `credits | shards | crystals | timecoin | cash_usd`
+- `POST /wallet/convert` (auth) is a retired legacy endpoint and returns `410`.
+  - Credits are non-transferable; shards and crystals are Forge materials; TimeCoin trades on the market.
 
 ### TC Market (TimeCoin биржа)
 - `GET /tc-market/state` (public) → `{ price, minted, burned, staked, circulating, marketCap, volume24h, history: [{ts, price}] }`
