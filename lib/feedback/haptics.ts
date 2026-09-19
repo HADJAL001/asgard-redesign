@@ -10,7 +10,7 @@
 import type { SignatureCue } from "./sound"
 
 /** Вибро-паттерны в мс (число — одиночный импульс, массив — импульс/пауза/…). */
-const PATTERNS: Record<SignatureCue, number | number[]> = {
+const PATTERNS: Record<Exclude<SignatureCue, "activity">, number | number[]> = {
   artifactBorn: 18,
   rarityUp: [12, 40, 22],
   streak: 24,
@@ -23,6 +23,8 @@ export function isVibrationSupported(): boolean {
 
 /** Проигрывает тактильную «подпись» момента. Тихо no-op, если вибро недоступно. */
 export function vibrateCue(cue: SignatureCue): void {
+  // Общая лента не должна вибрировать на каждом внешнем событии.
+  if (cue === "activity") return
   if (!isVibrationSupported()) return
   try {
     navigator.vibrate(PATTERNS[cue])

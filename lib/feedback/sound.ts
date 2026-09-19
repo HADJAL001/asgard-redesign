@@ -13,7 +13,7 @@
    ================================================================ */
 
 /** Ключевые моменты, у которых есть звуковая «подпись». */
-export type SignatureCue = "artifactBorn" | "rarityUp" | "streak" | "legendary"
+export type SignatureCue = "artifactBorn" | "rarityUp" | "streak" | "legendary" | "activity"
 
 type Blip = {
   /** Частота, Гц. */
@@ -52,6 +52,11 @@ const SCORES: Record<SignatureCue, Blip[]> = {
     { freq: 659.25, at: 0.06, dur: 0.5, type: "sine", peak: 0.055 },
     { freq: 783.99, at: 0.12, dur: 0.55, type: "sine", peak: 0.05 },
     { freq: 1046.5, at: 0.2, dur: 0.45, type: "triangle", peak: 0.035 },
+  ],
+  // Новое событие в общей ленте — короткий, почти неслышимый сигнал.
+  activity: [
+    { freq: 880, at: 0, dur: 0.11, type: "sine", peak: 0.035 },
+    { freq: 1174.66, at: 0.07, dur: 0.13, type: "sine", peak: 0.025 },
   ],
 }
 

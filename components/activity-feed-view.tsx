@@ -9,6 +9,7 @@ import { Navbar } from "./navbar"
 import { LivePulseBar } from "./live-pulse-bar"
 import { useActivityStore, type ActivityEvent, type ActivityFilter } from "@/lib/store/activity-store"
 import { useTranslation } from "@/lib/i18n/use-translation"
+import { useSignature } from "@/hooks/useSignature"
 
 /** Интервал «живого тикера» — как в notifications-store: тихий поллинг раз в ~20с. */
 const PULSE_POLL_MS = 20_000
@@ -109,6 +110,7 @@ function EventCard({ item, reduce }: { item: ActivityEvent; reduce: boolean }) {
 export function ActivityFeedView() {
   const { t } = useTranslation()
   const reduce = useReducedMotion() ?? false
+  const { play } = useSignature()
   const { events, nextCursor, filter, loading, loadingMore, error, fetchFeed, loadMore, refresh } = useActivityStore()
 
   useEffect(() => {
@@ -121,7 +123,9 @@ export function ActivityFeedView() {
   useEffect(() => {
     const tick = () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return
-      void refresh()
+      void refresh().then((newIds) => {
+        if (newIds.length > 0) play("activity")
+      })
     }
     const id = window.setInterval(tick, PULSE_POLL_MS)
     const onVis = () => {
@@ -132,7 +136,7 @@ export function ActivityFeedView() {
       window.clearInterval(id)
       document.removeEventListener("visibilitychange", onVis)
     }
-  }, [refresh])
+  }, [play, refresh])
 
   return (
     <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #10181d 0%, #17242a 100%)", color: "#FFFFFF" }}>
