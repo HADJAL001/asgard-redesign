@@ -30,6 +30,17 @@ export type ActivityEvent = {
   actor: ActivityActor
 }
 
+export const ACTIVITY_FILTERS = ["all", "creation", "sales", "hall_of_fame"] as const
+export type ActivityFilter = (typeof ACTIVITY_FILTERS)[number]
+
+function feedPath(filter: ActivityFilter, before?: number): string {
+  const query = new URLSearchParams()
+  if (filter !== "all") query.set("type", filter)
+  if (before) query.set("before", String(before))
+  const serialized = query.toString()
+  return serialized ? `/feed?${serialized}` : "/feed"
+}
+
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof ApiError) return err.message || fallback
   if (err instanceof Error) return err.message || fallback
@@ -39,11 +50,12 @@ function extractErrorMessage(err: unknown, fallback: string): string {
 type ActivityStoreState = {
   events: ActivityEvent[]
   nextCursor: number | null
+  filter: ActivityFilter
   loading: boolean
   loadingMore: boolean
   error: string | null
 
-  fetchFeed: () => Promise<void>
+  fetchFeed: (filter?: ActivityFilter) => Promise<void>
   loadMore: () => Promise<void>
   /** Фоновый поллинг «живого тикера»: тихо префиксит только по-настоящему новые
       события (id, которых ещё нет) к голове ленты. Ошибки глушим — фон не должен
@@ -54,15 +66,17 @@ type ActivityStoreState = {
 export const useActivityStore = create<ActivityStoreState>((set, get) => ({
   events: [],
   nextCursor: null,
+  filter: "all",
   loading: false,
   loadingMore: false,
   error: null,
 
-  fetchFeed: async () => {
-    set({ loading: true })
+  fetchFeed: async (requestedFilter) => {
+    const filter = requestedFilter ?? get().filter
+    set({ loading: true, error: null, filter })
     try {
       const { events, nextCursor } = await apiClient.get<{ events: ActivityEvent[]; nextCursor: number | null }>(
-        "/feed",
+        feedPath(filter),
         { skipAuthRedirect: true },
       )
       set({ events, nextCursor, loading: false, error: null })
@@ -72,12 +86,12 @@ export const useActivityStore = create<ActivityStoreState>((set, get) => ({
   },
 
   loadMore: async () => {
-    const { nextCursor, loadingMore, events } = get()
+    const { nextCursor, loadingMore, events, filter } = get()
     if (!nextCursor || loadingMore) return
     set({ loadingMore: true })
     try {
       const res = await apiClient.get<{ events: ActivityEvent[]; nextCursor: number | null }>(
-        `/feed?before=${nextCursor}`,
+        feedPath(filter, nextCursor),
         { skipAuthRedirect: true },
       )
       set({ events: [...events, ...res.events], nextCursor: res.nextCursor, loadingMore: false })
@@ -87,12 +101,12 @@ export const useActivityStore = create<ActivityStoreState>((set, get) => ({
   },
 
   refresh: async () => {
-    const { events, loading } = get()
+    const { events, loading, filter } = get()
     // Не мешаем первичной загрузке и не трогаем состояние, если лента ещё пуста
     // (первый показ идёт через fetchFeed, чтобы отработали loading/empty-состояния).
     if (loading || events.length === 0) return []
     try {
-      const res = await apiClient.get<{ events: ActivityEvent[]; nextCursor: number | null }>("/feed", {
+      const res = await apiClient.get<{ events: ActivityEvent[]; nextCursor: number | null }>(feedPath(filter), {
         skipAuthRedirect: true,
       })
       const known = new Set(events.map((e) => e.id))

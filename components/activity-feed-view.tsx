@@ -7,7 +7,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { Hammer, Coins, Trophy, Loader2, Sparkles, type LucideIcon } from "lucide-react"
 import { Navbar } from "./navbar"
 import { LivePulseBar } from "./live-pulse-bar"
-import { useActivityStore, type ActivityEvent } from "@/lib/store/activity-store"
+import { useActivityStore, type ActivityEvent, type ActivityFilter } from "@/lib/store/activity-store"
 import { useTranslation } from "@/lib/i18n/use-translation"
 
 /** Интервал «живого тикера» — как в notifications-store: тихий поллинг раз в ~20с. */
@@ -34,6 +34,13 @@ const TYPE_COLOR: Record<string, string> = {
   artifact_sold: "#34D399",
   hof_entry: "#FFD700",
 }
+
+const FILTERS: Array<{ id: ActivityFilter; translationKey: "filterAll" | "filterCreation" | "filterSales" | "filterHallOfFame" }> = [
+  { id: "all", translationKey: "filterAll" },
+  { id: "creation", translationKey: "filterCreation" },
+  { id: "sales", translationKey: "filterSales" },
+  { id: "hall_of_fame", translationKey: "filterHallOfFame" },
+]
 
 /* SQLite CURRENT_TIMESTAMP отдаёт UTC-строку вида "YYYY-MM-DD HH:MM:SS" —
    для корректного парсинга в браузере (в т.ч. Safari) добавляем разделитель "T" и "Z". */
@@ -102,7 +109,7 @@ function EventCard({ item, reduce }: { item: ActivityEvent; reduce: boolean }) {
 export function ActivityFeedView() {
   const { t } = useTranslation()
   const reduce = useReducedMotion() ?? false
-  const { events, nextCursor, loading, loadingMore, error, fetchFeed, loadMore, refresh } = useActivityStore()
+  const { events, nextCursor, filter, loading, loadingMore, error, fetchFeed, loadMore, refresh } = useActivityStore()
 
   useEffect(() => {
     fetchFeed()
@@ -141,6 +148,29 @@ export function ActivityFeedView() {
 
         <div className="mt-6">
           <LivePulseBar />
+        </div>
+
+        <div className="mt-6 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Activity feed filters">
+          {FILTERS.map((item) => {
+            const selected = filter === item.id
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => void fetchFeed(item.id)}
+                className="shrink-0 rounded-lg px-3 py-2 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{
+                  backgroundColor: selected ? "#d7ae57" : "transparent",
+                  border: `1px solid ${selected ? "#d7ae57" : "#30424b"}`,
+                  color: selected ? "#10181d" : "rgba(255,255,255,0.72)",
+                }}
+              >
+                {t(`activityFeed.${item.translationKey}`)}
+              </button>
+            )
+          })}
         </div>
 
         {loading && events.length === 0 && (

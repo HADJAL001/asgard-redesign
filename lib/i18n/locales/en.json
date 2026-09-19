@@ -419,7 +419,11 @@
     "title": "Activity Feed",
     "subtitle": "Latest platform events: artifact crafting, sales, Hall of Fame entries.",
     "empty": "No events yet",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "filterAll": "All",
+    "filterCreation": "Creation",
+    "filterSales": "Sales",
+    "filterHallOfFame": "Hall of Fame"
   },
   "pulse": {
     "forged": "forged today",

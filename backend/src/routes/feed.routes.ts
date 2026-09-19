@@ -5,6 +5,17 @@ const router = Router()
 
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
+export const FEED_FILTERS = {
+  creation: ["artifact_crafted"],
+  sales: ["artifact_sold"],
+  hall_of_fame: ["hof_entry"],
+} as const
+
+export type FeedFilter = keyof typeof FEED_FILTERS
+
+function parseFeedFilter(value: unknown): FeedFilter | null {
+  return typeof value === "string" && value in FEED_FILTERS ? (value as FeedFilter) : null
+}
 
 type ActorRow = {
   id: number
@@ -26,8 +37,20 @@ function mapActor(row: ActorRow) {
 router.get("/", (req, res) => {
   const before = Number(req.query.before)
   const limit = Math.min(Math.max(Number(req.query.limit) || DEFAULT_LIMIT, 1), MAX_LIMIT)
+  const filter = parseFeedFilter(req.query.type)
 
   const hasCursor = Number.isInteger(before) && before > 0
+  const where: string[] = []
+  const params: (number | string)[] = []
+
+  if (hasCursor) {
+    where.push("e.id < ?")
+    params.push(before)
+  }
+  if (filter) {
+    where.push(`e.type IN (${FEED_FILTERS[filter].map(() => "?").join(", ")})`)
+    params.push(...FEED_FILTERS[filter])
+  }
 
   const rows = db
     .prepare(
@@ -35,11 +58,11 @@ router.get("/", (req, res) => {
               u.id as actor_id, u.username as actor_username, u.display_name as actor_display_name, u.avatar_url as actor_avatar_url
        FROM activity_events e
        JOIN users u ON u.id = e.user_id
-       ${hasCursor ? "WHERE e.id < ?" : ""}
+       ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
        ORDER BY e.id DESC
        LIMIT ?`,
     )
-    .all(...(hasCursor ? [before, limit] : [limit])) as any[]
+    .all(...params, limit) as any[]
 
   const events = rows.map((r) => ({
     id: r.id,
@@ -59,7 +82,7 @@ router.get("/", (req, res) => {
 
   const nextCursor = events.length === limit ? events[events.length - 1].id : null
 
-  res.json({ success: true, events, nextCursor })
+  res.json({ success: true, events, nextCursor, filter })
 })
 
 /* ---------------- GET /feed/pulse ----------------
