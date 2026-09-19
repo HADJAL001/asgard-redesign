@@ -155,7 +155,7 @@ export function IntegrationsView() {
               {integrations.length === 0 ? (
                 <div className="mt-4 flex flex-col items-center gap-3 rounded-xl py-14 text-center" style={{ border: `1px dashed ${COLORS.border}` }}>
                   <Plug size={28} strokeWidth={1.25} style={{ color: COLORS.label }} aria-hidden="true" />
-                  <p style={{ color: COLORS.label }}>У вас пока нет подключённых интеграций</p>
+                  <p className="max-w-sm" style={{ color: COLORS.label }}>Выберите рекомендованный сервис выше, чтобы собрать первый рабочий сценарий.</p>
                 </div>
               ) : (
                 <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
