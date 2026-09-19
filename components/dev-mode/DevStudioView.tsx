@@ -24,7 +24,7 @@ import { useRouter } from "next/navigation"
 import {
   Loader2, Sparkles, FolderKanban, CircleCheck, CircleAlert, CircleDashed,
   Mic, Pencil, ArrowRight, CheckCircle2,
-  Video, VideoOff, Dices,
+  Video, VideoOff, Radio, Dices,
 } from "lucide-react"
 import { useOsgardStore, type OsgardProject } from "@/lib/store/osgard-store"
 import { ProjectCreateWizard } from "@/components/project-create-wizard"
@@ -78,7 +78,10 @@ export function DevStudioView() {
   const [questDone, setQuestDone] = useState(false)
   const [serverQuest, setServerQuest] = useState<ServerQuest | null>(null)
   const [sharing, setSharing] = useState(false)
+  const [broadcastState, setBroadcastState] = useState<"idle" | "connecting" | "live" | "error">("idle")
   const shareVideoRef = useRef<HTMLVideoElement>(null)
+  const broadcastPeerRef = useRef<RTCPeerConnection | null>(null)
+  const broadcastSessionRef = useRef<string | null>(null)
   const canCreateProject = idea.trim().length > 0
 
   useEffect(() => {
@@ -95,25 +98,90 @@ export function DevStudioView() {
   }, [])
   const dailyQuest = serverQuest?.title ?? CREATIVE_QUESTS[new Date().getDate() % CREATIVE_QUESTS.length]
 
-  async function toggleScreenShare() {
-    if (sharing) {
-      const stream = shareVideoRef.current?.srcObject as MediaStream | null
-      stream?.getTracks().forEach((track) => track.stop())
-      if (shareVideoRef.current) shareVideoRef.current.srcObject = null
-      setSharing(false)
-      return
+  function stopBroadcast() {
+    const session = broadcastSessionRef.current
+    if (session) {
+      fetch(session, { method: "DELETE", keepalive: true }).catch(() => undefined)
+      broadcastSessionRef.current = null
     }
-    if (!navigator.mediaDevices?.getDisplayMedia) return
+    broadcastPeerRef.current?.close()
+    broadcastPeerRef.current = null
+    setBroadcastState("idle")
+  }
+
+  async function startScreenShare(): Promise<MediaStream | null> {
+    if (!navigator.mediaDevices?.getDisplayMedia) return null
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
       if (shareVideoRef.current) {
         shareVideoRef.current.srcObject = stream
         await shareVideoRef.current.play().catch(() => undefined)
       }
-      stream.getVideoTracks()[0]?.addEventListener("ended", () => setSharing(false), { once: true })
+      stream.getVideoTracks()[0]?.addEventListener("ended", () => {
+        stopBroadcast()
+        setSharing(false)
+      }, { once: true })
       setSharing(true)
+      return stream
     } catch {
       setSharing(false)
+      return null
+    }
+  }
+
+  async function toggleScreenShare() {
+    if (!sharing) {
+      await startScreenShare()
+      return
+    }
+    stopBroadcast()
+    const stream = shareVideoRef.current?.srcObject as MediaStream | null
+    stream?.getTracks().forEach((track) => track.stop())
+    if (shareVideoRef.current) shareVideoRef.current.srcObject = null
+    setSharing(false)
+  }
+
+  async function startBroadcast() {
+    let stream = shareVideoRef.current?.srcObject as MediaStream | null
+    if (!stream) stream = await startScreenShare()
+    if (!stream) return
+
+    setBroadcastState("connecting")
+    const peer = new RTCPeerConnection()
+    broadcastPeerRef.current = peer
+    stream.getTracks().forEach((track) => peer.addTrack(track, stream!))
+
+    try {
+      const offer = await peer.createOffer()
+      await peer.setLocalDescription(offer)
+      await new Promise<void>((resolve) => {
+        if (peer.iceGatheringState === "complete") return resolve()
+        const timeout = window.setTimeout(resolve, 3_000)
+        peer.addEventListener("icegatheringstatechange", () => {
+          if (peer.iceGatheringState === "complete") {
+            window.clearTimeout(timeout)
+            resolve()
+          }
+        }, { once: true })
+      })
+      const response = await fetch("https://osgardos.com/live/whip", {
+        method: "POST",
+        headers: { "Content-Type": "application/sdp" },
+        body: peer.localDescription?.sdp,
+      })
+      if (!response.ok) throw new Error("Live relay rejected the stream")
+      const answer = await response.text()
+      await peer.setRemoteDescription({ type: "answer", sdp: answer })
+      const location = response.headers.get("location")
+      broadcastSessionRef.current = location ? new URL(location, "https://osgardos.com").toString() : null
+      peer.addEventListener("connectionstatechange", () => {
+        if (peer.connectionState === "failed" || peer.connectionState === "disconnected") setBroadcastState("error")
+      })
+      setBroadcastState("live")
+    } catch {
+      peer.close()
+      if (broadcastPeerRef.current === peer) broadcastPeerRef.current = null
+      setBroadcastState("error")
     }
   }
 
@@ -190,8 +258,17 @@ export function DevStudioView() {
             {sharing ? <VideoOff size={14} aria-hidden="true" /> : <Video size={14} aria-hidden="true" />}
             {sharing ? "Остановить показ" : "Показать экран"}
           </button>
+          <button
+            type="button"
+            className="dev-btn dev-btn--gold text-[12px]"
+            onClick={broadcastState === "live" || broadcastState === "connecting" ? stopBroadcast : startBroadcast}
+            disabled={broadcastState === "connecting"}
+          >
+            <Radio size={14} aria-hidden="true" />
+            {broadcastState === "live" ? "Остановить эфир" : broadcastState === "connecting" ? "Подключаемся" : "Выйти в Twitch"}
+          </button>
           <span className="text-[12px]" style={{ color: "rgb(148 163 184 / 80%)" }}>
-            {sharing ? "Живой экран виден только вам в этой сессии" : "Поделитесь экраном во время показа результата"}
+            {broadcastState === "live" ? "Эфир идет в Twitch" : broadcastState === "error" ? "Relay не принял подключение" : sharing ? "Экран готов к выходу в эфир" : "Запустите эфир и выберите экран для показа"}
           </span>
           {sharing ? (
             <div className="relative mt-2 w-full overflow-hidden rounded-md border border-slate-700 bg-black">
