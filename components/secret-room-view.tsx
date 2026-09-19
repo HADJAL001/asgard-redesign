@@ -9,6 +9,7 @@
    ================================================================ */
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Lock, Loader2, Plus, Trash2, UserPlus, Sparkles, KeyRound, Check, CalendarDays, Ticket } from "lucide-react"
 import { Navbar } from "./navbar"
 import { PremiumBackground } from "./premium-bg"
@@ -333,6 +334,9 @@ export function SecretRoomView() {
               )}
 
               {msg && <p className="mt-3 text-[12px]" style={{ color: "rgba(255,255,255,0.6)" }}>{msg}</p>}
+              <Link href="/feedback" className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-[12px]" style={{ border: `1px solid ${GOLD}55`, color: GOLD }}>
+                <Sparkles size={13} /> Contact the creators
+              </Link>
               <button type="button" onClick={unlock} disabled={busy} className="mt-5 flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-[12px]" style={{ border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.6)" }}>
                 <Check size={13} /> Продлить на {pricing.periodDays} дн. (${pricing.monthlyUsd})
               </button>
