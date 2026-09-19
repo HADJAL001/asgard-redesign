@@ -864,23 +864,24 @@ router.post("/:id/refine", requireAuth, asyncHandler(async (req: AuthRequest, re
       | { credits: number }
       | undefined
     if (!wallet) return res.status(402).json({ error: "Кошелёк не найден", code: "NO_WALLET" })
-    if (wallet.credits < cost) {
+    const promoAvailable = availablePromoCredits(userId)
+    if (wallet.credits + promoAvailable < cost) {
       return res.status(402).json({
         error: `Бесплатные доработки исчерпаны. Одна доработка — ${cost} кредитов, доступно ${wallet.credits}.`,
         code: "INSUFFICIENT_CREDITS",
         required: cost,
-        available: wallet.credits,
+        available: wallet.credits + promoAvailable,
       })
     }
     const now = Date.now()
     db.exec("BEGIN IMMEDIATE")
     try {
       const fresh = db.prepare(`SELECT credits FROM wallets WHERE user_id = ?`).get(userId) as { credits: number }
-      if (fresh.credits < cost) {
+      const charged = chargeCreditsWithPromo(userId, cost, now)
+      if (!charged) {
         db.exec("ROLLBACK")
         return res.status(402).json({ error: "Недостаточно кредитов", code: "INSUFFICIENT_CREDITS" })
       }
-      db.prepare(`UPDATE wallets SET credits = credits - ?, updated_at = ? WHERE user_id = ?`).run(cost, now, userId)
       db.prepare(
         `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
          VALUES (?, 'project_refinement', ?, 'OSGARD', ?, 'credits', 'done')`,
