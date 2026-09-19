@@ -380,7 +380,7 @@ export function CommunityView() {
           <section className="mt-10">
             <div className="flex items-center gap-2">
               <Rocket size={18} style={{ color: "#d7ae57" }} aria-hidden="true" />
-              <h2 className="text-[18px] font-semibold">Weekly trends</h2>
+              <h2 className="text-[18px] font-semibold">Тренды недели</h2>
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               {trendingProjects.map((project) => (
@@ -397,7 +397,7 @@ export function CommunityView() {
                     <ExternalLink size={16} style={{ color: "#9eb2bc" }} aria-hidden="true" />
                   </div>
                   <h3 className="mt-5 truncate text-[16px] font-medium">{project.name}</h3>
-                  <p className="mt-2 line-clamp-3 text-[13px] leading-relaxed" style={{ color: "#9eb2bc" }}>{project.description || "Publicly deployed project"}</p>
+                  <p className="mt-2 line-clamp-3 text-[13px] leading-relaxed" style={{ color: "#9eb2bc" }}>{project.description || "Публично развернутый проект"}</p>
                   <p className="mt-5 text-[12px]" style={{ color: "rgba(255,255,255,0.48)" }}>{project.author}</p>
                 </a>
               ))}
