@@ -104,6 +104,24 @@ function fmtTC(n: number): string {
   return `∞ ${n.toLocaleString("ru-RU", { maximumFractionDigits: 2 })}`
 }
 
+function playTrainingTone() {
+  const AudioContextClass = window.AudioContext
+  if (!AudioContextClass) return
+  const context = new AudioContextClass()
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+  oscillator.type = "sine"
+  oscillator.frequency.setValueAtTime(380, context.currentTime)
+  oscillator.frequency.exponentialRampToValueAtTime(780, context.currentTime + 0.22)
+  gain.gain.setValueAtTime(0.0001, context.currentTime)
+  gain.gain.exponentialRampToValueAtTime(0.05, context.currentTime + 0.02)
+  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.25)
+  oscillator.connect(gain).connect(context.destination)
+  oscillator.start()
+  oscillator.stop(context.currentTime + 0.26)
+  oscillator.addEventListener("ended", () => void context.close())
+}
+
 export default function TwinPage() {
   useRequireAuth()
   const { t } = useTranslation()
@@ -156,6 +174,7 @@ export default function TwinPage() {
         artifactId,
       })
       setTwin(data.twin)
+      playTrainingTone()
       setNotice({
         ok: true,
         text: data.leveledUp
