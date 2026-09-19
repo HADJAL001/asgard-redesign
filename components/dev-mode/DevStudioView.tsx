@@ -60,6 +60,7 @@ const CREATIVE_QUESTS = [
   "Собери лендинг, который можно показать клиенту сегодня",
 ]
 type ServerQuest = { key: string; title: string; reward: number; progress: number; completed: boolean }
+type WeeklyQuest = { key: string; title: string; reward: { generationBonus: number }; progress: number; completed: boolean }
 
 /** Человеческий статус проекта — без экономических метрик.
  *  Формулировки честные: «Собирается» не обещает успех заранее. */
@@ -77,6 +78,8 @@ export function DevStudioView() {
   const [luckyStart, setLuckyStart] = useState(false)
   const [questDone, setQuestDone] = useState(false)
   const [serverQuest, setServerQuest] = useState<ServerQuest | null>(null)
+  const [weeklyQuest, setWeeklyQuest] = useState<WeeklyQuest | null>(null)
+  const [weeklyQuestDone, setWeeklyQuestDone] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [broadcastState, setBroadcastState] = useState<"idle" | "connecting" | "live" | "error">("idle")
   const shareVideoRef = useRef<HTMLVideoElement>(null)
@@ -86,11 +89,12 @@ export function DevStudioView() {
   const canCreateProject = idea.trim().length > 0
 
   useEffect(() => {
-    apiClient.get<{ quests: ServerQuest[] }>("/quests/today", { skipAuthRedirect: true })
-      .then(({ quests }) => {
-        const quest = quests[0] ?? null
-        setServerQuest(quest)
-        setQuestDone(Boolean(quest?.completed))
+    apiClient.get<{ daily: ServerQuest; weekly: WeeklyQuest }>("/quests/active", { skipAuthRedirect: true })
+      .then(({ daily, weekly }) => {
+        setServerQuest(daily)
+        setQuestDone(Boolean(daily?.completed))
+        setWeeklyQuest(weekly)
+        setWeeklyQuestDone(Boolean(weekly?.completed))
       })
       .catch(() => {
         const key = `osgard-quest-${new Date().toISOString().slice(0, 10)}`
@@ -371,6 +375,27 @@ export function DevStudioView() {
           </button>
         </div>
 
+        {weeklyQuest ? (
+          <div className="dev-card mt-3 flex flex-wrap items-center justify-between gap-3 px-4 py-3.5" style={{ borderColor: "rgb(125 211 252 / 28%)" }}>
+            <div className="flex items-start gap-3">
+              <Sparkles size={17} className="mt-0.5 shrink-0" style={{ color: "#7DD3FC" }} aria-hidden="true" />
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "rgb(125 211 252 / 75%)" }}>Weekly challenge</p>
+                <p className="mt-1 text-[13px]" style={{ color: "#F1F5F9" }}>{weeklyQuest.title}</p>
+                <p className="mt-1 text-[12px]" style={{ color: "rgb(148 163 184 / 90%)" }}>+{weeklyQuest.reward.generationBonus} generation limit for this week</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="dev-btn dev-btn--ghost shrink-0 text-[12px]"
+              onClick={() => setIdea(weeklyQuest.title)}
+            >
+              {weeklyQuestDone ? <CheckCircle2 size={14} aria-hidden="true" /> : <ArrowRight size={14} aria-hidden="true" />}
+              {weeklyQuestDone ? "Completed" : "Take challenge"}
+            </button>
+          </div>
+        ) : null}
+
         {voice.isListening ? (
           <p
             className="mt-3 inline-flex items-center gap-2 text-[13.5px]"
@@ -509,6 +534,11 @@ export function DevStudioView() {
             if (serverQuest && !serverQuest.completed) {
               apiClient.post(`/quests/${serverQuest.key}/complete`, { projectId })
                 .then(() => setQuestDone(true))
+                .catch(() => undefined)
+            }
+            if (weeklyQuest && !weeklyQuest.completed) {
+              apiClient.post(`/quests/${weeklyQuest.key}/complete`, { projectId })
+                .then(() => setWeeklyQuestDone(true))
                 .catch(() => undefined)
             }
             // Тот же сценарий, что и в обычном режиме (сразу внутрь Мастерской,
