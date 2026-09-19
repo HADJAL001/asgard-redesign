@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { Search, Settings, Send, Bell, MessagesSquare, X } from "lucide-react"
+import Link from "next/link"
+import { Search, Settings, Send, Bell, MessagesSquare, Users, LifeBuoy, X } from "lucide-react"
 import { Navbar } from "./navbar"
 
 /* ---- Palette ----
@@ -87,9 +88,17 @@ export function MessagesView() {
             </div>
             <div className="flex-1 overflow-y-auto">
               {DIALOGS.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center gap-2 px-6 py-12 text-center">
+                <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-12 text-center">
                   <MessagesSquare size={26} strokeWidth={1.25} style={{ color: "#9eb2bc" }} />
-                  <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.5)" }}>Диалогов пока нет</p>
+                  <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.7)" }}>Ваши диалоги появятся здесь</p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Link href="/community" className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px]" style={{ border: "1px solid #30424b", color: "#d7ae57" }}>
+                      <Users size={13} /> Сообщество
+                    </Link>
+                    <Link href="/support" className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px]" style={{ border: "1px solid #30424b", color: "#d7ae57" }}>
+                      <LifeBuoy size={13} /> Поддержка
+                    </Link>
+                  </div>
                 </div>
               ) : (
                 DIALOGS.map((d) => {
