@@ -9,6 +9,7 @@ import {
   TIMECOIN_PRICES,
   ORCHESTRATOR_NODE_COST_TC,
 } from "../lib/timecoin-economy"
+import { MARKET_CURRENCIES } from "../lib/market-fees"
 
 test("TimeCoin has one canonical fiat price and is not charged for project generation", () => {
   assert.equal(TIMECOIN_USD_CENTS, 1_000)
@@ -30,6 +31,10 @@ test("TimeCoin-priced premium operations keep their explicit prices", () => {
   assert.equal(TIMECOIN_PRICES.walliExclusive, 5)
   assert.equal(TIMECOIN_PRICES.twinRentalBase, 0.1)
   assert.equal(TIMECOIN_PRICES.twinRentalPerLevel, 0.05)
+})
+
+test("market settlement excludes soft currency and forge materials", () => {
+  assert.deepEqual(MARKET_CURRENCIES, ["timecoin"])
 })
 
 test("checkout accepts only bounded integer quantities", () => {

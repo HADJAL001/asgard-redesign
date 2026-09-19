@@ -16,7 +16,9 @@ import { Navbar } from "./navbar"
 import { PremiumBackground } from "./premium-bg"
 import { apiClient } from "@/lib/api-client"
 import { useOsgardStore } from "@/lib/store/osgard-store"
-import { COLORS, RARITY, ARTIFACT_TYPES, CURRENCY_ORDER, CURRENCIES, type Rarity, type ArtifactType, type CurrencyId } from "@/lib/economy"
+import { COLORS, RARITY, ARTIFACT_TYPES, CURRENCIES, type Rarity, type ArtifactType, type CurrencyId } from "@/lib/economy"
+
+const AUCTION_CURRENCIES: CurrencyId[] = ["timecoin"]
 
 const CURRENCY_SYMBOL: Record<string, string> = {
   credits: "⚡",
@@ -533,7 +535,7 @@ function CreateAuctionModal({
                 <div>
                   <label className="mb-2 block text-[13px]" style={{ color: COLORS.label }}>Валюта</label>
                   <select value={currency} onChange={(e) => setCurrency(e.target.value as CurrencyId)} className="cal-input">
-                    {CURRENCY_ORDER.map((c) => (
+                    {AUCTION_CURRENCIES.map((c) => (
                       <option key={c} value={c}>{CURRENCIES[c].label} ({CURRENCIES[c].symbol})</option>
                     ))}
                   </select>

@@ -7,7 +7,9 @@ import db from "./db"
    чтобы экономика продаж не расходилась между двумя путями сбыта.
    ================================================================ */
 
-export const MARKET_CURRENCIES = ["credits", "shards", "crystals", "timecoin", "cash_usd"] as const
+/** Marketplace and auction settlement use hard currency only. Credits fund
+ * creation, while shards and crystals remain non-transferable forge inputs. */
+export const MARKET_CURRENCIES = ["timecoin"] as const
 
 /** Базовая комиссия рынка с продавца (5%), снижается тарифом и стейком. */
 export const MARKET_FEE = 0.05
