@@ -19,8 +19,9 @@ export function PlatformMap() {
   return (
     <div className="flex min-h-screen flex-col bg-[#10181d]">
       <Navbar />
-      <div className="platform-map-boot relative flex-1 overflow-hidden">
+      <div className="platform-map-boot platform-map-space relative flex-1 overflow-hidden">
         <div className="pointer-events-none absolute inset-x-0 top-6 z-10 flex flex-col items-center gap-1 text-center px-4">
+          <p className="platform-map-kicker">OSGARD // LIVE ATLAS</p>
           <h1 className="text-lg font-semibold tracking-wide text-white sm:text-xl">Карта платформы</h1>
           <p className="text-xs text-[#9eb2bc] sm:text-sm">Нажмите на точку, чтобы перейти в раздел</p>
         </div>

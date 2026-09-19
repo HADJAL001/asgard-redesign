@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useRef, type RefObject } from "react"
+import { useMemo, useRef, useState, type RefObject } from "react"
 import { useRouter } from "next/navigation"
 import { useFrame } from "@react-three/fiber"
 import { Html } from "@react-three/drei"
@@ -24,16 +24,18 @@ type HotspotProps = {
   radius: number
   occludeRef: RefObject<Mesh | null>
   delayMs: number
+  reducedMotion: boolean
 }
 
-export function Hotspot({ hotspot, radius, occludeRef, delayMs }: HotspotProps) {
+export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }: HotspotProps) {
   const router = useRouter()
   const markerRef = useRef<Mesh>(null)
+  const [isActive, setIsActive] = useState(false)
   const position = useMemo(() => latLonToVector3(hotspot.lat, hotspot.lon, radius), [hotspot.lat, hotspot.lon, radius])
 
   useFrame(({ clock }) => {
     if (!markerRef.current) return
-    const pulse = 0.75 + Math.sin(clock.elapsedTime * 2 + hotspot.lon) * 0.25
+    const pulse = reducedMotion ? 1 : 0.82 + Math.sin(clock.elapsedTime * 2 + hotspot.lon) * 0.18
     markerRef.current.scale.setScalar(pulse)
   })
 
@@ -41,8 +43,8 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs }: HotspotProps) 
 
   return (
     <group position={position}>
-      <mesh ref={markerRef}>
-        <sphereGeometry args={[0.035, 12, 12]} />
+      <mesh ref={markerRef} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.055, 0.008, 8, 20]} />
         <meshBasicMaterial color={hotspot.color} transparent opacity={0.85} />
       </mesh>
       <Html
@@ -57,7 +59,12 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs }: HotspotProps) 
         <button
           type="button"
           onClick={() => router.push(hotspot.href)}
-          className="group flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 text-[11px] font-semibold backdrop-blur-xl transition-all hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#10181d]"
+          onPointerEnter={() => setIsActive(true)}
+          onPointerLeave={() => setIsActive(false)}
+          onFocus={() => setIsActive(true)}
+          onBlur={() => setIsActive(false)}
+          aria-label={`${hotspot.label}: ${hotspot.description}`}
+          className="platform-portal group flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 text-[11px] font-semibold backdrop-blur-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#10181d]"
           style={{
             borderColor: `${hotspot.color}55`,
             background: "rgba(8, 10, 18, 0.55)",
@@ -73,6 +80,7 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs }: HotspotProps) 
           </span>
           <span className="whitespace-nowrap tracking-tight">{hotspot.label}</span>
         </button>
+        {isActive ? <div className="platform-portal-preview" role="status"><span>ПОРТАЛ</span><strong>{hotspot.label}</strong><p>{hotspot.description}</p></div> : null}
       </Html>
     </group>
   )
