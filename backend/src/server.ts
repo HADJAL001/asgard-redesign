@@ -238,6 +238,7 @@ import analyticsRoutes from "./routes/analytics.routes"
 import communityRoutes from "./routes/community.routes"
 import tcRoutes from "./routes/tc.routes"
 import notificationsRoutes from "./routes/notifications.routes"
+import messagesRoutes from "./routes/messages.routes"
 import usersRoutes from "./routes/users.routes"
 import pushRoutes from "./routes/push.routes"
 import feedRoutes from "./routes/feed.routes"
@@ -250,6 +251,7 @@ import { runAdminTestArtifactsMigration } from "./migrations/116_admin_test_arti
 import { runPromoCreditsMigration } from "./migrations/117_promo_credits"
 import { runCurrencySimplificationMigration } from "./migrations/118_currency_simplification"
 import { runCreditResetMigration } from "./migrations/119_reset_credits"
+import { runDirectMessagesMigration } from "./migrations/120_direct_messages"
 import provenanceRoutes from "./routes/provenance.routes"
 import { runOrderBookMigration } from "./migrations/001_order_book"
 import { runReferralMigration } from "./migrations/002_referral_system"
@@ -433,6 +435,7 @@ runAdminTestArtifactsMigration()
 runPromoCreditsMigration()
 runCurrencySimplificationMigration()
 runCreditResetMigration()
+runDirectMessagesMigration()
 
 /* Гарантируем наличие таблицы tc_convert_log (лог конвертаций ∞ ↔ TC) при старте сервера. */
 runTcConvertMigration()
@@ -590,6 +593,7 @@ app.use("/projects", projectsRoutes)
 app.use("/leaderboard", leaderboardRoutes)
 app.use("/hall-of-fame", hallOfFameRoutes)
 app.use("/notifications", notificationsRoutes)
+app.use("/messages", messagesRoutes)
 app.use("/feed", feedRoutes)
 app.use("/architect", architectRoutes)
 app.use("/quests", questsRoutes)

@@ -23,6 +23,7 @@ export type NotificationType =
   | "auction_outbid"
   | "auction_won"
   | "auction_sold"
+  | "message"
 
 /** Единый шинный эмиттер уведомлений. Событие "notify" несёт { userId, notification }.
  *  Много SSE-подключений (по одному на активную вкладку) → поднимаем лимит слушателей. */
