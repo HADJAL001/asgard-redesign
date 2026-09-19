@@ -18,6 +18,7 @@ import { explainCraftScore, deriveCraftedStats, type GenerationDepth } from "../
 import { deriveArtifactIdentity, type ArtifactIdentity } from "../lib/artifact-identity"
 import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
 import { TIMECOIN_PRICES } from "../lib/timecoin-economy"
+import { forgeRecipeFor } from "../lib/economy-policy"
 
 const router = Router()
 
@@ -33,10 +34,10 @@ const NEXT_RARITY: Record<string, string | null> = {
   mythic: null,
 }
 const LIST_CURRENCY_BY_RARITY: Record<string, string> = {
-  common: "credits",
-  rare: "shards",
-  epic: "shards",
-  legendary: "crystals",
+  common: "timecoin",
+  rare: "timecoin",
+  epic: "timecoin",
+  legendary: "timecoin",
   mythic: "timecoin",
 }
 
@@ -183,12 +184,7 @@ router.post("/:id/unequip", requireAuth, (req: AuthRequest, res) => {
    множитель характеристик. TimeCoin даёт полную силу (×1.0), а базовые валюты —
    доступный вход с более слабым артефактом. Ключи совпадают с колонками wallets
    (whitelisted — безопасно подставлять в SQL-имя колонки). */
-const FORGE_CURRENCIES: Record<string, { cost: number; statMult: number }> = {
-  credits: { cost: 200, statMult: 0.4 },
-  shards: { cost: 80, statMult: 0.6 },
-  crystals: { cost: 30, statMult: 0.85 },
-  timecoin: { cost: FORGE_COST_TC, statMult: 1.0 },
-}
+const FORGE_CURRENCIES: Record<string, { cost: number; statMult: number }> = { credits: { cost: 120, statMult: 1.0 } }
 
 /** Ищет проект по id+владельцу и собирает из него честные сигналы Proof-of-Craft.
  *  Единый источник для реальной ковки (`POST /forge`) и превью (`GET /forge-preview`) —
@@ -248,7 +244,7 @@ router.get("/forge-preview", requireAuth, (req: AuthRequest, res) => {
     throw e
   }
 
-  const forgeCurrency = typeof currency === "string" && FORGE_CURRENCIES[currency] ? currency : "timecoin"
+  const forgeCurrency = "credits"
   const { statMult } = FORGE_CURRENCIES[forgeCurrency]
 
   const { craftBreakdown } = resolved
@@ -292,8 +288,10 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
     throw e
   }
 
-  const forgeCurrency = typeof currency === "string" && FORGE_CURRENCIES[currency] ? currency : "timecoin"
-  const { cost: forgeCost, statMult } = FORGE_CURRENCIES[forgeCurrency]
+  const recipe = forgeRecipeFor(type)
+  const forgeCurrency = "credits"
+  const { statMult } = FORGE_CURRENCIES[forgeCurrency]
+  const forgeCost = recipe.credits
 
   /* 💎 Рычаг 2 «Живой артефакт»: надетые артефакты дают скидку на ручную ковку,
      масштабируемую от их честности (craftScore). Замыкает петлю Proof-of-Craft.
@@ -305,7 +303,7 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
 
   const wallet: any = db.prepare(`SELECT * FROM wallets WHERE user_id = ?`).get(req.user!.userId)
   if (!wallet) return res.status(404).json({ error: "Кошелёк не найден", code: "USER_NOT_FOUND" })
-  if ((wallet[forgeCurrency] ?? 0) < paidCost) {
+  if ((wallet[forgeCurrency] ?? 0) < paidCost || (wallet[recipe.material] ?? 0) < recipe.materialAmount) {
     logAudit(req.user!.userId, "rejected", paidCost, "insufficient_balance", { action: "forge", currency: forgeCurrency })
     return res.status(400).json({ error: `Недостаточно средств (нужно ${paidCost} ${forgeCurrency})` })
   }
@@ -362,14 +360,14 @@ router.post("/forge", requireAuth, (req: AuthRequest, res) => {
         /* Авторитетная проверка баланса ВНУТРИ транзакции — закрывает TOCTOU:
            между внешним пре-чеком и списанием параллельная операция могла
            опустошить кошелёк. */
-        const w: any = db.prepare(`SELECT ${forgeCurrency} as bal FROM wallets WHERE user_id = ?`).get(req.user!.userId)
-        if (!w || (w.bal ?? 0) < paidCost) {
+        const w: any = db.prepare(`SELECT credits, ${recipe.material} AS material FROM wallets WHERE user_id = ?`).get(req.user!.userId)
+        if (!w || (w.credits ?? 0) < paidCost || (w.material ?? 0) < recipe.materialAmount) {
           throw new EconomyError(`Недостаточно средств (нужно ${paidCost} ${forgeCurrency})`, 400)
         }
 
         db.prepare(
-          `UPDATE wallets SET ${forgeCurrency} = ${forgeCurrency} - ?, updated_at = ? WHERE user_id = ?`,
-        ).run(paidCost, now, req.user!.userId)
+          `UPDATE wallets SET credits = credits - ?, ${recipe.material} = ${recipe.material} - ?, updated_at = ? WHERE user_id = ?`,
+        ).run(paidCost, recipe.materialAmount, now, req.user!.userId)
 
         const info = db
           .prepare(

@@ -210,7 +210,7 @@ function statFromFloat(f: number): number {
 /* Валюта листинга по редакции стартового артефакта. Common — базовые credits;
    если снаряжение Кузницы «поднимает» артефакт до rare, листинг в shards
    (паритет с LIST_CURRENCY_BY_RARITY в artifacts.routes.ts). */
-const STARTER_LIST_CURRENCY: Record<string, string> = { common: "credits", rare: "shards" }
+const STARTER_LIST_CURRENCY: Record<string, string> = { common: "timecoin", rare: "timecoin" }
 
 /** Вставляет стартовые артефакты проекта (детерминированный локальный рандомайзер —
  *  экономика не завязана на AI) и проставляет projects.artifact_count.

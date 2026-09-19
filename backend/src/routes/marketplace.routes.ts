@@ -8,10 +8,11 @@ import { addArchitectXp } from "../lib/architect-progression"
 import { computeCreatorRoyalty } from "../lib/creator-royalty"
 import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
 import { secretRoomMarketFeeRate } from "../lib/secret-room-perks"
+import { MARKET_CURRENCY } from "../lib/economy-policy"
 
 const router = Router()
 
-const CURRENCIES = ["credits", "shards", "crystals", "timecoin", "cash_usd"]
+const CURRENCIES = [MARKET_CURRENCY]
 const MARKET_FEE = 0.05 /* базовая комиссия маркетплейса при продаже, 5% с продавца */
 
 /* Комиссия снижается тарифом подписки И активным стейком (привилегия стейкинга —
@@ -95,7 +96,7 @@ router.post("/list", requireAuth, (req: AuthRequest, res) => {
 
   const id = Number(artifactId)
   const listPrice = Number(price)
-  const listCurrency = currency || "credits"
+  const listCurrency = currency || MARKET_CURRENCY
 
   if (!id) return res.status(400).json({ error: "Укажите artifactId" })
   if (!listPrice || listPrice <= 0) {

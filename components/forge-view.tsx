@@ -36,12 +36,13 @@ const FORGE_COST_TC = 50
 
 /* Ковка за любую монету, но слабее (зеркалит FORGE_CURRENCIES на бэкенде):
    слабее/дешевле валюта → ниже множитель характеристик артефакта. */
-const FORGE_CURRENCIES = [
+const FORGE_CURRENCIES_LEGACY = [
   { id: "credits", label: "Кредиты", cost: 200, mult: 0.4, color: "#d7ae57" },
   { id: "shards", label: "Шарды", cost: 80, mult: 0.6, color: "#B57BFF" },
   { id: "crystals", label: "Кристаллы", cost: 30, mult: 0.85, color: "#5AC8FA" },
   { id: "timecoin", label: "TimeCoin", cost: FORGE_COST_TC, mult: 1.0, color: "#F1C40F" },
 ] as const
+const FORGE_CURRENCIES = [{ id: "credits", label: "Credits", cost: 120, mult: 1, color: "#d7ae57" }] as const
 type ForgeCurrencyId = (typeof FORGE_CURRENCIES)[number]["id"]
 
 /** Стоимость AI-генерации артефакта (см. backend/artifacts.routes.ts AI_GENERATE_COST_TC = FORGE_COST_TC). */
@@ -133,7 +134,7 @@ export function ForgeView() {
 
   const [name, setName] = useState("")
   const [type, setType] = useState<ArtifactType>("neural")
-  const [forgeCurrency, setForgeCurrency] = useState<ForgeCurrencyId>("timecoin")
+  const [forgeCurrency, setForgeCurrency] = useState<ForgeCurrencyId>("credits")
   const [projectId, setProjectId] = useState<number | "">("")
   const [submitting, setSubmitting] = useState(false)
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
@@ -1309,4 +1310,3 @@ export function ForgeView() {
     </div>
   )
 }
-

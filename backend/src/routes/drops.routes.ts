@@ -15,12 +15,12 @@ import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
 
 const router = Router()
 
-const CURRENCIES = ["credits", "shards", "crystals", "timecoin", "cash_usd"]
+const CURRENCIES = ["timecoin"]
 const LIST_CURRENCY_BY_RARITY: Record<string, string> = {
-  common: "credits",
-  rare: "shards",
-  epic: "shards",
-  legendary: "crystals",
+  common: "timecoin",
+  rare: "timecoin",
+  epic: "timecoin",
+  legendary: "timecoin",
   mythic: "timecoin",
 }
 

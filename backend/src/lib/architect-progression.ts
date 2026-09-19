@@ -117,10 +117,10 @@ const RARITY_LADDER = ["common", "rare", "epic", "legendary", "mythic"] as const
 type Rarity = (typeof RARITY_LADDER)[number]
 const RARITY_MULT: Record<Rarity, number> = { common: 1, rare: 2, epic: 3, legendary: 4, mythic: 5 }
 const LIST_CURRENCY_BY_RARITY: Record<Rarity, string> = {
-  common: "credits",
-  rare: "shards",
-  epic: "shards",
-  legendary: "crystals",
+  common: "timecoin",
+  rare: "timecoin",
+  epic: "timecoin",
+  legendary: "timecoin",
   mythic: "timecoin",
 }
 

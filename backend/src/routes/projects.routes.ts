@@ -72,10 +72,10 @@ const router = Router()
 export let activeGenerationSseConnections = 0
 
 const LIST_CURRENCY_BY_RARITY: Record<string, string> = {
-  common: "credits",
-  rare: "shards",
-  epic: "shards",
-  legendary: "crystals",
+  common: "timecoin",
+  rare: "timecoin",
+  epic: "timecoin",
+  legendary: "timecoin",
   mythic: "timecoin",
 }
 

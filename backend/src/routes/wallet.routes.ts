@@ -9,6 +9,7 @@ import { SolanaService } from "../services/solana.service"
 import { transferSchema } from "../validators/transfer.validator"
 import { logAudit } from "../lib/audit"
 import { runEconomyOp, EconomyError, normalizeIdemKey } from "../lib/economy-tx"
+import { CRAFT_MATERIALS, MATERIAL_OFFERS, type CraftMaterial } from "../lib/economy-policy"
 
 const router = Router()
 const solanaService = new SolanaService()
@@ -40,6 +41,21 @@ router.get("/", requireAuth, (req: AuthRequest, res) => {
   res.json({ wallet })
 })
 
+router.post("/materials/buy", requireAuth, (req: AuthRequest, res) => {
+  const material = String(req.body?.material || "") as CraftMaterial
+  const packs = Number(req.body?.packs)
+  if (!CRAFT_MATERIALS.includes(material) || !Number.isInteger(packs) || packs < 1 || packs > 100) return res.status(400).json({ error: "Invalid material purchase" })
+  const offer = MATERIAL_OFFERS[material]
+  const credits = offer.credits * packs
+  const quantity = offer.quantity * packs
+  const result = db.prepare(`UPDATE wallets SET credits = credits - ?, ${material} = ${material} + ?, updated_at = ? WHERE user_id = ? AND credits >= ?`).run(credits, quantity, Date.now(), req.user!.userId, credits)
+  if (result.changes !== 1) return res.status(400).json({ error: "Insufficient credits" })
+  db.prepare(`INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status) VALUES (?, 'material_purchase', ?, 'Forge', ?, 'credits', 'done')`).run(req.user!.userId, `${quantity} ${material}`, credits)
+  logAudit(req.user!.userId, "debit", credits, "material_purchase", { material, quantity })
+  const wallet = db.prepare(`SELECT credits, shards, crystals, timecoin, cash_usd, updated_at as updatedAt FROM wallets WHERE user_id = ?`).get(req.user!.userId)
+  res.status(201).json({ wallet, material, quantity, credits })
+})
+
 /* ================================================================
    GET /wallet/tc-balance — резерв казначейства (on-chain TC) и личный
    баланс ∞ пользователя, для карточки «TimeCoin · Solana» на /wallet.
@@ -68,6 +84,9 @@ router.post("/convert", requireAuth, (req: AuthRequest, res) => {
 
   if (!CURRENCIES.includes(from) || !CURRENCIES.includes(to)) {
     return res.status(400).json({ error: "Некорректная валюта" })
+  }
+  if (from === "shards" || from === "crystals" || to === "shards" || to === "crystals") {
+    return res.status(400).json({ error: "Shards and crystals are forge materials, not exchange currencies" })
   }
   if (from === to) {
     return res.status(400).json({ error: "Валюты должны отличаться" })
