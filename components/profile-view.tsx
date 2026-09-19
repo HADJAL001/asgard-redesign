@@ -688,10 +688,17 @@ function ArtifactsPanel() {
 }
 
 function AchievementsTab() {
+  const projects = useOsgardStore((s) => s.projects)
+  const artifacts = useOsgardStore((s) => s.artifacts)
+  const achievements: Achievement[] = [
+    { Icon: FolderKanban, name: "Projects", progress: `${projects.length}/10`, ratio: Math.min(projects.length / 10, 1), color: "#FBBF24", tier: "Builder" },
+    { Icon: Hammer, name: "Artifacts", progress: `${artifacts.length}/25`, ratio: Math.min(artifacts.length / 25, 1), color: "#CBD5E1", tier: "Forge" },
+  ]
+
   return (
     <Panel title="Достижения">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {ACHIEVEMENTS.map((a) => (
+        {achievements.map((a) => (
           <AchievementCard key={a.name} a={a} />
         ))}
       </div>
