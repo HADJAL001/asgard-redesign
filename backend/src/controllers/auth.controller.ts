@@ -94,7 +94,7 @@ export class AuthController {
       try {
         db.prepare(`
           INSERT OR IGNORE INTO wallets (user_id, credits, shards, crystals, timecoin, cash_usd)
-          VALUES (?, 100, 0, 0, 0, 0)
+          VALUES (?, 0, 0, 0, 0, 0)
         `).run(userId);
       } catch (e) {
         // wallets таблица может не существовать — игнорируем
