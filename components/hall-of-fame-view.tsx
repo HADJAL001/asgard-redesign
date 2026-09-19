@@ -290,11 +290,15 @@ export function HallOfFameView() {
 
         {/* Empty */}
         {!loading && shown.length === 0 && (
-          <div className="mt-16 flex flex-col items-center gap-3 text-center">
-            <Users size={32} strokeWidth={1.25} style={{ color: LABEL }} />
-            <p className="text-[15px]" style={{ color: LABEL }}>
-              {t("hallOfFame.nobodyFound")}
-            </p>
+          <div className="mt-16 flex flex-col items-center gap-4 text-center">
+            <Users size={32} strokeWidth={1.25} style={{ color: GOLD }} />
+            <div>
+              <p className="text-[16px] font-medium" style={{ color: TEXT }}>Первый сезон открыт</p>
+              <p className="mt-1 max-w-sm text-[13px]" style={{ color: LABEL }}>Здесь появятся авторы реальных проектов и продаж. Первый опубликованный проект задаст планку рейтинга.</p>
+            </div>
+            <Link href="/dev" className="inline-flex items-center rounded-lg px-4 py-2 text-[13px] font-medium" style={{ color: "#0A0E1A", backgroundColor: GOLD }}>
+              Создать проект
+            </Link>
           </div>
         )}
 
