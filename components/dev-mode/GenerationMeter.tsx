@@ -54,6 +54,13 @@ function formatDuration(ms: number): string {
   return sec === 0 ? `${min} мин` : `${min} мин ${sec} с`
 }
 
+/** Денежная себестоимость требует точности: мелкие суммы не округляем до ложного нуля. */
+function formatUsd(usd: number): string {
+  if (usd >= 1) return `$${usd.toFixed(2)}`
+  if (usd >= 0.01) return `$${usd.toFixed(4)}`
+  return `$${usd.toFixed(6)}`
+}
+
 /* ---------------- живой счётчик (во время сборки) ---------------- */
 
 /**
@@ -240,6 +247,18 @@ export function GenerationMeterCard({ meter }: { meter: GenerationMeter | null |
   const tokenLimit = detail?.tokenLimit ?? null
   const repairedFiles = detail?.repairedFiles ?? 0
   const firstTry = meter.firstTry
+  const cost = detail?.cost
+  const pricedCalls = cost?.pricedCalls ?? 0
+  const unpricedCalls = cost?.unpricedCalls ?? 0
+  const hasPricedCost = pricedCalls > 0 && typeof cost?.pricedUsd === "number"
+  const costValue = hasPricedCost ? formatUsd(cost.pricedUsd ?? 0) : unpricedCalls > 0 ? "Не задана" : "Не измерялась"
+  const costHint = hasPricedCost
+    ? `Подтверждённая себестоимость ${pricedCalls} ${pluralCalls(pricedCalls)} к модели${
+        unpricedCalls > 0 ? `; ещё ${unpricedCalls} ${pluralCalls(unpricedCalls)} без подтверждённого тарифа` : ""
+      }`
+    : unpricedCalls > 0
+      ? `${unpricedCalls} ${pluralCalls(unpricedCalls)} к модели без подтверждённого тарифа`
+      : "Для этой генерации не сохранилась информация о тарифе"
 
   /* Три состояния вердикта «с первого раза», и ни одно не приукрашено:
      да · нет (с числом починок) · неизвестно. */
@@ -273,7 +292,7 @@ export function GenerationMeterCard({ meter }: { meter: GenerationMeter | null |
       </div>
 
       {/* ── Чек: во что обошлось ── */}
-      <div className="mt-3.5 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+      <div className="mt-3.5 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-5">
         <Fact
           Icon={Timer}
           label="Заняло"
@@ -297,6 +316,12 @@ export function GenerationMeterCard({ meter }: { meter: GenerationMeter | null |
           hint={`Отправлено ${tokensIn}, получено ${tokensOut}${tokenLimit ? ` · лимит ${formatTokens(tokenLimit)}` : ""}${
             approx ? ` · ${unmeasured} ${pluralCalls(unmeasured)} не вернули точный расход` : ""
           }`}
+        />
+        <Fact
+          Icon={Coins}
+          label="Себестоимость"
+          value={costValue}
+          hint={costHint}
         />
         <Fact
           Icon={Wrench}
@@ -326,6 +351,11 @@ export function GenerationMeterCard({ meter }: { meter: GenerationMeter | null |
         <p className="mt-3 text-[11.5px]" style={{ color: "rgb(148 163 184 / 75%)" }}>
           {unmeasured} {pluralCalls(unmeasured)} не вернули точный расход — эти токены оценены по объёму
           текста, поэтому итог приблизительный.
+        </p>
+      ) : null}
+      {unpricedCalls > 0 ? (
+        <p className="mt-2 text-[11.5px]" style={{ color: "rgb(251 191 36 / 88%)" }}>
+          Себестоимость показана не полностью: у {unpricedCalls} {pluralCalls(unpricedCalls)} нет подтверждённого тарифа модели.
         </p>
       ) : null}
     </div>

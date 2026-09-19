@@ -626,6 +626,13 @@ export interface EngineeringReport {
 export interface GenerationMeterDetail {
   /** Разбивка по провайдерам: видно, кто сколько съел. */
   byProvider?: Record<string, { calls: number; tokens: number }>
+  /** Себестоимость вызовов с подтверждённым тарифом. Непрайсенные вызовы не входят в USD-сумму. */
+  cost?: {
+    pricedUsd?: number
+    pricedCalls?: number
+    unpricedCalls?: number
+    estimatedCalls?: number
+  }
   /** Сумма времени сетевых вызовов (без пауз между ними). */
   aiMs?: number
   /** Сколько вызовов не отдали точный usage — оговорка к точности цифры. */
