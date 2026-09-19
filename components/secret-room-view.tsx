@@ -9,12 +9,18 @@
    ================================================================ */
 
 import { useEffect, useState } from "react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import { Lock, Loader2, Plus, Trash2, UserPlus, Sparkles, KeyRound, Check, CalendarDays, Ticket, Send } from "lucide-react"
 import { Navbar } from "./navbar"
 import { PremiumBackground } from "./premium-bg"
 import { COLORS } from "@/lib/economy"
 import { apiClient } from "@/lib/api-client"
+
+const SecretRoomScene = dynamic(() => import("./secret-room-scene").then((module) => module.SecretRoomScene), {
+  ssr: false,
+  loading: () => <div className="absolute inset-0 animate-pulse" style={{ background: "radial-gradient(circle at 50% 46%, #5b468b, #0b0c16 70%)" }} />,
+})
 
 const GOLD = "#E6C868"
 
@@ -237,20 +243,9 @@ export function SecretRoomView() {
                 className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl"
                 style={{ background: BACKGROUNDS[room.background] || BACKGROUNDS.nebula, border: `1px solid ${GOLD}33`, boxShadow: "inset 0 0 60px rgba(0,0,0,0.5)" }}
               >
-                {room.items.map((it, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => isOwner && removeItem(i)}
-                    title={isOwner ? "Убрать" : undefined}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 text-[34px] leading-none transition-transform hover:scale-110"
-                    style={{ left: `${it.x}%`, top: `${it.y}%`, cursor: isOwner ? "pointer" : "default", filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.5))" }}
-                  >
-                    {ITEMS[it.type] || "❔"}
-                  </button>
-                ))}
+                <SecretRoomScene items={room.items} background={room.background} isOwner={isOwner} onRemove={removeItem} />
                 {room.items.length === 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center text-[13px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[13px]" style={{ color: "rgba(255,255,255,0.35)" }}>
                     {isOwner ? "Добавьте мебель и картины из палитры справа →" : "Хозяин ещё обставляет комнату"}
                   </div>
                 )}
