@@ -43,6 +43,11 @@ test("Secret Room event booking is member-only, capacity-bound, and transfers Ti
   assert.equal((db.prepare(`SELECT timecoin FROM wallets WHERE user_id = ?`).get(member.user.id) as any).timecoin, 13)
   assert.equal((db.prepare(`SELECT timecoin FROM wallets WHERE user_id = ?`).get(owner.user.id) as any).timecoin, 7)
   assert.equal((db.prepare(`SELECT COUNT(*) AS count FROM secret_room_event_attendees WHERE event_id = ?`).get(event.id) as any).count, 1)
+  const activity = await fetch(`${BASE}/secret-room/activity`, { headers: auth(member.token) })
+  assert.equal(activity.status, 200)
+  const items = (await activity.json() as { activity: Array<{ kind: string }> }).activity
+  assert.ok(items.some((item) => item.kind === "event_created"))
+  assert.ok(items.some((item) => item.kind === "event_booked"))
   db.close()
 })
 

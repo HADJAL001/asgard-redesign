@@ -29,6 +29,7 @@ type Room = { id: number; name: string; background: string; items: RoomItem[]; f
 type Member = { userId: number; username: string; displayName?: string; addedAt: number }
 type Pricing = { entryUsd: number; monthlyUsd: number; extraFriendUsd: number; freeFriendSlots: number; periodDays: number }
 type RoomEvent = { id: number; title: string; description: string; startsAt: number; capacity: number; priceTimecoin: number; status: "active" | "cancelled"; attendeeCount: number; booked: boolean; isOwner: boolean }
+type RoomActivity = { id: number; kind: string; detail: string; createdAt: number; username?: string; displayName?: string }
 
 const BACKGROUNDS: Record<string, string> = {
   nebula: "radial-gradient(120% 120% at 30% 20%, #241a45, #0a0b1a 70%)",
@@ -57,6 +58,7 @@ export function SecretRoomView() {
   const [friendName, setFriendName] = useState("")
   const [msg, setMsg] = useState<string | null>(null)
   const [events, setEvents] = useState<RoomEvent[]>([])
+  const [activity, setActivity] = useState<RoomActivity[]>([])
   const [eventTitle, setEventTitle] = useState("")
   const [eventDescription, setEventDescription] = useState("")
   const [eventStart, setEventStart] = useState("")
@@ -66,8 +68,12 @@ export function SecretRoomView() {
   const [creatorContacted, setCreatorContacted] = useState(false)
 
   async function loadEvents() {
-    const response = await apiClient.get<{ events: RoomEvent[] }>("/secret-room/events", { skipAuthRedirect: true })
-    setEvents(response.events || [])
+    const [eventsResponse, activityResponse] = await Promise.all([
+      apiClient.get<{ events: RoomEvent[] }>("/secret-room/events", { skipAuthRedirect: true }),
+      apiClient.get<{ activity: RoomActivity[] }>("/secret-room/activity", { skipAuthRedirect: true }),
+    ])
+    setEvents(eventsResponse.events || [])
+    setActivity(activityResponse.activity || [])
   }
 
   useEffect(() => {
@@ -269,6 +275,16 @@ export function SecretRoomView() {
                   <div className="flex gap-2"><input type="number" min="1" value={eventCapacity} onChange={(event) => setEventCapacity(event.target.value)} aria-label="Capacity" className="min-w-0 flex-1 rounded-lg px-3 py-2 text-[13px]" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" }} /><input type="number" min="0" step="0.01" value={eventPrice} onChange={(event) => setEventPrice(event.target.value)} aria-label="TimeCoin price" className="min-w-0 flex-1 rounded-lg px-3 py-2 text-[13px]" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff" }} /></div>
                   <button type="button" onClick={createEvent} disabled={busy} className="rounded-lg px-3 py-2 text-[13px] font-medium disabled:opacity-50" style={{ background: `${GOLD}22`, color: GOLD, border: `1px solid ${GOLD}55` }}>Create event</button>
                 </div>}
+              </section>
+
+              <section className="mt-6 border-t pt-5" style={{ borderColor: `${GOLD}33` }}>
+                <h2 className="text-[16px] font-semibold">Room activity</h2>
+                {activity.length ? <ol className="mt-3 space-y-2">
+                  {activity.map((entry) => <li key={entry.id} className="flex items-start justify-between gap-3 text-[12px] text-white/55">
+                    <span><strong className="font-medium text-white/80">{entry.displayName || entry.username || "A member"}</strong> {entry.kind === "member_invited" ? `invited ${entry.detail}` : entry.kind === "member_removed" ? `removed ${entry.detail}` : entry.kind === "event_created" ? `created “${entry.detail}”` : entry.kind === "event_booked" ? `booked “${entry.detail}”` : entry.kind === "event_cancelled" ? `cancelled “${entry.detail}”` : entry.kind === "room_customized" ? "customized the headquarters" : "activated the headquarters"}</span>
+                    <time className="shrink-0 text-white/35">{new Date(entry.createdAt).toLocaleDateString("ru-RU")}</time>
+                  </li>)}
+                </ol> : <p className="mt-3 text-[12px] text-white/40">The room is ready for its first activity.</p>}
               </section>
 
               {isOwner && (

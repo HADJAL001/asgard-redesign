@@ -253,6 +253,7 @@ import { runCurrencySimplificationMigration } from "./migrations/118_currency_si
 import { runCreditResetMigration } from "./migrations/119_reset_credits"
 import { runDirectMessagesMigration } from "./migrations/120_direct_messages"
 import { runSecretRoomEventsMigration } from "./migrations/121_secret_room_events"
+import { runSecretRoomActivityMigration } from "./migrations/122_secret_room_activity"
 import provenanceRoutes from "./routes/provenance.routes"
 import { runOrderBookMigration } from "./migrations/001_order_book"
 import { runReferralMigration } from "./migrations/002_referral_system"
@@ -438,6 +439,7 @@ runCurrencySimplificationMigration()
 runCreditResetMigration()
 runDirectMessagesMigration()
 runSecretRoomEventsMigration()
+runSecretRoomActivityMigration()
 
 /* Гарантируем наличие таблицы tc_convert_log (лог конвертаций ∞ ↔ TC) при старте сервера. */
 runTcConvertMigration()

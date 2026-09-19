@@ -79,6 +79,14 @@ function serializeRoom(room: any) {
     active: room.access_until > Date.now(),
   }
 }
+function logRoomActivity(roomId: number, actorId: number | null, kind: string, detail = "") {
+  db.prepare(`INSERT INTO secret_room_activity (room_id, actor_id, kind, detail, created_at) VALUES (?, ?, ?, ?, ?)`).run(roomId, actorId, kind, detail.slice(0, 160), Date.now())
+}
+function activityOf(roomId: number): any[] {
+  return db.prepare(`SELECT a.id, a.kind, a.detail, a.created_at AS createdAt, u.username, u.display_name AS displayName
+    FROM secret_room_activity a LEFT JOIN users u ON u.id = a.actor_id
+    WHERE a.room_id = ? ORDER BY a.created_at DESC, a.id DESC LIMIT 30`).all(roomId)
+}
 
 function accessibleRoom(userId: number): any {
   const own = roomOf(userId)
@@ -151,6 +159,12 @@ router.get("/events", requireAuth, (req: AuthRequest, res) => {
   res.json({ events: events.map((event: any) => serializeEvent(event, req.user!.userId)) })
 })
 
+router.get("/activity", requireAuth, (req: AuthRequest, res) => {
+  const room = accessibleRoom(req.user!.userId)
+  if (!room) return res.status(403).json({ error: "An active Secret Room invitation is required" })
+  res.json({ activity: activityOf(room.id) })
+})
+
 /* ---------------- POST /secret-room/creator-line ----------------
    Members receive a real private line to the team. It deliberately reuses the
    audited direct-message ledger: replies arrive in the user's normal inbox. */
@@ -200,6 +214,7 @@ router.post("/events", requireAuth, (req: AuthRequest, res) => {
   const now = Date.now()
   const result = db.prepare(`INSERT INTO secret_room_events (room_id, owner_id, title, description, starts_at, capacity, price_timecoin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(room.id, userId, title.trim(), typeof description === "string" ? description.trim().slice(0, 1000) : "", start, seats, price, now, now)
   const event: any = db.prepare(`SELECT * FROM secret_room_events WHERE id = ?`).get(result.lastInsertRowid)
+  logRoomActivity(room.id, userId, "event_created", event.title)
   logAudit(userId, "credit", 0, "secret_room_event_created", { eventId: event.id })
   res.status(201).json({ event: serializeEvent(event, userId) })
 })
@@ -228,6 +243,7 @@ router.post("/events/:id/cancel", requireAuth, (req: AuthRequest, res) => {
   const attendees = db.prepare(`SELECT user_id, paid_timecoin FROM secret_room_event_attendees WHERE event_id = ?`).all(eventId) as any[]
   if (attendees.length) return res.status(409).json({ error: "Booked events cannot be cancelled. Contact support to arrange verified refunds.", code: "EVENT_HAS_ATTENDEES" })
   db.prepare(`UPDATE secret_room_events SET status = 'cancelled', updated_at = ? WHERE id = ?`).run(Date.now(), eventId)
+  logRoomActivity(event.room_id, userId, "event_cancelled", event.title)
   logAudit(userId, "credit", 0, "secret_room_event_cancelled", { eventId })
   res.json({ ok: true })
 })
@@ -257,6 +273,7 @@ router.post("/events/:id/book", requireAuth, (req: AuthRequest, res) => {
     throw error
   }
   logAudit(userId, "debit", event.price_timecoin, "secret_room_event_booking", { eventId })
+  logRoomActivity(event.room_id, userId, "event_booked", event.title)
   logAudit(event.owner_id, "credit", event.price_timecoin, "secret_room_event_sale", { eventId, attendeeId: userId })
   createNotification({ userId: event.owner_id, actorId: userId, type: "message", entityType: "secret_room_event", entityId: eventId, text: `A member booked “${event.title}”.` })
   res.status(201).json({ event: serializeEvent(db.prepare(`SELECT * FROM secret_room_events WHERE id = ?`).get(eventId), userId) })
@@ -285,6 +302,8 @@ router.post("/webhook", async (req, res) => {
           accessUntil = Number(subscription.current_period_end) * 1000 || accessUntil
         }
         grantRoomAccess(userId, accessUntil)
+        const room = roomOf(userId)
+        if (room) logRoomActivity(room.id, userId, "room_activated")
         logAudit(userId, "credit", ROOM_PRICING.entryUsd, "secret_room_checkout", { stripeEventId: event.id, accessUntil })
       } else {
         const room = roomOf(userId)
@@ -364,6 +383,7 @@ router.patch("/", requireAuth, (req: AuthRequest, res) => {
     Date.now(),
     uid,
   )
+  if (nextName !== room.name || nextBg !== room.background || nextItems !== room.items) logRoomActivity(room.id, uid, "room_customized")
   res.json({ ok: true, room: serializeRoom(roomOf(uid)) })
 })
 
@@ -404,6 +424,7 @@ router.post("/members", requireAuth, (req: AuthRequest, res) => {
   }
 
   db.prepare(`INSERT INTO secret_room_members (room_id, user_id, added_at) VALUES (?, ?, ?)`).run(room.id, friend.id, Date.now())
+  logRoomActivity(room.id, uid, "member_invited", username.trim())
   res.json({ ok: true, members: membersOf(room.id) })
 })
 
@@ -412,7 +433,10 @@ router.delete("/members/:userId", requireAuth, (req: AuthRequest, res) => {
   const uid = req.user!.userId
   const room = roomOf(uid)
   if (!room) return res.status(404).json({ error: "Комната не найдена" })
-  db.prepare(`DELETE FROM secret_room_members WHERE room_id = ? AND user_id = ?`).run(room.id, Number(req.params.userId))
+  const memberId = Number(req.params.userId)
+  const member = db.prepare(`SELECT username FROM users WHERE id = ?`).get(memberId) as { username?: string } | undefined
+  const removed = db.prepare(`DELETE FROM secret_room_members WHERE room_id = ? AND user_id = ?`).run(room.id, memberId)
+  if (removed.changes) logRoomActivity(room.id, uid, "member_removed", member?.username || "member")
   res.json({ ok: true, members: membersOf(room.id) })
 })
 
