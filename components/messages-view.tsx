@@ -14,7 +14,7 @@ import { apiClient } from "@/lib/api-client"
    история, непрочитанные сообщения и уведомления приходят с сервера.
    При отсутствии диалогов экран остаётся честным пустым состоянием. */
 
-type ChatUser = { id: number; username: string; displayName: string; avatarUrl: string | null }
+type ChatUser = { id: number; username: string; displayName: string; avatarUrl: string | null; level?: number }
 type ChatMessage = {
   id: number
   mine: boolean
@@ -35,6 +35,7 @@ export function MessagesView() {
   const [search, setSearch] = useState("")
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [searchResults, setSearchResults] = useState<ChatUser[]>([])
+  const [recommendedUsers, setRecommendedUsers] = useState<ChatUser[]>([])
   const [activeUser, setActiveUser] = useState<ChatUser | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(true)
@@ -49,6 +50,12 @@ export function MessagesView() {
   useEffect(() => {
     reloadConversations().catch(() => setError("Не удалось загрузить переписки")).finally(() => setLoading(false))
   }, [reloadConversations])
+
+  useEffect(() => {
+    apiClient.get<{ users: ChatUser[] }>("/messages/recommended")
+      .then((data) => setRecommendedUsers(data.users))
+      .catch(() => setRecommendedUsers([]))
+  }, [])
 
   useEffect(() => {
     const query = search.trim()
@@ -150,6 +157,28 @@ export function MessagesView() {
               ) : visibleConversations.length === 0 && searchResults.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-12 text-center">
                   <MessagesSquare size={26} strokeWidth={1.25} style={{ color: "#9eb2bc" }} />
+                  {recommendedUsers.length > 0 && !search.trim() && (
+                    <div className="w-full pt-2 text-left">
+                      <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.12em]" style={{ color: "#d7ae57" }}>{"\u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0443\u0435\u043c \u043f\u043e\u0437\u043d\u0430\u043a\u043e\u043c\u0438\u0442\u044c\u0441\u044f"}</p>
+                      <div className="flex flex-col gap-1">
+                        {recommendedUsers.map((user) => (
+                          <button
+                            key={user.id}
+                            type="button"
+                            onClick={() => void openConversation(user)}
+                            className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-white/5"
+                          >
+                            <Image src={user.avatarUrl || "/placeholder.svg"} alt={user.displayName} width={30} height={30} className="size-[30px] rounded-full object-cover" style={{ border: "1px solid #30424b" }} />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[13px] font-medium">{user.displayName}</span>
+                              <span className="block truncate text-[11px]" style={{ color: "#9eb2bc" }}>@{user.username}{user.level ? ` · Lvl.${user.level}` : ""}</span>
+                            </span>
+                            <Send size={14} strokeWidth={1.5} style={{ color: "#d7ae57" }} aria-hidden="true" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.7)" }}>Ваши диалоги появятся здесь</p>
                   <div className="flex flex-wrap justify-center gap-2">
                     <Link href="/community" className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px]" style={{ border: "1px solid #30424b", color: "#d7ae57" }}>

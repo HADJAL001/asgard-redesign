@@ -91,10 +91,21 @@ test("direct messages preserve ownership, unread state, and reject self-send", a
   })
   assert.equal(selfSend.status, 400)
 
+  const recommendations = await fetch(`${BASE}/messages/recommended`, { headers: auth(alice.token) })
+  const recommendationsBody = await recommendations.json() as { users: Array<{ id: number }> }
+  assert.equal(recommendations.status, 200)
+  assert.ok(recommendationsBody.users.some((user) => user.id === bob.user.id))
+  assert.ok(recommendationsBody.users.some((user) => user.id === charlie.user.id))
+  assert.ok(!recommendationsBody.users.some((user) => user.id === alice.user.id))
+
   const sent = await fetch(`${BASE}/messages/${bob.user.id}`, {
     method: "POST", headers: auth(alice.token), body: JSON.stringify({ text: "Hello, Bob" }),
   })
   assert.equal(sent.status, 201)
+
+  const recommendationsAfterMessage = await fetch(`${BASE}/messages/recommended`, { headers: auth(alice.token) })
+  const recommendationsAfterMessageBody = await recommendationsAfterMessage.json() as { users: Array<{ id: number }> }
+  assert.ok(!recommendationsAfterMessageBody.users.some((user) => user.id === bob.user.id))
 
   const inbox = await fetch(`${BASE}/messages`, { headers: auth(bob.token) })
   const inboxBody = await inbox.json() as { conversations: Array<{ user: { id: number }; unreadCount: number; lastMessage: { text: string } }> }

@@ -9,10 +9,16 @@ const MAX_BODY_LENGTH = 2_000
 const PAGE_SIZE = 100
 const SEARCH_PAGE_SIZE = 20
 
-type UserRow = { id: number; username: string; display_name: string | null; avatar_url: string | null }
+type UserRow = { id: number; username: string; display_name: string | null; avatar_url: string | null; level?: number }
 
 function mapUser(row: UserRow) {
-  return { id: row.id, username: row.username, displayName: row.display_name || row.username, avatarUrl: row.avatar_url || null }
+  return {
+    id: row.id,
+    username: row.username,
+    displayName: row.display_name || row.username,
+    avatarUrl: row.avatar_url || null,
+    ...(typeof row.level === "number" ? { level: row.level } : {}),
+  }
 }
 
 function getRecipient(id: number): UserRow | undefined {
@@ -56,6 +62,29 @@ router.get("/users", requireAuth, rateLimit(60_000, 30), (req: AuthRequest, res)
       AND (username LIKE ? ESCAPE '\\' OR COALESCE(display_name, '') LIKE ? ESCAPE '\\')
     ORDER BY username COLLATE NOCASE ASC LIMIT ?
   `).all(req.user!.userId, `%${escaped}%`, `%${escaped}%`, SEARCH_PAGE_SIZE) as UserRow[]
+  res.json({ users: rows.map(mapUser) })
+})
+
+/* Real people to start a first conversation with. The list deliberately excludes
+   existing contacts and never invents a profile when the community is empty. */
+router.get("/recommended", requireAuth, rateLimit(60_000, 30), (req: AuthRequest, res) => {
+  const userId = req.user!.userId
+  const rows = db.prepare(`
+    SELECT u.id, u.username, u.display_name, u.avatar_url, u.level,
+           COUNT(p.id) AS project_count
+    FROM users u
+    LEFT JOIN projects p ON p.user_id = u.id
+    WHERE u.id <> ? AND COALESCE(u.banned, 0) = 0
+      AND NOT EXISTS (
+        SELECT 1 FROM direct_messages m
+        WHERE (m.sender_id = ? AND m.recipient_id = u.id)
+           OR (m.sender_id = u.id AND m.recipient_id = ?)
+      )
+    GROUP BY u.id
+    ORDER BY project_count DESC, u.level DESC, u.created_at ASC
+    LIMIT 3
+  `).all(userId, userId, userId) as UserRow[]
+
   res.json({ users: rows.map(mapUser) })
 })
 
