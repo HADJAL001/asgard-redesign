@@ -19,6 +19,7 @@ import {
   TrendingUp,
   CreditCard,
   Gauge,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react"
 import { Navbar } from "./navbar"
@@ -127,6 +128,7 @@ type AdminGenerationBudget = {
     { samples: number; limit: TokenLimitRecommendation | null }
   >
 }
+type AlphaRelease = { version: string; notes: string; publishedAt: number }
 
 const ACTION_LABELS: Record<string, string> = {
   set_role: "Изменение роли",
@@ -189,6 +191,10 @@ export function AdminView() {
   const [promoCredits, setPromoCredits] = useState("")
   const [grantReason, setGrantReason] = useState("")
   const [grantSubmitting, setGrantSubmitting] = useState(false)
+  const [alphaRelease, setAlphaRelease] = useState<AlphaRelease | null>(null)
+  const [alphaVersion, setAlphaVersion] = useState("")
+  const [alphaNotes, setAlphaNotes] = useState("")
+  const [alphaSubmitting, setAlphaSubmitting] = useState(false)
 
   useEffect(() => {
     if (!authLoading && user && user.role !== "admin") {
@@ -202,6 +208,19 @@ export function AdminView() {
       setStats(data.stats)
     } catch {
       /* игнорируем — карточки просто не заполнятся */
+    }
+  }, [])
+
+  const loadAlphaRelease = useCallback(async () => {
+    try {
+      const data = await apiClient.get<{ release: AlphaRelease | null }>("/admin/secret-room/alpha-release", { skipAuthRedirect: true })
+      setAlphaRelease(data.release)
+      if (data.release) {
+        setAlphaVersion(data.release.version)
+        setAlphaNotes(data.release.notes)
+      }
+    } catch {
+      setAlphaRelease(null)
     }
   }, [])
 
@@ -228,10 +247,25 @@ export function AdminView() {
       Promise.resolve().then(() => {
         loadStats()
         loadUsers(search, page)
+        loadAlphaRelease()
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user?.role, page])
+  }, [authLoading, user?.role, page, loadAlphaRelease])
+
+  async function publishAlpha() {
+    if (!alphaVersion.trim()) return
+    setAlphaSubmitting(true)
+    setActionError(null)
+    try {
+      const data = await apiClient.post<{ release: AlphaRelease }>("/admin/secret-room/alpha-release", { version: alphaVersion, notes: alphaNotes })
+      setAlphaRelease(data.release)
+    } catch (error: any) {
+      setActionError(error?.message || "Не удалось опубликовать alpha-релиз")
+    } finally {
+      setAlphaSubmitting(false)
+    }
+  }
 
   const loadLogs = useCallback(async (pageNum: number) => {
     setLoadingLogs(true)
@@ -438,6 +472,26 @@ export function AdminView() {
             </Card>
           ))}
         </section>
+
+        <Card className="mb-8">
+          <SectionTitle Icon={Sparkles}>Alpha-доступ Secret Room</SectionTitle>
+          <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+            <label className="block">
+              <span className="mb-1 block text-[12px]" style={{ color: LABEL }}>Версия релиза</span>
+              <input value={alphaVersion} onChange={(event) => setAlphaVersion(event.target.value)} placeholder="OSGARD 5.0 Alpha" className="w-full rounded-lg px-3 py-2 text-[13px] outline-none" style={{ background: "#10181d", border: `1px solid ${BORDER}`, color: "#fff" }} />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[12px]" style={{ color: LABEL }}>Заметки для участников</span>
+              <input value={alphaNotes} onChange={(event) => setAlphaNotes(event.target.value)} placeholder="Ранний доступ к новой версии" className="w-full rounded-lg px-3 py-2 text-[13px] outline-none" style={{ background: "#10181d", border: `1px solid ${BORDER}`, color: "#fff" }} />
+            </label>
+            <button type="button" onClick={publishAlpha} disabled={alphaSubmitting || !alphaVersion.trim()} className="self-end rounded-lg px-4 py-2 text-[13px] font-medium disabled:opacity-40" style={{ background: ACCENT, color: "#10181d" }}>
+              {alphaSubmitting ? "Публикация…" : "Опубликовать"}
+            </button>
+          </div>
+          <p className="mt-3 text-[12px]" style={{ color: LABEL }}>
+            {alphaRelease ? `Сейчас опубликовано: ${alphaRelease.version} · ${new Date(alphaRelease.publishedAt).toLocaleString("ru-RU")}` : "Alpha-релиз пока не опубликован."}
+          </p>
+        </Card>
 
         {/* Tabs */}
         <div className="mb-6 flex items-center gap-2">

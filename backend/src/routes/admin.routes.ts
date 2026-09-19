@@ -3,7 +3,7 @@ import { AdminController } from "../controllers/admin.controller"
 import { requireAdmin } from "../middleware/admin.middleware"
 import { adminAuditMiddleware } from "../lib/admin-audit"
 import { logAudit } from "../lib/audit"
-import { publishAlphaRelease } from "../lib/secret-room-alpha"
+import { getAlphaRelease, publishAlphaRelease } from "../lib/secret-room-alpha"
 
 const router = Router()
 
@@ -28,6 +28,9 @@ router.get("/analytics/security", AdminController.security)
 router.get("/analytics/guest-funnel", AdminController.guestFunnel)
 router.get("/analytics/guest-hygiene", AdminController.guestHygiene)
 router.get("/analytics/generation-budget", AdminController.generationBudget)
+router.get("/secret-room/alpha-release", (_req, res) => {
+  res.json({ release: getAlphaRelease() })
+})
 router.post("/secret-room/alpha-release", (req, res) => {
   const version = typeof req.body?.version === "string" ? req.body.version : ""
   const notes = typeof req.body?.notes === "string" ? req.body.notes : ""
