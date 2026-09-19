@@ -10,9 +10,9 @@ import { apiClient } from "@/lib/api-client"
 /* ---- Palette ----
    bg #10181d · card #17242a · accent #d7ae57 · text #FFFFFF · label #9eb2bc · border #30424b
 
-   Реальной серверной части у чата пока нет (нет routes/messages в backend),
-   поэтому здесь НЕТ демо-диалогов/сообщений — только честные пустые состояния.
-   Когда появится API переписки, DIALOGS/MESSAGES заполнятся из него. */
+   Переписка использует защищённый API `/messages`: поиск собеседников,
+   история, непрочитанные сообщения и уведомления приходят с сервера.
+   При отсутствии диалогов экран остаётся честным пустым состоянием. */
 
 type ChatUser = { id: number; username: string; displayName: string; avatarUrl: string | null }
 type ChatMessage = {
