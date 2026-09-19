@@ -30,9 +30,10 @@ function hasBroadcastAccess(user: { id?: number; role?: string }) {
 export async function POST(request: NextRequest) {
   const backendUrl = (process.env.BACKEND_URL || "").replace(/\/$/, "")
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value
-  if (!backendUrl || !accessToken || !ticketSecret()) {
+  if (!backendUrl || !ticketSecret()) {
     return NextResponse.json({ error: "Live relay is unavailable" }, { status: 503 })
   }
+  if (!accessToken) return NextResponse.json({ error: "Authentication required" }, { status: 401 })
 
   try {
     const upstream = await fetch(`${backendUrl}/auth/me`, {
