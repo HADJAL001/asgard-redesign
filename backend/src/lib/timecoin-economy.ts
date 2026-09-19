@@ -1,11 +1,12 @@
 export const TIMECOIN_USD_CENTS = 1_000
-export const PROJECT_CREATION_COST_TC = 1
+/**
+ * Project generation is paid only with Credits. The legacy response field is
+ * retained at zero for older clients that still render `costTimecoin`.
+ */
+export const PROJECT_CREATION_COST_TC = 0
 
-/** A guest receives one project through a separately enforced server-side cap.
- * Its admission price must be zero because guest wallets intentionally start
- * empty. All registered accounts use the public project price. */
-export function projectAdmissionCostTimecoin(isGuest: boolean): number {
-  return isGuest ? 0 : PROJECT_CREATION_COST_TC
+export function projectAdmissionCostTimecoin(_isGuest: boolean): number {
+  return 0
 }
 
 export const TIMECOIN_PRICES = {

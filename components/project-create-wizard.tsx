@@ -128,7 +128,6 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
   const makegoodRight = estimate?.makegood.available ? estimate.makegood : null
   const makegoodApplies = !!makegoodRight && depthCost <= makegoodRight.credits
   const insufficientCredits = !makegoodApplies && depthCost > wallet.credits
-  const insufficientTimecoin = wallet.timecoin < 1
 
   const totalSteps = 3
   const progress = (step / totalSteps) * 100
@@ -488,11 +487,6 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
                       )
                     })}
                   </div>
-                  {insufficientTimecoin && (
-                    <p className="mt-2 text-[12px]" style={{ color: COLORS.red }}>
-                      {t("projectWizard.insufficientTimecoin", { balance: wallet.timecoin })}
-                    </p>
-                  )}
                   {insufficientCredits && (
                     <p className="mt-2 text-[12px]" style={{ color: COLORS.red }}>
                       {t("projectWizard.insufficientCredits", { cost: depthCost, balance: wallet.credits })}
@@ -547,7 +541,7 @@ export function ProjectCreateWizard({ onClose, onCreated, initialDescription = "
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || !briefReady || insufficientCredits || insufficientTimecoin}
+              disabled={submitting || !briefReady || insufficientCredits}
               className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-opacity hover:opacity-90 disabled:opacity-60"
               style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
             >
