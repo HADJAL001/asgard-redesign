@@ -1,13 +1,13 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { Suspense, useEffect, useMemo, useRef, useState } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
-import { OrbitControls } from "@react-three/drei"
+import { Environment, OrbitControls, useGLTF } from "@react-three/drei"
 import { Box3, Group, Vector3 } from "three"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
 
 export type SecretRoomItem = { type: string; x: number; y: number }
-type Theme = { floor: string; wall: string; accent: string; fill: string }
+type Theme = { floor: string; wall: string; accent: string; fill: string; hdri: string }
 
 function playRoomTone(kind: string) {
   const AudioContextClass = window.AudioContext
@@ -28,14 +28,39 @@ function playRoomTone(kind: string) {
 }
 
 const THEMES: Record<string, Theme> = {
-  nebula: { floor: "#090919", wall: "#1c1438", accent: "#9e7bff", fill: "#4a2a86" }, noir: { floor: "#09090b", wall: "#1a1a1e", accent: "#d6d7df", fill: "#3a3b45" },
-  gold: { floor: "#100e09", wall: "#2a2213", accent: "#e6c868", fill: "#8a6824" }, matrix: { floor: "#030a06", wall: "#062114", accent: "#5df09a", fill: "#16633b" },
-  sunset: { floor: "#120a17", wall: "#35182e", accent: "#ff8bb8", fill: "#8d365d" }, aurora: { floor: "#041116", wall: "#073339", accent: "#59e4dd", fill: "#16716f" },
+  nebula: { floor: "#090919", wall: "#1c1438", accent: "#9e7bff", fill: "#4a2a86", hdri: "/assets/secret-room/hdr/studio.hdr" },
+  noir: { floor: "#09090b", wall: "#1a1a1e", accent: "#d6d7df", fill: "#3a3b45", hdri: "/assets/secret-room/hdr/gallery-studio.hdr" },
+  gold: { floor: "#100e09", wall: "#2a2213", accent: "#e6c868", fill: "#8a6824", hdri: "/assets/secret-room/hdr/workshop.hdr" },
+  matrix: { floor: "#030a06", wall: "#062114", accent: "#5df09a", fill: "#16633b", hdri: "/assets/secret-room/hdr/mountain-daylight.hdr" },
+  sunset: { floor: "#120a17", wall: "#35182e", accent: "#ff8bb8", fill: "#8d365d", hdri: "/assets/secret-room/hdr/venice-sunset.hdr" },
+  aurora: { floor: "#041116", wall: "#073339", accent: "#59e4dd", fill: "#16716f", hdri: "/assets/secret-room/hdr/sunrise.hdr" },
+}
+
+const IMPORTED_ASSETS: Partial<Record<string, { src: string; height: number; rotation?: number }>> = {
+  sofa: { src: "/assets/secret-room/models/velvet-sofa.glb", height: 1.08, rotation: Math.PI },
+  throne: { src: "/assets/secret-room/models/sheen-chair.glb", height: 1.48, rotation: Math.PI },
+  plant: { src: "/assets/secret-room/models/glass-vase-flowers.glb", height: 1.12 },
+}
+
+function ImportedRoomAsset({ src, height, position, rotation, onClick }: { src: string; height: number; position: [number, number, number]; rotation?: number; onClick: (event: { stopPropagation: () => void }) => void }) {
+  const { scene } = useGLTF(src)
+  const asset = useMemo(() => {
+    const instance = scene.clone(true)
+    const bounds = new Box3().setFromObject(instance)
+    const size = bounds.getSize(new Vector3())
+    const scale = height / Math.max(size.x, size.y, size.z, 0.01)
+    instance.scale.setScalar(scale)
+    instance.position.y -= bounds.min.y * scale
+    return instance
+  }, [height, scene])
+  return <group position={position} rotation={[0, rotation || 0, 0]} onClick={onClick}><primitive object={asset} /></group>
 }
 
 function RoomProp({ item, accent, fill, index, isOwner, onRemove }: { item: SecretRoomItem; accent: string; fill: string; index: number; isOwner: boolean; onRemove: (index: number) => void }) {
   const pos: [number, number, number] = [((item.x - 50) / 50) * 4.5, 0, ((item.y - 50) / 50) * 2.45]
   const click = { onClick: (event: { stopPropagation: () => void }) => { event.stopPropagation(); playRoomTone(item.type); if (isOwner) onRemove(index) } }
+  const imported = IMPORTED_ASSETS[item.type]
+  if (imported) return <Suspense fallback={null}><ImportedRoomAsset {...imported} position={pos} onClick={click.onClick} /></Suspense>
   const base = <meshStandardMaterial color={fill} metalness={0.58} roughness={0.3} />
   const glow = <meshBasicMaterial color={accent} transparent opacity={0.78} />
   if (item.type === "sofa") return <group position={pos} {...click}>
@@ -112,7 +137,7 @@ function Headquarters({ items, avatarGltf, background, isOwner, onRemove }: { it
   const theme = THEMES[background] || THEMES.nebula
   useEffect(() => { const query = window.matchMedia("(prefers-reduced-motion: reduce)"); const sync = () => setReducedMotion(query.matches); sync(); query.addEventListener("change", sync); return () => query.removeEventListener("change", sync) }, [])
   const props = useMemo(() => items.map((item, index) => <RoomProp key={`${item.type}-${index}-${item.x}-${item.y}`} item={item} accent={theme.accent} fill={theme.fill} index={index} isOwner={isOwner} onRemove={onRemove} />), [items, theme.accent, theme.fill, isOwner, onRemove])
-  return <Canvas camera={{ position: [5.45, 3.15, 8.9], fov: 40 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: false }}><color attach="background" args={[theme.wall]} /><fog attach="fog" args={[theme.wall, 10, 19]} /><ambientLight intensity={0.68} color="#dbeeff" /><directionalLight position={[3, 7, 4]} intensity={2.1} color={theme.accent} /><pointLight position={[-4, 2.5, 2]} intensity={20} distance={8} color={theme.accent} /><pointLight position={[0, 3.8, -1.5]} intensity={11} distance={6} color="#dce9ff" /><mesh rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[12, 10]} /><meshStandardMaterial color={theme.floor} metalness={0.82} roughness={0.27} /></mesh><BunkerShell accent={theme.accent} wall={theme.wall} reducedMotion={reducedMotion} /><HoloTable accent={theme.accent} reducedMotion={reducedMotion} /><CustomAvatar gltf={avatarGltf} />{props}<OrbitControls enablePan={false} enableZoom={false} minPolarAngle={0.85} maxPolarAngle={1.35} autoRotate={!reducedMotion} autoRotateSpeed={0.25} target={[0, 0.9, 0]} /></Canvas>
+  return <Canvas camera={{ position: [5.45, 3.15, 8.9], fov: 40 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: false }}><color attach="background" args={[theme.wall]} /><fog attach="fog" args={[theme.wall, 10, 19]} /><Suspense fallback={null}><Environment files={theme.hdri} background={false} blur={0.18} /></Suspense><ambientLight intensity={0.68} color="#dbeeff" /><directionalLight position={[3, 7, 4]} intensity={2.1} color={theme.accent} /><pointLight position={[-4, 2.5, 2]} intensity={20} distance={8} color={theme.accent} /><pointLight position={[0, 3.8, -1.5]} intensity={11} distance={6} color="#dce9ff" /><mesh rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[12, 10]} /><meshStandardMaterial color={theme.floor} metalness={0.82} roughness={0.27} envMapIntensity={1.25} /></mesh><BunkerShell accent={theme.accent} wall={theme.wall} reducedMotion={reducedMotion} /><HoloTable accent={theme.accent} reducedMotion={reducedMotion} /><CustomAvatar gltf={avatarGltf} />{props}<OrbitControls enablePan={false} enableZoom={false} minPolarAngle={0.85} maxPolarAngle={1.35} autoRotate={!reducedMotion} autoRotateSpeed={0.25} target={[0, 0.9, 0]} /></Canvas>
 }
 
 export function SecretRoomScene(props: { items: SecretRoomItem[]; avatarGltf: string | null; background: string; isOwner: boolean; onRemove: (index: number) => void }) { return <Headquarters {...props} /> }
