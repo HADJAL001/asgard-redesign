@@ -140,7 +140,12 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
   return (
     <div
       className={`rounded-xl p-6 ${className}`}
-      style={{ backgroundColor: CARD, border: `1px solid ${BORDER}` }}
+      style={{
+        backgroundColor: CARD,
+        backgroundImage: "linear-gradient(112deg, transparent 0 35%, rgba(215,174,87,0.055) 35.2% 35.35%, transparent 35.6% 100%), linear-gradient(32deg, transparent 0 68%, rgba(255,255,255,0.035) 68.2% 68.35%, transparent 68.6% 100%)",
+        border: `1px solid ${BORDER}`,
+        boxShadow: "0 18px 48px rgba(0,0,0,0.22)",
+      }}
     >
       {children}
     </div>
@@ -446,7 +451,11 @@ export function AdminView() {
   return (
     <div
       className="min-h-screen font-sans"
-      style={{ background: "linear-gradient(180deg, #10181d 0%, #0F0F1A 100%)", color: "#FFFFFF" }}
+      style={{
+        backgroundColor: "#0a0a0a",
+        backgroundImage: "linear-gradient(116deg, transparent 0 28%, rgba(215,174,87,0.045) 28.15% 28.28%, transparent 28.5% 100%), linear-gradient(24deg, transparent 0 74%, rgba(255,255,255,0.028) 74.15% 74.3%, transparent 74.5% 100%)",
+        color: "#FFFFFF",
+      }}
     >
       <Navbar />
 
