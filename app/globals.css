@@ -2484,3 +2484,13 @@ svg { width: 1rem; height: 1rem; flex: none; }
     animation: none !important;
   }
 }
+
+/* Must come after eg-page variants: these are actual page worlds, not accents. */
+.world-bridge.dev-mode-layout { background: linear-gradient(135deg, rgb(3 9 17 / .92), rgb(11 21 30 / .84)), repeating-linear-gradient(90deg, rgb(127 217 255 / .07) 0 1px, transparent 1px 96px), repeating-linear-gradient(0deg, rgb(230 192 90 / .05) 0 1px, transparent 1px 96px); }
+.world-server.dev-mode-layout { background: linear-gradient(90deg, rgb(2 9 20 / .94), rgb(7 28 45 / .78), rgb(2 9 20 / .94)), repeating-linear-gradient(90deg, rgb(103 220 255 / .09) 0 2px, transparent 2px 84px); }
+.world-neural.dev-mode-layout { background: linear-gradient(90deg, rgb(3 6 17 / .92), rgb(8 11 29 / .67)), url("/images/neon-plexus.jpg") center / cover fixed; }
+.world-spaceport.dev-mode-layout { background: radial-gradient(ellipse at 50% 100%, rgb(243 184 73 / .2), transparent 42%), linear-gradient(180deg, rgb(3 8 20 / .94), rgb(11 20 38 / .86)), url("/images/starfield.png") center / cover fixed; }
+.world-matrix.eg-page { background: linear-gradient(90deg, rgb(1 8 10 / .94), rgb(1 22 20 / .74), rgb(1 7 11 / .94)), url("/code.jpg") center / cover fixed; }
+.world-auction.eg-page { background: radial-gradient(ellipse at 50% 0%, rgb(183 128 42 / .22), transparent 46%), linear-gradient(135deg, rgb(29 10 18 / .95), rgb(9 7 12 / .9)), url("/images/marble-column.png") right bottom / 40rem auto no-repeat fixed; }
+.world-forge.eg-page { background: radial-gradient(ellipse at 50% 108%, rgb(235 82 24 / .36), transparent 46%), radial-gradient(circle at 14% 22%, rgb(245 182 54 / .12), transparent 28%), linear-gradient(145deg, #160b09, #26130d 48%, #07090d); }
+.world-exchange.eg-page { background: linear-gradient(90deg, rgb(3 12 13 / .94), rgb(4 24 21 / .77), rgb(7 11 16 / .94)), repeating-linear-gradient(90deg, rgb(75 255 169 / .07) 0 1px, transparent 1px 72px), repeating-linear-gradient(0deg, rgb(239 91 91 / .05) 0 1px, transparent 1px 72px); }
