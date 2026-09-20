@@ -56,6 +56,32 @@ function HoloTable({ accent, reducedMotion }: { accent: string; reducedMotion: b
   return <group position={[0, 0.55, 0]}><mesh rotation={[-Math.PI / 2, 0, 0]}><cylinderGeometry args={[1.15, 1.15, 0.08, 48]} /><meshStandardMaterial color="#10222c" metalness={0.8} roughness={0.22} /></mesh><group ref={ring}><mesh rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[0.83, 0.024, 8, 48]} /><meshBasicMaterial color={accent} transparent opacity={0.85} /></mesh></group><mesh position={[0, -0.45, 0]}><cylinderGeometry args={[0.1, 0.42, 0.9, 20]} /><meshStandardMaterial color="#11151b" metalness={0.9} roughness={0.25} /></mesh></group>
 }
 
+function BunkerShell({ accent, wall, reducedMotion }: { accent: string; wall: string; reducedMotion: boolean }) {
+  const beacon = useRef<Group>(null)
+  useFrame(({ clock }) => {
+    if (!reducedMotion && beacon.current) {
+      beacon.current.rotation.y = clock.elapsedTime * 0.28
+      beacon.current.position.y = 2.55 + Math.sin(clock.elapsedTime * 1.4) * 0.05
+    }
+  })
+  const panelMaterial = <meshStandardMaterial color="#121820" metalness={0.86} roughness={0.23} />
+  return <group>
+    {/* Solid architectural volume keeps the headquarters readable even before furniture is added. */}
+    <mesh position={[-5.05, 2.5, 0]} rotation={[0, Math.PI / 2, 0]}>{panelMaterial}<planeGeometry args={[10.2, 5]} /></mesh>
+    <mesh position={[5.05, 2.5, 0]} rotation={[0, -Math.PI / 2, 0]}>{panelMaterial}<planeGeometry args={[10.2, 5]} /></mesh>
+    <mesh position={[0, 5, 0]} rotation={[Math.PI / 2, 0, 0]}>{panelMaterial}<planeGeometry args={[10.2, 10.2]} /></mesh>
+    {[-3.8, -1.9, 0, 1.9, 3.8].map((x) => <mesh key={`ceiling-${x}`} position={[x, 4.82, 0]} rotation={[Math.PI / 2, 0, 0]}>{panelMaterial}<boxGeometry args={[0.16, 0.18, 9.8]} /></mesh>)}
+    {[-3.8, -1.9, 1.9, 3.8].map((x) => <mesh key={`wall-rib-${x}`} position={[x, 2.45, -2.84]}>{panelMaterial}<boxGeometry args={[0.14, 4.9, 0.24]} /></mesh>)}
+    <mesh position={[0, 2.45, -2.91]}>{panelMaterial}<boxGeometry args={[2.2, 4.7, 0.22]} /></mesh>
+    <mesh position={[0, 2.45, -3.035]}><meshBasicMaterial color={accent} transparent opacity={0.23} /><circleGeometry args={[0.82, 40]} /></mesh>
+    <mesh position={[0, 2.45, -3.06]}><meshBasicMaterial color={accent} transparent opacity={0.88} /><torusGeometry args={[0.84, 0.022, 8, 40]} /></mesh>
+    {[-4.82, 4.82].map((x) => <group key={`light-${x}`} position={[x, 2.7, -0.35]} rotation={[0, x < 0 ? Math.PI / 2 : -Math.PI / 2, 0]}><mesh><meshBasicMaterial color={accent} transparent opacity={0.62} /><planeGeometry args={[0.58, 3.5]} /></mesh><pointLight color={accent} intensity={8} distance={4.5} /></group>)}
+    <group ref={beacon}><mesh><meshBasicMaterial color={accent} transparent opacity={0.24} /><octahedronGeometry args={[0.3, 0]} /></mesh><mesh rotation={[Math.PI / 2, 0, 0]}><meshBasicMaterial color={accent} transparent opacity={0.72} /><torusGeometry args={[0.52, 0.014, 8, 36]} /></mesh></group>
+    <mesh position={[0, 0.018, 0]} rotation={[-Math.PI / 2, 0, 0]}><meshBasicMaterial color={accent} transparent opacity={0.2} /><ringGeometry args={[1.52, 1.57, 48]} /></mesh>
+    <mesh position={[0, 4.95, 0]} rotation={[Math.PI / 2, 0, 0]}><meshBasicMaterial color={wall} /><planeGeometry args={[9.8, 9.8]} /></mesh>
+  </group>
+}
+
 function CustomAvatar({ gltf }: { gltf: string | null }) {
   const [avatar, setAvatar] = useState<Group | null>(null)
   useEffect(() => {
@@ -81,7 +107,7 @@ function Headquarters({ items, avatarGltf, background, isOwner, onRemove }: { it
   const theme = THEMES[background] || THEMES.nebula
   useEffect(() => { const query = window.matchMedia("(prefers-reduced-motion: reduce)"); const sync = () => setReducedMotion(query.matches); sync(); query.addEventListener("change", sync); return () => query.removeEventListener("change", sync) }, [])
   const props = useMemo(() => items.map((item, index) => <RoomProp key={`${item.type}-${index}-${item.x}-${item.y}`} item={item} accent={theme.accent} fill={theme.fill} index={index} isOwner={isOwner} onRemove={onRemove} />), [items, theme.accent, theme.fill, isOwner, onRemove])
-  return <Canvas camera={{ position: [6.4, 4.8, 7.8], fov: 43 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: false }}><color attach="background" args={[theme.wall]} /><fog attach="fog" args={[theme.wall, 7, 16]} /><ambientLight intensity={0.65} color="#dbeeff" /><directionalLight position={[3, 7, 4]} intensity={1.4} color={theme.accent} /><pointLight position={[-4, 2.5, 2]} intensity={18} distance={7} color={theme.accent} /><mesh rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[12, 8]} /><meshStandardMaterial color={theme.floor} metalness={0.78} roughness={0.32} /></mesh><mesh position={[0, 2.8, -3.1]}><boxGeometry args={[10, 5.6, 0.2]} /><meshStandardMaterial color={theme.wall} metalness={0.22} roughness={0.56} /></mesh><mesh position={[0, 2.3, -2.95]}><boxGeometry args={[3.2, 1.45, 0.04]} /><meshBasicMaterial color={theme.accent} transparent opacity={0.2} /></mesh><HoloTable accent={theme.accent} reducedMotion={reducedMotion} /><CustomAvatar gltf={avatarGltf} />{props}<OrbitControls enablePan={false} enableZoom={false} minPolarAngle={0.85} maxPolarAngle={1.35} autoRotate={!reducedMotion} autoRotateSpeed={0.25} target={[0, 0.7, 0]} /></Canvas>
+  return <Canvas camera={{ position: [6.4, 4.2, 7.8], fov: 43 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: false }}><color attach="background" args={[theme.wall]} /><fog attach="fog" args={[theme.wall, 8, 18]} /><ambientLight intensity={0.42} color="#dbeeff" /><directionalLight position={[3, 7, 4]} intensity={1.4} color={theme.accent} /><pointLight position={[-4, 2.5, 2]} intensity={18} distance={7} color={theme.accent} /><pointLight position={[0, 3.8, -1.5]} intensity={8} distance={5} color="#dce9ff" /><mesh rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[12, 10]} /><meshStandardMaterial color={theme.floor} metalness={0.82} roughness={0.27} /></mesh><BunkerShell accent={theme.accent} wall={theme.wall} reducedMotion={reducedMotion} /><HoloTable accent={theme.accent} reducedMotion={reducedMotion} /><CustomAvatar gltf={avatarGltf} />{props}<OrbitControls enablePan={false} enableZoom={false} minPolarAngle={0.85} maxPolarAngle={1.35} autoRotate={!reducedMotion} autoRotateSpeed={0.25} target={[0, 0.9, 0]} /></Canvas>
 }
 
 export function SecretRoomScene(props: { items: SecretRoomItem[]; avatarGltf: string | null; background: string; isOwner: boolean; onRemove: (index: number) => void }) { return <Headquarters {...props} /> }
