@@ -384,12 +384,13 @@ export function DevStudioView() {
           </button>
         </div>
 
-        <div className="dev-card mt-5 flex flex-wrap items-center justify-between gap-3 px-4 py-3.5" style={{ borderColor: "rgb(245 196 81 / 28%)" }}>
+        <div className="dev-card dev-quest-card dev-quest-card--daily mt-5 flex flex-wrap items-center justify-between gap-3 px-4 py-3.5" style={{ borderColor: "rgb(245 196 81 / 48%)" }}>
           <div className="flex items-start gap-3">
             <Sparkles size={17} className="mt-0.5 shrink-0" style={{ color: "#F5C451" }} aria-hidden="true" />
             <div>
               <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "rgb(245 196 81 / 75%)" }}>Квест дня</p>
               <p className="mt-1 text-[13px]" style={{ color: "#F1F5F9" }}>{dailyQuest}</p>
+              <div className="dev-quest-progress" aria-label="Прогресс квеста"><span style={{ width: `${questDone ? 100 : Math.min(100, serverQuest?.progress ?? 0)}%` }} /></div>
             </div>
           </div>
           <button
@@ -408,13 +409,14 @@ export function DevStudioView() {
           </button>
         </div>
 
-        <div className="dev-card mt-3 flex flex-wrap items-center justify-between gap-3 px-4 py-3.5" style={{ borderColor: "rgb(125 211 252 / 28%)" }}>
+        <div className="dev-card dev-quest-card dev-quest-card--weekly mt-3 flex flex-wrap items-center justify-between gap-3 px-4 py-3.5" style={{ borderColor: "rgb(245 196 81 / 40%)" }}>
             <div className="flex items-start gap-3">
               <Sparkles size={17} className="mt-0.5 shrink-0" style={{ color: "#7DD3FC" }} aria-hidden="true" />
               <div>
                 <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "rgb(125 211 252 / 75%)" }}>Weekly challenge</p>
                 <p className="mt-1 text-[13px]" style={{ color: "#F1F5F9" }}>{weeklyQuest.title}</p>
                 <p className="mt-1 text-[12px]" style={{ color: "rgb(148 163 184 / 90%)" }}>+{weeklyQuest.reward.generationBonus} generation limit for this week</p>
+                <div className="dev-quest-progress" aria-label="Прогресс недели"><span style={{ width: `${weeklyQuestDone ? 100 : Math.min(100, weeklyQuest.progress ?? 0)}%` }} /></div>
               </div>
             </div>
             <button
@@ -526,7 +528,7 @@ export function DevStudioView() {
                   <button
                     type="button"
                     onClick={() => router.push(`/dev/workspace/${project.id}`)}
-                    className="dev-card w-full cursor-pointer p-4 text-left"
+                    className="dev-card dev-project-showcase w-full cursor-pointer p-4 text-left"
                     aria-label={`Проект ${project.name}. Статус: ${status.label}. Открыть код и превью`}
                   >
                     <p className="text-[15px] font-medium" style={{ color: "#F1F5F9" }}>
