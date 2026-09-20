@@ -2495,7 +2495,9 @@ svg { width: 1rem; height: 1rem; flex: none; }
 
 /* Must come after eg-page variants: these are actual page worlds, not accents. */
 .world-bridge.dev-mode-layout { background: linear-gradient(135deg, rgb(3 9 17 / .92), rgb(11 21 30 / .84)), repeating-linear-gradient(90deg, rgb(127 217 255 / .07) 0 1px, transparent 1px 96px), repeating-linear-gradient(0deg, rgb(230 192 90 / .05) 0 1px, transparent 1px 96px); }
-.world-server.dev-mode-layout { background: linear-gradient(90deg, rgb(2 9 20 / .94), rgb(7 28 45 / .78), rgb(2 9 20 / .94)), repeating-linear-gradient(90deg, rgb(103 220 255 / .09) 0 2px, transparent 2px 84px); }
+.world-server.dev-mode-layout { background: radial-gradient(ellipse at 50% 8%, rgb(63 202 255 / .18), transparent 36%), linear-gradient(90deg, rgb(2 9 20 / .94), rgb(7 28 45 / .78), rgb(2 9 20 / .94)), repeating-linear-gradient(90deg, rgb(103 220 255 / .09) 0 2px, transparent 2px 84px); }
+.world-server.dev-mode-layout::after { content:""; position:absolute; inset:0; z-index:0; pointer-events:none; opacity:.7; background: repeating-linear-gradient(90deg, transparent 0 12.4%, rgb(129 231 255 / .11) 12.5% 12.62%, transparent 12.75% 25%), linear-gradient(180deg, transparent 0 9%, rgb(117 225 255 / .11) 9.1% 9.3%, transparent 9.4% 100%); }
+.world-server.dev-mode-layout > * { position:relative; z-index:1; }
 .world-neural.dev-mode-layout { background: linear-gradient(90deg, rgb(3 6 17 / .92), rgb(8 11 29 / .67)), url("/images/neon-plexus.jpg") center / cover fixed; }
 .world-spaceport.dev-mode-layout { background: radial-gradient(ellipse at 50% 100%, rgb(243 184 73 / .2), transparent 42%), linear-gradient(180deg, rgb(3 8 20 / .94), rgb(11 20 38 / .86)), url("/images/starfield.png") center / cover fixed; }
 .world-matrix.eg-page { background: linear-gradient(90deg, rgb(1 8 10 / .94), rgb(1 22 20 / .74), rgb(1 7 11 / .94)), url("/code.jpg") center / cover fixed; }
