@@ -1238,10 +1238,23 @@ ${effectCardCss(brief)}
 `
 }
 
-/** `app/layout.tsx` — со шрифтом, фоном и языком вместо голого `<html><body>`. */
-export function renderLayout(brief: DesignBrief, name: string, description: string): string {
+/** `app/layout.tsx` — со шрифтом, фоном и языком вместо голого `<html><body>`.
+ *
+ *  `showcaseUrl` — Output Trail: ссылка на публичную витрину проекта
+ *  (`/deploy-showcase/:projectId`), которая сама подтягивает актуальную
+ *  длительность генерации в момент открытия — плашке не нужно знать число
+ *  заранее, поэтому она остаётся верной даже для доработок проекта. */
+export function renderLayout(
+  brief: DesignBrief,
+  name: string,
+  description: string,
+  showcaseUrl?: string,
+): string {
   const safeName = tsStringLiteral(name, 200)
   const safeDescription = tsStringLiteral(description || `${name} — приложение, созданное в OSGARD.`, 300)
+  const trailLink = showcaseUrl
+    ? `<a href=${tsStringLiteral(showcaseUrl, 300)} target="_blank" rel="noopener noreferrer" className="ml-auto flex items-center gap-1.5 text-accent hover:opacity-80">⚡ Built with OSGARD</a>`
+    : ""
 
   return `import type { Metadata } from "next"
 import "./globals.css"
@@ -1277,6 +1290,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/terms" className="hover:text-ink focus-visible:text-ink">Условия использования</a>
               <a href="/pricing" className="hover:text-ink focus-visible:text-ink">Тарифы</a>
               <a href="/support" className="hover:text-ink focus-visible:text-ink">Поддержка</a>
+              ${trailLink}
             </nav>
           </footer>
         </div>
@@ -1374,11 +1388,12 @@ export function renderDesignSystemFiles(
   brief: DesignBrief,
   name: string,
   description: string,
+  showcaseUrl?: string,
 ): Array<{ path: string; content: string }> {
   return [
     { path: "tailwind.config.ts", content: renderTailwindConfig(brief) },
     { path: "app/globals.css", content: renderGlobalsCss(brief) },
-    { path: "app/layout.tsx", content: renderLayout(brief, name, description) },
+    { path: "app/layout.tsx", content: renderLayout(brief, name, description, showcaseUrl) },
     ...renderLegalReadyFiles(name),
   ]
 }

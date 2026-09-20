@@ -34,6 +34,7 @@ import { nextFloats } from "./provably-fair"
 import { addArchitectXp } from "./architect-progression"
 import { evaluateGenerationBadges } from "./user-badges"
 import { deriveDesignBrief, renderDesignSystemFiles, DESIGN_SYSTEM_PATHS, type DesignBrief } from "./design-system"
+import { FRONTEND_URL } from "./stripe"
 import { explainDesignQuality } from "./design-qa"
 import { runEngineeringContour, summarizeVerdict, type EngineeringReport } from "./project-engineering"
 import { deriveExportContract, reconcileWithContract } from "./generation-contract"
@@ -343,8 +344,10 @@ function applyDesignSystem(
   brief: DesignBrief,
   name: string,
   description: string,
+  projectId: number,
 ): GeneratedAppFile[] {
-  const rendered = renderDesignSystemFiles(brief, name, description)
+  const showcaseUrl = `${FRONTEND_URL.replace(/\/$/, "")}/deploy-showcase/${projectId}`
+  const rendered = renderDesignSystemFiles(brief, name, description, showcaseUrl)
   const owned = new Set<string>(DESIGN_SYSTEM_PATHS)
   return [...files.filter((f) => !owned.has(f.path)), ...rendered]
 }
@@ -944,7 +947,7 @@ async function runAppGenerationJobInner(
 
     // Дизайн-система принадлежит брифу целиком: перезаписываем её файлы поверх любого
     // пути (в т.ч. поверх старого пустого конфига, пришедшего из кэша шаблонов).
-    if (!refinement) files = applyDesignSystem(files, brief, name, description)
+    if (!refinement) files = applyDesignSystem(files, brief, name, description, projectId)
 
     // Стадия 4: синтаксическая проверка файлов.
     emitGenerationStage({ projectId, stage: "validating", label: "Проверяю файлы", progress: 0.62, fileCount: files.length })
