@@ -70,7 +70,7 @@ export function OrchestratorView() {
   }
 
   return (
-    <div className="eg-page relative overflow-hidden min-h-screen font-sans" style={{ color: COLORS.text }}>
+    <div className="world-orchestrator eg-page relative overflow-hidden min-h-screen font-sans" style={{ color: COLORS.text }}>
       <WorkshopBackdrop />
       <ShootingStar />
       <Navbar />
