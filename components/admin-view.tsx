@@ -194,6 +194,7 @@ export function AdminView() {
   const [grantCredits, setGrantCredits] = useState("")
   const [grantTimecoin, setGrantTimecoin] = useState("")
   const [promoCredits, setPromoCredits] = useState("")
+  const [promoExpiryDays, setPromoExpiryDays] = useState<"7" | "30">("7")
   const [grantReason, setGrantReason] = useState("")
   const [grantSubmitting, setGrantSubmitting] = useState(false)
   const [alphaRelease, setAlphaRelease] = useState<AlphaRelease | null>(null)
@@ -343,6 +344,7 @@ export function AdminView() {
     setGrantCredits("")
     setGrantTimecoin("")
     setPromoCredits("")
+    setPromoExpiryDays("7")
     setGrantReason("")
     setGrantingUserId((prev) => (prev === u.id ? null : u.id))
   }
@@ -391,7 +393,7 @@ export function AdminView() {
     }
     setGrantSubmitting(true)
     try {
-      await apiClient.post(`/admin/users/${userId}/promo-credits`, { amount, reason })
+      await apiClient.post(`/admin/users/${userId}/promo-credits`, { amount, reason, expiresInDays: Number(promoExpiryDays) })
       setGrantingUserId(null)
       setPromoCredits("")
       setGrantReason("")
@@ -1170,7 +1172,7 @@ export function AdminView() {
               <label><span className="mb-1 block text-[12px]" style={{ color: LABEL }}>TimeCoin</span><input type="number" min="0" value={grantTimecoin} onChange={(event) => setGrantTimecoin(event.target.value)} className="w-full rounded-lg px-3 py-2 text-[14px] outline-none" style={{ background: CARD, border: `1px solid ${BORDER}`, color: "#fff" }} /></label>
             </div>
             <div className="mt-4 border-t pt-4" style={{ borderColor: BORDER }}>
-              <label><span className="mb-1 block text-[12px]" style={{ color: ACCENT }}>Promo credits, срок 7 дней</span><input type="number" min="1" value={promoCredits} onChange={(event) => setPromoCredits(event.target.value)} className="w-full rounded-lg px-3 py-2 text-[14px] outline-none" style={{ background: CARD, border: `1px solid ${ACCENT}66`, color: "#fff" }} /></label>
+              <div className="grid grid-cols-[1fr_auto] gap-3"><label><span className="mb-1 block text-[12px]" style={{ color: ACCENT }}>Promo credits</span><input type="number" min="1" value={promoCredits} onChange={(event) => setPromoCredits(event.target.value)} className="w-full rounded-lg px-3 py-2 text-[14px] outline-none" style={{ background: CARD, border: `1px solid ${ACCENT}66`, color: "#fff" }} /></label><label><span className="mb-1 block text-[12px]" style={{ color: LABEL }}>Срок</span><select value={promoExpiryDays} onChange={(event) => setPromoExpiryDays(event.target.value as "7" | "30")} className="rounded-lg px-3 py-2 text-[14px] outline-none" style={{ background: CARD, border: `1px solid ${BORDER}`, color: "#fff" }}><option value="7">7 дней</option><option value="30">30 дней</option></select></label></div>
               <label className="mt-3 block"><span className="mb-1 block text-[12px]" style={{ color: LABEL }}>Основание операции</span><select value={grantReason} onChange={(event) => setGrantReason(event.target.value)} className="w-full rounded-lg px-3 py-2 text-[14px] outline-none" style={{ background: CARD, border: `1px solid ${BORDER}`, color: "#fff" }}><option value="">Выберите основание</option><option value="Bug report">Баг-репорт</option><option value="Promo campaign">Промо-акция</option><option value="Compensation">Компенсация</option><option value="Event">Ивент</option></select></label>
             </div>
             <div className="mt-6 flex flex-wrap justify-end gap-2"><button type="button" onClick={() => setGrantingUserId(null)} disabled={grantSubmitting} className="rounded-lg px-4 py-2 text-[13px]" style={{ border: `1px solid ${BORDER}`, color: "#fff" }}>Отмена</button><button type="button" onClick={() => submitGrant(grantTarget.id)} disabled={grantSubmitting || (!grantCredits.trim() && !grantTimecoin.trim())} className="rounded-lg px-4 py-2 text-[13px] font-medium disabled:opacity-40" style={{ background: ACCENT, color: "#10181d" }}>Выдать баланс</button><button type="button" onClick={() => submitPromoGrant(grantTarget.id)} disabled={grantSubmitting || !promoCredits.trim() || !grantReason} className="rounded-lg px-4 py-2 text-[13px] font-medium disabled:opacity-40" style={{ border: `1px solid ${ACCENT}`, color: ACCENT }}>Выдать promo</button></div>

@@ -92,3 +92,14 @@ test("promo credits are reasoned, audited, and expire seven days after issuance"
   assert.ok(grant.expires_at <= Date.now() + 7 * 86_400_000 + 1_000)
   assert.equal(db.prepare("SELECT action FROM admin_logs").get().action, "grant_promo_credits")
 })
+
+test("promo credits may explicitly expire after thirty days", async () => {
+  const response = mockResponse()
+  const beforeIssue = Date.now()
+  await AdminController.grantPromoCredits(adminRequest({ amount: 50, reason: "Event", expiresInDays: 30 }, { id: "2" }), response)
+
+  assert.equal(response.statusCode, 201)
+  const grant = db.prepare("SELECT expires_at FROM promo_credit_grants ORDER BY id DESC LIMIT 1").get() as { expires_at: number }
+  assert.ok(grant.expires_at >= beforeIssue + 30 * 86_400_000)
+  assert.ok(grant.expires_at <= Date.now() + 30 * 86_400_000 + 1_000)
+})

@@ -258,13 +258,14 @@ export class AdminController {
       const id = Number(req.params.id)
       const amount = Number(req.body?.amount)
       const reason = typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 300) : ""
+      const expiresInDays = req.body?.expiresInDays === 30 ? 30 : 7
       if (!id || !Number.isFinite(amount) || amount <= 0 || !reason) return res.status(400).json({ error: "Amount and reason are required" })
       if (!db.prepare(`SELECT 1 FROM users WHERE id = ?`).get(id)) return res.status(404).json({ error: "User not found" })
       const now = Date.now()
-      const expiresAt = now + 7 * 86_400_000
+      const expiresAt = now + expiresInDays * 86_400_000
       const grant = db.prepare(`INSERT INTO promo_credit_grants (user_id, amount, remaining, reason, issued_by, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
         .run(id, amount, amount, reason, req.user!.userId, expiresAt, now)
-      recordAdminAction(req, "grant_promo_credits", id, { grantId: Number(grant.lastInsertRowid), amount, reason, expiresAt })
+      recordAdminAction(req, "grant_promo_credits", id, { grantId: Number(grant.lastInsertRowid), amount, reason, expiresAt, expiresInDays })
       res.status(201).json({ success: true, grantId: Number(grant.lastInsertRowid), amount, expiresAt })
     } catch (error) {
       captureError("Admin grantPromoCredits error:", error)
