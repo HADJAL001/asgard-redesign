@@ -85,7 +85,7 @@ export default function GlobeScene() {
     const earthGeometry = new THREE.SphereGeometry(1.26, quality.earthSegments, quality.earthSegments)
     const earth = new THREE.Mesh(earthGeometry, earthMaterial)
     const orbitGroup = new THREE.Group()
-    if (compactScene) orbitGroup.scale.setScalar(0.66)
+    if (compactScene) orbitGroup.scale.setScalar(0.52)
     orbitGroup.add(earth)
 
     const cloudMaterial = new THREE.MeshPhongMaterial({
@@ -199,7 +199,7 @@ export default function GlobeScene() {
         const ox = Math.sin(elapsed * 0.2) * 0.34
         const oy = Math.cos(elapsed * 0.16) * 0.2
         orbitGroup.position.x = ox
-        orbitGroup.position.y = (compactScene ? -1.82 : 0) + oy + Math.sin(elapsed * 1.2) * 0.025
+        orbitGroup.position.y = (compactScene ? -2.15 : 0) + oy + Math.sin(elapsed * 1.2) * 0.025
         farStars.rotation.y = elapsed * 0.0018
         midStars.rotation.y = -elapsed * 0.0045
         nearStars.rotation.y = elapsed * 0.009
@@ -210,7 +210,7 @@ export default function GlobeScene() {
       renderer.render(scene, camera)
       if (!reducedMotion) rafId = requestAnimationFrame(animate)
     }
-    if (compactScene) orbitGroup.position.y = -1.82
+    if (compactScene) orbitGroup.position.y = -2.15
     animate()
 
     const onVisibilityChange = () => {
