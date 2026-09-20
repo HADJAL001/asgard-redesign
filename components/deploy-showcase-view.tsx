@@ -46,7 +46,7 @@ export function DeployShowcaseView({ id }: { id: number }) {
 
   if (project === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: "#10181d", color: LABEL }}>
+      <div className="world-spaceport flex min-h-screen items-center justify-center" style={{ color: LABEL }}>
         Загрузка…
       </div>
     )
@@ -54,7 +54,7 @@ export function DeployShowcaseView({ id }: { id: number }) {
 
   if (!project) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4" style={{ backgroundColor: "#10181d", color: LABEL }}>
+      <div className="world-spaceport flex min-h-screen flex-col items-center justify-center gap-4" style={{ color: LABEL }}>
         <p>Проект не найден или ещё не опубликован.</p>
         <Link href="/" className="text-[13px]" style={{ color: ACCENT }}>
           На главную OSGARD →
@@ -66,7 +66,7 @@ export function DeployShowcaseView({ id }: { id: number }) {
   const duration = formatDuration(project.durationMs)
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#10181d" }}>
+    <div className="world-spaceport min-h-screen">
       <main className="mx-auto max-w-2xl px-6 py-16">
         <div className="mb-6 flex items-center gap-2" style={{ color: ACCENT }}>
           <Sparkles size={16} strokeWidth={1.75} aria-hidden="true" />

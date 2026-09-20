@@ -253,7 +253,7 @@ export default function TwinPage() {
 
   if (loading) {
     return (
-      <div style={{ backgroundColor: "#10181d", minHeight: "100vh", color: "#FFFFFF" }}>
+      <div className="world-lab" style={{ minHeight: "100vh", color: "#FFFFFF" }}>
         <Navbar />
         <div className="flex items-center justify-center py-32" style={{ color: "#9eb2bc" }}>
           <Loader2 className="mr-2 animate-spin" size={18} />
@@ -264,7 +264,7 @@ export default function TwinPage() {
   }
 
   return (
-    <div className="twin-laboratory" style={{ minHeight: "100vh", color: "#FFFFFF" }}>
+    <div className="twin-laboratory world-lab" style={{ minHeight: "100vh", color: "#FFFFFF" }}>
       <Navbar />
 
       <main className="mx-auto max-w-6xl px-4 py-8">
