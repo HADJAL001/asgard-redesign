@@ -299,7 +299,7 @@ export function DevDeployView() {
         >
           <PackageOpen size={34} strokeWidth={1.25} style={{ color: "#64748B" }} aria-hidden="true" />
           <p className="text-[14px]" style={{ color: "rgb(148 163 184 / 90%)" }}>
-            Публиковать пока нечего — сначала создайте приложение.
+            Выберите идею в Студии — проект появится в последовательности запуска.
           </p>
           <button type="button" onClick={() => router.push("/dev")} className="dev-btn dev-btn--gold mt-1">
             <Rocket size={16} strokeWidth={1.75} aria-hidden="true" />

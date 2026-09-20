@@ -240,7 +240,7 @@ export function DevAgentsView() {
         >
           <Bot size={34} strokeWidth={1.25} style={{ color: "#64748B" }} aria-hidden="true" />
           <p className="text-[14px]" style={{ color: "rgb(148 163 184 / 90%)" }}>
-            Агентам пока нечего делать.
+            Команда готова принять следующий проект.
           </p>
           <button type="button" onClick={() => router.push("/dev")} className="dev-btn dev-btn--gold mt-1">
             <Sparkles size={16} strokeWidth={1.75} aria-hidden="true" />
