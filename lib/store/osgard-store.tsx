@@ -1696,7 +1696,7 @@ export const useOsgardStore = create<OsgardStoreState>((set, get) => ({
 
       // синхронизация артефактов пользователя (стартовые артефакты проекта уже созданы на сервере)
       const refreshes: Promise<unknown>[] = [get().fetchArtifacts()]
-      // платная генерация списала кредиты на сервере — подтягиваем актуальный баланс кошелька
+      // платная генерация списала TimeCoin на сервере — подтягиваем актуальный баланс кошелька
       if ((res.costTimecoin && res.costTimecoin > 0) || (res.costCredits && res.costCredits > 0)) {
         refreshes.push(get().fetchWallet())
       }

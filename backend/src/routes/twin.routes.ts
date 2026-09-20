@@ -163,9 +163,9 @@ router.post("/train", requireAuth, (req: AuthRequest, res) => {
 
 /* ---------------- POST /twin/generate — сгенерировать артефакт в стиле близнеца ----------------
    Принимает { prompt? } — например, текстовый запрос от Джарвиса
-   ("Создай артефакт в моём стиле"). Списывает небольшую стоимость в credits.
+   ("Создай артефакт в моём стиле"). Списывает TimeCoin.
 ------------------------------------------------------------------------------------------------- */
-const TWIN_GENERATE_COST_CREDITS = 30
+const TWIN_GENERATE_COST_TIMECOIN = 1
 
 router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const userId = req.user!.userId
@@ -176,13 +176,13 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     return res.status(400).json({ error: "Близнец ещё не обучен. Сначала обучите его на своих артефактах." })
   }
 
-  // Списываем credits атомарно и синхронно ДО await генерации (сетевой вызов к AI),
+  // Списываем TimeCoin атомарно и синхронно ДО await генерации (сетевой вызов к AI),
   // чтобы исключить гонку двойной траты при параллельных запросах (аналогично tc.routes.ts /withdraw).
   const debit = db
-    .prepare(`UPDATE wallets SET credits = credits - ? WHERE user_id = ? AND credits >= ?`)
-    .run(TWIN_GENERATE_COST_CREDITS, userId, TWIN_GENERATE_COST_CREDITS)
+    .prepare(`UPDATE wallets SET timecoin = timecoin - ? WHERE user_id = ? AND timecoin >= ?`)
+    .run(TWIN_GENERATE_COST_TIMECOIN, userId, TWIN_GENERATE_COST_TIMECOIN)
   if (debit.changes !== 1) {
-    return res.status(400).json({ error: `Недостаточно credits (нужно ${TWIN_GENERATE_COST_CREDITS})` })
+    return res.status(400).json({ error: `Недостаточно TimeCoin (нужно ${TWIN_GENERATE_COST_TIMECOIN})` })
   }
 
   const vector: StyleVector = JSON.parse(twinRow.style_vector || "{}")
@@ -190,7 +190,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
   try {
     draft = await generateTwinArtifactWithAi(vector, twinRow.level, typeof prompt === "string" ? prompt : undefined)
   } catch (genErr) {
-    db.prepare(`UPDATE wallets SET credits = credits + ? WHERE user_id = ?`).run(TWIN_GENERATE_COST_CREDITS, userId)
+    db.prepare(`UPDATE wallets SET timecoin = timecoin + ? WHERE user_id = ?`).run(TWIN_GENERATE_COST_TIMECOIN, userId)
     throw genErr
   }
   const now = Date.now()

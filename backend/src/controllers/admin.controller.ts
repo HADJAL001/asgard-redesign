@@ -7,6 +7,9 @@ import { countStaleGuests, GUEST_REAP_TTL_MS } from "../lib/guest-service"
 import { loadGenerationSamples, recommendTokenLimit } from "../lib/generation-estimate"
 import { getGenerationUsageReport } from "../lib/generation-usage"
 
+const MAX_ADMIN_BALANCE_GRANT_CREDITS = 1_000
+const MAX_ADMIN_PROMO_GRANT_CREDITS = 500
+
 export class AdminController {
   // ===== GET /admin/analytics/generation-budget =====
   static async generationBudget(_req: AuthRequest, res: Response) {
@@ -199,6 +202,9 @@ export class AdminController {
       if (!id || !Number.isFinite(creditsNum) || !Number.isFinite(timecoinNum) || (creditsNum === 0 && timecoinNum === 0)) {
         return res.status(400).json({ error: "Некорректные данные" })
       }
+      if (creditsNum > MAX_ADMIN_BALANCE_GRANT_CREDITS) {
+        return res.status(400).json({ error: `За одну операцию можно выдать не более ${MAX_ADMIN_BALANCE_GRANT_CREDITS} Credits` })
+      }
 
       const user = db.prepare(`SELECT id FROM users WHERE id = ?`).get(id)
       if (!user) {
@@ -260,6 +266,7 @@ export class AdminController {
       const reason = typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 300) : ""
       const expiresInDays = req.body?.expiresInDays === 30 ? 30 : 7
       if (!id || !Number.isFinite(amount) || amount <= 0 || !reason) return res.status(400).json({ error: "Amount and reason are required" })
+      if (amount > MAX_ADMIN_PROMO_GRANT_CREDITS) return res.status(400).json({ error: `Promo grant is limited to ${MAX_ADMIN_PROMO_GRANT_CREDITS} Credits` })
       if (!db.prepare(`SELECT 1 FROM users WHERE id = ?`).get(id)) return res.status(404).json({ error: "User not found" })
       const now = Date.now()
       const expiresAt = now + expiresInDays * 86_400_000

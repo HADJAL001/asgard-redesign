@@ -15,7 +15,9 @@ import db from './db';
 
 const DAY_MS = 86_400_000;
 // Кредиты по дню серии (1..7), день 7+ — плоско максимум.
-const REWARDS = [10, 15, 20, 25, 30, 40, 50] as const;
+// A streak rewards return visits, not a recurring free AI budget. The full
+// seven-day cycle stays below the cost of one standard generation.
+const REWARDS = [1, 2, 2, 3, 3, 4, 5] as const;
 
 export function rewardForStreak(streak: number): number {
   const idx = Math.min(Math.max(streak, 1) - 1, REWARDS.length - 1);

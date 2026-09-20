@@ -40,16 +40,16 @@ function fmtDate(ms: number | null): string {
 export function ApiKeysView() {
   const router = useRouter()
   const [keys, setKeys] = useState<ApiKey[]>([])
-  const [cost, setCost] = useState(60)
+  const [cost, setCost] = useState(3)
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
   const [freshKey, setFreshKey] = useState<{ key: string; name: string } | null>(null)
 
   const load = useCallback(async () => {
     try {
-      const r = await apiClient.get<{ keys: ApiKey[]; generationCost: number }>("/api-keys", { skipAuthRedirect: true })
+      const r = await apiClient.get<{ keys: ApiKey[]; generationCostTimecoin: number }>("/api-keys", { skipAuthRedirect: true })
       setKeys(r.keys || [])
-      setCost(r.generationCost || 60)
+      setCost(r.generationCostTimecoin || 3)
     } catch {
       setKeys([])
     } finally {
@@ -116,7 +116,7 @@ export function ApiKeysView() {
             <h2 className="text-[16px] font-medium">Быстрый старт</h2>
           </div>
           <p className="mt-2 text-[13px]" style={{ color: "rgba(255,255,255,0.55)" }}>
-            Каждый вызов генерации списывает <b style={{ color: COLORS.accent }}>{cost} кредитов</b> с вашего кошелька.
+            Каждый вызов генерации списывает <b style={{ color: COLORS.accent }}>{cost} TimeCoin</b> с вашего кошелька.
             Передавайте ключ в заголовке <code className="rounded px-1" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>X-API-Key</code>.
           </p>
           <pre className="mt-4 overflow-x-auto rounded-lg p-4 text-[12px] leading-relaxed" style={{ backgroundColor: "#0A0A12", border: `1px solid ${COLORS.border}`, color: "#B8C0E0" }}>
@@ -125,7 +125,7 @@ export function ApiKeysView() {
   -H "Content-Type: application/json" \\
   -d '{"name": "Task tracker", "hint": "with kanban board"}'
 
-# → 202 { project, artifacts, costCredits, pollUrl }
+# → 202 { project, artifacts, costTimecoin, pollUrl }
 # Опрос статуса:
 curl https://osgard.app/v1/projects/123 -H "X-API-Key: osk_live_..."`}
           </pre>

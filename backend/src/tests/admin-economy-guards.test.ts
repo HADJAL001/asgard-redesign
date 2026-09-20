@@ -103,3 +103,11 @@ test("promo credits may explicitly expire after thirty days", async () => {
   assert.ok(grant.expires_at >= beforeIssue + 30 * 86_400_000)
   assert.ok(grant.expires_at <= Date.now() + 30 * 86_400_000 + 1_000)
 })
+
+test("promo grants cannot create an unbounded free AI budget", async () => {
+  const response = mockResponse()
+  await AdminController.grantPromoCredits(adminRequest({ amount: 501, reason: "Event" }, { id: "2" }), response)
+
+  assert.equal(response.statusCode, 400)
+  assert.equal(db.prepare("SELECT COUNT(*) as count FROM promo_credit_grants").get().count, 0)
+})

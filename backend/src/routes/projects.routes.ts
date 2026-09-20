@@ -693,7 +693,7 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     }
   }
 
-  /* --- Платная глубина (standard/deep): честное списание кредитов ---
+  /* --- Платная глубина (standard/deep): честное списание TimeCoin ---
      Сначала пробуем закрыть запуск правом на перегенерацию за счёт платформы: если
      платформа уже испортила генерацию этой же (или большей) глубины, повторная попытка
      не должна стоить пользователю кредитов. */
@@ -730,46 +730,39 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
     }
   }
 
-  const cost = depthCfg.credits
-  const wallet = db.prepare(`SELECT credits FROM wallets WHERE user_id = ?`).get(userId) as
-    | { credits: number }
+  const cost = depthCfg.timecoin
+  const wallet = db.prepare(`SELECT timecoin FROM wallets WHERE user_id = ?`).get(userId) as
+    | { timecoin: number }
     | undefined
   if (!wallet) return res.status(402).json({ error: "Кошелёк не найден", code: "NO_WALLET" })
-  const promoAvailable = availablePromoCredits(userId)
-  if (wallet.credits + promoAvailable < cost) {
-    // The TimeCoin admission charge happens before the depth-specific credit check.
-    // Return it before rejecting so an unavailable paid depth never costs the user.
+  if (wallet.timecoin < cost) {
     refundProjectCharge()
     return res.status(402).json({
-      error: `Недостаточно кредитов для глубины «${depthCfg.label}». Требуется ${cost}, доступно ${wallet.credits}.`,
-      code: "INSUFFICIENT_CREDITS",
+      error: `Недостаточно TimeCoin для глубины «${depthCfg.label}». Требуется ${cost}, доступно ${wallet.timecoin}.`,
+      code: "INSUFFICIENT_TIMECOIN",
       required: cost,
-      available: wallet.credits + promoAvailable,
+      available: wallet.timecoin,
     })
   }
 
   const now = Date.now()
-  let generationCharge: ReturnType<typeof chargeCreditsWithPromo> = null
   db.exec("BEGIN IMMEDIATE")
   try {
-    const fresh = db.prepare(`SELECT credits FROM wallets WHERE user_id = ?`).get(userId) as { credits: number }
-    const charged = chargeCreditsWithPromo(userId, cost, now)
-    if (!charged) {
+    const charged = db.prepare(`UPDATE wallets SET timecoin = timecoin - ?, updated_at = ? WHERE user_id = ? AND timecoin >= ?`).run(cost, now, userId, cost)
+    if (charged.changes !== 1) {
       db.exec("ROLLBACK")
-      return res.status(402).json({ error: "Недостаточно кредитов", code: "INSUFFICIENT_CREDITS" })
+      return res.status(402).json({ error: "Недостаточно TimeCoin", code: "INSUFFICIENT_TIMECOIN" })
     }
-    generationCharge = charged
     db.prepare(
       `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-       VALUES (?, 'project_generation', ?, 'OSGARD', ?, 'credits', 'done')`,
+       VALUES (?, 'project_generation', ?, 'OSGARD', ?, 'timecoin', 'done')`,
     ).run(userId, `Генерация (${depthCfg.label}): ${resolvedName}`, cost)
     db.exec("COMMIT")
-    evaluateCreditsBadge(userId, fresh.credits, fresh.credits - charged.regular)
   } catch (err) {
     db.exec("ROLLBACK")
     throw err
   }
-  logAudit(userId, "debit", cost, "project_generation", { depth, name: resolvedName })
+  logAudit(userId, "debit", cost, "project_generation", { depth, name: resolvedName, currency: "timecoin" })
 
   try {
     const { project, artifacts } = createGeneratedProject({ userId, name: resolvedName, hint: safeHint, depth, profile })
@@ -779,24 +772,24 @@ router.post("/generate", requireAuth, asyncHandler(async (req: AuthRequest, res)
         project,
         artifacts,
         depth,
-        costCredits: cost,
-        costTimecoin: admissionCostTimecoin,
+        costCredits: 0,
+        costTimecoin: admissionCostTimecoin + cost,
         makegoodApplied: false,
         aiConfigured: isProjectGenerationConfigured(),
       })
   } catch (err) {
-    /* Синхронный сбой создания — честно возвращаем кредиты. */
+    /* Синхронный сбой создания — честно возвращаем TimeCoin. */
     db.exec("BEGIN IMMEDIATE")
     try {
-      if (generationCharge) refundPromoCharge(generationCharge, userId, Date.now())
+      db.prepare(`UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`).run(cost, Date.now(), userId)
       db.exec("COMMIT")
     } catch {
       db.exec("ROLLBACK")
     }
-    logAudit(userId, "credit", cost, "project_generation_refund", { depth })
+    logAudit(userId, "credit", cost, "project_generation_refund", { depth, currency: "timecoin" })
     refundProjectCharge()
     captureError("[projects.generate] error:", err)
-    return res.status(500).json({ error: "Не удалось создать проект, кредиты возвращены" })
+    return res.status(500).json({ error: "Не удалось создать проект, TimeCoin возвращены" })
   }
 }))
 

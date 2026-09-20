@@ -27,8 +27,8 @@ import {
    ту же логику, что и веб-клиент, без расхождения экономики.
    ================================================================ */
 
-/** Стоимость одной генерации через публичный API — списывается кредитами владельца ключа. */
-const API_GENERATION_COST = 60
+/** Стоимость одной генерации через публичный API — списывается TimeCoin владельца ключа. */
+const API_GENERATION_COST = 3
 
 /* ================================================================
    Контур 1: управление ключами (личный кабинет, Bearer-JWT)
@@ -148,12 +148,12 @@ function apiKeyAuth(req: Request, res: Response, next: NextFunction) {
 /* ---------------- GET /v1/me — информация о ключе и владельце ---------------- */
 partnerPublicRouter.get("/me", apiKeyAuth, (_req: Request, res: Response) => {
   const key = res.locals.apiKey as ApiKeyRow
-  const wallet = db.prepare(`SELECT credits FROM wallets WHERE user_id = ?`).get(key.user_id) as
-    | { credits: number }
+  const wallet = db.prepare(`SELECT timecoin FROM wallets WHERE user_id = ?`).get(key.user_id) as
+    | { timecoin: number }
     | undefined
   res.json({
     key: serializeApiKey(key),
-    credits: wallet?.credits ?? 0,
+    timecoin: wallet?.timecoin ?? 0,
     generationCost: API_GENERATION_COST,
   })
 })
@@ -189,20 +189,20 @@ partnerPublicRouter.post("/generate", apiKeyAuth, asyncHandler(async (_req: Requ
   const name = resolveProjectTitle(rawName, hint)
 
   /* Реальное списание кредитов владельца в транзакции. */
-  const wallet = db.prepare(`SELECT credits FROM wallets WHERE user_id = ?`).get(key.user_id) as
-    | { credits: number }
+  const wallet = db.prepare(`SELECT timecoin FROM wallets WHERE user_id = ?`).get(key.user_id) as
+    | { timecoin: number }
     | undefined
   if (!wallet) return res.status(402).json({ error: "Кошелёк владельца не найден", code: "NO_WALLET" })
-  if (wallet.credits < API_GENERATION_COST) {
+  if (wallet.timecoin < API_GENERATION_COST) {
     db.prepare(
       `INSERT INTO api_key_usage (api_key_id, endpoint, project_id, cost_credits, status, created_at)
        VALUES (?, 'generate', NULL, 0, 'insufficient_credits', ?)`,
     ).run(key.id, now)
     return res.status(402).json({
-      error: `Недостаточно кредитов. Требуется ${API_GENERATION_COST}, доступно ${wallet.credits}.`,
-      code: "INSUFFICIENT_CREDITS",
+      error: `Недостаточно TimeCoin. Требуется ${API_GENERATION_COST}, доступно ${wallet.timecoin}.`,
+      code: "INSUFFICIENT_TIMECOIN",
       required: API_GENERATION_COST,
-      available: wallet.credits,
+      available: wallet.timecoin,
     })
   }
 
@@ -212,19 +212,19 @@ partnerPublicRouter.post("/generate", apiKeyAuth, asyncHandler(async (_req: Requ
 
   db.exec("BEGIN IMMEDIATE")
   try {
-    const fresh = db.prepare(`SELECT credits FROM wallets WHERE user_id = ?`).get(key.user_id) as { credits: number }
-    if (fresh.credits < API_GENERATION_COST) {
+    const fresh = db.prepare(`SELECT timecoin FROM wallets WHERE user_id = ?`).get(key.user_id) as { timecoin: number }
+    if (fresh.timecoin < API_GENERATION_COST) {
       db.exec("ROLLBACK")
       return res.status(402).json({ error: "Недостаточно кредитов", code: "INSUFFICIENT_CREDITS" })
     }
-    db.prepare(`UPDATE wallets SET credits = credits - ?, updated_at = ? WHERE user_id = ?`).run(
+    db.prepare(`UPDATE wallets SET timecoin = timecoin - ?, updated_at = ? WHERE user_id = ?`).run(
       API_GENERATION_COST,
       now,
       key.user_id,
     )
     db.prepare(
       `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-       VALUES (?, 'api_generation', ?, 'B2B API', ?, 'credits', 'done')`,
+       VALUES (?, 'api_generation', ?, 'B2B API', ?, 'timecoin', 'done')`,
     ).run(key.user_id, `API-генерация: ${name}`, API_GENERATION_COST)
     db.prepare(`UPDATE api_keys SET request_count = request_count + 1, last_used_at = ? WHERE id = ?`).run(now, key.id)
     db.exec("COMMIT")
@@ -245,7 +245,7 @@ partnerPublicRouter.post("/generate", apiKeyAuth, asyncHandler(async (_req: Requ
     /* Генерация не удалась — возвращаем кредиты честно. */
     db.exec("BEGIN IMMEDIATE")
     try {
-      db.prepare(`UPDATE wallets SET credits = credits + ?, updated_at = ? WHERE user_id = ?`).run(
+      db.prepare(`UPDATE wallets SET timecoin = timecoin + ?, updated_at = ? WHERE user_id = ?`).run(
         API_GENERATION_COST,
         Date.now(),
         key.user_id,
@@ -270,7 +270,8 @@ partnerPublicRouter.post("/generate", apiKeyAuth, asyncHandler(async (_req: Requ
   res.status(202).json({
     project,
     artifacts,
-    costCredits: API_GENERATION_COST,
+    costCredits: 0,
+    costTimecoin: API_GENERATION_COST,
     pollUrl: `/v1/projects/${projectId}`,
   })
 }))

@@ -45,8 +45,7 @@ const FORGE_COST_TC = TIMECOIN_PRICES.artifactForge
 const EVOLVE_COST_TC = TIMECOIN_PRICES.artifactEvolve
 const EVOLVE_RARITY_COST_TC = TIMECOIN_PRICES.artifactRarityUpgrade
 
-// Artifact creation is a soft-currency action. TimeCoin is reserved for upgrades.
-const AI_GENERATE_COST_CREDITS = 120
+const AI_GENERATE_COST_TIMECOIN = 1
 const AI_UNIQUENESS_MAX_ATTEMPTS = 3 /* попыток регенерации при коллизии имени, затем — суффикс */
 /** 1:1 с mobile/types/artifact.ts DAILY_AI_GENERATION_SOFT_LIMIT — здесь порог реально применяется. */
 const DAILY_AI_GENERATION_LIMIT = 3
@@ -494,9 +493,9 @@ router.post("/generate-ai", requireAuth, asyncHandler(async (req: AuthRequest, r
       .json({ error: `Дневной лимит AI-генераций исчерпан (${DAILY_AI_GENERATION_LIMIT} в сутки)`, code: "DAILY_LIMIT_REACHED" })
   }
 
-  if (wallet.credits < AI_GENERATE_COST_CREDITS) {
-    logAudit(req.user!.userId, "rejected", AI_GENERATE_COST_CREDITS, "insufficient_balance", { action: "generate_ai", currency: "credits" })
-    return res.status(400).json({ error: `Недостаточно Credits (нужно ${AI_GENERATE_COST_CREDITS})` })
+  if (wallet.timecoin < AI_GENERATE_COST_TIMECOIN) {
+    logAudit(req.user!.userId, "rejected", AI_GENERATE_COST_TIMECOIN, "insufficient_balance", { action: "generate_ai", currency: "timecoin" })
+    return res.status(400).json({ error: `Недостаточно TimeCoin (нужно ${AI_GENERATE_COST_TIMECOIN})` })
   }
 
   const nameExists = (name: string): boolean =>
@@ -527,8 +526,8 @@ router.post("/generate-ai", requireAuth, asyncHandler(async (req: AuthRequest, r
   const price = computePrice({ power, defense, magic, speed, rarity, views_24h: 0, supply })
 
   db.prepare(
-    `UPDATE wallets SET credits = credits - ?, updated_at = ? WHERE user_id = ? AND credits >= ?`,
-  ).run(AI_GENERATE_COST_CREDITS, now, req.user!.userId, AI_GENERATE_COST_CREDITS)
+    `UPDATE wallets SET timecoin = timecoin - ?, updated_at = ? WHERE user_id = ? AND timecoin >= ?`,
+  ).run(AI_GENERATE_COST_TIMECOIN, now, req.user!.userId, AI_GENERATE_COST_TIMECOIN)
 
   const info = db
     .prepare(
@@ -557,9 +556,9 @@ router.post("/generate-ai", requireAuth, asyncHandler(async (req: AuthRequest, r
 
   db.prepare(
     `INSERT INTO transactions (user_id, type, item, counterparty, amount, currency, status)
-     VALUES (?, 'ai_generate', ?, 'AI-Генератор Артефактов', ?, 'credits', 'done')`,
-  ).run(req.user!.userId, finalName, AI_GENERATE_COST_CREDITS)
-  logAudit(req.user!.userId, "debit", AI_GENERATE_COST_CREDITS, "artifact_ai_generate", { name: finalName, currency: "credits" })
+     VALUES (?, 'ai_generate', ?, 'AI-Генератор Артефактов', ?, 'timecoin', 'done')`,
+  ).run(req.user!.userId, finalName, AI_GENERATE_COST_TIMECOIN)
+  logAudit(req.user!.userId, "debit", AI_GENERATE_COST_TIMECOIN, "artifact_ai_generate", { name: finalName, currency: "timecoin" })
 
   const artifact = db
     .prepare(

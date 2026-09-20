@@ -1,7 +1,6 @@
 export const TIMECOIN_USD_CENTS = 1_000
 /**
- * Project generation is paid only with Credits. The legacy response field is
- * retained at zero for older clients that still render `costTimecoin`.
+ * Direct AI generations are paid only with TimeCoin.
  */
 export const PROJECT_CREATION_COST_TC = 0
 

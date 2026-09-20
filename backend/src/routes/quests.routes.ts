@@ -4,13 +4,13 @@ import db from "../lib/db"
 
 const router = Router()
 const QUESTS = [
-  { key: "eco", title: "Создай приложение для экологичной привычки", reward: 25 },
-  { key: "telegram", title: "Собери проект с Telegram-интеграцией", reward: 25 },
-  { key: "showcase", title: "Опубликуй проект, которым можно поделиться", reward: 50 },
+  { key: "eco", title: "Создай приложение для экологичной привычки", reward: 2 },
+  { key: "telegram", title: "Собери проект с Telegram-интеграцией", reward: 2 },
+  { key: "showcase", title: "Опубликуй проект, которым можно поделиться", reward: 5 },
 ] as const
 const WEEKLY_QUESTS = [
-  { key: "weekly-telegram", title: "Create and publish a project with a Telegram integration", generationBonus: 100 },
-  { key: "weekly-showcase", title: "Create a project ready to share with a client", generationBonus: 100 },
+  { key: "weekly-telegram", title: "Create and publish a project with a Telegram integration", generationBonus: 1 },
+  { key: "weekly-showcase", title: "Create a project ready to share with a client", generationBonus: 1 },
 ] as const
 
 function periodKey() {

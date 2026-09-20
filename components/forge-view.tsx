@@ -31,8 +31,8 @@ function usePrefersReducedMotion(): boolean {
   return reduced
 }
 
-/** AI-creation follows the same soft-currency policy as project generation. */
-const AI_GENERATE_COST_CREDITS = 120
+/** AI-creation is paid in TimeCoin, as are all direct AI generations. */
+const AI_GENERATE_COST_TIMECOIN = 1
 
 /* Ковка за любую монету, но слабее (зеркалит FORGE_CURRENCIES на бэкенде):
    слабее/дешевле валюта → ниже множитель характеристик артефакта. */
@@ -381,7 +381,7 @@ export function ForgeView() {
         count: DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount,
         noun: pluralizeGenerations(DAILY_AI_GENERATION_SOFT_LIMIT - todayAiCount),
       })
-  const canGenerateAi = !aiSubmitting && !submitting && wallet.credits >= AI_GENERATE_COST_CREDITS && !aiLimitReached
+  const canGenerateAi = !aiSubmitting && !submitting && wallet.timecoin >= AI_GENERATE_COST_TIMECOIN && !aiLimitReached
   const aiResultRarity: Rarity = (aiResult?.rarity as Rarity) || "common"
 
   const resultRarity: Rarity = (result?.rarity as Rarity) || "common"
@@ -1040,22 +1040,22 @@ export function ForgeView() {
               title={
                 aiLimitReached
                   ? t("forge.aiGenerate.limitDepleted")
-                  : wallet.credits < AI_GENERATE_COST_CREDITS
-                    ? t("forge.aiGenerate.button", { amount: `${AI_GENERATE_COST_CREDITS} Credits` })
+                  : wallet.timecoin < AI_GENERATE_COST_TIMECOIN
+                    ? t("forge.aiGenerate.button", { amount: `${AI_GENERATE_COST_TIMECOIN} TimeCoin` })
                     : undefined
               }
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               style={{ backgroundColor: "transparent", border: `1px solid ${COLORS.accent}`, color: COLORS.accent }}
             >
               {aiSubmitting && <Loader2 size={16} className="animate-spin" />}
-              {t("forge.aiGenerate.button", { amount: `${AI_GENERATE_COST_CREDITS} Credits` })}
+              {t("forge.aiGenerate.button", { amount: `${AI_GENERATE_COST_TIMECOIN} TimeCoin` })}
             </button>
 
-            {!aiNotice && !aiSubmitting && (aiLimitReached || wallet.credits < AI_GENERATE_COST_CREDITS) && (
+            {!aiNotice && !aiSubmitting && (aiLimitReached || wallet.timecoin < AI_GENERATE_COST_TIMECOIN) && (
               <p className="mt-3 text-[13px]" role="status" style={{ color: COLORS.red }}>
                 {aiLimitReached
                   ? t("forge.aiGenerate.limitDepleted")
-                  : t("forge.aiGenerate.needMore", { amount: `${AI_GENERATE_COST_CREDITS} Credits` })}
+                  : t("forge.aiGenerate.needMore", { amount: `${AI_GENERATE_COST_TIMECOIN} TimeCoin` })}
               </p>
             )}
 
@@ -1339,8 +1339,8 @@ export function ForgeView() {
           doGenerateAi()
         }}
         title={t("forge.confirmAi.title")}
-        message={t("forge.confirmAi.message", { amount: `${AI_GENERATE_COST_CREDITS} Credits` })}
-        confirmLabel={t("forge.confirmAi.confirmLabel", { amount: `${AI_GENERATE_COST_CREDITS} Credits` })}
+        message={t("forge.confirmAi.message", { amount: `${AI_GENERATE_COST_TIMECOIN} TimeCoin` })}
+        confirmLabel={t("forge.confirmAi.confirmLabel", { amount: `${AI_GENERATE_COST_TIMECOIN} TimeCoin` })}
         cancelLabel={t("forge.confirmAi.cancelLabel")}
         loading={aiSubmitting}
       />

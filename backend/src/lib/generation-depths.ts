@@ -27,6 +27,8 @@ export type GenerationDepthConfig = {
   description: string
   /** Стоимость в кредитах. quick = 0 (идёт в счёт дневной квоты). */
   credits: number
+  /** Доплата за AI-глубину в TimeCoin. Credits не оплачивают генерации. */
+  timecoin: number
   /** Пропустить шаблонный shortcut → полная AI-генерация. */
   forceAi: boolean
   /** Обойти кеш готовых результатов → свежая генерация с нуля. */
@@ -41,6 +43,7 @@ export const GENERATION_DEPTHS: Record<GenerationDepth, GenerationDepthConfig> =
     label: "Быстрая",
     description: "Шаблон-первая генерация. Экономно, в рамках дневной квоты тарифа.",
     credits: 0,
+    timecoin: 0,
     forceAi: false,
     bypassCache: false,
     countsAgainstQuota: true,
@@ -49,7 +52,8 @@ export const GENERATION_DEPTHS: Record<GenerationDepth, GenerationDepthConfig> =
     id: "standard",
     label: "Стандартная",
     description: "Полная AI-генерация приложения с нуля, без шаблонного упрощения.",
-    credits: 20,
+    credits: 0,
+    timecoin: 1,
     forceAi: true,
     bypassCache: false,
     countsAgainstQuota: false,
@@ -58,7 +62,8 @@ export const GENERATION_DEPTHS: Record<GenerationDepth, GenerationDepthConfig> =
     id: "deep",
     label: "Глубокая",
     description: "Свежая AI-генерация без кеша — максимум деталей и уникальности.",
-    credits: 50,
+    credits: 0,
+    timecoin: 2,
     forceAi: true,
     bypassCache: true,
     countsAgainstQuota: false,
@@ -77,6 +82,7 @@ export function serializeDepths() {
     label: d.label,
     description: d.description,
     credits: d.credits,
+    timecoin: d.timecoin,
     countsAgainstQuota: d.countsAgainstQuota,
   }))
 }
