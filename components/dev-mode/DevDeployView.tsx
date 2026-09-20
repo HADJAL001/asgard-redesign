@@ -29,7 +29,6 @@ import { getActiveVibecoderRank } from "@/lib/dev-mode/vibecoder-rank"
 type RowBusy = "deploy" | "github" | null
 
 function DeployRow({ project, primary, rank }: { project: OsgardProject; primary: boolean; rank: ReturnType<typeof getActiveVibecoderRank> }) {
-function DeployRow({ project, primary, rank }: { project: OsgardProject; primary: boolean; rank: ReturnType<typeof getActiveVibecoderRank> }) {
   const router = useRouter()
   const { deployProject, pollDeployStatus, publishProjectToGithub, fetchProjects } = useOsgardStore()
 
@@ -91,7 +90,6 @@ function DeployRow({ project, primary, rank }: { project: OsgardProject; primary
 
   return (
     <li className="dev-card p-4">
-      {celebrate ? <DeploySuccessModal project={celebrate} onClose={() => setCelebrate(null)} /> : null}
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">

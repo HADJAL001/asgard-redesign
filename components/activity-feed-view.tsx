@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
-import { Hammer, Coins, Trophy, Loader2, Sparkles, type LucideIcon } from "lucide-react"
+import { Hammer, Coins, Trophy, Loader2, Sparkles, Flame, type LucideIcon } from "lucide-react"
 import { Navbar } from "./navbar"
 import { LivePulseBar } from "./live-pulse-bar"
 import { useActivityStore, type ActivityEvent, type ActivityFilter } from "@/lib/store/activity-store"
@@ -59,7 +59,7 @@ function timeLabelFor(raw: string): string {
   return `${diffD} ${diffD % 10 === 1 && diffD % 100 !== 11 ? "день" : "дней"} назад`
 }
 
-function EventCard({ item, reduce }: { item: ActivityEvent; reduce: boolean }) {
+function EventCard({ item, reduce, onReact }: { item: ActivityEvent; reduce: boolean; onReact: (id: number) => void }) {
   const Icon = TYPE_ICON[item.type] ?? Sparkles
   const color = TYPE_COLOR[item.type] ?? "#9eb2bc"
   const name = item.actor.displayName || item.actor.username
@@ -97,10 +97,23 @@ function EventCard({ item, reduce }: { item: ActivityEvent; reduce: boolean }) {
             </Link>{" "}
             <span style={{ color: "rgba(255,255,255,0.75)" }}>{item.text}</span>
           </p>
-          <p className="mt-1.5 flex items-center gap-1.5 text-[12px]" style={{ color: "rgba(255,255,255,0.3)" }}>
-            <Icon size={12} strokeWidth={1.75} style={{ color }} aria-hidden="true" />
-            {timeLabelFor(item.createdAt)}
-          </p>
+          <div className="mt-1.5 flex items-center gap-3">
+            <p className="flex items-center gap-1.5 text-[12px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+              <Icon size={12} strokeWidth={1.75} style={{ color }} aria-hidden="true" />
+              {timeLabelFor(item.createdAt)}
+            </p>
+            <button
+              type="button"
+              onClick={() => onReact(item.id)}
+              className="flex items-center gap-1 text-[12px] transition-colors"
+              style={{ color: item.reactedByMe ? "#FB923C" : "rgba(255,255,255,0.3)" }}
+              aria-pressed={item.reactedByMe}
+              aria-label={item.reactedByMe ? "Убрать огонёк" : "Поставить огонёк"}
+            >
+              <Flame size={13} strokeWidth={1.75} fill={item.reactedByMe ? "#FB923C" : "none"} aria-hidden="true" />
+              {item.reactionCount > 0 ? item.reactionCount : ""}
+            </button>
+          </div>
         </div>
       </div>
     </motion.article>
@@ -111,7 +124,7 @@ export function ActivityFeedView() {
   const { t } = useTranslation()
   const reduce = useReducedMotion() ?? false
   const { play } = useSignature()
-  const { events, nextCursor, filter, loading, loadingMore, error, fetchFeed, loadMore, refresh } = useActivityStore()
+  const { events, nextCursor, filter, loading, loadingMore, error, fetchFeed, loadMore, refresh, toggleReaction } = useActivityStore()
 
   useEffect(() => {
     fetchFeed()
@@ -205,7 +218,7 @@ export function ActivityFeedView() {
           <div className="mt-8 flex flex-col gap-3">
             <AnimatePresence initial={false}>
               {events.map((item) => (
-                <EventCard key={item.id} item={item} reduce={reduce} />
+                <EventCard key={item.id} item={item} reduce={reduce} onReact={toggleReaction} />
               ))}
             </AnimatePresence>
           </div>

@@ -1,5 +1,8 @@
 import { Router } from "express"
 import db from "../lib/db"
+import { requireAuth, optionalAuth, AuthRequest } from "../middleware/authMiddleware"
+import { rateLimit } from "../middleware/rateLimiter"
+import { reactionCountsFor, reactedByUser, toggleReaction } from "../lib/activity-reactions"
 
 const router = Router()
 
@@ -34,7 +37,7 @@ function mapActor(row: ActorRow) {
 }
 
 /* ---------------- GET /feed ---------------- */
-router.get("/", (req, res) => {
+router.get("/", optionalAuth, (req: AuthRequest, res) => {
   const before = Number(req.query.before)
   const limit = Math.min(Math.max(Number(req.query.limit) || DEFAULT_LIMIT, 1), MAX_LIMIT)
   const filter = parseFeedFilter(req.query.type)
@@ -64,6 +67,10 @@ router.get("/", (req, res) => {
     )
     .all(...params, limit) as any[]
 
+  const ids = rows.map((r) => r.id)
+  const counts = reactionCountsFor("activity_event", ids)
+  const reacted = reactedByUser("activity_event", ids, req.user?.userId ?? null)
+
   const events = rows.map((r) => ({
     id: r.id,
     type: r.type,
@@ -78,11 +85,28 @@ router.get("/", (req, res) => {
       display_name: r.actor_display_name,
       avatar_url: r.actor_avatar_url,
     }),
+    reactionCount: counts.get(r.id) ?? 0,
+    reactedByMe: reacted.has(r.id),
   }))
 
   const nextCursor = events.length === limit ? events[events.length - 1].id : null
 
   res.json({ success: true, events, nextCursor, filter })
+})
+
+/* ---------------- POST /feed/:eventId/react ----------------
+   Toggle-лайк на событие ленты. Идемпотентен (UNIQUE в схеме) — повторный
+   вызов не создаёт дубль. Rate-limit защищает от накрутки скриптом. */
+router.post("/:eventId/react", rateLimit(60_000, 30), requireAuth, (req: AuthRequest, res) => {
+  const eventId = Number(req.params.eventId)
+  if (!Number.isInteger(eventId) || eventId <= 0) {
+    return res.status(400).json({ error: "Invalid event id" })
+  }
+  const exists = db.prepare(`SELECT 1 FROM activity_events WHERE id = ?`).get(eventId)
+  if (!exists) return res.status(404).json({ error: "Event not found" })
+
+  const result = toggleReaction("activity_event", eventId, req.user!.userId)
+  res.json({ success: true, ...result })
 })
 
 /* ---------------- GET /feed/pulse ----------------

@@ -381,6 +381,7 @@ import "./migrations/108_billing_reconciliation"
 import "./migrations/109_platega_payments"
 import { runRemoveDuoPlanMigration } from "./migrations/110_remove_duo_plan"
 import { runUserBadgesMigration } from "./migrations/112_user_badges"
+import { runActivityReactionsMigration } from "./migrations/111_activity_reactions"
 import { scheduleBillingReconciliation } from "./services/billing-reconciliation.service"
 /* Импорт только ради побочного эффекта: запускает module-level setInterval периодической
    очистки старых generation_tasks (см. сам файл — тот же стиль, что и middleware/rateLimiter.ts). */
@@ -443,6 +444,9 @@ runDirectMessagesMigration()
 runSecretRoomEventsMigration()
 runSecretRoomActivityMigration()
 runSecretRoomAvatarMigration()
+
+/* Гарантируем наличие таблицы activity_reactions (лайки/огоньки в ленте и Зале Славы). */
+runActivityReactionsMigration()
 
 /* Гарантируем наличие таблицы tc_convert_log (лог конвертаций ∞ ↔ TC) при старте сервера. */
 runTcConvertMigration()

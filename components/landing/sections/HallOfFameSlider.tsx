@@ -16,8 +16,9 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Trophy, ArrowRight } from "lucide-react"
+import { Trophy, ArrowRight, Flame } from "lucide-react"
 import { ReadonlyGate } from "@/lib/readonly-mode"
+import { apiClient } from "@/lib/api-client"
 
 /* Цвета редкости — 1:1 с DemoProjectModal.tsx (RARITY_META), чтобы карточки
    Зала Славы и демо-артефактов выглядели из одной вселенной. */
@@ -38,6 +39,8 @@ type HofItem = {
   architect: string
   price: number
   achievedAt: number
+  reactionCount: number
+  reactedByMe: boolean
 }
 
 const CARD_H = 168
@@ -64,6 +67,22 @@ export function HallOfFameSlider() {
       cancelled = true
     }
   }, [])
+
+  const toggleReaction = (id: number) => {
+    const apply = (liked: boolean, count: number) =>
+      setItems((prev) => prev?.map((it) => (it.id === id ? { ...it, reactedByMe: liked, reactionCount: count } : it)) ?? prev)
+
+    const current = items?.find((it) => it.id === id)
+    if (!current) return
+    const prevLiked = current.reactedByMe
+    const prevCount = current.reactionCount
+    apply(!prevLiked, prevCount + (prevLiked ? -1 : 1))
+
+    apiClient
+      .post<{ liked: boolean; count: number }>(`/hall-of-fame/${id}/react`, {})
+      .then((res) => apply(res.liked, res.count))
+      .catch(() => apply(prevLiked, prevCount))
+  }
 
   return (
     <section
@@ -157,7 +176,29 @@ export function HallOfFameSlider() {
                 <div style={{ fontSize: 12, opacity: 0.55, marginTop: 4 }}>{it.type}</div>
               </div>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 700, color }}>{formatPrice(it.price)}</div>
+                <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color }}>{formatPrice(it.price)}</div>
+                  <button
+                    type="button"
+                    onClick={() => toggleReaction(it.id)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: 12,
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      color: it.reactedByMe ? "#FB923C" : "rgba(255,255,255,0.4)",
+                    }}
+                    aria-pressed={it.reactedByMe}
+                    aria-label={it.reactedByMe ? "Убрать огонёк" : "Поставить огонёк"}
+                  >
+                    <Flame size={13} strokeWidth={1.75} fill={it.reactedByMe ? "#FB923C" : "none"} aria-hidden="true" />
+                    {it.reactionCount > 0 ? it.reactionCount : ""}
+                  </button>
+                </div>
                 <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>
                   Архитектор: {it.architect}
                 </div>
