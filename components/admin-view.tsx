@@ -387,6 +387,7 @@ export function AdminView() {
     setGrantSubmitting(true)
     try {
       await apiClient.post(`/admin/users/${userId}/promo-credits`, { amount, reason })
+      setGrantingUserId(null)
       setPromoCredits("")
       setGrantReason("")
       if (tab === "logs") loadLogs(logsPage)
@@ -430,6 +431,7 @@ export function AdminView() {
     )
   }
 
+  const grantTarget = users.find((candidate) => candidate.id === grantingUserId) ?? null
   const statCards: { label: string; value: string | number; Icon: LucideIcon }[] = stats
     ? [
         { label: "Пользователей", value: stats.totalUsers, Icon: Users },
@@ -661,7 +663,7 @@ export function AdminView() {
                         </div>
                       </td>
                     </tr>
-                    {grantingUserId === u.id && (
+                    {false && grantingUserId === u.id && (
                       <tr>
                         <td colSpan={6} className="pb-4">
                           <div
@@ -1148,6 +1150,24 @@ export function AdminView() {
           </div>
         )}
       </main>
+      {grantTarget ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 px-4 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !grantSubmitting) setGrantingUserId(null) }}>
+          <section className="w-full max-w-lg rounded-lg p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="grant-dialog-title" style={{ background: "#10181d", border: `1px solid ${ACCENT}66` }}>
+            <p className="text-[11px] uppercase tracking-[0.14em]" style={{ color: ACCENT }}>Выдача кредитов</p>
+            <h2 id="grant-dialog-title" className="mt-1 text-[22px] font-medium">{grantTarget.username}</h2>
+            <p className="mt-1 text-[13px]" style={{ color: LABEL }}>{grantTarget.email}</p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <label><span className="mb-1 block text-[12px]" style={{ color: LABEL }}>Credits</span><input type="number" min="0" value={grantCredits} onChange={(event) => setGrantCredits(event.target.value)} className="w-full rounded-lg px-3 py-2 text-[14px] outline-none" style={{ background: CARD, border: `1px solid ${BORDER}`, color: "#fff" }} /></label>
+              <label><span className="mb-1 block text-[12px]" style={{ color: LABEL }}>TimeCoin</span><input type="number" min="0" value={grantTimecoin} onChange={(event) => setGrantTimecoin(event.target.value)} className="w-full rounded-lg px-3 py-2 text-[14px] outline-none" style={{ background: CARD, border: `1px solid ${BORDER}`, color: "#fff" }} /></label>
+            </div>
+            <div className="mt-4 border-t pt-4" style={{ borderColor: BORDER }}>
+              <label><span className="mb-1 block text-[12px]" style={{ color: ACCENT }}>Promo credits, срок 7 дней</span><input type="number" min="1" value={promoCredits} onChange={(event) => setPromoCredits(event.target.value)} className="w-full rounded-lg px-3 py-2 text-[14px] outline-none" style={{ background: CARD, border: `1px solid ${ACCENT}66`, color: "#fff" }} /></label>
+              <label className="mt-3 block"><span className="mb-1 block text-[12px]" style={{ color: LABEL }}>Основание операции</span><select value={grantReason} onChange={(event) => setGrantReason(event.target.value)} className="w-full rounded-lg px-3 py-2 text-[14px] outline-none" style={{ background: CARD, border: `1px solid ${BORDER}`, color: "#fff" }}><option value="">Выберите основание</option><option value="Bug report">Баг-репорт</option><option value="Promo campaign">Промо-акция</option><option value="Compensation">Компенсация</option><option value="Event">Ивент</option></select></label>
+            </div>
+            <div className="mt-6 flex flex-wrap justify-end gap-2"><button type="button" onClick={() => setGrantingUserId(null)} disabled={grantSubmitting} className="rounded-lg px-4 py-2 text-[13px]" style={{ border: `1px solid ${BORDER}`, color: "#fff" }}>Отмена</button><button type="button" onClick={() => submitGrant(grantTarget.id)} disabled={grantSubmitting || (!grantCredits.trim() && !grantTimecoin.trim())} className="rounded-lg px-4 py-2 text-[13px] font-medium disabled:opacity-40" style={{ background: ACCENT, color: "#10181d" }}>Выдать баланс</button><button type="button" onClick={() => submitPromoGrant(grantTarget.id)} disabled={grantSubmitting || !promoCredits.trim() || !grantReason} className="rounded-lg px-4 py-2 text-[13px] font-medium disabled:opacity-40" style={{ border: `1px solid ${ACCENT}`, color: ACCENT }}>Выдать promo</button></div>
+          </section>
+        </div>
+      ) : null}
     </div>
   )
 }
