@@ -60,11 +60,14 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
       >
         {/* Компактнее и «на поверхности» глобуса: круглый бейдж-иконка + стеклянная
             пилюля, сильнее блюр и тоньше — чипы не выпирают, а будто вписаны в сферу. */}
+        <div
+          className="platform-hotspot-ui"
+          onPointerEnter={() => setIsActive(true)}
+          onPointerLeave={() => setIsActive(false)}
+        >
         <button
           type="button"
           onClick={() => router.push(hotspot.href)}
-          onPointerEnter={() => setIsActive(true)}
-          onPointerLeave={() => setIsActive(false)}
           onFocus={() => setIsActive(true)}
           onBlur={() => setIsActive(false)}
           aria-label={`${hotspot.label}: ${hotspot.description}`}
@@ -85,6 +88,7 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
           <span className="whitespace-nowrap tracking-tight">{hotspot.label}</span><span className="platform-portal-signal" style={{ background: hotspot.color }} />
         </button>
         {isActive ? <div className="platform-portal-preview" role="status"><span>ПОРТАЛ</span><strong>{hotspot.label}</strong><p>{hotspot.description}</p></div> : null}
+        </div>
       </Html>
     </group>
   )

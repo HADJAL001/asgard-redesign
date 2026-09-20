@@ -840,19 +840,18 @@ svg { width: 1rem; height: 1rem; flex: none; }
 /* ===== Карта платформы (3D-глобус) ===== */
 @keyframes platform-map-boot { from { opacity: 0; transform: scale(.97); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
 .platform-map-boot { animation: platform-map-boot 1s cubic-bezier(.2,.7,.2,1) both; }
-.platform-map-space { background: radial-gradient(ellipse at 50% 43%, #12324b 0%, #08111e 38%, #03050d 78%); }
-.platform-map-space::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .55; background-image: radial-gradient(circle at 16% 23%, rgb(196 238 255 / .75) 0 1px, transparent 1.8px), radial-gradient(circle at 82% 67%, rgb(255 219 143 / .5) 0 1px, transparent 1.8px), radial-gradient(circle at 71% 18%, rgb(164 216 255 / .42) 0 1px, transparent 1.8px); background-size: 211px 163px, 287px 229px, 347px 293px; }
+.platform-map-space { background: radial-gradient(ellipse at 50% 43%, rgb(19 55 82 / .86) 0%, rgb(5 15 30 / .86) 45%, #02040a 100%), url("/images/starfield.png") center / cover fixed; }
+.platform-map-space::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .72; background-image: linear-gradient(90deg, rgb(1 7 16 / .68), transparent 36%, rgb(1 7 16 / .54)), radial-gradient(circle at 16% 23%, rgb(196 238 255 / .75) 0 1px, transparent 1.8px), radial-gradient(circle at 82% 67%, rgb(255 219 143 / .5) 0 1px, transparent 1.8px), radial-gradient(circle at 71% 18%, rgb(164 216 255 / .42) 0 1px, transparent 1.8px); background-size: auto, 211px 163px, 287px 229px, 347px 293px; }
 .platform-map-kicker { color: #aee8ff; font: 600 10px/1.3 var(--font-ibm-plex-mono, monospace); letter-spacing: 0; text-shadow: 0 0 16px rgb(83 199 255 / .72); }
-.platform-portal { transform-origin: center bottom; border-radius: 2px; letter-spacing: 0; box-shadow: inset 0 1px rgb(255 255 255 / .14); }
-.platform-portal:hover { transform: translateY(-2px) scale(1.04); box-shadow: inset 0 1px rgb(255 255 255 / .2), 0 0 10px color-mix(in srgb, currentColor 35%, transparent); }
+.platform-hotspot-ui { display: inline-block; }
+.platform-portal { transform-origin: center; border-radius: 2px; letter-spacing: 0; box-shadow: inset 0 1px rgb(255 255 255 / .14); transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
+.platform-hotspot-ui:hover .platform-portal, .platform-portal:focus-visible { border-color: color-mix(in srgb, currentColor 55%, white) !important; box-shadow: 0 0 10px color-mix(in srgb, currentColor 35%, transparent), inset 0 0 6px rgb(255 255 255 / .08) !important; }
 .platform-portal-signal { width: 3px; height: 3px; border-radius: 50%; box-shadow: 0 0 5px currentColor; animation: platform-portal-ping 1.8s ease-in-out infinite; }
 @keyframes platform-portal-ping { 50% { transform: scale(1.7); opacity: .5; } }
 
 @keyframes platform-hotspot-rise { from { opacity: 0; transform: translateY(10px) scale(.9); } to { opacity: 1; transform: none; } }
 .platform-hotspot-rise { animation: platform-hotspot-rise .6s cubic-bezier(.22,1,.36,1) both; }
-.platform-portal { transform-origin: center; }
-.platform-portal:hover { transform: scale(1.04); border-color: color-mix(in srgb, currentColor 55%, white) !important; box-shadow: 0 0 10px color-mix(in srgb, currentColor 35%, transparent), inset 0 0 6px rgb(255 255 255 / .08) !important; }
-.platform-portal-preview { width: 154px; margin-top: 7px; padding: 8px 10px; border: 1px solid rgb(153 222 255 / .34); background: rgb(4 15 27 / .88); box-shadow: 0 12px 28px rgb(0 0 0 / .45), inset 0 1px 0 rgb(196 238 255 / .18); color: #e9f9ff; backdrop-filter: blur(16px); }
+.platform-portal-preview { width: 154px; margin-top: 7px; padding: 8px 10px; border: 1px solid rgb(153 222 255 / .34); background: rgb(4 15 27 / .88); box-shadow: 0 12px 28px rgb(0 0 0 / .45), inset 0 1px 0 rgb(196 238 255 / .18); color: #e9f9ff; pointer-events: none; backdrop-filter: blur(16px); }
 .platform-portal-preview span { display: block; margin-bottom: 3px; color: #87d8ff; font: 600 9px/1.2 var(--font-ibm-plex-mono, monospace); }
 .platform-portal-preview strong { display: block; font-size: 12px; }
 .platform-portal-preview p { margin: 4px 0 0; color: #afc4d1; font-size: 10px; line-height: 1.35; }
