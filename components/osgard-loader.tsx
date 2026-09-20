@@ -1,3 +1,5 @@
+"use client"
+
 /* ================================================================
    OSGARD · Единый полноэкранный лоадер с логотипом
    ----------------------------------------------------------------
@@ -13,25 +15,37 @@
    быстрых переходах между страницами.
    ================================================================ */
 
-import { PremiumBackground } from "@/components/premium-bg"
-import { OsgardMark } from "@/components/osgard-mark"
+import { useEffect, useState, type CSSProperties } from "react"
+
+const LOAD_STEPS = [
+  "Инициализация ядра...",
+  "Загрузка нейронных связей...",
+  "Проверка целостности TimeCoin...",
+  "Синхронизация с OSGARD 5.0...",
+]
 
 export function OsgardLoader({ label = "NEW WORLD" }: { label?: string }) {
+  const [step, setStep] = useState(0)
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setStep((current) => (current + 1) % LOAD_STEPS.length), 500)
+    return () => window.clearInterval(interval)
+  }, [])
+
   return (
     <div
       className="osgard-loader-veil fixed inset-0 z-[100] flex items-center justify-center"
       role="status"
       aria-label="Загрузка"
     >
-      <PremiumBackground variant="gold" />
-      <div className="osgard-loader-decor relative z-10 flex flex-col items-center gap-6">
-        <div className="relative flex items-center justify-center">
-          <div aria-hidden="true" className="osgard-loader-halo absolute size-32 rounded-full" />
-          <OsgardMark size={88} boxed={false} />
-        </div>
-        <p className="text-[13px] font-light tracking-[0.28em]" style={{ color: "rgba(229,228,226,0.6)" }}>
-          {label}
-        </p>
+      <div className="osgard-loader-warp" aria-hidden="true">
+        {Array.from({ length: 18 }, (_, index) => <i key={index} style={{ "--warp-delay": `${(index % 6) * -0.38}s`, "--warp-angle": `${index * 20}deg` } as CSSProperties} />)}
+      </div>
+      <div className="osgard-loader-decor relative z-10 flex flex-col items-center gap-3">
+        <div className="osgard-loader-wordmark">OSGARD</div>
+        <p className="osgard-loader-status" aria-live="polite">{LOAD_STEPS[step]}</p>
+        <div className="osgard-loader-progress" aria-hidden="true"><i /></div>
+        <p className="osgard-loader-label">{label}</p>
       </div>
     </div>
   )

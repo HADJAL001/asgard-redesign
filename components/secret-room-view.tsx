@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { Lock, Loader2, Plus, Trash2, UserPlus, Sparkles, KeyRound, Check, CalendarDays, Ticket, Send, Upload, X } from "lucide-react"
+import { Armchair, BookOpen, CalendarDays, Check, Circle, Crown, Fish, Flower2, Frame, Gem, KeyRound, LampDesk, Loader2, Lock, Piano, Plus, Send, Sparkles, Ticket, Trash2, Trophy, Upload, UserPlus, Vault, X, type LucideIcon } from "lucide-react"
 import { Navbar } from "./navbar"
 import { PremiumBackground } from "./premium-bg"
 import { COLORS } from "@/lib/economy"
@@ -42,9 +42,9 @@ const BACKGROUNDS: Record<string, string> = {
 }
 const BG_LIST = Object.keys(BACKGROUNDS)
 
-const ITEMS: Record<string, string> = {
-  sofa: "🛋️", lamp: "💡", plant: "🪴", painting: "🖼️", shelf: "📚", rug: "🟫",
-  throne: "🪑", aquarium: "🐠", piano: "🎹", safe: "🔐", trophy: "🏆", crystal: "💎",
+const ITEMS: Record<string, LucideIcon> = {
+  sofa: Armchair, lamp: LampDesk, plant: Flower2, painting: Frame, shelf: BookOpen, rug: Circle,
+  throne: Crown, aquarium: Fish, piano: Piano, safe: Vault, trophy: Trophy, crystal: Gem,
 }
 const ITEM_LIST = Object.keys(ITEMS)
 
@@ -331,14 +331,15 @@ export function SecretRoomView() {
 
                   <p className="mt-5 mb-2 text-[12px] font-semibold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.45)" }}>Добавить предмет</p>
                   <div className="flex flex-wrap gap-2">
-                    {ITEM_LIST.map((it) => (
-                      <button key={it} type="button" onClick={() => addItem(it)}
-                        className="flex size-10 items-center justify-center rounded-lg text-[20px] transition-transform hover:scale-110"
-                        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
-                        title={it}>
-                        {ITEMS[it]}
+                    {ITEM_LIST.map((it) => {
+                      const ItemIcon = ITEMS[it]
+                      return <button key={it} type="button" onClick={() => addItem(it)}
+                        className="flex size-10 items-center justify-center rounded-lg transition-transform hover:scale-110"
+                        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: GOLD }}
+                        title={it} aria-label={`Добавить: ${it}`}>
+                        <ItemIcon size={18} strokeWidth={1.5} aria-hidden="true" />
                       </button>
-                    ))}
+                    })}
                   </div>
                   <div className="mt-5 flex items-center gap-2">
                     <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium" style={{ border: `1px solid ${GOLD}55`, color: GOLD }}>

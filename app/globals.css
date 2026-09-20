@@ -1866,6 +1866,20 @@ svg { width: 1rem; height: 1rem; flex: none; }
   .osgard-loader-decor { animation: none !important; }
 }
 
+/* Route transition: directional stars replace the former decorative ring. */
+.osgard-loader-veil { overflow: hidden; background: #020306; }
+.osgard-loader-warp { position: absolute; inset: 0; perspective: 700px; overflow: hidden; background: radial-gradient(circle at center, rgb(38 29 8 / .35), transparent 18%, transparent 100%); }
+.osgard-loader-warp::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at center, transparent 0 15%, rgb(2 3 6 / .08) 28%, rgb(2 3 6 / .82) 100%); }
+.osgard-loader-warp i { position: absolute; left: 50%; top: 50%; display: block; width: 1px; height: 140px; transform: rotate(var(--warp-angle)) translateY(-8px); transform-origin: 50% 100%; background: linear-gradient(180deg, transparent, rgb(218 186 99 / .12), #fff7cf); box-shadow: 0 0 8px rgb(255 227 150 / .75); opacity: 0; animation: osgard-warp 1.8s cubic-bezier(.15,.72,.38,1) infinite; animation-delay: var(--warp-delay); }
+.osgard-loader-wordmark { color: #fff7cf; font: 600 28px/1 var(--font-space-grotesk, sans-serif); letter-spacing: 9px; text-indent: 9px; text-shadow: 0 0 28px rgb(230 200 108 / .52); }
+.osgard-loader-status { min-width: 290px; color: rgb(231 236 246 / .72); font: 12px/1.4 var(--font-ibm-plex-mono, monospace); text-align: center; }
+.osgard-loader-progress { width: min(280px, 70vw); height: 1px; overflow: hidden; background: rgb(255 255 255 / .14); }
+.osgard-loader-progress i { display: block; width: 36%; height: 100%; background: #f1c95c; box-shadow: 0 0 13px #f1c95c; animation: osgard-loader-progress 1.5s ease-in-out infinite; }
+.osgard-loader-label { color: rgb(229 228 226 / .43); font: 10px/1 var(--font-ibm-plex-mono, monospace); letter-spacing: .24em; }
+@keyframes osgard-warp { 0% { opacity: 0; scale: .08 .1; } 18% { opacity: .9; } 100% { opacity: 0; scale: 8 2.6; } }
+@keyframes osgard-loader-progress { 0% { transform: translateX(-110%); } 55%, 100% { transform: translateX(310%); } }
+@media (prefers-reduced-motion: reduce) { .osgard-loader-warp i, .osgard-loader-progress i { animation: none !important; } }
+
 /* ================================================================
    OSGARD · DEV MODE — «Космическая студия разработчика»
    ----------------------------------------------------------------
