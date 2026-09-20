@@ -38,13 +38,19 @@ function RoomProp({ item, accent, fill, index, isOwner, onRemove }: { item: Secr
   const click = { onClick: (event: { stopPropagation: () => void }) => { event.stopPropagation(); playRoomTone(item.type); if (isOwner) onRemove(index) } }
   const base = <meshStandardMaterial color={fill} metalness={0.58} roughness={0.3} />
   const glow = <meshBasicMaterial color={accent} transparent opacity={0.78} />
+  if (item.type === "sofa") return <group position={pos} {...click}>
+    <mesh position={[0, 0.47, 0]}>{base}<boxGeometry args={[1.5, 0.42, 0.62]} /></mesh>
+    <mesh position={[0, 0.91, -0.24]}>{base}<boxGeometry args={[1.5, 0.52, 0.15]} /></mesh>
+    {[-0.46, 0, 0.46].map((x) => <mesh key={x} position={[x, 0.71, 0.09]}><meshStandardMaterial color="#32213c" roughness={0.68} /><boxGeometry args={[0.42, 0.16, 0.48]} /></mesh>)}
+    {[-0.64, 0.64].map((x) => <mesh key={x} position={[x, 0.22, 0.18]}><meshStandardMaterial color="#0d1016" metalness={.9} roughness={.18} /><cylinderGeometry args={[0.035, 0.035, 0.42, 8]} /></mesh>)}
+  </group>
   if (item.type === "lamp") return <group position={pos} {...click}><mesh position={[0, 0.92, 0]}>{base}<cylinderGeometry args={[0.06, 0.08, 1.84, 12]} /></mesh><mesh position={[0, 1.92, 0]}>{glow}<sphereGeometry args={[0.23, 16, 12]} /></mesh></group>
-  if (item.type === "plant") return <group position={pos} {...click}><mesh position={[0, 0.18, 0]}>{base}<cylinderGeometry args={[0.24, 0.19, 0.36, 12]} /></mesh><mesh position={[0, 0.69, 0]}>{glow}<coneGeometry args={[0.48, 0.95, 10]} /></mesh></group>
+  if (item.type === "plant") return <group position={pos} {...click}><mesh position={[0, 0.18, 0]}>{base}<cylinderGeometry args={[0.24, 0.19, 0.36, 12]} /></mesh>{[0, .95, 2.1, 3.15, 4.2].map((rotation) => <mesh key={rotation} position={[0, .73, 0]} rotation={[0.42, rotation, 0]}>{glow}<sphereGeometry args={[.2, 16, 10]} /></mesh>)}</group>
   if (item.type === "painting") return <group position={[pos[0], 1.4, -2.94]} {...click}><mesh>{base}<boxGeometry args={[1.15, 0.78, 0.09]} /></mesh><mesh position={[0, 0, 0.055]}>{glow}<planeGeometry args={[0.93, 0.56]} /></mesh></group>
   if (item.type === "rug") return <group position={pos} {...click}><mesh rotation={[-Math.PI / 2, 0, 0]}>{glow}<circleGeometry args={[0.72, 32]} /></mesh></group>
   if (item.type === "throne") return <group position={pos} {...click}><mesh position={[0, 0.54, 0]}>{base}<boxGeometry args={[0.7, 0.48, 0.65]} /></mesh><mesh position={[0, 1.06, 0.23]}>{base}<boxGeometry args={[0.7, 0.75, 0.18]} /></mesh><mesh position={[0, 1.46, 0.33]}>{glow}<sphereGeometry args={[0.1, 12, 8]} /></mesh></group>
   if (item.type === "aquarium") return <group position={pos} {...click}><mesh position={[0, 0.68, 0]}>{base}<boxGeometry args={[1.05, 1.25, 0.38]} /></mesh><mesh position={[0, 0.72, 0.205]}>{glow}<planeGeometry args={[0.82, 0.85]} /></mesh></group>
-  if (item.type === "piano") return <group position={pos} {...click}><mesh position={[0, 0.62, 0]}>{base}<boxGeometry args={[1.25, 0.22, 0.65]} /></mesh><mesh position={[0, 0.77, 0.13]}><meshBasicMaterial color="#ecf4ff" /><boxGeometry args={[0.86, 0.04, 0.25]} /></mesh></group>
+  if (item.type === "piano") return <group position={pos} {...click}><mesh position={[0, 0.62, 0]}>{base}<boxGeometry args={[1.25, 0.22, 0.65]} /></mesh><mesh position={[0, 0.77, 0.13]}><meshBasicMaterial color="#ecf4ff" /><boxGeometry args={[0.86, 0.04, 0.25]} /></mesh>{[-.48, .48].map((x) => <mesh key={x} position={[x, .3, -.18]}><meshStandardMaterial color="#111216" metalness={.82} roughness={.22} /><cylinderGeometry args={[.045, .055, .65, 8]} /></mesh>)}</group>
   if (item.type === "safe") return <group position={pos} {...click}><mesh position={[0, 0.45, 0]}>{base}<boxGeometry args={[0.72, 0.9, 0.58]} /></mesh><mesh position={[0, 0.45, 0.3]}>{glow}<torusGeometry args={[0.15, 0.035, 8, 18]} /></mesh></group>
   if (item.type === "trophy" || item.type === "crystal") return <group position={pos} {...click}><mesh position={[0, 0.55, 0]}>{glow}<octahedronGeometry args={[0.47, 0]} /></mesh></group>
   return <group position={pos} {...click}><mesh position={[0, 0.58, 0]}>{base}<boxGeometry args={item.type === "shelf" ? [0.82, 1.16, 0.34] : [0.88, 1.16, 0.68]} /></mesh><mesh position={[0, 0.78, 0.36]}>{glow}<boxGeometry args={[0.52, 0.05, 0.03]} /></mesh></group>
