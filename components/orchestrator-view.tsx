@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, GitBranch, Play, Pencil, Trash2, Loader2 } from "lucide-react"
+import { Plus, GitBranch, Play, Pencil, Trash2, Loader2, Clock3, Rocket, Smartphone } from "lucide-react"
 import { Navbar } from "./navbar"
 import { ShootingStar } from "./shooting-star"
 import { WorkshopBackdrop } from "./workshop-backdrop"
@@ -30,6 +30,13 @@ export function OrchestratorView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [activeWhyStep, setActiveWhyStep] = useState(0)
+
+  const whySteps = [
+    { icon: Smartphone, color: "#f87171", title: t("orchestrator.why.manualTitle"), body: t("orchestrator.why.manualBody") },
+    { icon: Clock3, color: "#fb923c", title: t("orchestrator.why.transferTitle"), body: t("orchestrator.why.transferBody") },
+    { icon: Rocket, color: "var(--eg-gold-2)", title: t("orchestrator.why.launchTitle"), body: t("orchestrator.why.launchBody") },
+  ]
 
   const loadChains = useCallback(async () => {
     setLoading(true)
@@ -95,10 +102,19 @@ export function OrchestratorView() {
           </button>
         </div>
 
-        <div className="eg-surface mt-6 rounded-xl px-5 py-4" style={{ borderColor: "rgb(var(--color-gold-rgb) / 0.25)" }}>
-          <p className="text-[13px] font-medium" style={{ color: "var(--eg-gold-2)" }}>{t("orchestrator.exampleTitle")}</p>
-          <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: COLORS.label }}>{t("orchestrator.exampleBody")}</p>
-        </div>
+        <section className="orch-why mt-6" aria-labelledby="orchestrator-why-title">
+          <div className="orch-why-heading"><p id="orchestrator-why-title">{t("orchestrator.exampleTitle")}</p><span>{activeWhyStep + 1} / {whySteps.length}</span></div>
+          <div className="orch-why-steps">
+            {whySteps.map((step, index) => {
+              const Icon = step.icon
+              const active = activeWhyStep === index
+              return <button key={step.title} type="button" onClick={() => setActiveWhyStep(index)} className={`orch-why-step ${active ? "is-active" : ""}`} aria-expanded={active} style={{ "--step-color": step.color } as React.CSSProperties}>
+                <span className="orch-why-icon"><Icon size={18} strokeWidth={1.7} /></span>
+                <span className="orch-why-copy"><strong>{step.title}</strong>{active ? <span>{step.body}</span> : null}</span>
+              </button>
+            })}
+          </div>
+        </section>
 
         {error && (
           <p className="mt-6 rounded-lg px-3 py-2 text-[13px]" style={{ backgroundColor: "rgba(248,113,113,0.1)", color: COLORS.red }}>

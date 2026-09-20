@@ -841,6 +841,10 @@ svg { width: 1rem; height: 1rem; flex: none; }
 .platform-map-space { background: radial-gradient(ellipse at 50% 43%, #12324b 0%, #08111e 38%, #03050d 78%); }
 .platform-map-space::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .55; background-image: radial-gradient(circle at 16% 23%, rgb(196 238 255 / .75) 0 1px, transparent 1.8px), radial-gradient(circle at 82% 67%, rgb(255 219 143 / .5) 0 1px, transparent 1.8px), radial-gradient(circle at 71% 18%, rgb(164 216 255 / .42) 0 1px, transparent 1.8px); background-size: 211px 163px, 287px 229px, 347px 293px; }
 .platform-map-kicker { color: #aee8ff; font: 600 10px/1.3 var(--font-ibm-plex-mono, monospace); letter-spacing: 0; text-shadow: 0 0 16px rgb(83 199 255 / .72); }
+.platform-portal { transform-origin: center bottom; box-shadow: inset 0 1px rgb(255 255 255 / .14), 0 6px 24px rgb(0 0 0 / .3); }
+.platform-portal:hover { transform: translateY(-3px) scale(1.08); box-shadow: inset 0 1px rgb(255 255 255 / .2), 0 0 26px color-mix(in srgb, currentColor 45%, transparent); }
+.platform-portal-signal { width: 5px; height: 5px; border-radius: 50%; box-shadow: 0 0 9px currentColor; animation: platform-portal-ping 1.8s ease-in-out infinite; }
+@keyframes platform-portal-ping { 50% { transform: scale(1.7); opacity: .5; } }
 
 @keyframes platform-hotspot-rise { from { opacity: 0; transform: translateY(10px) scale(.9); } to { opacity: 1; transform: none; } }
 .platform-hotspot-rise { animation: platform-hotspot-rise .6s cubic-bezier(.22,1,.36,1) both; }
@@ -1046,6 +1050,9 @@ svg { width: 1rem; height: 1rem; flex: none; }
   align-items: center;
   justify-content: center;
 }
+.orch-radial-orbit { position: absolute; border: 1px solid rgb(var(--color-gold-rgb) / .16); border-radius: 50%; pointer-events: none; }
+.orch-radial-orbit--outer { width: 232px; height: 174px; transform: rotate(-18deg); animation: orch-radial-orbit 16s linear infinite; }
+.orch-radial-orbit--inner { width: 156px; height: 114px; transform: rotate(36deg); border-color: rgb(126 204 255 / .14); animation: orch-radial-orbit 10s linear reverse infinite; }
 .orch-radial-hub {
   position: relative;
   z-index: 2;
@@ -1061,6 +1068,8 @@ svg { width: 1rem; height: 1rem; flex: none; }
   box-shadow: 0 0 28px rgb(var(--color-gold-rgb) / 0.35), inset 0 0 18px rgb(var(--color-gold-rgb) / 0.15);
   animation: orch-radial-pulse 3.6s ease-in-out infinite;
 }
+.orch-radial-core { position: absolute; width: 24px; height: 24px; border-radius: 50%; background: radial-gradient(circle, #fff4b7 0 8%, #f0c75e 24%, rgb(240 199 94 / .1) 70%); box-shadow: 0 0 22px 5px rgb(var(--color-gold-rgb) / .42); animation: orch-radial-core 2.8s ease-in-out infinite; }
+.orch-radial-hub svg { position: relative; z-index: 1; }
 .orch-radial-branch {
   position: absolute;
   inset: 0;
@@ -1074,7 +1083,7 @@ svg { width: 1rem; height: 1rem; flex: none; }
   height: 0;
   left: 50%;
   top: 50%;
-  border-top: 1px dashed rgb(var(--color-gold-rgb) / 0.32);
+  border-top: 1px solid rgb(var(--color-gold-rgb) / 0.28);
   transform-origin: 0 0;
   transform: rotate(var(--branch-angle));
 }
@@ -1117,8 +1126,22 @@ svg { width: 1rem; height: 1rem; flex: none; }
   0%, 100% { opacity: 0.75; }
   50% { opacity: 1; }
 }
+@keyframes orch-radial-orbit { to { rotate: 360deg; } }
+@keyframes orch-radial-core { 50% { transform: scale(1.35); filter: brightness(1.2); } }
+@keyframes orch-radial-signal { from { left: 0; opacity: 0; } 12%, 82% { opacity: 1; } to { left: 100%; opacity: 0; } }
+.orch-why { border: 1px solid rgb(var(--color-gold-rgb) / .22); background: linear-gradient(135deg, rgb(16 22 29 / .86), rgb(7 10 16 / .8)); padding: 18px; }
+.orch-why-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--eg-gold-2); font-size: 13px; font-weight: 600; }
+.orch-why-heading span { color: rgb(255 255 255 / .38); font: 11px var(--font-ibm-plex-mono, monospace); }
+.orch-why-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.orch-why-step { min-height: 76px; display: flex; align-items: flex-start; gap: 10px; padding: 12px; text-align: left; color: rgb(255 255 255 / .74); border: 1px solid rgb(255 255 255 / .08); background: rgb(255 255 255 / .025); transition: transform .2s ease, border-color .2s ease, background .2s ease; }
+.orch-why-step:hover, .orch-why-step.is-active { transform: translateY(-2px); border-color: color-mix(in srgb, var(--step-color) 56%, transparent); background: color-mix(in srgb, var(--step-color) 9%, rgb(10 13 19)); }
+.orch-why-icon { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 34px; height: 34px; color: var(--step-color); border: 1px solid color-mix(in srgb, var(--step-color) 52%, transparent); background: color-mix(in srgb, var(--step-color) 12%, transparent); box-shadow: inset 0 0 12px color-mix(in srgb, var(--step-color) 16%, transparent); }
+.orch-why-copy { display: grid; gap: 5px; font-size: 12px; line-height: 1.42; }
+.orch-why-copy strong { color: #fff; font-size: 12px; font-weight: 600; }
+.orch-why-copy span { color: rgb(255 255 255 / .55); }
+@media (max-width: 640px) { .orch-why-steps { grid-template-columns: 1fr; } .orch-why-step { min-height: 64px; } }
 @media (prefers-reduced-motion: reduce) {
-  .orch-radial-hub, .orch-radial-node { animation: none; }
+  .orch-radial-hub, .orch-radial-node, .orch-radial-orbit, .orch-radial-core, .orch-radial-line i { animation: none; }
 }
 
 /* ================================================================
@@ -1878,6 +1901,7 @@ svg { width: 1rem; height: 1rem; flex: none; }
   transition: border-color 0.2s ease, transform 0.2s var(--ease-out-soft, cubic-bezier(.16,1,.3,1)),
               background 0.2s ease;
 }
+.orch-radial-line i { position: absolute; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: #f5d783; box-shadow: 0 0 10px #f5d783; animation: orch-radial-signal 3.2s linear infinite; }
 
 .dev-mode-layout {
   --dev-rank-color: #E2E8F0;

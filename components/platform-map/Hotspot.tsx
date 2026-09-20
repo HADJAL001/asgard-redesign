@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, type RefObject } from "react"
 import { useRouter } from "next/navigation"
 import { useFrame } from "@react-three/fiber"
 import { Html } from "@react-three/drei"
-import { Group, Mesh, Object3D, Vector3 } from "three"
+import { Mesh, Object3D, Vector3 } from "three"
 
 import type { PlatformHotspot } from "./hotspots"
 
@@ -29,20 +29,11 @@ type HotspotProps = {
 
 export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }: HotspotProps) {
   const router = useRouter()
-  const orbitRef = useRef<Group>(null)
   const markerRef = useRef<Mesh>(null)
   const [isActive, setIsActive] = useState(false)
   const position = useMemo(() => latLonToVector3(hotspot.lat, hotspot.lon, radius), [hotspot.lat, hotspot.lon, radius])
-  const orbitAxis = useMemo(() => new Vector3(0, 1, 0), [])
-  const phase = useMemo(() => (hotspot.lat * 0.013 + hotspot.lon * 0.007) % (Math.PI * 2), [hotspot.lat, hotspot.lon])
 
   useFrame(({ clock }) => {
-    if (orbitRef.current) {
-      // Each portal is a satellite, not a static map pin. Hovering holds it in
-      // place so its preview stays readable before the person chooses a route.
-      const angle = phase + (isActive || reducedMotion ? 0 : clock.elapsedTime * 0.045)
-      orbitRef.current.position.copy(position).applyAxisAngle(orbitAxis, angle)
-    }
     if (!markerRef.current) return
     const pulse = reducedMotion ? 1 : 0.82 + Math.sin(clock.elapsedTime * 2 + hotspot.lon) * 0.18
     markerRef.current.scale.setScalar(pulse)
@@ -51,7 +42,11 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
   const { Icon } = hotspot
 
   return (
-    <group ref={orbitRef} position={position}>
+    <group position={position}>
+      <mesh position={[0, 0.12, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.004, 0.004, 0.28, 6]} />
+        <meshBasicMaterial color={hotspot.color} transparent opacity={.72} />
+      </mesh>
       <mesh ref={markerRef} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.055, 0.008, 8, 20]} />
         <meshBasicMaterial color={hotspot.color} transparent opacity={0.85} />
@@ -73,10 +68,10 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
           onFocus={() => setIsActive(true)}
           onBlur={() => setIsActive(false)}
           aria-label={`${hotspot.label}: ${hotspot.description}`}
-          className="platform-portal group flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 text-[11px] font-semibold backdrop-blur-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#10181d]"
+          className="platform-portal group flex items-center gap-1.5 border py-1.5 pl-1.5 pr-3 text-[11px] font-semibold backdrop-blur-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#10181d]"
           style={{
             borderColor: `${hotspot.color}55`,
-            background: "rgba(8, 10, 18, 0.55)",
+            background: "linear-gradient(135deg, rgba(15,35,56,.77), rgba(5,11,22,.58))",
             color: "#FFFFFF",
             boxShadow: `0 0 14px ${hotspot.color}2e, inset 0 0 10px ${hotspot.color}1f`,
           }}
@@ -87,7 +82,7 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
           >
             <Icon className="h-3 w-3" style={{ color: "#0b1020" }} strokeWidth={2.4} />
           </span>
-          <span className="whitespace-nowrap tracking-tight">{hotspot.label}</span>
+          <span className="whitespace-nowrap tracking-tight">{hotspot.label}</span><span className="platform-portal-signal" style={{ background: hotspot.color }} />
         </button>
         {isActive ? <div className="platform-portal-preview" role="status"><span>ПОРТАЛ</span><strong>{hotspot.label}</strong><p>{hotspot.description}</p></div> : null}
       </Html>

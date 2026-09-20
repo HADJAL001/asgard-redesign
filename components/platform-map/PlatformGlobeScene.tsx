@@ -1,162 +1,51 @@
 "use client"
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react"
-import { Canvas, useFrame, useLoader } from "@react-three/fiber"
-import { Environment, Lightformer, OrbitControls, Stars } from "@react-three/drei"
-import { AdditiveBlending, BackSide, TextureLoader, Mesh, SRGBColorSpace } from "three"
-
+import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber"
+import { Environment, Lightformer, OrbitControls, Points, PointMaterial } from "@react-three/drei"
+import { AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, Color, Group, Mesh, ShaderMaterial, SRGBColorSpace, TextureLoader } from "three"
 import { Hotspot } from "./Hotspot"
 import type { PlatformHotspot } from "./hotspots"
 
 const GLOBE_RADIUS = 1.2
+const seeded = (value: number) => (Math.sin(value * 729.31) + 1) * .5
 
-/** Тот же премиальный стеклянный материал/подсветка, что и в globe-3d.tsx. */
-function PlatformGlobe({ globeRef }: { globeRef: React.RefObject<Mesh | null> }) {
-  const rawTexture = useLoader(TextureLoader, "/images/globe-premium-4k.png")
-  // Клонируем текстуру и настраиваем colorSpace на клоне (свой объект, а не
-  // возвращённый хуком) — react-hooks/immutability запрещает мутировать значение
-  // из useLoader даже в эффекте. clone() не перезагружает изображение повторно.
-  const texture = useMemo(() => {
-    const t = rawTexture.clone()
-    t.colorSpace = SRGBColorSpace
-    t.needsUpdate = true
-    return t
-  }, [rawTexture])
+function Atmosphere() {
+  const material = useMemo(() => new ShaderMaterial({ transparent: true, side: BackSide, blending: AdditiveBlending, depthWrite: false, uniforms: { glowColor: { value: new Color("#59cbff") } }, vertexShader: `varying vec3 n; void main(){n=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`, fragmentShader: `uniform vec3 glowColor; varying vec3 n; void main(){float edge=pow(1.-max(0.,dot(n,vec3(0.,0.,1.))),3.2);gl_FragColor=vec4(glowColor,edge*.74);}` }), [])
+  return <mesh scale={GLOBE_RADIUS * 1.075}><sphereGeometry args={[1, 96, 96]} /><primitive object={material} attach="material" /></mesh>
+}
 
-  useFrame(() => {
-    if (globeRef.current) {
-      globeRef.current.rotation.y += 0.0006
-    }
-  })
+function CityLights() {
+  const geometry = useMemo(() => { const positions: number[] = []; for (let i = 0; i < 760; i += 1) { if (seeded(i + 611) < .53) continue; const lat = (seeded(i + 2) - .5) * 2, lon = seeded(i + 199) * Math.PI * 2, r = GLOBE_RADIUS * 1.004; positions.push(r * Math.cos(lat) * Math.cos(lon), r * Math.sin(lat), r * Math.cos(lat) * Math.sin(lon)) } const g = new BufferGeometry(); g.setAttribute("position", new BufferAttribute(new Float32Array(positions), 3)); return g }, [])
+  return <points geometry={geometry}><pointsMaterial size={.015} sizeAttenuation color="#f5c451" transparent opacity={.62} blending={AdditiveBlending} depthWrite={false} /></points>
+}
 
-  return (
-    <mesh ref={globeRef} scale={GLOBE_RADIUS}>
-      <sphereGeometry args={[1, 128, 128]} />
-      <meshPhysicalMaterial
-        map={texture}
-        emissiveMap={texture}
-        emissive="#4A8AB5"
-        emissiveIntensity={0.22}
-        metalness={0.4}
-        roughness={0.05}
-        clearcoat={0.3}
-        clearcoatRoughness={0.2}
-        reflectivity={0.5}
-        envMapIntensity={1.2}
-        transparent
-        opacity={0.9}
-      />
-    </mesh>
-  )
+function Globe({ reducedMotion, worldRef, globeRef }: { reducedMotion: boolean; worldRef: React.RefObject<Group | null>; globeRef: React.RefObject<Mesh | null> }) {
+  const rawTexture = useLoader(TextureLoader, "/images/globe-premium-4k.png"), rawNormal = useLoader(TextureLoader, "/textures/earth/earth_normal_1024.jpg")
+  const texture = useMemo(() => { const t = rawTexture.clone(); t.colorSpace = SRGBColorSpace; t.needsUpdate = true; return t }, [rawTexture])
+  const normalMap = useMemo(() => { const t = rawNormal.clone(); t.needsUpdate = true; return t }, [rawNormal])
+  useFrame((_, delta) => { if (!reducedMotion && worldRef.current) worldRef.current.rotation.y += delta * .014 })
+  return <><mesh ref={globeRef} scale={GLOBE_RADIUS}><sphereGeometry args={[1, 128, 128]} /><meshPhysicalMaterial map={texture} normalMap={normalMap} normalScale={[.42, .42]} emissiveMap={texture} emissive="#163b61" emissiveIntensity={.2} metalness={.18} roughness={.46} clearcoat={.12} /></mesh><CityLights /><Atmosphere /></>
 }
 
 function CloudLayer({ reducedMotion }: { reducedMotion: boolean }) {
-  const rawClouds = useLoader(TextureLoader, "/textures/earth/earth_clouds_1024.png")
-  const clouds = useMemo(() => {
-    const texture = rawClouds.clone()
-    texture.colorSpace = SRGBColorSpace
-    texture.needsUpdate = true
-    return texture
-  }, [rawClouds])
-  const cloudRef = useRef<Mesh>(null)
-
-  useFrame((_, delta) => {
-    if (!reducedMotion && cloudRef.current) cloudRef.current.rotation.y += delta * 0.012
-  })
-
-  return <>
-    <mesh ref={cloudRef} scale={GLOBE_RADIUS * 1.012}>
-      <sphereGeometry args={[1, 96, 96]} />
-      <meshPhongMaterial map={clouds} transparent opacity={0.25} depthWrite={false} />
-    </mesh>
-    <mesh scale={GLOBE_RADIUS * 1.1}>
-      <sphereGeometry args={[1, 80, 80]} />
-      <meshBasicMaterial color="#53c7ff" transparent opacity={0.1} side={BackSide} blending={AdditiveBlending} depthWrite={false} />
-    </mesh>
-  </>
+  const raw = useLoader(TextureLoader, "/textures/earth/earth_clouds_1024.png"), ref = useRef<Mesh>(null)
+  const texture = useMemo(() => { const t = raw.clone(); t.colorSpace = SRGBColorSpace; t.needsUpdate = true; return t }, [raw])
+  useFrame((_, delta) => { if (!reducedMotion && ref.current) ref.current.rotation.y += delta * .025 })
+  return <mesh ref={ref} scale={GLOBE_RADIUS * 1.014}><sphereGeometry args={[1, 96, 96]} /><meshPhongMaterial map={texture} transparent opacity={.32} depthWrite={false} /></mesh>
 }
 
-const TARGET_DISTANCE = 3.6
-
-/**
- * Кинематографичный докинг камеры при монтировании: только радиальная дистанция
- * плавно уменьшается до целевой, направление не трогаем — чтобы не конфликтовать
- * с OrbitControls (autoRotate/пользовательское вращение меняют угол независимо).
- * Останавливается сама, как только дистанция достигнута — дальше камерой полностью
- * управляет OrbitControls.
- */
-function CameraDolly() {
-  const doneRef = useRef(false)
-  useFrame((state) => {
-    if (doneRef.current) return
-    const dist = state.camera.position.length()
-    if (Math.abs(dist - TARGET_DISTANCE) < 0.01) {
-      doneRef.current = true
-      return
-    }
-    state.camera.position.setLength(dist + (TARGET_DISTANCE - dist) * 0.05)
-  })
-  return null
+function SkyParallax({ reducedMotion }: { reducedMotion: boolean }) {
+  const refs = [useRef<Group>(null), useRef<Group>(null), useRef<Group>(null)], { pointer } = useThree()
+  const layers = useMemo(() => [[360, 32, 20, -12, 8, "#627ca2", .025], [220, 22, 15, -7, 5, "#bbd9ff", .042], [100, 16, 11, -3, 3, "#f5d783", .065]].map(([count, width, height, depth, distance, color, size], layer) => ({ positions: new Float32Array(Array.from({ length: count as number }, (_, i) => [(seeded(i + layer * 480) - .5) * (width as number), (seeded(i + 91 + layer * 480) - .5) * (height as number), (depth as number) - seeded(i + 3) * (distance as number)]).flat()), color: color as string, size: size as number })), [])
+  useFrame((_, delta) => { if (reducedMotion) return; refs.forEach((ref, i) => { if (ref.current) { const depth = [.06, .16, .34][i]; ref.current.position.x += (pointer.x * depth - ref.current.position.x) * delta * .65; ref.current.position.y += (pointer.y * depth - ref.current.position.y) * delta * .65 } }) })
+  return <>{layers.map((layer, i) => <group key={layer.color} ref={refs[i]}><Points positions={layer.positions} stride={3} frustumCulled><PointMaterial transparent color={layer.color} size={layer.size} sizeAttenuation depthWrite={false} /></Points></group>)}</>
 }
 
-type PlatformGlobeSceneProps = {
-  sections: PlatformHotspot[]
-}
+function CameraDolly() { const done = useRef(false); useFrame((state) => { if (done.current) return; const dist = state.camera.position.length(); if (Math.abs(dist - 3.6) < .01) { done.current = true; return }; state.camera.position.setLength(dist + (3.6 - dist) * .05) }); return null }
 
-export function PlatformGlobeScene({ sections }: PlatformGlobeSceneProps) {
-  const globeRef = useRef<Mesh>(null)
-  const [reducedMotion, setReducedMotion] = useState(false)
-
-  useEffect(() => {
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)")
-    const sync = () => setReducedMotion(query.matches)
-    sync()
-    query.addEventListener("change", sync)
-    return () => query.removeEventListener("change", sync)
-  }, [])
-
-  return (
-    <Canvas
-      style={{ width: "100%", height: "100%", background: "transparent" }}
-      camera={{ position: [0, 0, 8], fov: 45 }}
-      gl={{ alpha: true, antialias: true }}
-      dpr={[1, 1.5]}
-    >
-      <ambientLight intensity={0.5} color="#1A2A4A" />
-      <directionalLight position={[5, 10, 7]} intensity={1.2} color="#4A8AB5" />
-      <pointLight position={[-5, 0, 5]} intensity={0.8} color="#F0C75E" />
-      <pointLight position={[5, -5, -5]} intensity={0.5} color="#7B2FBE" />
-
-      <Environment resolution={256} frames={1}>
-        <color attach="background" args={["#05070f"]} />
-        <Lightformer form="rect" intensity={1.6} color="#4A8AB5" position={[0, 4, 4]} scale={[8, 4, 1]} />
-        <Lightformer form="rect" intensity={1.1} color="#F0C75E" position={[-5, 0, 3]} scale={[4, 6, 1]} />
-        <Lightformer form="rect" intensity={0.8} color="#7B2FBE" position={[5, -2, -3]} scale={[5, 5, 1]} />
-        <Lightformer form="circle" intensity={0.6} color="#cfe6ff" position={[0, -4, 2]} scale={[3, 3, 1]} />
-      </Environment>
-
-      <Stars radius={60} depth={30} count={1400} factor={2.4} saturation={0} fade speed={reducedMotion ? 0 : 0.4} />
-
-      <CameraDolly />
-
-      <Suspense fallback={null}>
-        <PlatformGlobe globeRef={globeRef} />
-        <CloudLayer reducedMotion={reducedMotion} />
-        {sections.map((section, i) => (
-          <Hotspot key={section.key} hotspot={section} radius={GLOBE_RADIUS + 0.18} occludeRef={globeRef} delayMs={i * 60} reducedMotion={reducedMotion} />
-        ))}
-      </Suspense>
-
-      <OrbitControls
-        enableDamping
-        dampingFactor={0.08}
-        autoRotate={!reducedMotion}
-        autoRotateSpeed={0.28}
-        enablePan={false}
-        minDistance={2.4}
-        maxDistance={6}
-        rotateSpeed={0.5}
-      />
-    </Canvas>
-  )
+export function PlatformGlobeScene({ sections }: { sections: PlatformHotspot[] }) {
+  const globeRef = useRef<Mesh>(null), worldRef = useRef<Group>(null), [reducedMotion, setReducedMotion] = useState(false)
+  useEffect(() => { const q = window.matchMedia("(prefers-reduced-motion: reduce)"), sync = () => setReducedMotion(q.matches); sync(); q.addEventListener("change", sync); return () => q.removeEventListener("change", sync) }, [])
+  return <Canvas style={{ width: "100%", height: "100%", background: "transparent" }} camera={{ position: [0, 0, 8], fov: 45 }} gl={{ alpha: true, antialias: true }} dpr={[1, 1.5]}><SkyParallax reducedMotion={reducedMotion} /><ambientLight intensity={.35} color="#132b50" /><directionalLight position={[5, 7, 6]} intensity={1.55} color="#bfe8ff" /><pointLight position={[-5, 0, 5]} intensity={1.2} color="#f5c451" /><Environment resolution={128} frames={1}><Lightformer form="rect" intensity={1.4} color="#4A8AB5" position={[0, 4, 4]} scale={[8, 4, 1]} /><Lightformer form="rect" intensity={1} color="#F0C75E" position={[-5, 0, 3]} scale={[4, 6, 1]} /></Environment><CameraDolly /><Suspense fallback={null}><group ref={worldRef}><Globe reducedMotion={reducedMotion} worldRef={worldRef} globeRef={globeRef} /><CloudLayer reducedMotion={reducedMotion} />{sections.map((section, i) => <Hotspot key={section.key} hotspot={section} radius={GLOBE_RADIUS + .18} occludeRef={globeRef} delayMs={i * 60} reducedMotion={reducedMotion} />)}</group></Suspense><OrbitControls enableDamping dampingFactor={.075} autoRotate={false} enablePan={false} minDistance={2.4} maxDistance={6} rotateSpeed={.5} /></Canvas>
 }

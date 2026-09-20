@@ -21,6 +21,8 @@ export function OrchestratorRadialShowcase() {
 
   return (
     <div className="orch-radial" aria-hidden="true">
+      <span className="orch-radial-orbit orch-radial-orbit--outer" />
+      <span className="orch-radial-orbit orch-radial-orbit--inner" />
       {satellites.map((item, i) => {
         const angle = SATELLITE_ANGLES[i % SATELLITE_ANGLES.length]
         const rad = (angle * Math.PI) / 180
@@ -30,7 +32,7 @@ export function OrchestratorRadialShowcase() {
         const Icon = item.Icon
         return (
           <div key={item.type} className="orch-radial-branch" style={{ "--branch-angle": `${angle}deg` } as React.CSSProperties}>
-            <span className="orch-radial-line" />
+            <span className="orch-radial-line"><i /></span>
             <span
               className="orch-radial-node"
               style={{ transform: `translate(${x}px, ${y}px)`, animationDelay: `${i * 0.35}s` }}
@@ -47,6 +49,7 @@ export function OrchestratorRadialShowcase() {
         )
       })}
       <span className="orch-radial-hub">
+        <span className="orch-radial-core" />
         <GitBranch size={22} strokeWidth={1.5} />
       </span>
     </div>

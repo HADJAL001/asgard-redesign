@@ -591,6 +591,14 @@
     "subtitle": "Build a pipeline: each node passes its result to the next. Example: OSGARD 5.0 plans → OSGARD 4.0 writes the code → Template formats the reply.",
     "exampleTitle": "Why you'd use this",
     "exampleBody": "Without the Orchestrator, you'd copy text between three separate chats by hand: ask one model for a plan, paste its answer into another model for code, then format the result yourself. A chain does it in one run: enter the task once, get the finished result — no manual copying between windows.",
+    "why": {
+      "manualTitle": "Copy text between chats",
+      "manualBody": "Context gets lost with every manual transfer, leaving a fragile sequence of steps.",
+      "transferTitle": "Spend time transferring",
+      "transferBody": "You need to track order, format, and where each response belongs.",
+      "launchTitle": "One launch, no routine",
+      "launchBody": "The Orchestrator moves results between nodes along the route you define."
+    },
     "createBtn": "Create Chain",
     "loadError": "Failed to load chains",
     "confirmDelete": "Delete this chain?",
