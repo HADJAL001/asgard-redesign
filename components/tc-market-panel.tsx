@@ -283,7 +283,7 @@ export function TCMarketPanel() {
   }
 
   return (
-    <div>
+    <div className="tc-market-terminal">
       {/* Price header */}
       <section
         className="rounded-2xl p-6"
