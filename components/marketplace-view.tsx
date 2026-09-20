@@ -24,7 +24,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Store, Boxes, TrendingUp, TrendingDown, Minus, Coins, Loader2, Check, X, Gavel } from "lucide-react"
+import { Search, Store, Boxes, TrendingUp, TrendingDown, Minus, Coins, Loader2, Check, X, Gavel, Hammer, LockKeyhole, Sparkles } from "lucide-react"
 import { Navbar } from "./navbar"
 import { PremiumBackground } from "./premium-bg"
 import { SectionHelp } from "./section-help"
@@ -154,7 +154,7 @@ export function MarketplaceView() {
   const handleBuy = useCallback((l: MarketListing) => setBuying(l), [])
 
   return (
-    <div className="eg-page eg-page--violet relative overflow-hidden min-h-screen font-sans" style={{ color: COLORS.text }}>
+    <div className="marketplace-gallery eg-page eg-page--violet relative overflow-hidden min-h-screen font-sans" style={{ color: COLORS.text }}>
       <PremiumBackground variant="market" />
       <Navbar />
       <SectionHelp
@@ -288,10 +288,7 @@ export function MarketplaceView() {
 
         {/* Grid */}
         {!loading && shown.length === 0 ? (
-          <div className="mt-16 flex flex-col items-center gap-3 text-center">
-            <Boxes size={32} strokeWidth={1.25} style={{ color: COLORS.label }} />
-            <p className="text-[15px]" style={{ color: COLORS.label }}>{t("marketplace.notFound")}</p>
-          </div>
+          <MarketplaceEmptyState hasFilters={Boolean(query || typeFilter !== "all" || rarityFilter !== "all" || priceMin || priceMax)} onForge={() => router.push("/forge")} />
         ) : (
           <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {shown.map((l) => (
@@ -365,25 +362,20 @@ const MarketCard = memo(function MarketCard({
   const rarity = RARITY[safeRarity(l.rarity)]
   const stats = { power: l.power, defense: l.defense, magic: l.magic, speed: l.speed }
   const sellerName = l.sellerDisplayName || l.sellerUsername
+  const rarityClass = safeRarity(l.rarity)
 
   return (
     <article
-      className="eg-surface flex flex-col rounded-xl p-5 transition-all duration-200"
-      style={{ border: `1px solid ${COLORS.border}` }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = rarity.color
-        e.currentTarget.style.transform = "translateY(-2px)"
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = COLORS.border
-        e.currentTarget.style.transform = "translateY(0)"
-      }}
+      className={`market-artifact-case market-artifact-case--${rarityClass} eg-surface flex flex-col rounded-xl p-5`}
+      style={{ "--artifact-rarity": rarity.color } as React.CSSProperties}
     >
       <div className="flex items-start justify-between">
-        <span className="flex size-12 items-center justify-center rounded-xl" style={{ border: `1px solid ${rarity.color}` }}>
-          <TypeIcon size={24} strokeWidth={1.25} style={{ color: rarity.color }} />
+        <span className="market-artifact-case__plinth flex size-14 items-center justify-center rounded-xl">
+          <span className="market-artifact-case__object flex size-10 items-center justify-center rounded-lg">
+            <TypeIcon size={25} strokeWidth={1.25} style={{ color: rarity.color }} />
+          </span>
         </span>
-        <span className="rounded-full px-2.5 py-1 text-[11px]" style={{ border: `1px solid ${rarity.color}`, color: rarity.color }}>
+        <span className="market-artifact-case__rarity rounded-full px-2.5 py-1 text-[11px]" style={{ color: rarity.color }}>
           {rarity.label}
         </span>
       </div>
@@ -540,5 +532,30 @@ function BuyModal({
         </div>
       </div>
     </div>
+  )
+}
+
+function MarketplaceEmptyState({ hasFilters, onForge }: { hasFilters: boolean; onForge: () => void }) {
+  return (
+    <section className="market-empty-gallery mt-10 text-center" aria-live="polite">
+      <div className="market-empty-gallery__cases" aria-hidden="true">
+        {[0, 1, 2].map((slot) => (
+          <div key={slot} className="market-empty-gallery__case">
+            <LockKeyhole size={18} strokeWidth={1.35} />
+          </div>
+        ))}
+      </div>
+      <div className="market-empty-gallery__seal"><Sparkles size={15} strokeWidth={1.5} /></div>
+      <h2 className="mt-4 text-[20px] font-medium">{hasFilters ? "Подходящие лоты появятся здесь" : "Витрина готовится к следующему дропу"}</h2>
+      <p className="mx-auto mt-2 max-w-md text-[14px]" style={{ color: COLORS.label }}>
+        {hasFilters ? "Измените фильтры, чтобы увидеть другие предложения." : "Создайте артефакт в кузнице и выставьте его на продажу, когда будете готовы."}
+      </p>
+      {!hasFilters && (
+        <button type="button" onClick={onForge} className="market-empty-gallery__cta mt-5 inline-flex items-center gap-2 px-4 py-2.5 text-[14px] font-medium">
+          <Hammer size={16} strokeWidth={1.6} />
+          Перейти в кузницу
+        </button>
+      )}
+    </section>
   )
 }
