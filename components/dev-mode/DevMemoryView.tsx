@@ -194,7 +194,13 @@ function MemoryConstellation({ learned, waiting, silent, failed }: { learned: nu
   const nodes = Array.from({ length: Math.min(24, total) }, (_, index) => {
     const angle = (index / Math.max(1, Math.min(24, total))) * Math.PI * 2
     const radius = 34 + (index % 3) * 8
-    return { left: 50 + Math.cos(angle) * radius, top: 50 + Math.sin(angle) * radius, delay: `${index * 70}ms` }
+    const states = [
+      { label: "Урок применён", detail: "Золотой импульс: правило участвует в следующей генерации." },
+      { label: "Урок в очереди", detail: "Синапс ждёт место в маршруте обучения." },
+      { label: "Нужна формулировка", detail: "Платформа собирает контекст, чтобы сформулировать правило." },
+      { label: "Урок пересматривается", detail: "Сигнал повторился, формулировка проходит ревизию." },
+    ]
+    return { left: 50 + Math.cos(angle) * radius, top: 50 + Math.sin(angle) * radius, delay: `${index * 70}ms`, ...states[index % states.length] }
   })
   return (
     <section className="memory-constellation mt-7" aria-label="Нейронная карта памяти платформы">
@@ -205,7 +211,7 @@ function MemoryConstellation({ learned, waiting, silent, failed }: { learned: nu
         <MemorySphereNodes count={total} />
       </Canvas>
       <div className="memory-constellation__core"><Brain size={24} strokeWidth={1.4} aria-hidden="true" /></div>
-      {nodes.map((node, index) => <span key={index} className="memory-constellation__node" style={{ left: `${node.left}%`, top: `${node.top}%`, animationDelay: node.delay }} />)}
+      {nodes.map((node, index) => <button key={index} type="button" className="memory-constellation__node" aria-label={`${node.label}: ${node.detail}`} data-label={node.label} data-detail={node.detail} style={{ left: `${node.left}%`, top: `${node.top}%`, animationDelay: node.delay }} />)}
       <div className="memory-constellation__legend">
         <span><i className="memory-dot memory-dot--learned" />выучено {learned}</span>
         <span><i className="memory-dot memory-dot--waiting" />в очереди {waiting}</span>
