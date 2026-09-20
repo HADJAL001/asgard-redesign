@@ -1498,6 +1498,25 @@ svg { width: 1rem; height: 1rem; flex: none; }
 .tc-market-terminal .recharts-cartesian-grid line { stroke: rgb(104 195 151 / 13%); }
 .tc-market-terminal .recharts-area-curve { filter: drop-shadow(0 0 5px rgb(104 195 151 / 34%)); }
 
+/* The Twin is a training lab: the existing 3D canvas is the incubator, while
+   cards retain their actual API-derived values and actions. */
+.twin-laboratory {
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 52% 14%, rgb(148 90 205 / 18%), transparent 34%), radial-gradient(ellipse at 14% 78%, rgb(65 178 214 / 11%), transparent 34%), #090b13;
+}
+.twin-laboratory::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .44; background-image: linear-gradient(rgb(154 112 227 / 5%) 1px, transparent 1px), linear-gradient(90deg, rgb(154 112 227 / 5%) 1px, transparent 1px); background-size: 46px 46px; mask-image: radial-gradient(ellipse at 50% 26%, #000, transparent 74%); }
+.twin-laboratory main { position: relative; z-index: 1; }
+.twin-laboratory__profile { position: relative; overflow: hidden; background: linear-gradient(110deg, rgb(157 104 223 / 17%), rgb(11 16 27 / 78%) 48%, rgb(47 139 177 / 12%)) !important; border-color: rgb(181 123 255 / 34%) !important; box-shadow: inset 0 1px rgb(255 255 255 / 10%), 0 18px 42px rgb(0 0 0 / 22%); }
+.twin-laboratory__profile::after { content: ""; position: absolute; inset: auto -8% -60px 35%; height: 150px; pointer-events: none; background: radial-gradient(ellipse, rgb(181 123 255 / 25%), transparent 68%); filter: blur(10px); }
+.twin-laboratory__training { background: linear-gradient(145deg, rgb(145 95 221 / 10%), rgb(10 14 25 / 88%)) !important; border-color: rgb(181 123 255 / 34%) !important; }
+.twin-laboratory__incubator { position: relative; overflow: hidden; border: 1px solid rgb(124 232 216 / 36%); border-radius: 10px; background: radial-gradient(circle at center, rgb(124 232 216 / 10%), transparent 62%); box-shadow: inset 0 0 30px rgb(124 232 216 / 8%); transition: border-color .2s ease, box-shadow .2s ease; }
+.twin-laboratory__incubator:has(canvas) { border-color: rgb(124 232 216 / 55%); }
+.twin-laboratory__incubator:hover { border-color: rgb(124 232 216 / 80%); box-shadow: inset 0 0 34px rgb(124 232 216 / 14%), 0 0 28px rgb(124 232 216 / 10%); }
+.twin-laboratory main > div:not(.twin-laboratory__profile):not(.twin-laboratory__training):not(.twin-laboratory__incubator) > div.rounded-xl,
+.twin-laboratory main > div.grid > div.rounded-xl { background: linear-gradient(145deg, rgb(255 255 255 / 6%), rgb(11 15 25 / 76%)) !important; border-color: rgb(181 123 255 / 20%) !important; box-shadow: inset 0 1px rgb(255 255 255 / 5%); }
+@media (prefers-reduced-motion: reduce) { .twin-laboratory__incubator { transition: none; } }
+
 /* Утопленная плашка внутри панели — замена глухого bg #10181d
    (цифры/итоги/пустые состояния). Тёмное стекло, а не дыра. */
 .eg-inset {

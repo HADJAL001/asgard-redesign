@@ -264,7 +264,7 @@ export default function TwinPage() {
   }
 
   return (
-    <div style={{ backgroundColor: "#10181d", minHeight: "100vh", color: "#FFFFFF" }}>
+    <div className="twin-laboratory" style={{ minHeight: "100vh", color: "#FFFFFF" }}>
       <Navbar />
 
       <main className="mx-auto max-w-6xl px-4 py-8">
@@ -292,7 +292,7 @@ export default function TwinPage() {
           <>
             {/* ---- Профиль близнеца ---- */}
             <div
-              className="mb-6 flex flex-col gap-6 rounded-xl p-6 sm:flex-row sm:items-center sm:justify-between"
+              className="twin-laboratory__profile mb-6 flex flex-col gap-6 rounded-xl p-6 sm:flex-row sm:items-center sm:justify-between"
               style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}
             >
               <div className="flex items-center gap-4">
@@ -392,10 +392,10 @@ export default function TwinPage() {
 
             <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
               {/* ---- Обучение близнеца ---- */}
-              <div className="rounded-xl p-5" style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}>
+              <div className="twin-laboratory__training rounded-xl p-5" style={{ backgroundColor: "#17242a", border: "1px solid #30424b" }}>
                 <h3 className="mb-3 font-medium">{t("twinPage.trainBtn")}</h3>
                 <div
-                  className="mb-3"
+                  className="twin-laboratory__incubator mb-3"
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={(event) => { event.preventDefault(); const id = Number(event.dataTransfer.getData("application/x-osgard-artifact")); if (id) void handleTrain(id); setDraggingArtifact(null) }}
                 >
