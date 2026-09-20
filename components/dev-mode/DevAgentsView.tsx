@@ -199,6 +199,7 @@ export function DevAgentsView() {
           <strong>{working.length ? "SYSTEM ACTIVE" : "SYSTEM READY"}</strong>
           <span>{working.length ? `${working.length} task${working.length === 1 ? "" : "s"} in flight` : "Waiting for a project brief"}</span>
         </div>
+        <div className={`dev-command-links${working.length ? " dev-command-links--active" : ""}`} aria-hidden="true"><i /><i /><i /><i /></div>
         <div className="dev-command-crew">
           {AGENT_CREW.map(({ id, name, role, color, Icon }, index) => {
             const active = working.length > 0 && index < Math.min(working.length + 1, AGENT_CREW.length)

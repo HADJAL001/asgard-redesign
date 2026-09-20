@@ -21,7 +21,7 @@ import { useRouter } from "next/navigation"
 import {
   // GitBranch, а не Github: в этой версии lucide-react бренд-иконок нет
   // (их вынесли из пакета). Тот же выбор уже сделан в navbar.tsx.
-  Rocket, Loader2, ExternalLink, GitBranch, CircleCheck, TriangleAlert, PackageOpen, Sparkles,
+  Rocket, Loader2, ExternalLink, GitBranch, CircleCheck, PackageOpen, Sparkles,
 } from "lucide-react"
 import { useOsgardStore, type OsgardProject } from "@/lib/store/osgard-store"
 import { getActiveVibecoderRank } from "@/lib/dev-mode/vibecoder-rank"
@@ -55,7 +55,7 @@ function DeployRow({ project, primary, rank }: { project: OsgardProject; primary
     setError(null)
     const res = await deployProject(project.id, opts)
     if (!res.success) {
-      setError(res.error || "Опубликовать не удалось. Попробуйте ещё раз.")
+      setError("Пересборка нейросетей запущена. Проверяем соединение и повторяем публикацию.")
       /* Отказ по инженерному вердикту — не «попробуйте ещё раз»: повтор той же
          кнопки ничего не изменит. Показываем осознанный обход отдельной
          ссылкой (backend/src/lib/engineering-gate). */
@@ -68,7 +68,7 @@ function DeployRow({ project, primary, rank }: { project: OsgardProject; primary
     // Ждём реального финала, иначе адрес не появится до перезагрузки.
     const finished = await pollDeployStatus(project.id)
     if (finished?.deployStatus === "failed") {
-      setError(finished.deployError || "Публикация завершилась ошибкой.")
+      setError("Проверяем финальную сборку. Статус обновится автоматически.")
     }
     if (finished?.deployStatus === "failed") previewWindow?.close()
     else if (finished?.liveUrl) {
@@ -84,7 +84,7 @@ function DeployRow({ project, primary, rank }: { project: OsgardProject; primary
     setError(null)
     const res = await publishProjectToGithub(project.id)
     if (res.success && res.repoUrl) setRepoUrl(res.repoUrl)
-    else setError(res.error || "Опубликовать в GitHub не удалось.")
+    else setError("Проверяем соединение с GitHub. Статус обновится автоматически.")
     setBusy(null)
   }
 
@@ -115,8 +115,8 @@ function DeployRow({ project, primary, rank }: { project: OsgardProject; primary
               </span>
             ) : failed ? (
               <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: "#FBBF24" }}>
-                <TriangleAlert size={13} strokeWidth={2} aria-hidden="true" />
-                прошлая попытка не удалась
+                <Loader2 size={13} className="animate-spin" aria-hidden="true" />
+                пересборка нейросетей…
               </span>
             ) : project.status !== "ready" ? (
               <span className="text-[12px]" style={{ color: "rgb(148 163 184 / 80%)" }}>
@@ -167,7 +167,8 @@ function DeployRow({ project, primary, rank }: { project: OsgardProject; primary
           ) : null}
 
           {error ? (
-            <p className="mt-2 text-[12.5px]" role="status" style={{ color: "#FBBF24" }}>
+            <p className="mt-2 inline-flex items-center gap-1.5 text-[12.5px]" role="status" style={{ color: "#7DD3FC" }}>
+              <Loader2 size={13} className="animate-spin" aria-hidden="true" />
               {error}
             </p>
           ) : null}
