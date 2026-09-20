@@ -11,8 +11,8 @@ const GLOBE_RADIUS = 1.2
 const seeded = (value: number) => (Math.sin(value * 729.31) + 1) * .5
 
 function Atmosphere() {
-  const material = useMemo(() => new ShaderMaterial({ transparent: true, side: BackSide, blending: AdditiveBlending, depthWrite: false, uniforms: { glowColor: { value: new Color("#59cbff") } }, vertexShader: `varying vec3 n; void main(){n=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`, fragmentShader: `uniform vec3 glowColor; varying vec3 n; void main(){float edge=pow(1.-max(0.,dot(n,vec3(0.,0.,1.))),3.2);gl_FragColor=vec4(glowColor,edge*.74);}` }), [])
-  return <mesh scale={GLOBE_RADIUS * 1.075}><sphereGeometry args={[1, 96, 96]} /><primitive object={material} attach="material" /></mesh>
+  const material = useMemo(() => new ShaderMaterial({ transparent: true, side: BackSide, blending: AdditiveBlending, depthWrite: false, uniforms: { glowColor: { value: new Color("#67caff") } }, vertexShader: `varying vec3 vNormal; varying vec3 vPosition; void main(){vNormal=normalize(mat3(modelMatrix)*normal);vPosition=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`, fragmentShader: `uniform vec3 glowColor; varying vec3 vNormal; varying vec3 vPosition; void main(){vec3 viewDir=normalize(cameraPosition-vPosition);float rim=pow(1.-max(dot(normalize(vNormal),viewDir),0.),4.4);gl_FragColor=vec4(glowColor,rim*.34);}` }), [])
+  return <mesh scale={GLOBE_RADIUS * 1.025}><sphereGeometry args={[1, 128, 128]} /><primitive object={material} attach="material" /></mesh>
 }
 
 function CityLights() {

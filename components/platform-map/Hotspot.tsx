@@ -54,7 +54,7 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
       <Html
         transform
         occlude={[occludeRef as unknown as RefObject<Object3D>]}
-        distanceFactor={3.4}
+        distanceFactor={0.85}
         className="platform-hotspot-rise"
         style={{ animationDelay: `${delayMs}ms` }}
       >
@@ -68,19 +68,19 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
           onFocus={() => setIsActive(true)}
           onBlur={() => setIsActive(false)}
           aria-label={`${hotspot.label}: ${hotspot.description}`}
-          className="platform-portal group flex items-center gap-1.5 border py-1.5 pl-1.5 pr-3 text-[11px] font-semibold backdrop-blur-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#10181d]"
+          className="platform-portal group flex items-center gap-1 border px-1.5 py-1 text-[9px] font-semibold backdrop-blur-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#10181d]"
           style={{
             borderColor: `${hotspot.color}55`,
             background: "linear-gradient(135deg, rgba(15,35,56,.77), rgba(5,11,22,.58))",
             color: "#FFFFFF",
-            boxShadow: `0 0 14px ${hotspot.color}2e, inset 0 0 10px ${hotspot.color}1f`,
+            boxShadow: `inset 0 1px 0 ${hotspot.color}36`,
           }}
         >
           <span
-            className="flex size-5 shrink-0 items-center justify-center rounded-full"
-            style={{ background: `radial-gradient(circle at 35% 30%, ${hotspot.color}, ${hotspot.color}55)`, boxShadow: `0 0 8px ${hotspot.color}88` }}
+            className="flex size-4 shrink-0 items-center justify-center rounded-full"
+            style={{ background: `radial-gradient(circle at 35% 30%, ${hotspot.color}, ${hotspot.color}55)`, boxShadow: `0 0 5px ${hotspot.color}66` }}
           >
-            <Icon className="h-3 w-3" style={{ color: "#0b1020" }} strokeWidth={2.4} />
+            <Icon className="h-2.5 w-2.5" style={{ color: "#0b1020" }} strokeWidth={2.4} />
           </span>
           <span className="whitespace-nowrap tracking-tight">{hotspot.label}</span><span className="platform-portal-signal" style={{ background: hotspot.color }} />
         </button>

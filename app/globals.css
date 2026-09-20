@@ -841,15 +841,15 @@ svg { width: 1rem; height: 1rem; flex: none; }
 .platform-map-space { background: radial-gradient(ellipse at 50% 43%, #12324b 0%, #08111e 38%, #03050d 78%); }
 .platform-map-space::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .55; background-image: radial-gradient(circle at 16% 23%, rgb(196 238 255 / .75) 0 1px, transparent 1.8px), radial-gradient(circle at 82% 67%, rgb(255 219 143 / .5) 0 1px, transparent 1.8px), radial-gradient(circle at 71% 18%, rgb(164 216 255 / .42) 0 1px, transparent 1.8px); background-size: 211px 163px, 287px 229px, 347px 293px; }
 .platform-map-kicker { color: #aee8ff; font: 600 10px/1.3 var(--font-ibm-plex-mono, monospace); letter-spacing: 0; text-shadow: 0 0 16px rgb(83 199 255 / .72); }
-.platform-portal { transform-origin: center bottom; box-shadow: inset 0 1px rgb(255 255 255 / .14), 0 6px 24px rgb(0 0 0 / .3); }
-.platform-portal:hover { transform: translateY(-3px) scale(1.08); box-shadow: inset 0 1px rgb(255 255 255 / .2), 0 0 26px color-mix(in srgb, currentColor 45%, transparent); }
-.platform-portal-signal { width: 5px; height: 5px; border-radius: 50%; box-shadow: 0 0 9px currentColor; animation: platform-portal-ping 1.8s ease-in-out infinite; }
+.platform-portal { transform-origin: center bottom; border-radius: 2px; letter-spacing: 0; box-shadow: inset 0 1px rgb(255 255 255 / .14); }
+.platform-portal:hover { transform: translateY(-2px) scale(1.04); box-shadow: inset 0 1px rgb(255 255 255 / .2), 0 0 10px color-mix(in srgb, currentColor 35%, transparent); }
+.platform-portal-signal { width: 3px; height: 3px; border-radius: 50%; box-shadow: 0 0 5px currentColor; animation: platform-portal-ping 1.8s ease-in-out infinite; }
 @keyframes platform-portal-ping { 50% { transform: scale(1.7); opacity: .5; } }
 
 @keyframes platform-hotspot-rise { from { opacity: 0; transform: translateY(10px) scale(.9); } to { opacity: 1; transform: none; } }
 .platform-hotspot-rise { animation: platform-hotspot-rise .6s cubic-bezier(.22,1,.36,1) both; }
 .platform-portal { transform-origin: center; }
-.platform-portal:hover { transform: scale(1.08); border-color: color-mix(in srgb, currentColor 55%, white) !important; box-shadow: 0 0 24px currentColor, inset 0 0 12px rgb(255 255 255 / .12) !important; }
+.platform-portal:hover { transform: scale(1.04); border-color: color-mix(in srgb, currentColor 55%, white) !important; box-shadow: 0 0 10px color-mix(in srgb, currentColor 35%, transparent), inset 0 0 6px rgb(255 255 255 / .08) !important; }
 .platform-portal-preview { width: 154px; margin-top: 7px; padding: 8px 10px; border: 1px solid rgb(153 222 255 / .34); background: rgb(4 15 27 / .88); box-shadow: 0 12px 28px rgb(0 0 0 / .45), inset 0 1px 0 rgb(196 238 255 / .18); color: #e9f9ff; backdrop-filter: blur(16px); }
 .platform-portal-preview span { display: block; margin-bottom: 3px; color: #87d8ff; font: 600 9px/1.2 var(--font-ibm-plex-mono, monospace); }
 .platform-portal-preview strong { display: block; font-size: 12px; }
