@@ -15,8 +15,8 @@ export default function GlobeScene() {
     const compactScene = window.matchMedia("(max-width: 700px), (pointer: coarse)").matches
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     const quality = compactScene
-      ? { pixelRatio: 1.25, earthSegments: 56, cloudSegments: 40, atmosphereSegments: 32, stars: 900, distantStars: 450 }
-      : { pixelRatio: 1.5, earthSegments: 96, cloudSegments: 64, atmosphereSegments: 48, stars: 2200, distantStars: 1100 }
+      ? { pixelRatio: 1.25, earthSegments: 56, cloudSegments: 40, atmosphereSegments: 32, starLayers: [900, 540, 360] }
+      : { pixelRatio: 1.5, earthSegments: 96, cloudSegments: 64, atmosphereSegments: 48, starLayers: [5000, 3000, 2000] }
 
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x020408)
@@ -141,76 +141,38 @@ export default function GlobeScene() {
     rimLight.position.set(-2, -6, -7)
     scene.add(rimLight)
 
-    const starCount = quality.stars
-    const starGeometry = new THREE.BufferGeometry()
-    const positions = new Float32Array(starCount * 3)
-    const colors = new Float32Array(starCount * 3)
-    const sizes = new Float32Array(starCount)
-    for (let i = 0; i < starCount; i++) {
-      const radius = 80 + Math.random() * 200
-      const theta = Math.random() * Math.PI * 2
-      const phi = Math.acos(2 * Math.random() - 1)
-      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta)
-      positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta)
-      positions[i * 3 + 2] = radius * Math.cos(phi)
-      const cr = Math.random()
-      if (cr < 0.6) {
-        colors[i * 3] = 0.9 + 0.1 * Math.random()
-        colors[i * 3 + 1] = 0.9 + 0.1 * Math.random()
-        colors[i * 3 + 2] = 1.0
-      } else if (cr < 0.8) {
-        colors[i * 3] = 0.6 + 0.3 * Math.random()
-        colors[i * 3 + 1] = 0.7 + 0.3 * Math.random()
-        colors[i * 3 + 2] = 1.0
-      } else if (cr < 0.95) {
-        colors[i * 3] = 1.0
-        colors[i * 3 + 1] = 0.8 + 0.2 * Math.random()
-        colors[i * 3 + 2] = 0.5 + 0.3 * Math.random()
-      } else {
-        colors[i * 3] = 1.0
-        colors[i * 3 + 1] = 0.4 + 0.2 * Math.random()
-        colors[i * 3 + 2] = 0.2 + 0.2 * Math.random()
+    const createStarLayer = (count: number, depth: number, size: number, opacity: number) => {
+      const geometry = new THREE.BufferGeometry()
+      const positions = new Float32Array(count * 3)
+      const colors = new Float32Array(count * 3)
+      for (let i = 0; i < count; i++) {
+        const radius = 100 + Math.random() * 260
+        const theta = Math.random() * Math.PI * 2
+        const phi = Math.acos(2 * Math.random() - 1)
+        positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta)
+        positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta)
+        positions[i * 3 + 2] = depth + radius * Math.cos(phi)
+        const warmth = Math.random()
+        colors[i * 3] = warmth > 0.88 ? 1 : 0.68 + Math.random() * 0.32
+        colors[i * 3 + 1] = warmth > 0.88 ? 0.78 : 0.78 + Math.random() * 0.22
+        colors[i * 3 + 2] = warmth > 0.88 ? 0.46 : 0.9 + Math.random() * 0.1
       }
-      sizes[i] = 0.2 + Math.random() * 0.9
+      geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3))
+      const material = new THREE.PointsMaterial({ color: 0xffffff, size, vertexColors: true, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true })
+      return new THREE.Points(geometry, material)
     }
-    starGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3))
-    starGeometry.setAttribute("color", new THREE.BufferAttribute(colors, 3))
-    starGeometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1))
-    const starMaterial = new THREE.PointsMaterial({
-      size: 0.35,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.9,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      sizeAttenuation: true,
-    })
-    const stars = new THREE.Points(starGeometry, starMaterial)
-    scene.add(stars)
 
-    const starCount2 = quality.distantStars
-    const starGeo2 = new THREE.BufferGeometry()
-    const pos2 = new Float32Array(starCount2 * 3)
-    for (let i = 0; i < starCount2; i++) {
-      const radius = 120 + Math.random() * 300
-      const theta = Math.random() * Math.PI * 2
-      const phi = Math.acos(2 * Math.random() - 1)
-      pos2[i * 3] = radius * Math.sin(phi) * Math.cos(theta)
-      pos2[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta)
-      pos2[i * 3 + 2] = radius * Math.cos(phi)
+    // Three physical depth bands keep the backdrop a scene, not a flat video plate.
+    const farStars = createStarLayer(quality.starLayers[0], -1000, 0.42, 0.52)
+    const midStars = createStarLayer(quality.starLayers[1], -500, 0.58, 0.66)
+    const nearStars = createStarLayer(quality.starLayers[2], -100, 0.82, 0.88)
+    scene.add(farStars, midStars, nearStars)
+    const pointerTarget = new THREE.Vector2()
+    const pointerPosition = new THREE.Vector2()
+    const onPointerMove = (event: PointerEvent) => {
+      pointerTarget.set((event.clientX / window.innerWidth - 0.5) * 2, (event.clientY / window.innerHeight - 0.5) * -2)
     }
-    starGeo2.setAttribute("position", new THREE.BufferAttribute(pos2, 3))
-    const starMat2 = new THREE.PointsMaterial({
-      color: 0x446688,
-      size: 0.15,
-      transparent: true,
-      opacity: 0.6,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      sizeAttenuation: true,
-    })
-    const stars2 = new THREE.Points(starGeo2, starMat2)
-    scene.add(stars2)
+    if (!compactScene && !reducedMotion) window.addEventListener("pointermove", onPointerMove, { passive: true })
 
     orbitGroup.rotation.x = 0.2
     orbitGroup.rotation.z = -0.1
@@ -236,8 +198,11 @@ export default function GlobeScene() {
         const oy = Math.cos(elapsed * 0.16) * 0.2
         orbitGroup.position.x = ox
         orbitGroup.position.y = (compactScene ? -1.55 : 0) + oy + Math.sin(elapsed * 1.2) * 0.025
-        stars.rotation.y = elapsed * 0.008
-        stars2.rotation.y = -elapsed * 0.004
+        farStars.rotation.y = elapsed * 0.0018
+        midStars.rotation.y = -elapsed * 0.0045
+        nearStars.rotation.y = elapsed * 0.009
+        pointerPosition.lerp(pointerTarget, 0.035)
+        nearStars.position.set(pointerPosition.x * 3.4, pointerPosition.y * 2.2, 0)
       }
 
       renderer.render(scene, camera)
@@ -282,6 +247,7 @@ export default function GlobeScene() {
     return () => {
       cancelAnimationFrame(rafId)
       window.removeEventListener("resize", onResize)
+      window.removeEventListener("pointermove", onPointerMove)
       document.removeEventListener("visibilitychange", onVisibilityChange)
       renderer.domElement.removeEventListener("webglcontextlost", onContextLost, false)
       timer.dispose()
@@ -291,10 +257,10 @@ export default function GlobeScene() {
       cloudMaterial.dispose()
       atmosphereGeometry.dispose()
       atmosphereMaterial.dispose()
-      starGeometry.dispose()
-      starMaterial.dispose()
-      starGeo2.dispose()
-      starMat2.dispose()
+      ;[farStars, midStars, nearStars].forEach((stars) => {
+        stars.geometry.dispose()
+        ;(stars.material as THREE.PointsMaterial).dispose()
+      })
       mapTexture.dispose()
       normalTexture.dispose()
       specularTexture.dispose()
