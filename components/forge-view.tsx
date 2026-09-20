@@ -401,7 +401,7 @@ export function ForgeView() {
      дышит общий AmbientBackdrop. Раньше здесь был непрозрачный градиент
      #10181d→#17242a, который глушил живой фон платформы. */
   return (
-    <div className="eg-page min-h-screen font-sans" style={{ color: COLORS.text }}>
+    <div className="world-forge eg-page min-h-screen font-sans" style={{ color: COLORS.text }}>
       <Navbar />
       <SectionHelp
         title="Кузница артефактов"

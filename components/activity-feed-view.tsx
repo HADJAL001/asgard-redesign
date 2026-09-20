@@ -152,7 +152,7 @@ export function ActivityFeedView() {
   }, [play, refresh])
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #10181d 0%, #17242a 100%)", color: "#FFFFFF" }}>
+    <div className="world-city min-h-screen font-sans" style={{ color: "#FFFFFF" }}>
       <Navbar />
 
       <main className="mx-auto max-w-[700px] px-6 py-10 md:px-10 md:py-12">

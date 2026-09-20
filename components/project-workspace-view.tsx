@@ -765,7 +765,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
 
   return (
     <div
-      className={`eg-page relative flex min-h-screen flex-col font-sans${isDev ? " dev-mode-layout" : ""}`}
+      className={`world-matrix eg-page relative flex min-h-screen flex-col font-sans${isDev ? " dev-mode-layout" : ""}`}
       style={{ color: COLORS.text }}
     >
       {/* Мастерская мира рисует свой тёплый фон; в студии его роль играет

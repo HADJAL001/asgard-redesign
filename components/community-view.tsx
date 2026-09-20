@@ -290,7 +290,7 @@ export function CommunityView() {
   }, [posts])
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: "linear-gradient(180deg, #10181d 0%, #0D0D1A 100%)", color: "#FFFFFF" }}>
+    <div className="world-city min-h-screen font-sans" style={{ color: "#FFFFFF" }}>
       {/* Header */}
       <Navbar />
 

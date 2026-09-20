@@ -95,7 +95,7 @@ function TickerRow({ i }: { i: number }) {
    (загрузка/гость/данные). */
 function ReferralPageShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rf-page min-h-screen font-sans" style={{ backgroundColor: "#05070f" }}>
+    <div className="rf-page world-tree min-h-screen font-sans">
       <style dangerouslySetInnerHTML={{ __html: RF_CSS }} />
       <div className="rf-bg">
         {Array.from({ length: 6 }).map((_, i) => (

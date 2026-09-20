@@ -12,7 +12,7 @@ const BORDER = "#30424b"
 
 export function ExchangeView() {
   return (
-    <div className="exchange-floor eg-page relative min-h-screen overflow-hidden font-sans text-white">
+    <div className="exchange-floor world-exchange eg-page relative min-h-screen overflow-hidden font-sans text-white">
       <PremiumBackground variant="coins" />
       <Navbar />
       <SectionHelp

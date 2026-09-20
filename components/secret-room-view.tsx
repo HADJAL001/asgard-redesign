@@ -204,7 +204,7 @@ export function SecretRoomView() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden font-sans" style={{ background: "linear-gradient(180deg, #05060d, #0b0a06)", color: COLORS.text }}>
+    <div className="world-bunker relative min-h-screen overflow-hidden font-sans" style={{ color: COLORS.text }}>
       <PremiumBackground variant="gold" />
       <Navbar />
       <main className="relative z-10 mx-auto max-w-[1100px] px-6 py-10 md:px-10 md:py-12">

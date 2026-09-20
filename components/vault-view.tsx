@@ -82,7 +82,7 @@ export function VaultView() {
   const artifactId = params.get("artifact")
 
   return (
-    <div className="min-h-screen font-sans" style={{ background: `linear-gradient(180deg, ${COLORS.bg0} 0%, ${COLORS.bg1} 100%)`, color: COLORS.text }}>
+    <div className="world-vault min-h-screen font-sans" style={{ color: COLORS.text }}>
       <Navbar />
       <main className="mx-auto max-w-[1080px] px-6 py-10 md:px-10 md:py-12">
         {artifactId ? <LedgerPanel id={artifactId} /> : <VaultSummary />}

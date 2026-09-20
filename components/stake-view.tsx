@@ -160,7 +160,7 @@ export function StakeView() {
   }
 
   return (
-    <div className="eg-page relative min-h-screen overflow-hidden font-sans" style={{ color: COLORS.text }}>
+    <div className="world-exchange eg-page relative min-h-screen overflow-hidden font-sans" style={{ color: COLORS.text }}>
       <PremiumBackground variant="coins" />
       <Navbar />
       <SectionHelp

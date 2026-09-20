@@ -16,6 +16,7 @@
    ================================================================ */
 
 import { type ReactNode, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { DevRail } from "./DevRail"
 import { DevTopBar } from "./DevTopBar"
 import { getActiveVibecoderRank } from "@/lib/dev-mode/vibecoder-rank"
@@ -30,8 +31,10 @@ export function DevShell({
   wide?: boolean
   headerSlot?: ReactNode
 }) {
+  const pathname = usePathname()
   const { projectRanks, fetchArchitect } = useOsgardStore()
   const rank = getActiveVibecoderRank(projectRanks)
+  const world = pathname.includes("/agents") ? "world-server" : pathname.includes("/memory") ? "world-neural" : pathname.includes("/deploy") ? "world-spaceport" : pathname.includes("/workspace") ? "world-matrix" : "world-bridge"
 
   useEffect(() => {
     fetchArchitect({ skipAuthRedirect: true })
@@ -39,7 +42,7 @@ export function DevShell({
 
   return (
     <div
-      className="dev-mode-layout relative z-10 min-h-screen font-sans"
+      className={`dev-mode-layout ${world} relative z-10 min-h-screen font-sans`}
       style={rank ? ({ "--dev-rank-color": rank.color, "--dev-rank-glow": rank.glow } as React.CSSProperties) : undefined}
     >
       <DevRail />

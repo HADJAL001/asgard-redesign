@@ -154,7 +154,7 @@ export function MarketplaceView() {
   const handleBuy = useCallback((l: MarketListing) => setBuying(l), [])
 
   return (
-    <div className="marketplace-gallery eg-page eg-page--violet relative overflow-hidden min-h-screen font-sans" style={{ color: COLORS.text }}>
+    <div className="marketplace-gallery world-auction eg-page eg-page--violet relative overflow-hidden min-h-screen font-sans" style={{ color: COLORS.text }}>
       <PremiumBackground variant="market" />
       <Navbar />
       <SectionHelp
