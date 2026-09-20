@@ -21,7 +21,9 @@ export default function GlobeScene() {
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x020408)
 
-    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 500)
+    // The three star bands live at z=-1000/-500/-100. Keep them inside the
+    // frustum; the previous 500-unit far plane silently clipped the backdrop.
+    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 1800)
     camera.position.set(0, 0.8, 10)
 
     let renderer: THREE.WebGLRenderer
