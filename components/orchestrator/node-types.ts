@@ -16,6 +16,7 @@ export interface OrchestratorPaletteItem {
   descriptionKey: string
   Icon: ComponentType<NodeIconProps>
   color: string
+  category: "ai" | "logic" | "integrations"
   defaultData: OrchestratorNodeData
 }
 
@@ -26,6 +27,7 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     descriptionKey: "orchestrator.nodeType.claudeDesc",
     Icon: PremiumClaudeIcon,
     color: "#d7ae57",
+    category: "ai",
     defaultData: {
       label: "OSGARD 5.0",
       type: "claude",
@@ -40,6 +42,7 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     descriptionKey: "orchestrator.nodeType.deepseekDesc",
     Icon: PremiumDeepseekIcon,
     color: "#d7ae57",
+    category: "ai",
     defaultData: {
       label: "OSGARD 4.0",
       type: "deepseek",
@@ -54,6 +57,7 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     descriptionKey: "orchestrator.nodeType.grokDesc",
     Icon: PremiumGrokIcon,
     color: "#FBBF24",
+    category: "ai",
     defaultData: {
       label: "OSGARD 3.3",
       type: "grok",
@@ -68,6 +72,7 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     descriptionKey: "orchestrator.nodeType.promptTemplateDesc",
     Icon: PremiumTemplateIcon,
     color: "#9eb2bc",
+    category: "logic",
     defaultData: {
       label: "Шаблон",
       type: "prompt_template",
@@ -80,6 +85,7 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     descriptionKey: "orchestrator.nodeType.serviceCallDesc",
     Icon: PremiumServiceCallIcon,
     color: "#e2685c",
+    category: "integrations",
     defaultData: {
       label: "Service Call",
       type: "service_call",
@@ -92,6 +98,7 @@ export const ORCHESTRATOR_PALETTE: OrchestratorPaletteItem[] = [
     descriptionKey: "orchestrator.nodeType.webhookTriggerDesc",
     Icon: PremiumWebhookTriggerIcon,
     color: "#A855F7",
+    category: "integrations",
     defaultData: {
       label: "Webhook Trigger",
       type: "webhook_trigger",

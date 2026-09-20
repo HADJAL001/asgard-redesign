@@ -16,7 +16,7 @@ import {
   useReactFlow,
   type Connection,
 } from "@xyflow/react"
-import { Loader2, Play, Save, Coins, Bot, CheckCircle2 } from "lucide-react"
+import { Loader2, Play, Save, Coins, Bot, CheckCircle2, Rocket, Zap, WandSparkles } from "lucide-react"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { orchestratorApi } from "@/lib/orchestrator/api"
@@ -41,6 +41,11 @@ const NODE_TYPES = { orchestratorNode: OrchestratorNode }
 const EDGE_TYPES = { snake: SnakeEdge }
 const DEFAULT_EDGE_OPTIONS = { type: "snake" }
 const MAX_NODES = 20
+const FLOW_TEMPLATES: Array<{ label: string; types: OrchestratorNodeType[] }> = [
+  { label: "Быстрый прототип", types: ["claude", "deepseek"] },
+  { label: "Полный цикл", types: ["claude", "deepseek", "grok"] },
+  { label: "Анализ данных", types: ["webhook_trigger", "claude", "grok"] },
+]
 
 /** Старые сохранённые цепочки могут хранить edges без type — проставляем "snake" сразу при инициализации, чтобы не было "мигания" стандартной связи. */
 function normalizeEdges(edges: OrchestratorFlowEdge[]): OrchestratorFlowEdge[] {
@@ -272,6 +277,18 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
     }
   }
 
+  function loadTemplate(types: OrchestratorNodeType[]) {
+    if (nodes.length > 0 && !window.confirm("Заменить текущие узлы готовой цепочкой?")) return
+    const nextNodes = types.map((type, index) => {
+      const palette = ORCHESTRATOR_PALETTE.find((item) => item.type === type)!
+      return { id: nextNodeId(), type: "orchestratorNode", position: { x: 90 + index * 255, y: 185 + (index % 2) * 70 }, data: { ...palette.defaultData } } as OrchestratorFlowNode
+    })
+    setNodes(nextNodes)
+    setEdges(nextNodes.slice(1).map((node, index) => ({ id: `edge_${node.id}`, source: nextNodes[index].id, target: node.id, type: "snake" })))
+    setSelectedNodeId(null)
+    setSaveError(null)
+  }
+
   async function handleToggleJarvisTemplate() {
     if (currentChainId === "new") {
       setSaveError(t("orchestrator.saveBeforeTemplate"))
@@ -347,6 +364,8 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
     const liveStatus = run.nodes.find((s) => s.id === n.id)
     return liveStatus ? { ...n, data: { ...n.data, status: liveStatus.status, output: liveStatus.output } } : n
   })
+  const displayEdges = edges.map((edge) => ({ ...edge, data: { ...edge.data, active: run.status === "running" } }))
+  const energy = Math.round((nodes.length / MAX_NODES) * 100)
 
   // Цвет индикатора квоты
   function quotaColor(remaining: number, total: number): string {
@@ -359,24 +378,25 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3">
+      <style>{EDITOR_CSS}</style>
+      <div className="orch-toolbar flex flex-wrap items-center gap-3 rounded-xl p-3">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="min-w-0 flex-1 rounded-lg px-3 py-2 text-[14px] font-medium outline-none"
-          style={{ backgroundColor: COLORS.card, border: `1px solid ${COLORS.border}`, color: COLORS.text }}
+          className="orch-terminal-input min-w-0 flex-1 rounded-lg px-3 py-2 text-[14px] font-medium outline-none"
+          style={{ color: COLORS.text }}
         />
 
         {/* Счётчик узлов цепочки */}
-        <div
-          className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium"
+        <div className="flex min-w-[122px] items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium"
           style={{
             backgroundColor: COLORS.card,
             border: `1px solid ${COLORS.border}`,
             color: nodes.length >= MAX_NODES ? COLORS.red : COLORS.label,
           }}
         >
-          {t("orchestrator.editorNodeCount", { count: nodes.length, max: MAX_NODES })}
+          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10"><span className="block h-full rounded-full" style={{ width: `${energy}%`, background: "linear-gradient(90deg,#36b9ff,#f5c451)" }} /></span>
+          {nodes.length}/{MAX_NODES}
         </div>
 
         {/* Индикатор остатка запросов */}
@@ -436,10 +456,9 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
           type="button"
           onClick={handleRun}
           disabled={run.status === "running"}
-          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
+          className="orch-launch inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium disabled:opacity-50"
         >
-          {run.status === "running" ? <Loader2 size={15} className="animate-spin" /> : <Play size={15} strokeWidth={1.75} />}
+          {run.status === "running" ? <Loader2 size={15} className="animate-spin" /> : <Rocket size={15} strokeWidth={1.75} />}
           {t("orchestrator.runBtn")}
         </button>
       </div>
@@ -480,12 +499,24 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
       <div className="flex min-h-0 flex-1 gap-3">
         <div
           ref={wrapperRef}
-          className="min-h-[480px] flex-1 overflow-hidden rounded-xl"
-          style={{ border: `1px solid ${COLORS.border}` }}
+          className={`orch-canvas relative min-h-[540px] flex-1 overflow-hidden rounded-xl ${run.status === "running" ? "orch-canvas-running" : ""}`}
+          style={{ border: "1px solid rgba(91,146,203,.35)" }}
         >
+          {nodes.length === 0 && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+              <div className="max-w-[500px] px-6 text-center">
+                <div className="orch-ghost-flow mx-auto mb-5 h-16 w-[300px]" aria-hidden="true"><span /><i /><b /></div>
+                <p className="text-[16px] font-semibold text-white/85">Соберите свой ИИ-конвейер</p>
+                <p className="mt-1 text-[13px] text-white/45">Перетащите узлы из палитры или начните с готового шаблона.</p>
+                <div className="pointer-events-auto mt-5 flex flex-wrap justify-center gap-2">
+                  {FLOW_TEMPLATES.map((template) => <button key={template.label} type="button" onClick={() => loadTemplate(template.types)} className="rounded-lg border border-[#5b7895] bg-[#102238cc] px-3 py-2 text-[12px] text-[#dbeeff] transition hover:border-[#f5c451] hover:text-[#f5c451]"><WandSparkles className="mr-1 inline" size={13} />{template.label}</button>)}
+                </div>
+              </div>
+            </div>
+          )}
           <ReactFlow
             nodes={displayNodes}
-            edges={edges}
+            edges={displayEdges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
@@ -499,7 +530,7 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
             colorMode="dark"
             fitView
           >
-            <Background color={COLORS.border} gap={20} />
+            <Background color="#1d4e76" gap={24} size={1} />
             <Controls />
             <MiniMap pannable zoomable style={{ backgroundColor: COLORS.card }} />
           </ReactFlow>
@@ -777,3 +808,22 @@ export function OrchestratorEditor(props: OrchestratorEditorProps) {
     </ReactFlowProvider>
   )
 }
+
+const EDITOR_CSS = `
+.orch-toolbar { background: linear-gradient(105deg, rgba(10,24,42,.92), rgba(15,29,48,.72)); border: 1px solid rgba(99,151,204,.24); box-shadow: inset 0 1px rgba(255,255,255,.06); }
+.orch-terminal-input { background: #07131f; border: 1px solid rgba(65,139,191,.4); box-shadow: inset 0 0 14px rgba(24,100,150,.12); caret-color: #f5c451; }
+.orch-launch { background: linear-gradient(135deg,#ffca47,#e66e35); color:#150d04; box-shadow:0 0 20px rgba(242,175,61,.3); transition:transform .15s ease,box-shadow .15s ease; }
+.orch-launch:hover { transform:translateY(-1px); box-shadow:0 0 28px rgba(242,175,61,.54); }
+.orch-canvas { background: radial-gradient(circle at 72% 25%, rgba(25,76,130,.19), transparent 28%), radial-gradient(circle at 12% 84%, rgba(105,60,155,.12), transparent 32%), #050c17; }
+.orch-canvas::before { content:""; position:absolute; inset:0; pointer-events:none; z-index:2; opacity:.36; background-image: radial-gradient(circle at 15% 20%,#b7e4ff 0 1px,transparent 1.5px),radial-gradient(circle at 74% 13%,#fff2bc 0 1px,transparent 1.5px),radial-gradient(circle at 88% 70%,#a5d9ff 0 1px,transparent 1.5px); background-size: 190px 160px,240px 210px,280px 230px; animation:orch-stars 16s linear infinite; }
+.orch-canvas-running::before { animation-duration:3s; opacity:.65; }
+.orch-canvas .react-flow__controls { border:1px solid rgba(104,159,216,.3); box-shadow:none; }
+.orch-canvas .react-flow__controls button { background:#0c1d31; color:#b9d8ed; border-color:rgba(104,159,216,.22); }
+.orch-ghost-flow { position:relative; opacity:.74; }
+.orch-ghost-flow::before { content:""; position:absolute; left:28px; right:28px; top:29px; height:3px; background:linear-gradient(90deg,#36b9ff,#f5c451,#a970ff); box-shadow:0 0 12px #e6c868; animation:orch-ghost-pulse 1.3s linear infinite; }
+.orch-ghost-flow span,.orch-ghost-flow i,.orch-ghost-flow b { position:absolute; top:8px; width:50px; height:50px; border:1px solid #e6c868; background:rgba(17,39,61,.8); box-shadow:0 0 18px rgba(230,200,104,.35); }
+.orch-ghost-flow span { left:8px; clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%); }.orch-ghost-flow i { left:125px; border-radius:10px; border-color:#36b9ff; }.orch-ghost-flow b { right:8px; border-radius:50%; border-color:#a970ff; }
+@keyframes orch-stars { to { background-position:190px 160px,-240px 210px,280px -230px; } }
+@keyframes orch-ghost-pulse { to { filter:hue-rotate(25deg); background-position:300px; } }
+@media (prefers-reduced-motion:reduce) { .orch-canvas::before,.orch-ghost-flow::before { animation:none; } .orch-launch:hover { transform:none; } }
+`

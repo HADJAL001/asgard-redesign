@@ -69,9 +69,9 @@ export const OrchestratorNode = memo(function OrchestratorNode({
     <>
       <style>{NODE_ANIMATION_CSS}</style>
       <div
-        className={`orch-node min-w-[180px] rounded-xl px-4 py-3 ${statusAnimClass(data.status)}`}
+        className={`orch-node orch-node-${data.type} min-w-[190px] px-4 py-3 ${statusAnimClass(data.status)}`}
         style={{
-          backgroundColor: statusBg(data.status),
+          background: data.status ? statusBg(data.status) : "linear-gradient(135deg, rgba(20,42,62,.88), rgba(10,21,36,.78))",
           border: `1.5px solid ${statusBorder(data.status, selected)}`,
           boxShadow: statusGlow(data.status),
           transition: "border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease",
@@ -187,9 +187,13 @@ export const OrchestratorNode = memo(function OrchestratorNode({
    CSS-анимации для нод оркестратора
    ================================================================ */
 const NODE_ANIMATION_CSS = `
-.orch-node {
-  position: relative;
-}
+.orch-node { position: relative; border-radius: 14px; backdrop-filter: blur(14px); box-shadow: inset 0 1px rgba(255,255,255,.13), 0 10px 28px rgba(0,0,0,.24); }
+.orch-node::before { content:""; position:absolute; inset:5px; border:1px solid rgba(174,216,255,.12); border-radius:10px; pointer-events:none; }
+.orch-node-claude { clip-path: polygon(10% 0,90% 0,100% 25%,100% 75%,90% 100%,10% 100%,0 75%,0 25%); border-radius:0 !important; }
+.orch-node-deepseek { clip-path: polygon(8px 0, calc(100% - 8px) 0,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0 calc(100% - 8px),0 8px); border-radius:0 !important; }
+.orch-node-webhook_trigger { border-radius: 999px; min-width: 160px; }
+.orch-node .react-flow__handle { width: 11px; height:11px; border-radius:3px; background:#dff8ff; border:2px solid #5ed8ff; box-shadow:0 0 10px #5ed8ff; transition:transform .16s ease; }
+.orch-node:hover .react-flow__handle { transform:scale(1.55); }
 
 /* Пульсирующее свечение при running */
 @keyframes orch-glow-pulse {
