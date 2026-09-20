@@ -16,7 +16,7 @@ import {
   useReactFlow,
   type Connection,
 } from "@xyflow/react"
-import { Loader2, Play, Save, Coins, Bot, CheckCircle2, Rocket, Zap, WandSparkles } from "lucide-react"
+import { Loader2, Play, Save, Coins, Bot, CheckCircle2, Rocket, Zap, Cog, ChartNoAxesCombined } from "lucide-react"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { orchestratorApi } from "@/lib/orchestrator/api"
@@ -41,6 +41,11 @@ const NODE_TYPES = { orchestratorNode: OrchestratorNode }
 const EDGE_TYPES = { snake: SnakeEdge }
 const DEFAULT_EDGE_OPTIONS = { type: "snake" }
 const MAX_NODES = 20
+const TEMPLATE_VISUALS = [
+  { label: "Быстрый прототип", detail: "1 узел, 30 секунд", color: "#FFB800", Icon: Zap },
+  { label: "Полный цикл", detail: "3 узла, 5 минут", color: "#00D9FF", Icon: Cog },
+  { label: "Анализ данных", detail: "2 узла, 2 минуты", color: "#9D4EDD", Icon: ChartNoAxesCombined },
+]
 const FLOW_TEMPLATES: Array<{ label: string; types: OrchestratorNodeType[] }> = [
   { label: "Быстрый прототип", types: ["claude", "deepseek"] },
   { label: "Полный цикл", types: ["claude", "deepseek", "grok"] },
@@ -383,12 +388,12 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="orch-terminal-input min-w-0 flex-1 rounded-lg px-3 py-2 text-[14px] font-medium outline-none"
+          className="orch-terminal-input min-w-0 flex-1 rounded-lg px-4 py-3 text-[14px] font-medium outline-none"
           style={{ color: COLORS.text }}
         />
 
         {/* Счётчик узлов цепочки */}
-        <div className="flex min-w-[122px] items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium"
+        <div className="orch-energy-gauge flex min-w-[122px] items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium"
           style={{
             backgroundColor: COLORS.card,
             border: `1px solid ${COLORS.border}`,
@@ -456,7 +461,7 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
           type="button"
           onClick={handleRun}
           disabled={run.status === "running"}
-          className="orch-launch inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium disabled:opacity-50"
+          className="orch-launch inline-flex items-center gap-2 rounded-lg px-5 py-3 text-[14px] font-bold disabled:opacity-50"
         >
           {run.status === "running" ? <Loader2 size={15} className="animate-spin" /> : <Rocket size={15} strokeWidth={1.75} />}
           {t("orchestrator.runBtn")}
@@ -505,11 +510,17 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
           {nodes.length === 0 && (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
               <div className="max-w-[500px] px-6 text-center">
-                <div className="orch-ghost-flow mx-auto mb-5 h-16 w-[300px]" aria-hidden="true"><span /><i /><b /></div>
+                <div className="orch-ghost-flow mx-auto mb-8" aria-hidden="true">
+                  <div className="orch-ghost-node orch-ghost-node--planner"><span className="orch-ghost-brain" /><b>OSGARD 5.0</b><small>Планировщик</small></div>
+                  <div className="orch-ghost-link orch-ghost-link--one"><i /><i /><i /></div>
+                  <div className="orch-ghost-node orch-ghost-node--architect"><span className="orch-ghost-chip" /><b>OSGARD 4.0</b><small>Архитектор</small></div>
+                  <div className="orch-ghost-link orch-ghost-link--two"><i /><i /><i /></div>
+                  <div className="orch-ghost-node orch-ghost-node--processor"><span className="orch-ghost-crystal" /><b>OSGARD 3.3</b><small>Обработчик</small></div>
+                </div>
                 <p className="text-[16px] font-semibold text-white/85">Соберите свой ИИ-конвейер</p>
                 <p className="mt-1 text-[13px] text-white/45">Перетащите узлы из палитры или начните с готового шаблона.</p>
                 <div className="pointer-events-auto mt-5 flex flex-wrap justify-center gap-2">
-                  {FLOW_TEMPLATES.map((template) => <button key={template.label} type="button" onClick={() => loadTemplate(template.types)} className="rounded-lg border border-[#5b7895] bg-[#102238cc] px-3 py-2 text-[12px] text-[#dbeeff] transition hover:border-[#f5c451] hover:text-[#f5c451]"><WandSparkles className="mr-1 inline" size={13} />{template.label}</button>)}
+                  {FLOW_TEMPLATES.map((template, index) => { const visual = TEMPLATE_VISUALS[index]; const TemplateIcon = visual.Icon; return <button key={template.label} type="button" onClick={() => loadTemplate(template.types)} className="orch-template-card" style={{ "--template-color": visual.color } as React.CSSProperties}><TemplateIcon size={22} /><span><b>{visual.label}</b><small>{visual.detail}</small></span></button> })}
                 </div>
               </div>
             </div>
@@ -811,19 +822,29 @@ export function OrchestratorEditor(props: OrchestratorEditorProps) {
 
 const EDITOR_CSS = `
 .orch-toolbar { background: linear-gradient(105deg, rgba(10,24,42,.92), rgba(15,29,48,.72)); border: 1px solid rgba(99,151,204,.24); box-shadow: inset 0 1px rgba(255,255,255,.06); }
-.orch-terminal-input { background: #07131f; border: 1px solid rgba(65,139,191,.4); box-shadow: inset 0 0 14px rgba(24,100,150,.12); caret-color: #f5c451; }
-.orch-launch { background: linear-gradient(135deg,#ffca47,#e66e35); color:#150d04; box-shadow:0 0 20px rgba(242,175,61,.3); transition:transform .15s ease,box-shadow .15s ease; }
-.orch-launch:hover { transform:translateY(-1px); box-shadow:0 0 28px rgba(242,175,61,.54); }
+.orch-terminal-input { background:rgba(0,0,0,.42); border:1px solid rgb(255 184 0 / .32); box-shadow:inset 0 0 20px rgb(255 184 0 / .06); color:#ffb800 !important; caret-color:#ffb800; font-family:var(--font-ibm-plex-mono,monospace); transition:border-color .3s ease,box-shadow .3s ease; }.orch-terminal-input:focus { border-color:#ffb800; box-shadow:inset 0 0 20px rgb(255 184 0 / .12),0 0 28px rgb(255 184 0 / .23); }
+.orch-energy-gauge { position:relative; overflow:hidden; border-color:rgb(255 184 0 / .32)!important; background:rgb(0 0 0 / .4)!important; color:#ffb800!important; font-family:var(--font-ibm-plex-mono,monospace); }.orch-energy-gauge>span:first-child { position:absolute; inset:0; height:100%!important; width:100%; border-radius:0; background:transparent!important; }.orch-energy-gauge>span:first-child>span { background:linear-gradient(90deg,#ffb800,#ff6b00)!important; box-shadow:0 0 20px rgb(255 184 0 / .6); }.orch-energy-gauge { justify-content:flex-end; }
+.orch-launch { position:relative; overflow:hidden; background:linear-gradient(135deg,#ff6b00,#ffb800); color:#170d02; box-shadow:0 0 30px rgb(255 107 0 / .5),0 0 60px rgb(255 184 0 / .2); transition:transform .3s ease,box-shadow .3s ease; }.orch-launch::before { content:""; position:absolute; inset:0 auto 0 -110%; width:80%; background:linear-gradient(90deg,transparent,rgb(255 255 255 / .42),transparent); transition:left .6s ease; }.orch-launch:hover { transform:scale(1.05); box-shadow:0 0 50px rgb(255 107 0 / .8),0 0 90px rgb(255 184 0 / .4); }.orch-launch:hover::before { left:120%; }.orch-launch>* { position:relative; z-index:1; }
 .orch-canvas { background: radial-gradient(circle at 72% 25%, rgba(25,76,130,.19), transparent 28%), radial-gradient(circle at 12% 84%, rgba(105,60,155,.12), transparent 32%), #050c17; }
 .orch-canvas::before { content:""; position:absolute; inset:0; pointer-events:none; z-index:2; opacity:.36; background-image: radial-gradient(circle at 15% 20%,#b7e4ff 0 1px,transparent 1.5px),radial-gradient(circle at 74% 13%,#fff2bc 0 1px,transparent 1.5px),radial-gradient(circle at 88% 70%,#a5d9ff 0 1px,transparent 1.5px); background-size: 190px 160px,240px 210px,280px 230px; animation:orch-stars 16s linear infinite; }
 .orch-canvas-running::before { animation-duration:3s; opacity:.65; }
 .orch-canvas .react-flow__controls { border:1px solid rgba(104,159,216,.3); box-shadow:none; }
 .orch-canvas .react-flow__controls button { background:#0c1d31; color:#b9d8ed; border-color:rgba(104,159,216,.22); }
-.orch-ghost-flow { position:relative; opacity:.74; }
-.orch-ghost-flow::before { content:""; position:absolute; left:28px; right:28px; top:29px; height:3px; background:linear-gradient(90deg,#36b9ff,#f5c451,#a970ff); box-shadow:0 0 12px #e6c868; animation:orch-ghost-pulse 1.3s linear infinite; }
-.orch-ghost-flow span,.orch-ghost-flow i,.orch-ghost-flow b { position:absolute; top:8px; width:50px; height:50px; border:1px solid #e6c868; background:rgba(17,39,61,.8); box-shadow:0 0 18px rgba(230,200,104,.35); }
-.orch-ghost-flow span { left:8px; clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%); }.orch-ghost-flow i { left:125px; border-radius:10px; border-color:#36b9ff; }.orch-ghost-flow b { right:8px; border-radius:50%; border-color:#a970ff; }
+.orch-ghost-flow { display:flex; align-items:center; justify-content:center; gap:0; min-height:174px; opacity:.9; }
+.orch-ghost-node { position:relative; display:grid; flex:0 0 auto; place-items:center; align-content:center; gap:3px; color:#fff; isolation:isolate; }
+.orch-ghost-node b { font-family:var(--font-ibm-plex-mono,monospace); font-size:12px; letter-spacing:0; }.orch-ghost-node small { color:rgb(255 255 255 / .5); font-size:10px; }
+.orch-ghost-node::before { content:""; position:absolute; inset:0; z-index:-1; background:linear-gradient(135deg,#1a1a2e,#16213e); }
+.orch-ghost-node--planner { width:120px; height:120px; color:#ffb800; clip-path:polygon(25% 0,75% 0,100% 25%,100% 75%,75% 100%,25% 100%,0 75%,0 25%); filter:drop-shadow(0 0 13px rgb(255 184 0 / .5)); }.orch-ghost-node--planner::before { clip-path:inherit; box-shadow:inset 0 0 0 2px #ffb800; }
+.orch-ghost-node--architect { width:140px; height:140px; color:#00d9ff; clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%); filter:drop-shadow(0 0 20px rgb(0 217 255 / .55)); }.orch-ghost-node--architect::before { background:linear-gradient(135deg,#0f3460,#16213e); clip-path:inherit; box-shadow:inset 0 0 0 3px #00d9ff; }
+.orch-ghost-node--processor { width:100px; height:100px; color:#9d4edd; border-radius:50%; background:linear-gradient(135deg,#2d1b4e,#1a1a2e); box-shadow:inset 0 0 0 2px #9d4edd,0 0 17px rgb(157 78 221 / .45); }.orch-ghost-node--processor::before { display:none; }
+.orch-ghost-brain,.orch-ghost-chip,.orch-ghost-crystal { display:block; width:38px; height:30px; position:relative; }.orch-ghost-brain { border:2px solid currentColor; border-radius:42% 45% 38% 44%; box-shadow:inset 8px 0 0 -6px currentColor; animation:orch-brain 1.8s ease-in-out infinite; }.orch-ghost-chip { width:38px; height:38px; border:2px solid currentColor; box-shadow:inset 0 0 12px currentColor; animation:orch-chip 1.4s linear infinite; }.orch-ghost-chip::before,.orch-ghost-chip::after { content:""; position:absolute; inset:7px; border:1px solid currentColor; }.orch-ghost-crystal { width:34px; height:34px; background:currentColor; clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%); opacity:.82; animation:orch-crystal 2.6s linear infinite; }
+.orch-ghost-link { position:relative; width:100px; height:4px; background:linear-gradient(90deg,#ffb800,#00d9ff); box-shadow:0 0 12px rgb(255 211 94 / .55); }.orch-ghost-link--two { background:linear-gradient(90deg,#00d9ff,#9d4edd); }.orch-ghost-link i { position:absolute; top:-4px; width:9px; height:9px; border-radius:50%; background:#fff6c9; box-shadow:0 0 10px #fff6c9; animation:orch-pulse-run 1.8s linear infinite; }.orch-ghost-link i:nth-child(2) { animation-delay:.6s; }.orch-ghost-link i:nth-child(3) { animation-delay:1.2s; }
+.orch-template-card { display:flex; width:180px; min-height:100px; align-items:flex-start; gap:11px; padding:15px; border:1px solid color-mix(in srgb,var(--template-color) 35%,transparent); border-radius:12px; background:linear-gradient(135deg,color-mix(in srgb,var(--template-color) 12%,transparent),rgb(9 17 29 / .7)); color:var(--template-color); text-align:left; backdrop-filter:blur(24px); transition:transform .3s cubic-bezier(.4,0,.2,1),border-color .3s ease,box-shadow .3s ease; }.orch-template-card span { display:grid; gap:5px; }.orch-template-card b { font-size:13px; }.orch-template-card small { color:rgb(255 255 255 / .52); font-size:11px; }.orch-template-card:hover { transform:translateY(-4px); border-color:var(--template-color); box-shadow:0 12px 32px color-mix(in srgb,var(--template-color) 25%,transparent),0 0 42px color-mix(in srgb,var(--template-color) 14%,transparent); }
 @keyframes orch-stars { to { background-position:190px 160px,-240px 210px,280px -230px; } }
 @keyframes orch-ghost-pulse { to { filter:hue-rotate(25deg); background-position:300px; } }
+@keyframes orch-pulse-run { from { left:-6px; opacity:0; } 15%,80% { opacity:1; } to { left:100%; opacity:0; } }
+@keyframes orch-brain { 50% { transform:scale(1.13); filter:brightness(1.35); } }
+@keyframes orch-chip { to { rotate:360deg; } }
+@keyframes orch-crystal { to { rotate:360deg; } }
 @media (prefers-reduced-motion:reduce) { .orch-canvas::before,.orch-ghost-flow::before { animation:none; } .orch-launch:hover { transform:none; } }
 `
