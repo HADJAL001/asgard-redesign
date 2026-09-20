@@ -49,6 +49,12 @@ const RF_CSS = `
 .rf-gold { color: #E6C868; }
 .rf-gold-btn { background: linear-gradient(135deg, #E6C868, #C69B2E); color: #1a1405; }
 .rf-gold-btn:hover { filter: brightness(1.06); }
+.rf-reward-tree { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding-top: 18px; }
+.rf-reward-tree::before { content: ""; position: absolute; left: 16.66%; right: 16.66%; top: 37px; height: 1px; background: linear-gradient(90deg, rgba(212,175,55,.15), #e6c868, rgba(212,175,55,.15)); }
+.rf-reward-node { position: relative; z-index: 1; min-height: 104px; padding: 16px 12px 12px; border: 1px solid rgba(212,175,55,.25); border-radius: 9px; background: linear-gradient(155deg, rgba(230,200,104,.12), rgba(15,18,30,.72)); text-align: center; }
+.rf-reward-node__seed { display: grid; place-items: center; width: 38px; height: 38px; margin: -35px auto 9px; border: 1px solid rgba(230,200,104,.65); border-radius: 50%; background: #151319; color: #e6c868; box-shadow: 0 0 18px rgba(230,200,104,.22); }
+.rf-reward-node strong { display: block; color: #f5e4a8; font-size: 13px; }.rf-reward-node span { display: block; margin-top: 4px; color: rgba(255,255,255,.52); font-size: 11px; }
+@media (max-width: 560px) { .rf-reward-tree { grid-template-columns: 1fr; gap: 28px; padding-left: 28px; }.rf-reward-tree::before { left: 46px; right: auto; top: 0; bottom: 0; width: 1px; height: auto; }.rf-reward-node { text-align: left; }.rf-reward-node__seed { position: absolute; left: -48px; top: 44px; margin: 0; } }
 @media (prefers-reduced-motion: reduce) { .rf-ticker-row { animation: none !important; } }
 `
 
@@ -377,6 +383,18 @@ export default function ReferralView() {
                 </div>
               </div>
             </div>
+
+            <section className="rf-card p-5 md:p-6" aria-label="Уровни реферальных наград">
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+                <Gift className="h-4 w-4 rf-gold" />
+                Награды за рост сети
+              </div>
+              <div className="rf-reward-tree mt-5">
+                <div className="rf-reward-node"><div className="rf-reward-node__seed">1</div><strong>Первый круг</strong><span>1 приглашение · 50 TimeCoin</span></div>
+                <div className="rf-reward-node"><div className="rf-reward-node__seed">2</div><strong>Сеть растёт</strong><span>5 приглашений · 250 TimeCoin</span></div>
+                <div className="rf-reward-node"><div className="rf-reward-node__seed">3</div><strong>Архитектор сети</strong><span>10 приглашений · 500 TimeCoin</span></div>
+              </div>
+            </section>
 
             {/* Progress bar */}
             <div className="rf-card p-4 md:p-6 space-y-3">
