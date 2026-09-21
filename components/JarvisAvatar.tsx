@@ -66,6 +66,11 @@ function resolveSkinPreset(skinName?: string): SkinPreset {
 function AvatarCore({ skin, speaking }: { skin: SkinPreset; speaking?: boolean }) {
   const meshRef = useRef<THREE.Mesh>(null)
   const t = useRef(0)
+  const material = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uState: { value: speaking ? 3 : 0 }, uColorCore: { value: new THREE.Color(skin.color) }, uColorHot: { value: new THREE.Color("#ffffff") } },
+    vertexShader: `uniform float uTime; uniform float uState; varying vec3 vNormal; varying vec3 vPosition; void main(){vNormal=normalize(normalMatrix*normal);vec3 p=position;float pulse=sin(uTime*2.)*.03;float noise=sin(position.x*17.+uTime)*sin(position.y*13.-uTime)*.025;float deform=uState==2.?noise*3.:pulse;p+=normal*(pulse+noise+deform);vPosition=p;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}`,
+    fragmentShader: `uniform float uTime; uniform float uState; uniform vec3 uColorCore; uniform vec3 uColorHot; varying vec3 vNormal; varying vec3 vPosition; void main(){vec3 viewDir=normalize(cameraPosition-vPosition);float fresnel=pow(1.-max(dot(normalize(vNormal),viewDir),0.),2.);float pulse=sin(uTime*3.)*.5+.5;vec3 color=mix(uColorCore,uColorHot,fresnel*pulse);float intensity=uState==1.?1.5:uState==2.?2.5:uState==3.?2.:1.;gl_FragColor=vec4(color*intensity,1.);}`,
+  }), [skin.color, speaking])
 
   useFrame((_, delta) => {
     t.current += delta
@@ -74,29 +79,36 @@ function AvatarCore({ skin, speaking }: { skin: SkinPreset; speaking?: boolean }
       const pulse = speaking ? 1 + Math.sin(t.current * 10) * 0.06 : 1 + Math.sin(t.current * 1.2) * 0.015
       meshRef.current.scale.setScalar(pulse)
     }
+    material.uniforms.uTime.value = t.current
   })
 
   return (
     <mesh ref={meshRef}>
       <icosahedronGeometry args={[1, 2]} />
-      <meshPhysicalMaterial
-        color={skin.color}
-        emissive={skin.emissive}
-        emissiveIntensity={skin.emissiveIntensity}
-        metalness={skin.metalness}
-        roughness={skin.roughness}
-        clearcoat={0.75}
-        clearcoatRoughness={0.1}
-        iridescence={0.5}
-        iridescenceIOR={1.3}
-        sheen={0.35}
-        sheenColor={skin.color}
-        transparent
-        opacity={0.92}
-        wireframe={false}
-      />
+      <primitive object={material} attach="material" />
     </mesh>
   )
+}
+
+function NeuralShell() {
+  const group = useRef<THREE.Group>(null)
+  const points = useMemo(() => Array.from({ length: 200 }, (_, i) => { const phi = Math.acos(1 - 2 * (i + .5) / 200); const theta = Math.PI * (1 + Math.sqrt(5)) * i; return new THREE.Vector3(.85 * Math.sin(phi) * Math.cos(theta), .85 * Math.sin(phi) * Math.sin(theta), .85 * Math.cos(phi)) }), [])
+  useFrame(({ clock }) => { if (group.current) group.current.rotation.y = clock.elapsedTime * .16 })
+  return <group ref={group}>{points.map((p, i) => <mesh key={i} position={p}><sphereGeometry args={[.015, 8, 8]} /><meshBasicMaterial color="#00d9ff" transparent opacity={.62} /></mesh>)}</group>
+}
+
+function JarvisRings() {
+  const group = useRef<THREE.Group>(null)
+  const configs = [[1.15, .008, "#00d9ff", 0, 0, .4], [1.35, .006, "#ffb800", 1.2, .5, -.3], [1.55, .004, "#9d4edd", -.8, 1, .2]] as const
+  useFrame((_, delta) => { if (group.current) group.current.rotation.y += delta * .22 })
+  return <group ref={group}>{configs.map(([radius, tube, color, tiltX, tiltY], i) => <mesh key={i} rotation={[tiltX, tiltY, 0]}><torusGeometry args={[radius, tube, 12, 96]} /><meshBasicMaterial color={color} transparent opacity={.58} blending={THREE.AdditiveBlending} /></mesh>)}</group>
+}
+
+function ParticleHalo() {
+  const ref = useRef<THREE.Points>(null)
+  const positions = useMemo(() => { const a = new Float32Array(500 * 3); for (let i = 0; i < 500; i++) { const r = 1 + Math.random() * 1.5; const p = Math.acos(2 * Math.random() - 1); const t = Math.random() * Math.PI * 2; a[i * 3] = r * Math.sin(p) * Math.cos(t); a[i * 3 + 1] = r * Math.sin(p) * Math.sin(t); a[i * 3 + 2] = r * Math.cos(p) } return a }, [])
+  useFrame((_, delta) => { if (ref.current) ref.current.rotation.y += delta * .08 })
+  return <points ref={ref}><bufferGeometry><bufferAttribute attach="attributes-position" args={[positions, 3]} /></bufferGeometry><pointsMaterial color="#00d9ff" size={.04} transparent opacity={.58} blending={THREE.AdditiveBlending} depthWrite={false} /></points>
 }
 
 /* ----------------------------------------------------------------
@@ -241,6 +253,9 @@ function AvatarScene({ equipment, speaking }: { equipment: JarvisEquipment; spea
 
       <group>
         <AvatarCore skin={skin} speaking={speaking} />
+        <NeuralShell />
+        <JarvisRings />
+        <ParticleHalo />
         {equipment.accessory && <AccessoryMesh name={equipment.accessory.name} />}
       </group>
     </>
