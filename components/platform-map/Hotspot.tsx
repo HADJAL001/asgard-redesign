@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from "react"
 import { useRouter } from "next/navigation"
 import { Html } from "@react-three/drei"
 import { useFrame } from "@react-three/fiber"
-import { AdditiveBlending, CanvasTexture, Group, Mesh, Object3D, Sprite, Vector3 } from "three"
+import { AdditiveBlending, CanvasTexture, Group, Mesh, MeshBasicMaterial, Object3D, Sprite, Vector3 } from "three"
 import type { PlatformHotspot } from "./hotspots"
 
 function latLonToVector3(lat: number, lon: number, radius: number) {
@@ -20,6 +20,7 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
   const groupRef = useRef<Group>(null)
   const markerRef = useRef<Mesh>(null)
   const spriteRef = useRef<Sprite>(null)
+  const pulseRef = useRef<Mesh>(null)
   const [isActive, setIsActive] = useState(false)
   const position = useMemo(() => latLonToVector3(hotspot.lat, hotspot.lon, radius), [hotspot.lat, hotspot.lon, radius])
   useEffect(() => {
@@ -45,6 +46,12 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
     const pulse = reducedMotion ? 1 : 1 + Math.sin(clock.elapsedTime * Math.PI + hotspot.lon) * .08
     if (markerRef.current) markerRef.current.scale.setScalar(pulse)
     if (spriteRef.current) spriteRef.current.scale.setScalar(.15 + (pulse - 1) * .05)
+    if (pulseRef.current) {
+      const phase = (clock.elapsedTime * 0.9 + hotspot.lon) % 2
+      pulseRef.current.scale.setScalar(1 + phase * 1.4)
+      const material = pulseRef.current.material as MeshBasicMaterial
+      material.opacity = Math.max(0, .55 - phase * .27)
+    }
   })
   const open = () => router.push(hotspot.href)
   const Icon = hotspot.Icon
@@ -57,6 +64,10 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
       <mesh ref={markerRef} onClick={(event) => { event.stopPropagation(); open() }}>
         <sphereGeometry args={[.03, 16, 16]} />
         <meshBasicMaterial color={hotspot.color} />
+      </mesh>
+      <mesh ref={pulseRef} rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[.04, .05, 32]} />
+        <meshBasicMaterial color={hotspot.color} transparent opacity={.55} depthWrite={false} blending={AdditiveBlending} />
       </mesh>
       {glowTexture ? <sprite ref={spriteRef} scale={[.15, .15, 1]}><spriteMaterial map={glowTexture} color={hotspot.color} transparent opacity={.6} blending={AdditiveBlending} depthWrite={false} /></sprite> : null}
       <Html transform occlude={[occludeRef as unknown as RefObject<Object3D>]} distanceFactor={.85} className="platform-hotspot-rise" style={{ animationDelay: `${delayMs}ms`, pointerEvents: "none" }}>
