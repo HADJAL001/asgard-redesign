@@ -2,93 +2,59 @@
 
 import { useMemo, useRef, useState, type RefObject } from "react"
 import { useRouter } from "next/navigation"
-import { useFrame } from "@react-three/fiber"
 import { Html } from "@react-three/drei"
-import { Mesh, Object3D, Vector3 } from "three"
-
+import { useFrame } from "@react-three/fiber"
+import { AdditiveBlending, CanvasTexture, Mesh, Object3D, Sprite, Vector3 } from "three"
 import type { PlatformHotspot } from "./hotspots"
 
-/** Та же сферическая математика, что и в holographic-globe.tsx::latLonToVec, портированная на THREE.Vector3. */
 function latLonToVector3(lat: number, lon: number, radius: number) {
   const phi = (90 - lat) * (Math.PI / 180)
   const theta = (lon + 180) * (Math.PI / 180)
-  return new Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  )
+  return new Vector3(-radius * Math.sin(phi) * Math.cos(theta), radius * Math.cos(phi), radius * Math.sin(phi) * Math.sin(theta))
 }
 
-type HotspotProps = {
-  hotspot: PlatformHotspot
-  radius: number
-  occludeRef: RefObject<Mesh | null>
-  delayMs: number
-  reducedMotion: boolean
-}
+type HotspotProps = { hotspot: PlatformHotspot; radius: number; occludeRef: RefObject<Mesh | null>; delayMs: number; reducedMotion: boolean }
 
 export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }: HotspotProps) {
   const router = useRouter()
   const markerRef = useRef<Mesh>(null)
+  const spriteRef = useRef<Sprite>(null)
   const [isActive, setIsActive] = useState(false)
   const position = useMemo(() => latLonToVector3(hotspot.lat, hotspot.lon, radius), [hotspot.lat, hotspot.lon, radius])
-
+  const glowTexture = useMemo(() => {
+    const canvas = document.createElement("canvas")
+    canvas.width = 64
+    canvas.height = 64
+    const context = canvas.getContext("2d")
+    if (!context) return null
+    const gradient = context.createRadialGradient(32, 32, 2, 32, 32, 32)
+    gradient.addColorStop(0, "rgba(255,255,255,.95)")
+    gradient.addColorStop(.18, `${hotspot.color}cc`)
+    gradient.addColorStop(1, `${hotspot.color}00`)
+    context.fillStyle = gradient
+    context.fillRect(0, 0, 64, 64)
+    return new CanvasTexture(canvas)
+  }, [hotspot.color])
   useFrame(({ clock }) => {
-    if (!markerRef.current) return
-    const pulse = reducedMotion ? 1 : 0.82 + Math.sin(clock.elapsedTime * 2 + hotspot.lon) * 0.18
-    markerRef.current.scale.setScalar(pulse)
+    const pulse = reducedMotion ? 1 : 1 + Math.sin(clock.elapsedTime * Math.PI + hotspot.lon) * .2
+    if (markerRef.current) markerRef.current.scale.setScalar(pulse)
+    if (spriteRef.current) spriteRef.current.scale.setScalar(.32 + (pulse - 1) * .2)
   })
-
-  const { Icon } = hotspot
-
+  const open = () => router.push(hotspot.href)
+  const Icon = hotspot.Icon
   return (
-    <group position={position}>
-      <mesh position={[0, 0.12, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.004, 0.004, 0.28, 6]} />
-        <meshBasicMaterial color={hotspot.color} transparent opacity={.72} />
+    <group position={position} onPointerEnter={() => setIsActive(true)} onPointerLeave={() => setIsActive(false)} onClick={open}>
+      <mesh position={[0, .15, 0]}>
+        <cylinderGeometry args={[.006, .006, .3, 8]} />
+        <meshBasicMaterial color={hotspot.color} transparent opacity={.62} />
       </mesh>
-      <mesh ref={markerRef} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.055, 0.008, 8, 20]} />
-        <meshBasicMaterial color={hotspot.color} transparent opacity={0.85} />
+      <mesh ref={markerRef} onClick={(event) => { event.stopPropagation(); open() }}>
+        <sphereGeometry args={[.05, 16, 16]} />
+        <meshBasicMaterial color={hotspot.color} />
       </mesh>
-      <Html
-        transform
-        occlude={[occludeRef as unknown as RefObject<Object3D>]}
-        distanceFactor={0.85}
-        className="platform-hotspot-rise"
-        style={{ animationDelay: `${delayMs}ms` }}
-      >
-        {/* Компактнее и «на поверхности» глобуса: круглый бейдж-иконка + стеклянная
-            пилюля, сильнее блюр и тоньше — чипы не выпирают, а будто вписаны в сферу. */}
-        <div
-          className="platform-hotspot-ui"
-          onPointerEnter={() => setIsActive(true)}
-          onPointerLeave={() => setIsActive(false)}
-        >
-        <button
-          type="button"
-          onClick={() => router.push(hotspot.href)}
-          onFocus={() => setIsActive(true)}
-          onBlur={() => setIsActive(false)}
-          aria-label={`${hotspot.label}: ${hotspot.description}`}
-          className="platform-portal group flex items-center gap-1 border px-1.5 py-1 text-[9px] font-semibold backdrop-blur-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#10181d]"
-          style={{
-            borderColor: `${hotspot.color}55`,
-            background: "linear-gradient(135deg, rgba(15,35,56,.77), rgba(5,11,22,.58))",
-            color: "#FFFFFF",
-            boxShadow: `inset 0 1px 0 ${hotspot.color}36`,
-          }}
-        >
-          <span
-            className="flex size-4 shrink-0 items-center justify-center rounded-full"
-            style={{ background: `radial-gradient(circle at 35% 30%, ${hotspot.color}, ${hotspot.color}55)`, boxShadow: `0 0 5px ${hotspot.color}66` }}
-          >
-            <Icon className="h-2.5 w-2.5" style={{ color: "#0b1020" }} strokeWidth={2.4} />
-          </span>
-          <span className="whitespace-nowrap tracking-tight">{hotspot.label}</span><span className="platform-portal-signal" style={{ background: hotspot.color }} />
-        </button>
-        {isActive ? <div className="platform-portal-preview" role="status"><span>ПОРТАЛ</span><strong>{hotspot.label}</strong><p>{hotspot.description}</p></div> : null}
-        </div>
+      {glowTexture ? <sprite ref={spriteRef} scale={[.32, .32, 1]}><spriteMaterial map={glowTexture} color={hotspot.color} transparent blending={AdditiveBlending} depthWrite={false} /></sprite> : null}
+      <Html transform occlude={[occludeRef as unknown as RefObject<Object3D>]} distanceFactor={.85} className="platform-hotspot-rise" style={{ animationDelay: `${delayMs}ms`, pointerEvents: "none" }}>
+        {isActive ? <div className="platform-portal-preview" role="status"><span><Icon size={12} /> ПОРТАЛ</span><strong>{hotspot.label}</strong><p>{hotspot.description}</p></div> : null}
       </Html>
     </group>
   )
