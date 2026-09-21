@@ -37,6 +37,9 @@ const GLOW: Record<Variant, string> = {
   market: "rgba(155,89,182,0.14)",
 }
 
+// Texture and light carry the atmosphere; symbolic glyphs read as decorative clutter.
+const SHOW_DECORATIVE_GLYPHS = false
+
 const CSS = `
 @keyframes pbg-drift { 0% { transform: translateY(12px); opacity: 0 } 12% { opacity: 1 } 88% { opacity: 1 } 100% { transform: translateY(-26px); opacity: 0 } }
 @keyframes pbg-glow { 0%,100% { opacity: .55 } 50% { opacity: .95 } }
@@ -65,7 +68,7 @@ export function PremiumBackground({ variant = "coins" }: { variant?: Variant }) 
         const size = 16 + ((i * 13) % 30)
         const dur = 9 + ((i * 7) % 12)
         const delay = -((i * 5) % 12)
-        const g = glyphs[i % glyphs.length]
+        const g = SHOW_DECORATIVE_GLYPHS ? glyphs[i % glyphs.length] : null
         const isEmoji = false
         return (
           <span
