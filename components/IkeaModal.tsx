@@ -107,7 +107,7 @@ export function IkeaModal({ open, onClose, session, onContinueDemo }: IkeaModalP
                     className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px]"
                     style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.2)" }}
                   >
-                    🌌
+                    Проект
                   </div>
                   <span className="text-[13px] text-white/80 truncate max-w-[160px]">{p.name}</span>
                 </div>

@@ -616,9 +616,9 @@ function PromoSection() {
           </span>
         </div>
         <ul className="space-y-1.5 text-[13px]" style={{ color: "rgba(255,255,255,0.6)" }}>
-          <li>🪙 TimeCoin — зачисляется на кошелёк мгновенно</li>
-          <li>⏱️ Дни доступа к плану Pro или Supreme</li>
-          <li>🏷️ Скидка на следующую оплату</li>
+          <li>TimeCoin — зачисляется на кошелёк мгновенно</li>
+          <li>Дни доступа к плану Pro или Supreme</li>
+          <li>Скидка на следующую оплату</li>
         </ul>
       </div>
 

@@ -23,7 +23,7 @@ const AUCTION_CURRENCIES: CurrencyId[] = ["timecoin"]
 const CURRENCY_SYMBOL: Record<string, string> = {
   credits: "⚡",
   shards: "♦",
-  crystals: "💎",
+  crystals: "CR",
   timecoin: "∞",
   cash_usd: "$",
 }

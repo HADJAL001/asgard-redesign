@@ -389,7 +389,7 @@ export const TX_STATUS: Record<Transaction["status"], { label: string; color: st
 }
 
 /* ================================================================
-   CURRENCY HIERARCHY — Credits ⚡ → Shards ♦ → Crystals 💎 → TimeCoin ∞
+   CURRENCY HIERARCHY — Credits → Shards → Crystals → TimeCoin
    Ascending exchange: 1000 Credits = 1 Shard, 100 Shards = 1 Crystal,
    10 Crystals = 1 TimeCoin. Fiat: 1 TC = $10. Emission: 2 100 000 TC.
    ================================================================ */
@@ -417,7 +417,7 @@ export type Currency = {
 export const CURRENCIES: Record<CurrencyId, Currency> = {
   credits: { id: "credits", label: "Кредиты", symbol: "⚡", tier: 1, rarity: "Обычная", color: "#F1C40F", Icon: Zap, ratePerLower: 0, creditRate: 1, access: "Все" },
   shards: { id: "shards", label: "Осколки", symbol: "♦", tier: 2, rarity: "Необычная", color: "#3498DB", Icon: Sparkles, ratePerLower: 1000, creditRate: 1_000, access: "Все" },
-  crystals: { id: "crystals", label: "Кристаллы", symbol: "💎", tier: 3, rarity: "Редкая", color: "#9B59B6", Icon: Gem, ratePerLower: 100, creditRate: 100_000, access: "Все" },
+  crystals: { id: "crystals", label: "Кристаллы", symbol: "CR", tier: 3, rarity: "Редкая", color: "#9B59B6", Icon: Gem, ratePerLower: 100, creditRate: 100_000, access: "Все" },
   timecoin: { id: "timecoin", label: "TimeCoin", symbol: "∞", tier: 4, rarity: "Ультра-редкая", color: "#E74C3C", Icon: InfinityIcon, ratePerLower: 10, creditRate: 1_000_000, access: "Элита", elite: true },
 }
 
@@ -532,9 +532,9 @@ export const HOF_TIERS: Record<
   HofTier,
   { label: string; min: number; max: number; color: string; glow: string; symbol: string; Icon: LucideIcon }
 > = {
-  amber: { label: "Янтарь", min: 20_000, max: 49_999, color: "#FFBF00", glow: "rgba(255,191,0,0.18)", symbol: "🔶", Icon: Award },
-  sapphire: { label: "Сапфир", min: 50_000, max: 99_999, color: "#4A90E2", glow: "rgba(15,82,186,0.28)", symbol: "💠", Icon: Gem },
-  diamond: { label: "Алмаз", min: 100_000, max: Infinity, color: "#E6ECFF", glow: "rgba(224,224,224,0.28)", symbol: "💎", Icon: Crown },
+  amber: { label: "Янтарь", min: 20_000, max: 49_999, color: "#FFBF00", glow: "rgba(255,191,0,0.18)", symbol: "AM", Icon: Award },
+  sapphire: { label: "Сапфир", min: 50_000, max: 99_999, color: "#4A90E2", glow: "rgba(15,82,186,0.28)", symbol: "SA", Icon: Gem },
+  diamond: { label: "Алмаз", min: 100_000, max: Infinity, color: "#E6ECFF", glow: "rgba(224,224,224,0.28)", symbol: "DI", Icon: Crown },
 }
 
 export const HOF_TIER_ORDER: HofTier[] = ["diamond", "sapphire", "amber"]

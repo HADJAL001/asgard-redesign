@@ -65,7 +65,7 @@ function normalizeStatus(raw: string): StatusKey {
 const CURRENCY_SYMBOL: Record<string, string> = {
   credits: "⚡",
   shards: "♦",
-  crystals: "💎",
+  crystals: "CR",
   timecoin: "∞",
   cash_usd: "$",
 }

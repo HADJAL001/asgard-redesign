@@ -43,8 +43,8 @@ const DEFAULT_EDGE_OPTIONS = { type: "snake" }
 const MAX_NODES = 20
 const TEMPLATE_VISUALS = [
   { label: "Быстрый прототип", detail: "1 узел, 30 секунд", color: "#FFB800", Icon: Zap },
-  { label: "Полный цикл", detail: "3 узла, 5 минут", color: "#00D9FF", Icon: Cog },
-  { label: "Анализ данных", detail: "2 узла, 2 минуты", color: "#9D4EDD", Icon: ChartNoAxesCombined },
+  { label: "Полный цикл", detail: "3 узла, 5 минут", color: "#D7AE57", Icon: Cog },
+  { label: "Анализ данных", detail: "2 узла, 2 минуты", color: "#B5A681", Icon: ChartNoAxesCombined },
 ]
 const FLOW_TEMPLATES: Array<{ label: string; types: OrchestratorNodeType[] }> = [
   { label: "Быстрый прототип", types: ["claude", "deepseek"] },
@@ -400,7 +400,7 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
             color: nodes.length >= MAX_NODES ? COLORS.red : COLORS.label,
           }}
         >
-          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10"><span className="block h-full rounded-full" style={{ width: `${energy}%`, background: "linear-gradient(90deg,#36b9ff,#f5c451)" }} /></span>
+          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10"><span className="block h-full rounded-full" style={{ width: `${energy}%`, background: "linear-gradient(90deg,#785e2e,#d7ae57)" }} /></span>
           {nodes.length}/{MAX_NODES}
         </div>
 
@@ -541,7 +541,7 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
             colorMode="dark"
             fitView
           >
-            <Background color="#1d4e76" gap={24} size={1} />
+            <Background color="#51452a" gap={24} size={1} />
             <Controls />
             <MiniMap pannable zoomable style={{ backgroundColor: COLORS.card }} />
           </ReactFlow>

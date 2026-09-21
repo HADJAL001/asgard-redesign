@@ -181,7 +181,7 @@ export function UpgradeNudgeModal({
             color: "#F59E0B",
           }}
         >
-          🎁 Попробовать 7 дней бесплатно
+          Попробовать 7 дней бесплатно
         </Link>
 
         <button

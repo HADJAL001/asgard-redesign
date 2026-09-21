@@ -22,6 +22,8 @@ import {
   Crown,
   ArrowRight,
   RefreshCw,
+  Save,
+  Zap,
 } from "lucide-react"
 import { PremiumModal } from "./PremiumModal"
 import { ProjectArtifactReveal, type RevealRarityMeta } from "./ProjectArtifactReveal"
@@ -112,7 +114,7 @@ export function DemoProjectModal({ open, onClose, onLimitReached, initialName }:
           style={{ background: "rgba(6,182,212,0.06)", border: "1px solid rgba(6,182,212,0.15)" }}
         >
           <span className="text-[13px]" style={{ color: "rgba(255,255,255,0.5)" }}>
-            ⚡ Бесплатных генераций
+            <span className="inline-flex items-center gap-1.5"><Zap size={14} aria-hidden="true" />Бесплатных генераций</span>
           </span>
           <div className="flex items-center gap-2">
             {Array.from({ length: MAX_GENERATIONS }).map((_, i) => (
@@ -236,7 +238,7 @@ export function DemoProjectModal({ open, onClose, onLimitReached, initialName }:
                     boxShadow: "0 0 20px rgba(245,158,11,0.2)",
                   }}
                 >
-                  💾 Сохранить вселенную <ArrowRight size={14} />
+                  <Save size={14} aria-hidden="true" />Сохранить вселенную <ArrowRight size={14} />
                 </Link>
               }
             />

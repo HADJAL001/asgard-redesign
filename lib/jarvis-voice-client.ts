@@ -13,11 +13,11 @@ import apiClient from "@/lib/api-client"
 export type VoiceStyle = "announcer" | "cinematic" | "rap" | "calm" | "energetic"
 
 export const VOICE_STYLE_ICONS: Record<VoiceStyle, string> = {
-  announcer: "🎙️",
-  cinematic: "🎬",
-  rap: "🎤",
-  calm: "🧘",
-  energetic: "⚡",
+  announcer: "A",
+  cinematic: "C",
+  rap: "R",
+  calm: "S",
+  energetic: "E",
 }
 
 export const VOICE_STYLE_LABELS: Record<VoiceStyle, string> = {

@@ -102,7 +102,7 @@ export function DemoProjectGenerator() {
               color: "var(--eg-gold-1)",
             }}
           >
-            🌌 Ты уже создал {sessionSummary.used} {sessionSummary.used === 1 ? "вселенную" : "вселенных"} · сохрани их!
+            Создано: {sessionSummary.used} {sessionSummary.used === 1 ? "вселенная" : "вселенных"}. Сохрани их.
           </div>
         )}
 

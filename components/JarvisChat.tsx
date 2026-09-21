@@ -6,9 +6,9 @@
    Чат с ИИ-ассистентом ДЖАРВИСОМ.
 
    Режимы ответа (переключаются кнопками или выпадающим списком):
-     - "text"  💬  — только текст в чате, без озвучки
-     - "voice" 🔊  — только голос (Web Speech API), текст ответа скрыт
-     - "both"  💬🔊 — текст + голос одновременно
+     - "text"  — только текст в чате, без озвучки
+     - "voice" — только голос (Web Speech API), текст ответа скрыт
+     - "both"  — текст + голос одновременно
 
    Настройка режима сохраняется в localStorage (ключ "jarvis_reply_mode"),
    поэтому после перезагрузки страницы выбор пользователя сохраняется.
@@ -69,9 +69,9 @@ const REPLY_MODE_KEY = "jarvis_reply_mode"
 const GREETING_SEEN_KEY = "jarvis_greeting_seen"
 
 const REPLY_MODE_META: Record<ReplyMode, { label: string; icon: string }> = {
-  text: { label: "Только текст", icon: "💬" },
-  voice: { label: "Только голос", icon: "🔊" },
-  both: { label: "Текст + Голос", icon: "💬🔊" },
+  text: { label: "Только текст", icon: "TXT" },
+  voice: { label: "Только голос", icon: "VOX" },
+  both: { label: "Текст + Голос", icon: "TXT+VOX" },
 }
 
 /* ----------------------------------------------------------------

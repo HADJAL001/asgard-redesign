@@ -12,10 +12,10 @@ export type JarvisMode = "quotes" | "savage" | "poet" | "news" | "default"
 
 export const MODE_ICONS: Record<JarvisMode, string> = {
   quotes: "Цитаты",
-  savage: "😏",
-  poet: "🌸",
-  news: "🌍",
-  default: "💬",
+  savage: "S",
+  poet: "P",
+  news: "N",
+  default: "J",
 }
 
 export const MODE_LABELS: Record<JarvisMode, string> = {
