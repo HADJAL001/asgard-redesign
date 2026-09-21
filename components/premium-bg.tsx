@@ -19,7 +19,7 @@ type Variant = "coins" | "gold" | "ideas" | "market"
 const GLYPHS: Record<Variant, string[]> = {
   coins: ["∞", "$", "◎", "∞", "¤", "◉"],
   gold: ["$", "€", "£", "¥", "▬", "∞"],
-  ideas: ["🛡", "🛒", "🌐", "💬", "📈", "🎮", "🔒", "📱", "⚙", "✦"],
+  ideas: ["◈", "⌘", "◎", "⌁", "↗", "◇", "□", "∿", "＋", "✦"],
   market: ["◈", "◆", "❖", "✦", "◇", "⬡"],
 }
 
@@ -40,7 +40,7 @@ const GLOW: Record<Variant, string> = {
 const CSS = `
 @keyframes pbg-drift { 0% { transform: translateY(12px); opacity: 0 } 12% { opacity: 1 } 88% { opacity: 1 } 100% { transform: translateY(-26px); opacity: 0 } }
 @keyframes pbg-glow { 0%,100% { opacity: .55 } 50% { opacity: .95 } }
-.pbg-root { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.pbg-root { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
 .pbg-g { position: absolute; will-change: transform, opacity; user-select: none; line-height: 1; }
 .pbg-glow { position: absolute; left: 50%; top: 12%; width: 720px; height: 380px; transform: translateX(-50%);
   filter: blur(40px); animation: pbg-glow 7s ease-in-out infinite; }
@@ -66,7 +66,7 @@ export function PremiumBackground({ variant = "coins" }: { variant?: Variant }) 
         const dur = 9 + ((i * 7) % 12)
         const delay = -((i * 5) % 12)
         const g = glyphs[i % glyphs.length]
-        const isEmoji = variant === "ideas"
+        const isEmoji = false
         return (
           <span
             key={`${uid}-${i}`}
