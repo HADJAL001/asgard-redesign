@@ -25,6 +25,7 @@ import { ApiError } from "@/lib/api-client"
 import { useOrchestratorRun } from "@/hooks/useOrchestratorRun"
 import { ORCHESTRATOR_PALETTE, DRAG_DATA_FORMAT } from "./node-types"
 import { OrchestratorNode } from "./nodes/OrchestratorNode"
+import { OrchestratorRadialShowcase } from "./OrchestratorRadialShowcase"
 import { SnakeEdge } from "./edges/SnakeEdge"
 import { PremiumModal } from "@/components/PremiumModal"
 import { integrationsApi } from "@/lib/integrations/api"
@@ -510,13 +511,7 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
           {nodes.length === 0 && (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
               <div className="max-w-[500px] px-6 text-center">
-                <div className="orch-ghost-flow mx-auto mb-8" aria-hidden="true">
-                  <div className="orch-ghost-node orch-ghost-node--planner"><span className="orch-ghost-brain" /><b>OSGARD 5.0</b><small>Планировщик</small></div>
-                  <div className="orch-ghost-link orch-ghost-link--one"><i /><i /><i /></div>
-                  <div className="orch-ghost-node orch-ghost-node--architect"><span className="orch-ghost-chip" /><b>OSGARD 4.0</b><small>Архитектор</small></div>
-                  <div className="orch-ghost-link orch-ghost-link--two"><i /><i /><i /></div>
-                  <div className="orch-ghost-node orch-ghost-node--processor"><span className="orch-ghost-crystal" /><b>OSGARD 3.3</b><small>Обработчик</small></div>
-                </div>
+                <div className="mx-auto mb-8" aria-hidden="true"><OrchestratorRadialShowcase /></div>
                 <p className="text-[16px] font-semibold text-white/85">Соберите свой ИИ-конвейер</p>
                 <p className="mt-1 text-[13px] text-white/45">Перетащите узлы из палитры или начните с готового шаблона.</p>
                 <div className="pointer-events-auto mt-5 flex flex-wrap justify-center gap-2">
