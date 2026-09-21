@@ -30,9 +30,9 @@ import { displayAiModelName } from "@/lib/ai-model-labels"
 /* ---- Palette ----
    bg #10181d · card #17242a · accent #d7ae57 · text #FFFFFF · label #9eb2bc · border #30424b */
 const ACCENT = "#d7ae57"
-const CARD = "#17242a"
-const BORDER = "#30424b"
-const LABEL = "#9eb2bc"
+const CARD = "rgba(18, 17, 14, 0.78)"
+const BORDER = "rgba(215, 174, 87, 0.24)"
+const LABEL = "#ada58f"
 
 type AdminStats = {
   totalUsers: number
@@ -144,7 +144,8 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
         backgroundColor: CARD,
         backgroundImage: "linear-gradient(112deg, transparent 0 35%, rgba(215,174,87,0.055) 35.2% 35.35%, transparent 35.6% 100%), linear-gradient(32deg, transparent 0 68%, rgba(255,255,255,0.035) 68.2% 68.35%, transparent 68.6% 100%)",
         border: `1px solid ${BORDER}`,
-        boxShadow: "0 18px 48px rgba(0,0,0,0.22)",
+        backdropFilter: "blur(20px)",
+        boxShadow: "0 18px 48px rgba(0,0,0,0.36)",
       }}
     >
       {children}
@@ -455,7 +456,7 @@ export function AdminView() {
       className="min-h-screen font-sans"
       style={{
         backgroundColor: "#0a0a0a",
-        backgroundImage: "linear-gradient(116deg, transparent 0 28%, rgba(215,174,87,0.045) 28.15% 28.28%, transparent 28.5% 100%), linear-gradient(24deg, transparent 0 74%, rgba(255,255,255,0.028) 74.15% 74.3%, transparent 74.5% 100%)",
+        backgroundImage: "radial-gradient(circle at 18% 8%, rgba(215,174,87,0.09), transparent 30%), linear-gradient(116deg, transparent 0 28%, rgba(215,174,87,0.05) 28.15% 28.28%, transparent 28.5% 100%), linear-gradient(24deg, transparent 0 74%, rgba(255,255,255,0.025) 74.15% 74.3%, transparent 74.5% 100%)",
         color: "#FFFFFF",
       }}
     >
@@ -475,7 +476,7 @@ export function AdminView() {
             <Card key={m.label}>
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="text-[24px] font-medium leading-none">{m.value}</div>
+                  <div className="font-mono text-[clamp(32px,4vw,56px)] font-light leading-none tracking-normal" style={{ color: "#f1d77c" }}>{m.value}</div>
                   <div className="mt-2 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>
                     {m.label}
                   </div>

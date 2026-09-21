@@ -32,7 +32,7 @@
 .app-root-content { font-family: var(--font-onest), sans-serif; }
 .app-root-content h1,
 .app-root-content h2,
-.app-root-content h3 { font-family: var(--font-jakarta), sans-serif; }
+.app-root-content h3 { font-family: var(--font-unbounded), sans-serif; letter-spacing: 0; }
 
 :root {
   --font-unbounded: "Unbounded Variable", "Unbounded", sans-serif;
