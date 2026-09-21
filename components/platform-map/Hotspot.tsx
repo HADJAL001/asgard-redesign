@@ -24,8 +24,8 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
   const position = useMemo(() => latLonToVector3(hotspot.lat, hotspot.lon, radius), [hotspot.lat, hotspot.lon, radius])
   useEffect(() => {
     if (!groupRef.current) return
-    groupRef.current.lookAt(0, 0, 0)
-    groupRef.current.rotateX(Math.PI / 2)
+    const normal = position.clone().normalize()
+    groupRef.current.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), normal)
   }, [position])
   const glowTexture = useMemo(() => {
     const canvas = document.createElement("canvas")
@@ -34,32 +34,31 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
     const context = canvas.getContext("2d")
     if (!context) return null
     const gradient = context.createRadialGradient(32, 32, 2, 32, 32, 32)
-    gradient.addColorStop(0, "rgba(255,255,255,.95)")
-    gradient.addColorStop(.18, `${hotspot.color}cc`)
+    gradient.addColorStop(0, `${hotspot.color}cc`)
+    gradient.addColorStop(.3, `${hotspot.color}4d`)
     gradient.addColorStop(1, `${hotspot.color}00`)
     context.fillStyle = gradient
     context.fillRect(0, 0, 64, 64)
     return new CanvasTexture(canvas)
   }, [hotspot.color])
   useFrame(({ clock }) => {
-    const pulse = reducedMotion ? 1 : 1 + Math.sin(clock.elapsedTime * Math.PI + hotspot.lon) * .2
+    const pulse = reducedMotion ? 1 : 1 + Math.sin(clock.elapsedTime * Math.PI + hotspot.lon) * .08
     if (markerRef.current) markerRef.current.scale.setScalar(pulse)
-    if (spriteRef.current) spriteRef.current.scale.setScalar(.32 + (pulse - 1) * .2)
+    if (spriteRef.current) spriteRef.current.scale.setScalar(.15 + (pulse - 1) * .05)
   })
   const open = () => router.push(hotspot.href)
   const Icon = hotspot.Icon
   return (
     <group ref={groupRef} position={position} onPointerEnter={() => setIsActive(true)} onPointerLeave={() => setIsActive(false)} onClick={open}>
-      <mesh position={[0, -.22, 0]}>
-        <cylinderGeometry args={[.009, .009, .44, 10]} />
-        <meshBasicMaterial color={hotspot.color} transparent opacity={.48} blending={AdditiveBlending} />
+      <mesh position={[0, .175, 0]}>
+        <cylinderGeometry args={[.002, .002, .35, 6]} />
+        <meshBasicMaterial color={hotspot.color} transparent opacity={.3} blending={AdditiveBlending} />
       </mesh>
       <mesh ref={markerRef} onClick={(event) => { event.stopPropagation(); open() }}>
-        <sphereGeometry args={[.075, 24, 24]} />
-        <meshStandardMaterial color={hotspot.color} emissive={hotspot.color} emissiveIntensity={2.4} metalness={.85} roughness={.14} />
+        <sphereGeometry args={[.03, 16, 16]} />
+        <meshBasicMaterial color={hotspot.color} />
       </mesh>
-      <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[.12, .012, 8, 24]} /><meshBasicMaterial color={hotspot.color} transparent opacity={.62} blending={AdditiveBlending} /></mesh>
-      {glowTexture ? <sprite ref={spriteRef} scale={[.32, .32, 1]}><spriteMaterial map={glowTexture} color={hotspot.color} transparent blending={AdditiveBlending} depthWrite={false} /></sprite> : null}
+      {glowTexture ? <sprite ref={spriteRef} scale={[.15, .15, 1]}><spriteMaterial map={glowTexture} color={hotspot.color} transparent opacity={.6} blending={AdditiveBlending} depthWrite={false} /></sprite> : null}
       <Html transform occlude={[occludeRef as unknown as RefObject<Object3D>]} distanceFactor={.85} className="platform-hotspot-rise" style={{ animationDelay: `${delayMs}ms`, pointerEvents: "none" }}>
         {isActive ? <div className="platform-portal-preview" role="status"><span><Icon size={12} /> ПОРТАЛ</span><strong>{hotspot.label}</strong><p>{hotspot.description}</p></div> : null}
       </Html>

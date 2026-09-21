@@ -2,22 +2,22 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react"
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber"
-import { Environment, Lightformer, OrbitControls, Points, PointMaterial } from "@react-three/drei"
+import { OrbitControls, Points, PointMaterial } from "@react-three/drei"
 import { AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, Color, Group, Mesh, ShaderMaterial, SRGBColorSpace, TextureLoader } from "three"
 import { Hotspot } from "./Hotspot"
 import type { PlatformHotspot } from "./hotspots"
 
-const GLOBE_RADIUS = 1.2
+const GLOBE_RADIUS = 5
 const seeded = (value: number) => (Math.sin(value * 729.31) + 1) * .5
 
 function Atmosphere() {
-  const material = useMemo(() => new ShaderMaterial({ transparent: true, side: BackSide, blending: AdditiveBlending, depthWrite: false, uniforms: { glowColor: { value: new Color("#67caff") } }, vertexShader: `varying vec3 vNormal; varying vec3 vPosition; void main(){vNormal=normalize(mat3(modelMatrix)*normal);vPosition=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`, fragmentShader: `uniform vec3 glowColor; varying vec3 vNormal; varying vec3 vPosition; void main(){vec3 viewDir=normalize(cameraPosition-vPosition);float rim=pow(1.-max(dot(normalize(vNormal),viewDir),0.),4.8);gl_FragColor=vec4(glowColor,rim*.2);}` }), [])
-  return <mesh scale={GLOBE_RADIUS * 1.025}><sphereGeometry args={[1, 128, 128]} /><primitive object={material} attach="material" /></mesh>
+  const material = useMemo(() => new ShaderMaterial({ transparent: true, side: BackSide, blending: AdditiveBlending, depthWrite: false, uniforms: { glowColor: { value: new Color("#4da6ff") } }, vertexShader: `varying vec3 vNormal; varying vec3 vPosition; void main(){vNormal=normalize(mat3(modelMatrix)*normal);vPosition=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`, fragmentShader: `uniform vec3 glowColor; varying vec3 vNormal; varying vec3 vPosition; void main(){vec3 viewDir=normalize(cameraPosition-vPosition);float rim=pow(1.-max(dot(normalize(vNormal),viewDir),0.),4.);gl_FragColor=vec4(glowColor*rim*2.,rim*.22);}` }), [])
+  return <mesh scale={GLOBE_RADIUS * 1.03}><sphereGeometry args={[1, 128, 128]} /><primitive object={material} attach="material" /></mesh>
 }
 
 function CityLights() {
   const geometry = useMemo(() => { const positions: number[] = []; for (let i = 0; i < 760; i += 1) { if (seeded(i + 611) < .53) continue; const lat = (seeded(i + 2) - .5) * 2, lon = seeded(i + 199) * Math.PI * 2, r = GLOBE_RADIUS * 1.004; positions.push(r * Math.cos(lat) * Math.cos(lon), r * Math.sin(lat), r * Math.cos(lat) * Math.sin(lon)) } const g = new BufferGeometry(); g.setAttribute("position", new BufferAttribute(new Float32Array(positions), 3)); return g }, [])
-  return <points geometry={geometry}><pointsMaterial size={.015} sizeAttenuation color="#f5c451" transparent opacity={.62} blending={AdditiveBlending} depthWrite={false} /></points>
+  return <points geometry={geometry}><pointsMaterial size={.045} sizeAttenuation color="#f5c451" transparent opacity={.46} blending={AdditiveBlending} depthWrite={false} /></points>
 }
 
 function Globe({ reducedMotion, worldRef, globeRef }: { reducedMotion: boolean; worldRef: React.RefObject<Group | null>; globeRef: React.RefObject<Mesh | null> }) {
@@ -32,7 +32,7 @@ function CloudLayer({ reducedMotion }: { reducedMotion: boolean }) {
   const raw = useLoader(TextureLoader, "/textures/earth/earth_clouds_1024.png"), ref = useRef<Mesh>(null)
   const texture = useMemo(() => { const t = raw.clone(); t.colorSpace = SRGBColorSpace; t.needsUpdate = true; return t }, [raw])
   useFrame((_, delta) => { if (!reducedMotion && ref.current) ref.current.rotation.y += delta * .025 })
-  return <mesh ref={ref} scale={GLOBE_RADIUS * 1.014}><sphereGeometry args={[1, 96, 96]} /><meshPhongMaterial map={texture} transparent opacity={.32} depthWrite={false} /></mesh>
+  return <mesh ref={ref} scale={GLOBE_RADIUS * 1.014}><sphereGeometry args={[1, 96, 96]} /><meshPhongMaterial map={texture} transparent opacity={.28} depthWrite={false} /></mesh>
 }
 
 function SkyParallax({ reducedMotion }: { reducedMotion: boolean }) {
@@ -42,10 +42,10 @@ function SkyParallax({ reducedMotion }: { reducedMotion: boolean }) {
   return <>{layers.map((layer, i) => <group key={layer.color} ref={refs[i]}><Points positions={layer.positions} stride={3} frustumCulled><PointMaterial transparent color={layer.color} size={layer.size} sizeAttenuation depthWrite={false} /></Points></group>)}</>
 }
 
-function CameraDolly() { const done = useRef(false); useFrame((state) => { if (done.current) return; const dist = state.camera.position.length(); if (Math.abs(dist - 3.6) < .01) { done.current = true; return }; state.camera.position.setLength(dist + (3.6 - dist) * .05) }); return null }
+function CameraDolly() { const done = useRef(false); useFrame((state) => { if (done.current) return; const dist = state.camera.position.length(); if (Math.abs(dist - 18) < .01) { done.current = true; return }; state.camera.position.setLength(dist + (18 - dist) * .05) }); return null }
 
 export function PlatformGlobeScene({ sections }: { sections: PlatformHotspot[] }) {
   const globeRef = useRef<Mesh>(null), worldRef = useRef<Group>(null), [reducedMotion, setReducedMotion] = useState(false)
   useEffect(() => { const q = window.matchMedia("(prefers-reduced-motion: reduce)"), sync = () => setReducedMotion(q.matches); sync(); q.addEventListener("change", sync); return () => q.removeEventListener("change", sync) }, [])
-  return <Canvas style={{ width: "100%", height: "100%", background: "transparent" }} camera={{ position: [0, 0, 8], fov: 45 }} gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }} dpr={[1, 1.5]}><SkyParallax reducedMotion={reducedMotion} /><ambientLight intensity={.3} color="#223355" /><directionalLight position={[5, 7, 6]} intensity={1.8} color="#ffffff" /><directionalLight position={[-10, -5, -10]} intensity={.35} color="#4466aa" /><directionalLight position={[-5, 3, -10]} intensity={.45} color="#3b82f6" /><pointLight position={[-5, 0, 5]} intensity={.8} color="#f5c451" /><Environment resolution={128} frames={1}><Lightformer form="rect" intensity={1.2} color="#4A8AB5" position={[0, 4, 4]} scale={[8, 4, 1]} /><Lightformer form="rect" intensity={.8} color="#F0C75E" position={[-5, 0, 3]} scale={[4, 6, 1]} /></Environment><CameraDolly /><Suspense fallback={null}><group ref={worldRef}><Globe reducedMotion={reducedMotion} worldRef={worldRef} globeRef={globeRef} /><CloudLayer reducedMotion={reducedMotion} />{sections.map((section, i) => <Hotspot key={section.key} hotspot={section} radius={GLOBE_RADIUS + .14} occludeRef={globeRef} delayMs={i * 60} reducedMotion={reducedMotion} />)}</group></Suspense><OrbitControls enableDamping dampingFactor={.075} autoRotate={false} enablePan={false} minDistance={2.4} maxDistance={6} rotateSpeed={.5} /></Canvas>
+  return <Canvas style={{ width: "100%", height: "100%", background: "transparent" }} camera={{ position: [0, 0, 18], fov: 30 }} gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }} dpr={[1, 1.5]}><SkyParallax reducedMotion={reducedMotion} /><ambientLight intensity={.15} color="#0a1220" /><directionalLight position={[10, 5, 8]} intensity={3} color="#fff8e8" /><directionalLight position={[-10, -5, -8]} intensity={.4} color="#2a4a7a" /><CameraDolly /><Suspense fallback={null}><group ref={worldRef}><Globe reducedMotion={reducedMotion} worldRef={worldRef} globeRef={globeRef} /><CloudLayer reducedMotion={reducedMotion} />{sections.map((section, i) => <Hotspot key={section.key} hotspot={section} radius={GLOBE_RADIUS + .02} occludeRef={globeRef} delayMs={i * 60} reducedMotion={reducedMotion} />)}</group></Suspense><OrbitControls enableDamping dampingFactor={.075} autoRotate={false} enablePan={false} minDistance={10} maxDistance={24} rotateSpeed={.5} /></Canvas>
 }
