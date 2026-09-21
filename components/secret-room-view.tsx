@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { Armchair, BookOpen, CalendarDays, Check, Circle, Crown, Fish, Flower2, Frame, Gem, KeyRound, LampDesk, Loader2, Lock, Piano, Plus, Send, Sparkles, Ticket, Trash2, Trophy, Upload, UserPlus, Vault, X, type LucideIcon } from "lucide-react"
+import { Armchair, BookOpen, CalendarDays, Check, Circle, Crown, Fish, Flower2, Frame, Gem, KeyRound, LampDesk, Loader2, Lock, Piano, Plus, Send, Server, Sparkles, Ticket, Trash2, Trophy, Upload, UserPlus, Vault, X, type LucideIcon } from "lucide-react"
 import { Navbar } from "./navbar"
 import { PremiumBackground } from "./premium-bg"
 import { COLORS } from "@/lib/economy"
@@ -44,7 +44,7 @@ const BG_LIST = Object.keys(BACKGROUNDS)
 
 const ITEMS: Record<string, LucideIcon> = {
   sofa: Armchair, lamp: LampDesk, plant: Flower2, painting: Frame, shelf: BookOpen, rug: Circle,
-  throne: Crown, aquarium: Fish, piano: Piano, safe: Vault, trophy: Trophy, crystal: Gem,
+  throne: Crown, aquarium: Fish, piano: Piano, safe: Vault, trophy: Trophy, crystal: Gem, server: Server,
 }
 const ITEM_LIST = Object.keys(ITEMS)
 

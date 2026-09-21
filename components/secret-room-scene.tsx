@@ -40,6 +40,8 @@ const IMPORTED_ASSETS: Partial<Record<string, { src: string; height: number; rot
   sofa: { src: "/assets/secret-room/models/velvet-sofa.glb", height: 1.08, rotation: Math.PI },
   throne: { src: "/assets/secret-room/models/sheen-chair.glb", height: 1.48, rotation: Math.PI },
   plant: { src: "/assets/secret-room/models/glass-vase-flowers.glb", height: 1.12 },
+  lamp: { src: "/assets/secret-room/models/brass-lantern.glb", height: 1.5 },
+  server: { src: "/assets/secret-room/models/server-console.glb", height: 1.35, rotation: Math.PI },
 }
 
 function ImportedRoomAsset({ src, height, position, rotation, onClick }: { src: string; height: number; position: [number, number, number]; rotation?: number; onClick: (event: { stopPropagation: () => void }) => void }) {

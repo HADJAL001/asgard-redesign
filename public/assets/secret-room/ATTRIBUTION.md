@@ -22,3 +22,6 @@ https://github.com/KhronosGroup/glTF-Sample-Assets
   embedded in the model metadata; see the upstream model README.
 - `glass-vase-flowers.glb` (GlassVaseFlowers): CC BY 4.0. Source attribution
   remains embedded in the model metadata; see the upstream model README.
+- `brass-lantern.glb` (Lantern): CC0 1.0, Khronos glTF Sample Assets.
+- `server-console.glb` (BoomBox): CC0 1.0, Khronos glTF Sample Assets. Used as
+  illuminated server-console hardware in the room scene.
