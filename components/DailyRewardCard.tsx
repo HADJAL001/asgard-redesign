@@ -8,6 +8,7 @@
    ================================================================ */
 
 import { useEffect, useState } from "react"
+import { Check, Flame } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 
@@ -73,7 +74,7 @@ export function DailyRewardCard() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[20px]" aria-hidden="true">🔥</span>
+            <Flame size={20} aria-hidden="true" style={{ color: "#D4AF37" }} />
             <span className="text-[15px] font-semibold text-white">Ежедневная награда</span>
             {status.streak > 0 && (
               <span
@@ -99,7 +100,7 @@ export function DailyRewardCard() {
             color: status.canClaim ? "#1A1400" : "rgba(255,255,255,0.5)",
           }}
         >
-          {justReward != null ? `+${justReward} ✓` : status.claimedToday ? "Забрано" : claiming ? "…" : "Забрать"}
+          {justReward != null ? <span className="inline-flex items-center gap-1">+{justReward}<Check size={15} aria-hidden="true" /></span> : status.claimedToday ? "Забрано" : claiming ? "…" : "Забрать"}
         </button>
       </div>
     </div>

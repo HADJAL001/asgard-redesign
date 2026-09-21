@@ -7,6 +7,7 @@
    ================================================================ */
 
 import { useState } from "react"
+import { Flame, GitMerge } from "lucide-react"
 import { useOsgardStore, type OsgardArtifact } from "@/lib/store/osgard-store"
 
 const RARITY_COLOR: Record<string, string> = {
@@ -100,7 +101,7 @@ export function FusionModal({ open, onClose }: { open: boolean; onClose: () => v
         ) : (
           <>
             <div className="mb-1 flex items-center justify-between">
-              <h3 className="text-[18px] font-semibold text-white">🔀 Слияние артефактов</h3>
+              <h3 className="flex items-center gap-2 text-[18px] font-semibold text-white"><GitMerge size={18} aria-hidden="true" />Слияние артефактов</h3>
               <button onClick={onClose} aria-label="Закрыть" className="text-[20px] leading-none" style={{ color: "rgba(255,255,255,0.4)" }}>
                 ×
               </button>
@@ -141,7 +142,7 @@ export function FusionModal({ open, onClose }: { open: boolean; onClose: () => v
             {selected.length === 2 && (
               <div className="eg-inset mt-4 rounded-xl p-3 text-[12px]">
                 <p style={{ color: "rgba(255,255,255,0.5)" }}>
-                  🔥 Сгорят навсегда:{" "}
+                  <span className="inline-flex items-center gap-1"><Flame size={14} aria-hidden="true" />Сгорят навсегда:</span>{" "}
                   <span style={{ color: "#fff" }}>
                     {kept
                       .filter((a) => selected.includes(a.id))
@@ -167,7 +168,7 @@ export function FusionModal({ open, onClose }: { open: boolean; onClose: () => v
                 }
                 style={selected.length === 2 ? undefined : { background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)" }}
               >
-                {fusing ? "Слияние…" : "🔀 Слить"}
+                {fusing ? "Слияние…" : <><GitMerge size={15} aria-hidden="true" />Слить</>}
               </button>
             </div>
           </>

@@ -22,7 +22,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Search, Store, Archive, CheckCircle2, Boxes, Loader2, Hammer, Sparkles, Swords, X, ScrollText, BookOpen } from "lucide-react"
+import { Search, Store, Archive, CheckCircle2, Boxes, Loader2, Hammer, Sparkles, Swords, X, ScrollText, BookOpen, GitMerge } from "lucide-react"
 import { Navbar } from "./navbar"
 import { FusionModal } from "./FusionModal"
 import { ArtifactCertificate, type CertificateArtifact } from "./artifact-certificate"
@@ -133,7 +133,8 @@ export function ArtifactsView() {
               className="mt-3 inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[13px] font-semibold transition-all"
               style={{ background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.3)", color: "#E5D4A0" }}
             >
-              🔀 Слить артефакты
+              <GitMerge size={15} aria-hidden="true" />
+              Слить артефакты
             </button>
           </div>
           <div className="relative w-full sm:w-72">

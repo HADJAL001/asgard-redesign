@@ -13,6 +13,7 @@ import {
   Plus,
   Mic,
   Zap,
+  Bot,
   Loader2,
   type LucideIcon,
 } from "lucide-react"
@@ -439,7 +440,7 @@ export function DashboardView() {
                     boxShadow: "0 0 32px rgba(215, 174, 87,0.25), inset 0 0 20px rgba(215, 174, 87,0.08)",
                   }}
                 >
-                  <span className="text-3xl select-none">🤖</span>
+                  <Bot size={30} aria-hidden="true" strokeWidth={1.5} />
                   {/* Pulse ring */}
                   <span
                     className="absolute inset-0 rounded-full animate-ping"
