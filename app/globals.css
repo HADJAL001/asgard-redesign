@@ -433,7 +433,6 @@ svg { width: 1rem; height: 1rem; flex: none; }
 .mode-pill { gap: .35rem; min-height: 2rem; padding: 0 .75rem; border: 1px solid var(--border); color: var(--muted-foreground); background: rgb(255 255 255 / 2%); font-size: .72rem; }
 .mode-pill.selected { color: var(--primary); border-color: rgb(var(--color-cyan-rgb) / 25%); background: rgb(var(--color-cyan-rgb) / 7%); box-shadow: inset 0 0 14px rgb(var(--color-cyan-rgb) / 5%); }
 .success-strip { display: flex; align-items: center; gap: .5rem; border-radius: .75rem; border: 1px solid rgb(var(--color-cyan-rgb) / 18%); background: rgb(var(--color-cyan-rgb) / 5%); padding: .7rem .9rem; color: var(--primary); font-size: .75rem; }
-.spinner { width: .85rem; height: .85rem; border: 2px solid rgb(7 7 12 / 25%); border-top-color: var(--background); border-radius: 999px; animation: spin .7s linear infinite; }
 .metric-icon, .project-icon { display: grid; place-items: center; color: var(--primary); border: 1px solid rgb(var(--color-cyan-rgb) / 15%); background: rgb(var(--color-cyan-rgb) / 6%); }
 .metric-icon { width: 2.25rem; height: 2.25rem; border-radius: .75rem; }
 .metric-change { color: var(--muted-foreground); font-size: .68rem; }
