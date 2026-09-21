@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { headers } from "next/headers"
 import "@fontsource-variable/inter"
+import "@fontsource-variable/unbounded"
 import "@fontsource-variable/space-grotesk"
 import "@fontsource-variable/cormorant-garamond"
 import "@fontsource-variable/playfair-display"

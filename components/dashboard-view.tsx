@@ -295,7 +295,7 @@ export function DashboardView() {
             role="status"
             style={{ borderColor: "rgba(212,175,55,0.3)", background: "rgba(212,175,55,0.08)" }}
           >
-            <span className="text-[18px]" aria-hidden="true">✨</span>
+            <span className="font-mono text-[12px] uppercase tracking-[0.2em]" aria-hidden="true">LIVE</span>
             <div className="flex-1 text-[13px]">
               <span className="font-semibold text-white">Твоя вселенная сохранена!</span>{" "}
               <span style={{ color: "rgba(255,255,255,0.6)" }}>

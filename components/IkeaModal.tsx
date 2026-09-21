@@ -160,7 +160,7 @@ export function IkeaModal({ open, onClose, session, onContinueDemo }: IkeaModalP
           onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 0 50px rgba(251,191,36,0.4), 0 12px 40px rgba(0,0,0,0.5)" }}
           onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 0 40px rgba(251,191,36,0.3), 0 8px 32px rgba(0,0,0,0.4)" }}
         >
-          🚀 Зарегистрироваться и сохранить <ArrowRight size={16} />
+          Зарегистрироваться и сохранить <ArrowRight size={16} />
         </Link>
 
         {/* Вторичный CTA */}

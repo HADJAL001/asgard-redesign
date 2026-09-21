@@ -69,7 +69,7 @@ export function FusionModal({ open, onClose }: { open: boolean; onClose: () => v
               className="mb-2 text-[13px] font-semibold tracking-wider"
               style={{ color: result.mutation ? "#EF4444" : "#D4AF37" }}
             >
-              {result.mutation ? "✨ МУТАЦИЯ!" : "СЛИЯНИЕ ЗАВЕРШЕНО"}
+              {result.mutation ? "МУТАЦИЯ" : "СЛИЯНИЕ ЗАВЕРШЕНО"}
             </div>
             <h3 className="text-[22px] font-bold text-white">{result.artifact.name}</h3>
             <div className="mt-1 text-[13px] font-semibold" style={{ color: RARITY_COLOR[result.artifact.rarity] || "#9CA3AF" }}>
@@ -81,7 +81,7 @@ export function FusionModal({ open, onClose }: { open: boolean; onClose: () => v
             <div className="mt-4 flex justify-center gap-4 text-[13px] text-white">
               <span>⚔ {result.artifact.power}</span>
               <span>🛡 {result.artifact.defense}</span>
-              <span>✨ {result.artifact.magic}</span>
+              <span>MAG {result.artifact.magic}</span>
               <span>⚡ {result.artifact.speed}</span>
             </div>
             <div className="mt-6 flex justify-center gap-3">
@@ -131,7 +131,7 @@ export function FusionModal({ open, onClose }: { open: boolean; onClose: () => v
                       <div className="truncate text-[12px] font-medium text-white">{a.name}</div>
                       <div className="text-[10px]" style={{ color }}>{a.rarity}</div>
                       <div className="mt-1 text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-                        ⚔{a.power} 🛡{a.defense} ✨{a.magic} ⚡{a.speed}
+                        PWR {a.power} · DEF {a.defense} · MAG {a.magic} · SPD {a.speed}
                       </div>
                     </button>
                   )
@@ -150,7 +150,7 @@ export function FusionModal({ open, onClose }: { open: boolean; onClose: () => v
                   </span>
                 </p>
                 <p className="mt-1" style={{ color: "rgba(255,255,255,0.5)" }}>
-                  ✨ Получишь: 1 нового потомка · честный шанс ~15%, что редкость окажется на ступень выше
+                  Получишь: 1 нового потомка · честный шанс ~15%, что редкость окажется на ступень выше
                 </p>
               </div>
             )}

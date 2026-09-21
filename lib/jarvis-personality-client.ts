@@ -11,7 +11,7 @@ import apiClient from "@/lib/api-client"
 export type JarvisMode = "quotes" | "savage" | "poet" | "news" | "default"
 
 export const MODE_ICONS: Record<JarvisMode, string> = {
-  quotes: "📜",
+  quotes: "Цитаты",
   savage: "😏",
   poet: "🌸",
   news: "🌍",

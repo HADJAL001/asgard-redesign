@@ -19,7 +19,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Send, Volume2, VolumeX, MessageSquare, Loader2, Bot, User, Square, Mic, MicOff, GitBranch } from "lucide-react"
+import { Send, Volume2, VolumeX, MessageSquare, Loader2, Bot, User, Square, Mic, MicOff, GitBranch, Sparkles } from "lucide-react"
 import apiClient from "@/lib/api-client"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import JarvisAvatar from "@/components/JarvisAvatar"
@@ -346,7 +346,7 @@ export function JarvisChat() {
           <span>{t("jarvis.advisorLabel")}</span>
           {(equipment.skin || equipment.accessory || equipment.voice) && (
             <span className="jarvis-equip-badge" title="Аксессуары ДЖАРВИСА активны">
-              ✨
+              <Sparkles size={16} aria-hidden="true" />
             </span>
           )}
         </div>

@@ -35,6 +35,7 @@
 .app-root-content h3 { font-family: var(--font-jakarta), sans-serif; }
 
 :root {
+  --font-unbounded: "Unbounded Variable", "Unbounded", sans-serif;
   color-scheme: dark;
   --font-inter: "Inter Variable", "Inter", sans-serif;
   --font-space: "Space Grotesk Variable", "Space Grotesk", sans-serif;
