@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { Loader2 } from "lucide-react"
+import { ArrowLeft, ChevronRight, Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { Navbar } from "./navbar"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
@@ -19,6 +20,7 @@ interface OrchestratorEditorViewProps {
 
 export function OrchestratorEditorView({ chainId }: OrchestratorEditorViewProps) {
   const { t } = useTranslation()
+  const router = useRouter()
   const searchParams = useSearchParams()
   const autoRun = searchParams.get("run") === "1"
 
@@ -52,10 +54,15 @@ export function OrchestratorEditorView({ chainId }: OrchestratorEditorViewProps)
   }, [chainId])
 
   return (
-    <div className="eg-page flex min-h-screen flex-col font-sans" style={{ color: COLORS.text }}>
+    <div className="eg-page orchestrator-editor-shell flex min-h-screen flex-col font-sans" style={{ color: COLORS.text }}>
       <Navbar />
 
       <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-4 px-6 py-8 md:px-10">
+        <nav className="orchestrator-editor-breadcrumbs" aria-label="Навигация по разделам">
+          <button type="button" onClick={() => router.push("/")} aria-label="Вернуться на главную">Главная</button><ChevronRight size={13} aria-hidden="true" />
+          <button type="button" onClick={() => router.push("/orchestrator")}>Оркестратор</button><ChevronRight size={13} aria-hidden="true" /><span>Редактор</span>
+          <button type="button" className="orchestrator-editor-back" onClick={() => router.back()} aria-label="Назад"><ArrowLeft size={16} /></button>
+        </nav>
         <OrchestratorHero />
 
         <div className="flex flex-1 gap-4">
