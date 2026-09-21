@@ -841,12 +841,12 @@ svg { width: 1rem; height: 1rem; flex: none; }
 /* ===== Карта платформы (3D-глобус) ===== */
 @keyframes platform-map-boot { from { opacity: 0; transform: scale(.97); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
 .platform-map-boot { animation: platform-map-boot 1s cubic-bezier(.2,.7,.2,1) both; }
-.platform-map-space { background: radial-gradient(ellipse at 50% 43%, rgb(19 55 82 / .86) 0%, rgb(5 15 30 / .86) 45%, #02040a 100%), url("/images/starfield.png") center / cover fixed; }
+.platform-map-space { background: radial-gradient(ellipse at 50% 43%, rgb(19 55 82 / .86) 0%, rgb(5 15 30 / .86) 45%, #02040a 100%); }
 .platform-map-space::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .72; background-image: linear-gradient(90deg, rgb(1 7 16 / .68), transparent 36%, rgb(1 7 16 / .54)), radial-gradient(circle at 16% 23%, rgb(196 238 255 / .75) 0 1px, transparent 1.8px), radial-gradient(circle at 82% 67%, rgb(255 219 143 / .5) 0 1px, transparent 1.8px), radial-gradient(circle at 71% 18%, rgb(164 216 255 / .42) 0 1px, transparent 1.8px); background-size: auto, 211px 163px, 287px 229px, 347px 293px; }
-.platform-star-layer { position:absolute; inset:-12%; z-index:0; pointer-events:none; background-image:url("/images/starfield.png"); background-repeat:repeat; mix-blend-mode:screen; transform:translate3d(0,0,0); }
-.platform-star-layer--far { opacity:.18; background-size:960px auto; animation:platform-stars-far 90s linear infinite; }
-.platform-star-layer--mid { opacity:.24; background-size:620px auto; animation:platform-stars-mid 54s linear infinite; }
-.platform-star-layer--near { opacity:.3; background-size:360px auto; animation:platform-stars-near 30s linear infinite; }
+.platform-star-layer { position:absolute; inset:-12%; z-index:0; pointer-events:none; background-repeat:repeat; mix-blend-mode:screen; transform:translate3d(0,0,0); }
+.platform-star-layer--far { opacity:.2; background-image:radial-gradient(circle, rgb(179 214 255 / .52) 0 1px, transparent 1.4px); background-size:131px 149px; animation:platform-stars-far 90s linear infinite; }
+.platform-star-layer--mid { opacity:.28; background-image:radial-gradient(circle, rgb(222 238 255 / .74) 0 1px, transparent 1.55px), radial-gradient(circle, rgb(238 204 122 / .5) 0 1px, transparent 1.4px); background-position:0 0, 47px 61px; background-size:89px 113px, 173px 191px; animation:platform-stars-mid 54s linear infinite; }
+.platform-star-layer--near { opacity:.34; background-image:radial-gradient(circle, rgb(255 255 255 / .9) 0 1.2px, transparent 1.8px), radial-gradient(circle, rgb(245 199 82 / .62) 0 1px, transparent 1.6px); background-position:0 0, 79px 37px; background-size:157px 179px, 263px 251px; animation:platform-stars-near 30s linear infinite; }
 @keyframes platform-stars-far { to { transform:translate3d(-28px,16px,0); } }
 @keyframes platform-stars-mid { to { transform:translate3d(48px,-28px,0); } }
 @keyframes platform-stars-near { to { transform:translate3d(-72px,46px,0); } }
