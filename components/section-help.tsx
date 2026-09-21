@@ -11,6 +11,7 @@
    ================================================================ */
 
 import { useEffect, useState, useCallback } from "react"
+import { createPortal } from "react-dom"
 import { HelpCircle, X, Play, ArrowRight, ArrowLeft, Target, Check } from "lucide-react"
 
 const GOLD = "#E6C868"
@@ -65,9 +66,12 @@ function useTargetRect(target: string | undefined, active: boolean): Rect | null
 export function SectionHelp({ title, what, goals = [], tour = [] }: SectionHelpProps) {
   const [open, setOpen] = useState(false)
   const [tourIdx, setTourIdx] = useState<number | null>(null)
+  const [mounted, setMounted] = useState(false)
   const inTour = tourIdx !== null
   const step = inTour ? tour[tourIdx!] : null
   const rect = useTargetRect(step?.target, inTour)
+
+  useEffect(() => setMounted(true), [])
 
   function startTour() {
     if (tour.length === 0) return
@@ -78,7 +82,9 @@ export function SectionHelp({ title, what, goals = [], tour = [] }: SectionHelpP
     setTourIdx(null)
   }
 
-  return (
+  if (!mounted) return null
+
+  return createPortal(
     <>
       {/* Плавающая кнопка «?» */}
       <button
@@ -233,6 +239,7 @@ export function SectionHelp({ title, what, goals = [], tour = [] }: SectionHelpP
           </div>
         </div>
       )}
-    </>
+    </>,
+    document.body,
   )
 }
