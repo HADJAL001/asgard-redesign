@@ -110,7 +110,7 @@ export function ArtifactCertificate({
     : null
 
   async function handleShare() {
-    const text = `${artifact!.name} · ${rarity.label} · ${statSum} ⚡ — OSGARD`
+    const text = `${artifact!.name} · ${rarity.label} · ${statSum} PTS — OSGARD`
     play("rarityUp")
     try {
       if (typeof navigator !== "undefined" && navigator.share) {
@@ -255,7 +255,7 @@ export function ArtifactCertificate({
               {t("signature.power")}
             </span>
             <span className="premium-num text-[18px]" style={{ color: "var(--color-gold)" }}>
-              {statSum} ⚡
+              {statSum} PTS
             </span>
           </div>
 

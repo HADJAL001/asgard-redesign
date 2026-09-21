@@ -730,22 +730,7 @@ export function ForgeView() {
           </div>
         </div>
 
-        {/* Summary */}
-        <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {[
-            { n: fmtTC(wallet.timecoin), l: t("forge.yourBalance"), Icon: Coins, c: "#F1C40F" },
-            { n: `${paidCost} ${selCurrency.label}`, l: t("forge.creationCost"), Icon: Hammer, c: selCurrency.color },
-            { n: `${artifacts.length}`, l: t("forge.artifactsInCollection"), Icon: Archive, c: "#9B59B6" },
-          ].map((m) => (
-            <div key={m.l} className="eg-surface premium-card rounded-xl p-5">
-              <m.Icon size={18} strokeWidth={1.5} style={{ color: m.c }} aria-hidden="true" />
-              <p className="mt-3 text-[22px] font-medium leading-none">{m.n}</p>
-              <p className="mt-2 text-[12px]" style={{ color: COLORS.label }}>{m.l}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_0.9fr]">
+        <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_0.9fr]">
           {/* ---- Left: creation form + AI-генератор ---- */}
           <div className="flex flex-col gap-6">
           <section className="eg-surface rounded-2xl p-6">

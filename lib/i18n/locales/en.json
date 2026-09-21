@@ -268,7 +268,7 @@
   },
   "forge": {
     "title": "Forge",
-    "subtitle": "Craft artifacts with TimeCoin",
+    "subtitle": "Manual crafting uses Credits; AI generation uses TimeCoin",
     "yourBalance": "Your TimeCoin balance",
     "creationCost": "Creation cost",
     "discount": {

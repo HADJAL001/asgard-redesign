@@ -79,10 +79,10 @@ export function FusionModal({ open, onClose }: { open: boolean; onClose: () => v
               <p className="mt-3 text-[13px]" style={{ color: "rgba(255,255,255,0.55)" }}>{result.artifact.lore}</p>
             )}
             <div className="mt-4 flex justify-center gap-4 text-[13px] text-white">
-              <span>⚔ {result.artifact.power}</span>
-              <span>🛡 {result.artifact.defense}</span>
+              <span>PWR {result.artifact.power}</span>
+              <span>DEF {result.artifact.defense}</span>
               <span>MAG {result.artifact.magic}</span>
-              <span>⚡ {result.artifact.speed}</span>
+              <span>SPD {result.artifact.speed}</span>
             </div>
             <div className="mt-6 flex justify-center gap-3">
               <button

@@ -516,10 +516,10 @@ export default function TwinPage() {
                         </p>
                       )}
                       <div className="mt-2 grid grid-cols-4 gap-1 text-[11px]" style={{ color: "#9eb2bc" }}>
-                        <span>⚔ {a.power}</span>
-                        <span>🛡 {a.defense}</span>
-                        <span>✨ {a.magic}</span>
-                        <span>💨 {a.speed}</span>
+                        <span>PWR {a.power}</span>
+                        <span>DEF {a.defense}</span>
+                        <span>MAG {a.magic}</span>
+                        <span>SPD {a.speed}</span>
                       </div>
                     </div>
                   ))}

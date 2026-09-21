@@ -236,7 +236,7 @@ export function ProjectArtifactReveal({
                   className="absolute -top-2 right-2 rounded-full px-1.5 py-px text-[8px] font-semibold uppercase tracking-wide"
                   style={{ background: meta.color, color: "#0A1128" }}
                 >
-                  ★ находка
+                  Находка
                 </span>
               )}
               <span
@@ -260,7 +260,7 @@ export function ProjectArtifactReveal({
                 {meta.label}
               </span>
               <span className="premium-num text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-                {statSum} ⚡
+                {statSum} PTS
               </span>
             </motion.div>
           )

@@ -268,7 +268,7 @@
   },
   "forge": {
     "title": "Кузница",
-    "subtitle": "Создавайте артефакты за TimeCoin",
+    "subtitle": "Ручная ковка за Credits; AI-генерация за TimeCoin",
     "yourBalance": "Ваш баланс TimeCoin",
     "creationCost": "Стоимость создания",
     "discount": {
