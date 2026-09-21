@@ -54,7 +54,7 @@ export function OrchestratorPanel({ onSelectNode }: OrchestratorPanelProps) {
           style={{ border: `1px solid ${item.color}35`, ["--node-color" as string]: item.color }}
         >
           <div className="flex items-center gap-2">
-            <item.Icon size={22} strokeWidth={1.75} style={{ color: item.color }} aria-hidden="true" />
+            <span className="orch-miniature" style={{ "--mini-color": item.color } as React.CSSProperties}><item.Icon size={18} strokeWidth={1.75} aria-hidden="true" /></span>
             <span className="text-[13px] font-medium" style={{ color: COLORS.text }}>
               {t(item.labelKey)}
             </span>
@@ -71,6 +71,7 @@ export function OrchestratorPanel({ onSelectNode }: OrchestratorPanelProps) {
 const PANEL_CSS = `
 .orch-palette { background: linear-gradient(160deg, rgba(14,27,45,.84), rgba(7,12,25,.88)); border: 1px solid rgba(107,157,211,.25); box-shadow: inset 0 1px rgba(255,255,255,.06), 0 18px 45px rgba(0,0,0,.2); }
 .orch-palette-item { background: linear-gradient(135deg, rgba(255,255,255,.055), rgba(72,115,159,.025)); transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+.orch-miniature { display:inline-grid; width:34px; height:34px; place-items:center; flex:0 0 auto; color:var(--mini-color); border:1px solid color-mix(in srgb, var(--mini-color) 62%, transparent); border-radius:10px; background:radial-gradient(circle at 30% 24%, color-mix(in srgb, var(--mini-color) 42%, white), color-mix(in srgb, var(--mini-color) 18%, transparent) 40%, rgba(2,8,16,.86) 78%); box-shadow:inset 0 1px rgba(255,255,255,.38), 0 0 16px color-mix(in srgb, var(--mini-color) 34%, transparent), 0 7px 14px rgba(0,0,0,.3); transform:perspective(80px) rotateX(8deg) rotateY(-8deg); }
 .orch-palette-item:hover { transform: translateY(-2px) rotate(-1deg) scale(1.015); border-color: var(--node-color) !important; box-shadow: 0 0 18px color-mix(in srgb, var(--node-color) 28%, transparent); }
 @media (prefers-reduced-motion: reduce) { .orch-palette-item { transition: none; } .orch-palette-item:hover { transform: none; } }
 `

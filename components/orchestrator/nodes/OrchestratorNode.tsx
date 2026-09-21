@@ -81,17 +81,7 @@ export const OrchestratorNode = memo(function OrchestratorNode({
 
         {/* Заголовок ноды */}
         <div className="flex items-center gap-2">
-          {Icon && (
-            <Icon
-              size={22}
-              strokeWidth={1.75}
-              style={{
-                color: data.status === "running" ? COLORS.accent : palette?.color,
-                transition: "color 0.3s ease",
-              }}
-              aria-hidden="true"
-            />
-          )}
+          {Icon && <span className="orch-miniature" style={{ "--mini-color": data.status === "running" ? COLORS.accent : palette?.color } as React.CSSProperties}><Icon size={18} strokeWidth={1.75} aria-hidden="true" /></span>}
           <span
             className="text-[13px] font-medium"
             style={{
@@ -188,6 +178,7 @@ export const OrchestratorNode = memo(function OrchestratorNode({
    ================================================================ */
 const NODE_ANIMATION_CSS = `
 .orch-node { position: relative; border-radius: 14px; backdrop-filter: blur(14px); box-shadow: inset 0 1px rgba(255,255,255,.13), 0 10px 28px rgba(0,0,0,.24); }
+.orch-miniature { display:inline-grid; width:34px; height:34px; place-items:center; flex:0 0 auto; color:var(--mini-color); border:1px solid color-mix(in srgb, var(--mini-color) 62%, transparent); border-radius:10px; background:radial-gradient(circle at 30% 24%, color-mix(in srgb, var(--mini-color) 42%, white), color-mix(in srgb, var(--mini-color) 18%, transparent) 40%, rgba(2,8,16,.86) 78%); box-shadow:inset 0 1px rgba(255,255,255,.38), 0 0 16px color-mix(in srgb, var(--mini-color) 34%, transparent), 0 7px 14px rgba(0,0,0,.3); transform:perspective(80px) rotateX(8deg) rotateY(-8deg); }
 .orch-node::before { content:""; position:absolute; inset:5px; border:1px solid rgba(174,216,255,.12); border-radius:10px; pointer-events:none; }
 .orch-node-claude { clip-path: polygon(10% 0,90% 0,100% 25%,100% 75%,90% 100%,10% 100%,0 75%,0 25%); border-radius:0 !important; }
 .orch-node-deepseek { clip-path: polygon(8px 0, calc(100% - 8px) 0,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0 calc(100% - 8px),0 8px); border-radius:0 !important; }
