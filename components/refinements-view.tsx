@@ -22,7 +22,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Wand2, Boxes, TrendingUp, Sparkles } from "lucide-react"
+import { ArrowLeft, ChevronRight, Wand2, Boxes, TrendingUp, Sparkles } from "lucide-react"
 import { useAuth } from "@/lib/auth-store"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { getGuestStatus, type GuestStatus } from "@/lib/guest-session"
@@ -79,8 +79,13 @@ export function RefinementsView() {
   const remaining = refinementsRemaining ?? status?.refinementsRemaining ?? null
 
   return (
-    <div style={{ minHeight: "100vh", padding: "120px 20px 80px", display: "flex", justifyContent: "center" }}>
+    <div className="refinements-workshop" style={{ minHeight: "100vh", padding: "120px 20px 80px", display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: isReal ? 1180 : 720 }}>
+        <nav className="refinements-breadcrumbs" aria-label="Навигация по разделам">
+          <Link href="/" aria-label="Вернуться на главную">Главная</Link><ChevronRight size={13} aria-hidden="true" />
+          <Link href="/projects">Мастерская</Link><ChevronRight size={13} aria-hidden="true" /><span>Доработки</span>
+        </nav>
+        <button type="button" className="refinements-back" onClick={() => router.back()} aria-label="Назад"><ArrowLeft size={18} /></button>
         {/* -------- Шапка раздела -------- */}
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div className="elite-eyebrow" style={{ marginBottom: 12 }}>{t("refine.hubEyebrow")}</div>
@@ -293,6 +298,13 @@ export function RefinementsView() {
 
       {/* Сетка премиум-карточек доработок — отзывчивая, с золотым hover */}
       <style jsx>{`
+        .refinements-workshop { position: relative; overflow: hidden; isolation: isolate; background: radial-gradient(ellipse at 50% 0%, rgba(37,55,74,.42), transparent 48%), linear-gradient(135deg, #080b10, #101820 54%, #07090d); }
+        .refinements-workshop::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: .32; background-image: linear-gradient(30deg, transparent 49%, rgba(215,174,87,.09) 50%, transparent 51%), linear-gradient(150deg, transparent 49%, rgba(137,205,232,.07) 50%, transparent 51%); background-size: 92px 92px; mask-image: radial-gradient(ellipse at center, #000, transparent 78%); }
+        .refinements-breadcrumbs { display: flex; align-items: center; justify-content: center; gap: 7px; margin-bottom: 18px; color: #8191a5; font-size: .78rem; }
+        .refinements-breadcrumbs a:hover { color: var(--elite-gold, #f5c451); }
+        .refinements-breadcrumbs span { color: var(--elite-gold, #f5c451); }
+        .refinements-back { position: absolute; top: 116px; left: 0; display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid rgba(215,174,87,.34); border-radius: 50%; color: #c8d2ea; background: rgba(15,24,32,.58); backdrop-filter: blur(20px); transition: transform .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease; }
+        .refinements-back:hover { transform: translateX(-2px); color: #f5c451; border-color: #f5c451; box-shadow: 0 0 24px rgba(245,196,81,.2); }
         .refine-hub-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -302,10 +314,11 @@ export function RefinementsView() {
           transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
         }
         .refine-hub-card:hover {
-          transform: translateY(-4px);
+          transform: translateY(-6px);
           border-color: var(--elite-gold, #f5c451);
-          box-shadow: 0 24px 60px -28px rgba(245, 196, 81, 0.45);
+          box-shadow: 0 24px 60px -28px rgba(245, 196, 81, 0.45), 0 8px 32px rgba(0,0,0,.6);
         }
+        .refine-hub-card { background: rgba(20,25,45,.5) !important; border: 1px solid rgba(255,184,0,.3); backdrop-filter: blur(20px); box-shadow: 0 8px 32px rgba(0,0,0,.6); }
         .refine-evolution { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 2px; }
         .refine-evolution__node { position: relative; padding-top: 11px; color: #64748b; font-size: 10px; text-align: center; }
         .refine-evolution__node::before { content: ""; position: absolute; top: 2px; left: 0; right: 0; height: 2px; background: #34404c; }
@@ -313,6 +326,7 @@ export function RefinementsView() {
         .refine-evolution__node:last-child::before { right: 50%; }
         .refine-evolution__node.is-active { color: var(--elite-gold, #f5c451); }
         .refine-evolution__node.is-active::before { background: var(--elite-gold, #f5c451); box-shadow: 0 0 9px rgb(245 196 81 / .5); }
+        @media (max-width: 640px) { .refinements-back { top: 106px; left: 20px; } .refinements-breadcrumbs { padding-inline: 40px; } }
       `}</style>
     </div>
   )
