@@ -1083,7 +1083,7 @@ export function AdminView() {
       {grantTarget ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 px-4 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !grantSubmitting) setGrantingUserId(null) }}>
           <section className="w-full max-w-lg rounded-lg p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="grant-dialog-title" style={{ background: "#10181d", border: `1px solid ${ACCENT}66` }}>
-            <p className="text-[11px] uppercase tracking-[0.14em]" style={{ color: ACCENT }}>Выдача кредитов</p>
+            <p className="text-[11px] uppercase tracking-[0.14em]" style={{ color: ACCENT }}>Выдача баланса</p>
             <h2 id="grant-dialog-title" className="mt-1 text-[22px] font-medium">{grantTarget.username}</h2>
             <p className="mt-1 text-[13px]" style={{ color: LABEL }}>{grantTarget.email}</p>
             <div className="mt-6 grid grid-cols-2 gap-3">
