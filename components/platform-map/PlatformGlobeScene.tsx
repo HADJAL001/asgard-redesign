@@ -11,7 +11,7 @@ const GLOBE_RADIUS = 5
 const seeded = (value: number) => (Math.sin(value * 729.31) + 1) * .5
 
 function Atmosphere() {
-  const material = useMemo(() => new ShaderMaterial({ transparent: true, side: BackSide, blending: AdditiveBlending, depthWrite: false, uniforms: { glowColor: { value: new Color("#4da6ff") } }, vertexShader: `varying vec3 vNormal; varying vec3 vPosition; void main(){vNormal=normalize(mat3(modelMatrix)*normal);vPosition=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`, fragmentShader: `uniform vec3 glowColor; varying vec3 vNormal; varying vec3 vPosition; void main(){vec3 viewDir=normalize(cameraPosition-vPosition);float rim=pow(1.-max(dot(normalize(vNormal),viewDir),0.),6.);gl_FragColor=vec4(glowColor*1.5,rim*.8);}` }), [])
+  const material = useMemo(() => new ShaderMaterial({ transparent: true, side: BackSide, blending: AdditiveBlending, depthWrite: false, uniforms: { glowColor: { value: new Color("#4da6ff") } }, vertexShader: `varying vec3 vNormal; varying vec3 vPosition; void main(){vNormal=normalize(mat3(modelMatrix)*normal);vPosition=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`, fragmentShader: `uniform vec3 glowColor; varying vec3 vNormal; varying vec3 vPosition; void main(){vec3 viewDir=normalize(cameraPosition-vPosition);float rim=pow(1.-max(dot(normalize(vNormal),viewDir),0.),6.);gl_FragColor=vec4(glowColor*1.2,rim*.2);}` }), [])
   return <mesh scale={GLOBE_RADIUS * 1.03}><sphereGeometry args={[1, 128, 128]} /><primitive object={material} attach="material" /></mesh>
 }
 
@@ -21,11 +21,11 @@ function CityLights() {
 }
 
 function Globe({ reducedMotion, worldRef, globeRef }: { reducedMotion: boolean; worldRef: React.RefObject<Group | null>; globeRef: React.RefObject<Mesh | null> }) {
-  const rawTexture = useLoader(TextureLoader, "/images/globe-premium-4k.png"), rawNormal = useLoader(TextureLoader, "/textures/earth/earth_normal_1024.jpg")
+  const rawTexture = useLoader(TextureLoader, "/textures/earth/earth_atmos_2048.jpg"), rawNormal = useLoader(TextureLoader, "/textures/earth/earth_normal_1024.jpg")
   const texture = useMemo(() => { const t = rawTexture.clone(); t.colorSpace = SRGBColorSpace; t.needsUpdate = true; return t }, [rawTexture])
   const normalMap = useMemo(() => { const t = rawNormal.clone(); t.needsUpdate = true; return t }, [rawNormal])
   useFrame((_, delta) => { if (!reducedMotion && worldRef.current) worldRef.current.rotation.y += delta * .014 })
-  return <><mesh ref={globeRef} scale={GLOBE_RADIUS}><sphereGeometry args={[1, 128, 128]} /><meshPhysicalMaterial map={texture} normalMap={normalMap} normalScale={[.8, .8]} emissiveMap={texture} emissive="#ffad3d" emissiveIntensity={.28} metalness={.05} roughness={.72} clearcoat={.25} /></mesh><CityLights /><Atmosphere /></>
+  return <><mesh ref={globeRef} scale={GLOBE_RADIUS}><sphereGeometry args={[1, 128, 128]} /><meshPhysicalMaterial map={texture} normalMap={normalMap} normalScale={[.8, .8]} emissive="#ffad3d" emissiveIntensity={.06} metalness={.05} roughness={.72} clearcoat={.25} /></mesh><CityLights /><Atmosphere /></>
 }
 
 function CloudLayer({ reducedMotion }: { reducedMotion: boolean }) {
