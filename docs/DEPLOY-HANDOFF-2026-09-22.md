@@ -71,3 +71,12 @@ Before this deploy, the domain returned `200`, but `/textures/earth/earth-day.jp
 - Release risk: the visual pass was copied directly into `/opt/osgard-platform/current` from a temporary checkout. The five visual source files remain uncommitted locally, and `origin/main` still points to `0376488`; production therefore contains changes that are not represented by a Git commit.
 - Local lint still reports six pre-existing errors in `components/JarvisAvatar.tsx` and `components/section-help.tsx`.
 - Local build is blocked by Windows `EPERM` opening `.next/trace-build`; the same visual build completed successfully on the production Linux checkout.
+
+## Reproducible release completed
+
+- The visual and lint fixes were committed and pushed to `origin/main`: `b128cfac fix: finalize visual release and lint errors`.
+- The VPS fetched that commit, ran `npm ci` and `npm run build`, then deployed the resulting checkout.
+- Production now runs `b128cfa`; `osgard-web.service` and nginx are active.
+- Remote smoke checks: root, login and public HTTPS return `200`; day/night Earth textures return `200` with 2,566,770 and 794,479 bytes respectively.
+- `nginx -t` passes and the web service journal has no warning-or-higher entries for the final release.
+- Rollback backup: `/opt/osgard-platform/releases/current-before-commit-b128cfac`.
