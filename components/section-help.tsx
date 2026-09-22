@@ -71,7 +71,10 @@ export function SectionHelp({ title, what, goals = [], tour = [] }: SectionHelpP
   const step = inTour ? tour[tourIdx!] : null
   const rect = useTargetRect(step?.target, inTour)
 
-  useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
 
   function startTour() {
     if (tour.length === 0) return

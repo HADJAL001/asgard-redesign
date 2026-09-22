@@ -65,6 +65,7 @@ function resolveSkinPreset(skinName?: string): SkinPreset {
    ---------------------------------------------------------------- */
 function AvatarCore({ skin, speaking }: { skin: SkinPreset; speaking?: boolean }) {
   const meshRef = useRef<THREE.Mesh>(null)
+  const materialRef = useRef<THREE.ShaderMaterial>(null)
   const t = useRef(0)
   const material = useMemo(() => new THREE.ShaderMaterial({
     uniforms: { uTime: { value: 0 }, uState: { value: speaking ? 3 : 0 }, uColorCore: { value: new THREE.Color(skin.color) }, uColorHot: { value: new THREE.Color("#ffffff") } },
@@ -79,13 +80,13 @@ function AvatarCore({ skin, speaking }: { skin: SkinPreset; speaking?: boolean }
       const pulse = speaking ? 1 + Math.sin(t.current * 10) * 0.06 : 1 + Math.sin(t.current * 1.2) * 0.015
       meshRef.current.scale.setScalar(pulse)
     }
-    material.uniforms.uTime.value = t.current
+    if (materialRef.current) materialRef.current.uniforms.uTime.value = t.current
   })
 
   return (
     <mesh ref={meshRef}>
       <icosahedronGeometry args={[1, 2]} />
-      <primitive object={material} attach="material" />
+      <primitive ref={materialRef} object={material} attach="material" />
     </mesh>
   )
 }
@@ -106,7 +107,7 @@ function JarvisRings() {
 
 function ParticleHalo() {
   const ref = useRef<THREE.Points>(null)
-  const positions = useMemo(() => { const a = new Float32Array(500 * 3); for (let i = 0; i < 500; i++) { const r = 1 + Math.random() * 1.5; const p = Math.acos(2 * Math.random() - 1); const t = Math.random() * Math.PI * 2; a[i * 3] = r * Math.sin(p) * Math.cos(t); a[i * 3 + 1] = r * Math.sin(p) * Math.sin(t); a[i * 3 + 2] = r * Math.cos(p) } return a }, [])
+  const positions = useMemo(() => { const a = new Float32Array(500 * 3); for (let i = 0; i < 500; i++) { const seed = (value: number) => (Math.sin(value * 12.9898) * 43758.5453) % 1; const r = 1 + Math.abs(seed(i + 1)) * 1.5; const p = Math.acos(2 * Math.abs(seed(i + 11)) - 1); const t = Math.abs(seed(i + 31)) * Math.PI * 2; a[i * 3] = r * Math.sin(p) * Math.cos(t); a[i * 3 + 1] = r * Math.sin(p) * Math.sin(t); a[i * 3 + 2] = r * Math.cos(p) } return a }, [])
   useFrame((_, delta) => { if (ref.current) ref.current.rotation.y += delta * .08 })
   return <points ref={ref}><bufferGeometry><bufferAttribute attach="attributes-position" args={[positions, 3]} /></bufferGeometry><pointsMaterial color="#00d9ff" size={.04} transparent opacity={.58} blending={THREE.AdditiveBlending} depthWrite={false} /></points>
 }

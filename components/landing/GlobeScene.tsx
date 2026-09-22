@@ -37,7 +37,7 @@ export default function GlobeScene() {
     renderer.setSize(width, height)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatio))
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.8
+    renderer.toneMappingExposure = 1.05
     container.appendChild(renderer.domElement)
 
     const showFallback = () => {
@@ -79,7 +79,7 @@ export default function GlobeScene() {
       metalness: 0.1,
       emissiveMap: nightTexture,
       emissive: new THREE.Color(0xffffff),
-      emissiveIntensity: 0.5,
+      emissiveIntensity: 0.12,
       clearcoat: 0.4,
       clearcoatRoughness: 0.3,
       envMapIntensity: 0.8,
@@ -132,7 +132,7 @@ export default function GlobeScene() {
 
     scene.add(orbitGroup)
 
-    const sun = new THREE.DirectionalLight(0xffffff, 3.0)
+    const sun = new THREE.DirectionalLight(0xdcecff, 1.15)
     sun.position.set(10, 4, 6)
     scene.add(sun)
 

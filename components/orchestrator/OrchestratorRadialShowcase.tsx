@@ -40,9 +40,9 @@ function Satellite({ index, label, color, position }: { index: number; label: st
 function Constellation() {
   const ref = useRef<Group>(null), { t } = useTranslation(), nodes = ORCHESTRATOR_PALETTE.slice(0, 5)
   useFrame(({ clock }) => { if (ref.current) ref.current.rotation.z = Math.sin(clock.elapsedTime * 0.18) * 0.08 })
-  return <group ref={ref}><Core />{nodes.map((item, index) => <SignalPath key={`path-${item.type}`} end={NODE_POSITIONS[index]} offset={index / nodes.length} />)}{nodes.map((item, index) => <Satellite key={item.type} index={index} label={t(item.labelKey)} color={item.color} position={NODE_POSITIONS[index]} />)}</group>
+  return <group ref={ref} scale={1.22}><Core />{nodes.map((item, index) => <SignalPath key={`path-${item.type}`} end={NODE_POSITIONS[index]} offset={index / nodes.length} />)}{nodes.map((item, index) => <Satellite key={item.type} index={index} label={t(item.labelKey)} color={item.color} position={NODE_POSITIONS[index]} />)}</group>
 }
 
 export function OrchestratorRadialShowcase() {
-  return <div className="orch-3d" aria-label="Интерактивная схема цепочки AI-моделей"><Canvas camera={{ position: [0, 0, 5.5], fov: 42 }} dpr={[1, 1.5]} gl={{ alpha: true, antialias: true }}><ambientLight intensity={0.35} color="#6989ab" /><directionalLight position={[2, 3, 4]} intensity={1.4} color="#fff1bb" /><Constellation /></Canvas></div>
+  return <div className="orch-3d" aria-label="Интерактивная схема цепочки AI-моделей"><Canvas camera={{ position: [0, 0, 5.1], fov: 40 }} dpr={[1, 1.5]} gl={{ alpha: true, antialias: true }}><ambientLight intensity={0.18} color="#4d7098" /><pointLight position={[0, 0, 2]} intensity={3.2} distance={8} color="#ffd36b" /><directionalLight position={[2, 3, 4]} intensity={1.15} color="#e7f2ff" /><Constellation /></Canvas></div>
 }
