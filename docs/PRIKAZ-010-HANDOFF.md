@@ -3,7 +3,8 @@
 Дата: 2026-09-22  
 Репозиторий: `https://github.com/HADJAL001/asgard-redesign`  
 Ветка: `main`  
-Последний commit: `387896fe fix(landing): use NASA Blue Marble globe textures`
+Последний commit: `7abcb89b docs: add приказ 010 handoff`  
+Код приказа: `387896fe fix(landing): use NASA Blue Marble globe textures`
 
 ## Цель
 
@@ -22,7 +23,7 @@
 ## Git
 
 Репозиторий: `https://github.com/HADJAL001/asgard-redesign`  
-HEAD и `origin/main`: `387896fe`  
+HEAD и `origin/main`: `7abcb89b`  
 Worktree после commit был чистым.
 
 Проверка:
@@ -43,7 +44,7 @@ git ls-remote origin refs/heads/main
 
 1. Открыть этот файл и проверить `git status`.
 2. Получить разрешённый доступ к deploy API или SSH к host, обслуживающему `osgardnewworld.com`.
-3. Развернуть commit `387896fe`.
+3. Развернуть commit `387896fe` (или `7abcb89b`, если нужна также эта документация).
 4. Проверить:
 
 ```powershell
@@ -55,3 +56,5 @@ curl.exe -L -s -o NUL -w "%{http_code} %{size_download}" https://osgardnewworld.
 Ожидаемый результат обеих текстур: HTTP `200` и ненулевой размер. Затем повторить Globe desktop/mobile smoke-проверку.
 
 Не использовать `git reset --hard`, force-push или публикацию секретов в репозитории.
+
+Локальный SSH-профиль `gard-prod` указывает на `root@176.124.198.205`, но использует только password-auth (`PubkeyAuthentication no`). Пароль в рабочем окружении отсутствует; не пытаться подбирать его и не коммитить секреты.
