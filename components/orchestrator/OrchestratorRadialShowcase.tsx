@@ -2,7 +2,7 @@
 
 import { useMemo, useRef } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
-import { Html } from "@react-three/drei"
+import { Html, Sparkles } from "@react-three/drei"
 import { AdditiveBlending, CatmullRomCurve3, Group, Mesh, Vector3 } from "three"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { ORCHESTRATOR_PALETTE } from "./node-types"
@@ -28,7 +28,7 @@ function SignalPath({ end, offset }: { end: [number, number, number]; offset: nu
 function Core() {
   const ref = useRef<Group>(null)
   useFrame(({ clock, pointer }) => { if (!ref.current) return; ref.current.scale.setScalar(1 + Math.sin(clock.elapsedTime * 3) * 0.09); ref.current.rotation.x = pointer.y * 0.18; ref.current.rotation.y = clock.elapsedTime * 0.33 + pointer.x * 0.18 })
-  return <group ref={ref}><pointLight color="#ffcf5d" intensity={4} distance={5} /><mesh><icosahedronGeometry args={[0.48, 3]} /><meshStandardMaterial color="#f7c651" emissive="#e89e28" emissiveIntensity={2.2} metalness={0.9} roughness={0.18} /></mesh><mesh scale={1.42}><icosahedronGeometry args={[0.48, 2]} /><meshBasicMaterial color="#ffd97e" transparent opacity={0.1} wireframe /></mesh></group>
+  return <group ref={ref}><pointLight color="#ffcf5d" intensity={4} distance={5} /><mesh><icosahedronGeometry args={[0.48, 3]} /><meshStandardMaterial color="#fff8e8" emissive="#e89e28" emissiveIntensity={2.2} metalness={0.9} roughness={0.18} /></mesh><mesh scale={1.42}><icosahedronGeometry args={[0.48, 2]} /><meshBasicMaterial color="#ffd97e" transparent opacity={0.1} wireframe /></mesh>{[0, 1, 2, 3].map((i) => <mesh key={i} rotation={[Math.PI / 2 + (i - 1.5) * .3, i * .7, 0]}><torusGeometry args={[.86 + i * .2, .008, 8, 96]} /><meshBasicMaterial color={i % 2 ? "#00d9ff" : "#ffb800"} transparent opacity={.42} blending={AdditiveBlending} /></mesh>)}<Sparkles count={200} scale={1.7} size={2} speed={.35} color="#fff0ad" /></group>
 }
 
 function Satellite({ index, label, color, position }: { index: number; label: string; color: string; position: [number, number, number] }) {

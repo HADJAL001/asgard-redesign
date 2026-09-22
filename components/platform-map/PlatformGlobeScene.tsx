@@ -21,11 +21,12 @@ function CityLights() {
 }
 
 function Globe({ reducedMotion, worldRef, globeRef }: { reducedMotion: boolean; worldRef: React.RefObject<Group | null>; globeRef: React.RefObject<Mesh | null> }) {
-  const rawTexture = useLoader(TextureLoader, "/textures/earth/earth_atmos_2048.jpg"), rawNormal = useLoader(TextureLoader, "/textures/earth/earth_normal_1024.jpg")
+  const rawTexture = useLoader(TextureLoader, "/textures/earth/earth_atmos_2048.jpg"), rawNormal = useLoader(TextureLoader, "/textures/earth/earth_normal_1024.jpg"), rawSpecular = useLoader(TextureLoader, "/textures/earth/earth_specular_1024.jpg")
   const texture = useMemo(() => { const t = rawTexture.clone(); t.colorSpace = SRGBColorSpace; t.needsUpdate = true; return t }, [rawTexture])
   const normalMap = useMemo(() => { const t = rawNormal.clone(); t.needsUpdate = true; return t }, [rawNormal])
+  const specularMap = useMemo(() => { const t = rawSpecular.clone(); t.needsUpdate = true; return t }, [rawSpecular])
   useFrame((_, delta) => { if (!reducedMotion && worldRef.current) worldRef.current.rotation.y += delta * .014 })
-  return <><mesh ref={globeRef} scale={GLOBE_RADIUS}><sphereGeometry args={[1, 128, 128]} /><meshPhysicalMaterial map={texture} normalMap={normalMap} normalScale={[.8, .8]} emissive="#ffad3d" emissiveIntensity={.06} metalness={.05} roughness={.72} clearcoat={.25} /></mesh><CityLights /><Atmosphere /></>
+  return <><mesh ref={globeRef} scale={GLOBE_RADIUS}><sphereGeometry args={[1, 128, 128]} /><meshPhysicalMaterial map={texture} normalMap={normalMap} roughnessMap={specularMap} normalScale={[.8, .8]} emissive="#ffad3d" emissiveIntensity={.06} metalness={.05} roughness={.72} clearcoat={.25} /></mesh><CityLights /><Atmosphere /></>
 }
 
 function CloudLayer({ reducedMotion }: { reducedMotion: boolean }) {
