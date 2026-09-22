@@ -49,13 +49,15 @@ export default function GlobeScene() {
     const textureTier = compactScene ? "compact" : "full"
     const textures = textureTier === "compact"
       ? {
-          map: "/textures/earth/earth_atmos_1024.jpg",
+          map: "/textures/earth/earth-day.jpg",
+          night: "/textures/earth/earth-night.jpg",
           normal: "/textures/earth/earth_normal_1024.jpg",
           specular: "/textures/earth/earth_specular_1024.jpg",
           clouds: "/textures/earth/earth_clouds_512.png",
         }
       : {
-          map: "/textures/earth/earth_atmos_2048.jpg",
+          map: "/textures/earth/earth-day.jpg",
+          night: "/textures/earth/earth-night.jpg",
           normal: "/textures/earth/earth_normal_2048.jpg",
           specular: "/textures/earth/earth_specular_2048.jpg",
           clouds: "/textures/earth/earth_clouds_1024.png",
@@ -63,6 +65,7 @@ export default function GlobeScene() {
 
     const mapTexture = loader.load(textures.map)
     mapTexture.anisotropy = 8
+    const nightTexture = loader.load(textures.night)
     const normalTexture = loader.load(textures.normal)
     const specularTexture = loader.load(textures.specular)
     const cloudTexture = loader.load(textures.clouds)
@@ -74,8 +77,9 @@ export default function GlobeScene() {
       roughnessMap: specularTexture,
       roughness: 0.4,
       metalness: 0.1,
-      emissive: new THREE.Color(0x0a1a2a),
-      emissiveIntensity: 0.15,
+      emissiveMap: nightTexture,
+      emissive: new THREE.Color(0xffffff),
+      emissiveIntensity: 0.6,
       clearcoat: 0.4,
       clearcoatRoughness: 0.3,
       envMapIntensity: 0.8,
@@ -264,6 +268,7 @@ export default function GlobeScene() {
         ;(stars.material as THREE.PointsMaterial).dispose()
       })
       mapTexture.dispose()
+      nightTexture.dispose()
       normalTexture.dispose()
       specularTexture.dispose()
       cloudTexture.dispose()
