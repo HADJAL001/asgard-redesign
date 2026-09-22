@@ -273,7 +273,7 @@ export function ProjectsView() {
                   </div>
 
                   <h3 id={`project-card-title-${p.id}`} className="relative mt-4 px-5 text-[20px] font-semibold">{p.name}</h3>
-                  <p className="relative mt-1 px-5 text-[13px] leading-relaxed" style={{ color: COLORS.label }}>
+                  <p className="relative mt-1 line-clamp-3 max-h-[62.4px] px-5 text-[13px] leading-[1.6]" style={{ color: COLORS.label }}>
                     {p.description || t("projects.noDescription")}
                   </p>
 

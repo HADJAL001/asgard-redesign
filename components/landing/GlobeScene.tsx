@@ -79,7 +79,7 @@ export default function GlobeScene() {
       metalness: 0.1,
       emissiveMap: nightTexture,
       emissive: new THREE.Color(0xffffff),
-      emissiveIntensity: 0.6,
+      emissiveIntensity: 0.5,
       clearcoat: 0.4,
       clearcoatRoughness: 0.3,
       envMapIntensity: 0.8,
@@ -132,20 +132,9 @@ export default function GlobeScene() {
 
     scene.add(orbitGroup)
 
-    const ambient = new THREE.AmbientLight(0x2a3a5a, 0.5)
-    scene.add(ambient)
-
-    const keyLight = new THREE.DirectionalLight(0x8ab0ff, 1.8)
-    keyLight.position.set(5, 7, 10)
-    scene.add(keyLight)
-
-    const fillLight = new THREE.DirectionalLight(0x8a7a5a, 0.25)
-    fillLight.position.set(-4, 2, -3)
-    scene.add(fillLight)
-
-    const rimLight = new THREE.DirectionalLight(0x4a7a9a, 0.9)
-    rimLight.position.set(-2, -6, -7)
-    scene.add(rimLight)
+    const sun = new THREE.DirectionalLight(0xffffff, 3.0)
+    sun.position.set(10, 4, 6)
+    scene.add(sun)
 
     const createStarLayer = (count: number, depth: number, size: number, opacity: number) => {
       const geometry = new THREE.BufferGeometry()
