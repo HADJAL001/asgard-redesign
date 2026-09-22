@@ -58,3 +58,5 @@ curl.exe -L -s -o NUL -w "%{http_code} %{size_download}" https://osgardnewworld.
 Не использовать `git reset --hard`, force-push или публикацию секретов в репозитории.
 
 Локальный SSH-профиль `gard-prod` указывает на `root@176.124.198.205`, но использует только password-auth (`PubkeyAuthentication no`). Пароль в рабочем окружении отсутствует; не пытаться подбирать его и не коммитить секреты.
+
+Дополнительная read-only проверка 2026-09-22: key-only SSH (`BatchMode`, `PasswordAuthentication=no`) к `176.124.198.205:22` завершился `Connection timed out during banner exchange`. Серверный доступ из текущей сессии недоступен.
