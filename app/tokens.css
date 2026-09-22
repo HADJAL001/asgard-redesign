@@ -1,0 +1,18 @@
+:root {
+  --color-bg-deep: #05070d;
+  --color-bg-panel: #0a0f1f;
+  --color-bg-glass: rgb(20 25 45 / 50%);
+  --color-gold: #ffb800;
+  --color-gold-hot: #fff8e8;
+  --color-gold-deep: #ff6b00;
+  --color-cyan: #00d9ff;
+  --color-violet: #9d4edd;
+  --color-green: #00ff88;
+  --color-red: #ff3355;
+  --font-display: 'Unbounded', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --glass-blur: blur(24px) saturate(180%);
+  --glass-border: 1px solid rgb(255 184 0 / 25%);
+  --ease-smooth: cubic-bezier(.4, 0, .2, 1);
+}
