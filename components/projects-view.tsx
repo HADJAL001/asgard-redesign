@@ -18,7 +18,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Sparkles, FolderKanban, Boxes, TrendingUp, Coins, Loader2, Trash2, Wand2 } from "lucide-react"
+import { Sparkles, FolderKanban, Boxes, TrendingUp, Coins, Loader2, Trash2, Wand2, ExternalLink } from "lucide-react"
 import { Navbar } from "./navbar"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { COLORS, badgeIcon } from "@/lib/economy"
@@ -195,7 +195,7 @@ export function ProjectsView() {
             </div>
           </div>
         ) : (
-          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
             {projects.map((p) => {
               const BadgeIcon = badgeIcon(p.badge)
               const isDeleting = deletingId === p.id
@@ -219,7 +219,7 @@ export function ProjectsView() {
                   role="button"
                   tabIndex={0}
                   aria-labelledby={`project-card-title-${p.id}`}
-                  className="premium-panel group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl p-5 transition-all duration-300"
+                  className="project-showcase premium-panel group relative flex min-h-[400px] cursor-pointer flex-col overflow-hidden rounded-lg transition-all duration-300"
                   style={{ border: `1px solid ${COLORS.border}` }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = "var(--elite-gold, #f5c451)"
@@ -245,7 +245,12 @@ export function ProjectsView() {
                     style={{ background: "radial-gradient(circle, rgba(245,196,81,0.16), transparent 70%)" }}
                   />
 
-                  <div className="relative flex items-start justify-between">
+                  <div className="project-showcase-preview relative overflow-hidden p-5">
+                    <div className="project-showcase-preview__chrome"><i /><i /><i /><span>{p.name}</span></div>
+                    <div className="project-showcase-preview__content"><BadgeIcon size={44} strokeWidth={1.15} aria-hidden="true" /><span>{p.description || t("projects.noDescription")}</span></div>
+                    <div className="project-showcase-preview__open"><ExternalLink size={16} /> Открыть</div>
+                  </div>
+                  <div className="relative flex items-start justify-between px-5 pt-5">
                     <span
                       className="flex size-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-105"
                       style={{
@@ -267,29 +272,26 @@ export function ProjectsView() {
                     </button>
                   </div>
 
-                  <h3 id={`project-card-title-${p.id}`} className="relative mt-4 text-[16px] font-semibold tracking-tight">{p.name}</h3>
-                  <p className="relative mt-1 line-clamp-2 text-[13px]" style={{ color: COLORS.label }}>
+                  <h3 id={`project-card-title-${p.id}`} className="relative mt-4 px-5 text-[20px] font-semibold">{p.name}</h3>
+                  <p className="relative mt-1 px-5 text-[13px] leading-relaxed" style={{ color: COLORS.label }}>
                     {p.description || t("projects.noDescription")}
                   </p>
 
-                  <div className="relative mt-auto flex items-center justify-between gap-2 pt-5 text-[12px]" style={{ color: COLORS.label }}>
-                    <span className="inline-flex items-center gap-1.5">
+                  <div className="relative mt-5 grid grid-cols-2 gap-2 px-5 text-[12px]" style={{ color: COLORS.label }}>
+                    <span className="project-showcase-metric inline-flex flex-col gap-1.5">
                       <Boxes size={13} strokeWidth={1.75} aria-hidden="true" />
                       {t("projects.artifactsCount", { count: p.artifactCount })}
                     </span>
-                    <span className="inline-flex items-center gap-1.5">
+                    <span className="project-showcase-metric inline-flex flex-col gap-1.5">
                       <TrendingUp size={13} strokeWidth={1.75} aria-hidden="true" />
                       {t("projects.soldCount", { count: p.sold })}
                     </span>
                   </div>
-                  {p.income > 0 && (
-                    <div className="relative mt-2 text-[13px] font-medium" style={{ color: "#F1C40F" }}>
-                      {fmtTC(p.income)}
-                    </div>
-                  )}
+                  <span className="project-showcase-metric relative mx-5 mt-2 inline-flex flex-col gap-1.5 text-[12px]" style={{ color: "#F1C40F" }}><Coins size={13} />{fmtTC(p.income)}</span>
+                  <div className="project-showcase-progress mx-5 mt-5"><span style={{ width: `${Math.min(88, 15 + p.artifactCount * 8 + p.sold * 6)}%` }} /><small>До монетизации</small></div>
 
                   {/* Премиальная кнопка «Доработать» — прямая связь Проекты → Доработки */}
-                  <div className="relative mt-4 border-t pt-4" style={{ borderColor: COLORS.border }}>
+                  <div className="relative mt-auto border-t p-5" style={{ borderColor: COLORS.border }}>
                     <button
                       type="button"
                       onClick={(e) => {

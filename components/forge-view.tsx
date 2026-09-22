@@ -15,6 +15,7 @@ import { VoiceInputButton } from "./voice-input-button"
 import { useVoice } from "@/lib/hooks/useVoice"
 import { ConfirmModal } from "./ui/confirm-modal"
 import { ForgeRevealClipExport } from "./forge-reveal-clip-export"
+import { ForgeArtifactPreview } from "./forge-artifact-preview"
 
 const TYPE_KEYS = Object.keys(ARTIFACT_TYPES) as ArtifactType[]
 
@@ -730,7 +731,7 @@ export function ForgeView() {
           </div>
         </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_0.9fr]">
+        <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)]">
           {/* ---- Left: creation form + AI-генератор ---- */}
           <div className="flex flex-col gap-6">
           <section className="eg-surface rounded-2xl p-6">
@@ -738,6 +739,7 @@ export function ForgeView() {
               {t("forge.formTitle")}
             </h2>
 
+            <ForgeArtifactPreview type={type} />
             {/* Name */}
             <div className="mt-5">
               <label htmlFor="forge-name" className="mb-2 block text-[13px]" style={{ color: COLORS.label }}>
@@ -757,7 +759,7 @@ export function ForgeView() {
             {/* Type */}
             <div className="mt-5">
               <p className="mb-2 text-[13px]" style={{ color: COLORS.label }}>{t("forge.artifactType")}</p>
-              <div className="flex flex-wrap gap-2" data-tour="forge-type">
+              <div className="forge-artifact-type-selector" data-tour="forge-type">
                 {TYPE_KEYS.map((k) => {
                   const active = type === k
                   const Icon = ARTIFACT_TYPES[k].Icon
@@ -767,15 +769,14 @@ export function ForgeView() {
                       type="button"
                       onClick={() => setType(k)}
                       aria-pressed={active}
-                      className="inline-flex items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] transition-colors"
+                      className="forge-artifact-type-button"
                       style={{
                         border: `1px solid ${active ? COLORS.accent : COLORS.border}`,
                         color: active ? COLORS.accent : "rgba(255,255,255,0.7)",
                         backgroundColor: active ? "rgba(215, 174, 87,0.06)" : "transparent",
                       }}
                     >
-                      <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
-                      {ARTIFACT_TYPES[k].label}
+                      <span className="forge-artifact-type-crystal"><Icon size={23} strokeWidth={1.35} aria-hidden="true" /></span><span>{ARTIFACT_TYPES[k].label}</span>
                     </button>
                   )
                 })}
@@ -842,9 +843,6 @@ export function ForgeView() {
                   )
                 })}
               </div>
-              <p className="mt-2 text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>
-                {t("forge.currency.explain")}
-              </p>
             </div>
 
             {/* Rarity info (сервер решает сам) */}
@@ -930,8 +928,8 @@ export function ForgeView() {
               data-tour="forge-create"
               onClick={() => setForgeConfirmOpen(true)}
               disabled={!canForge || submitting || aiSubmitting}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[14px] font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-              style={{ backgroundColor: COLORS.accent, color: COLORS.bg }}
+              className="forge-create-button mt-5 flex w-full items-center justify-center gap-2 rounded-lg text-[15px] font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ color: COLORS.bg }}
             >
               {submitting && <Loader2 size={16} className="animate-spin" />}
               {t("forge.createBtn", { amount: `${paidCost} ${selCurrency.label}` })}
