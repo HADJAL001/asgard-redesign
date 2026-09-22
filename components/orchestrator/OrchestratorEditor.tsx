@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation"
 import {
   ReactFlow,
   ReactFlowProvider,
-  Background,
   Controls,
   MiniMap,
   addEdge,
@@ -536,7 +535,6 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
             colorMode="dark"
             fitView
           >
-            <Background color="#51452a" gap={24} size={1} />
             <Controls />
             <MiniMap pannable zoomable style={{ backgroundColor: COLORS.card }} />
           </ReactFlow>
