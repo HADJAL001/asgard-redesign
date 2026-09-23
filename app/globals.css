@@ -400,6 +400,8 @@ svg { width: 1rem; height: 1rem; flex: none; }
 }
 .neural-node:hover { border-color: rgb(var(--color-cyan-rgb) / 0.32); box-shadow: inset 1px 1px 0 rgba(255,255,255,0.03), 0 0 24px rgb(var(--color-cyan-rgb) / 12%); }
 .neural-node-title { color: #e2f6ff; text-shadow: 0 0 12px rgb(var(--color-cyan-rgb) / 20%); }
+.neural-node svg { width: 20px; height: 20px; stroke-width: 2.1; }
+.neural-node .size-3, .neural-node .size-3\.5, .neural-node .size-4 { width: 20px; height: 20px; }
 .neural-metric { color: #38bdf8; text-shadow: 0 0 14px rgb(56 189 248 / 30%); }
 .neural-core { display: flex; justify-content: center; z-index: 3; }
 .neural-core-btn {
