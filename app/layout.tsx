@@ -11,6 +11,7 @@ import "@fontsource/ibm-plex-mono"
 import "./globals.css"
 import "./tokens.css"
 import { AuthProvider } from "@/lib/auth-store"
+import { DesignSystemProvider } from "@/components/design-system/DesignSystemProvider"
 import { I18nProvider } from "@/lib/i18n/use-translation"
 import { Footer } from "@/components/footer"
 import { DeferredFooter } from "@/components/DeferredFooter"
@@ -71,6 +72,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="ru" className="bg-background" data-scroll-behavior="smooth">
       <body className="font-sans antialiased">
+        <DesignSystemProvider>
         <I18nProvider>
           <AuthProvider>
             <RouteStoreProvider>
@@ -83,6 +85,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             </RouteStoreProvider>
           </AuthProvider>
         </I18nProvider>
+        </DesignSystemProvider>
 
       </body>
     </html>
