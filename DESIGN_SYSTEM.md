@@ -9,6 +9,21 @@ The isolated `/cofounder` command deck is the reference surface for the platform
 - Themes and presets are applied by `DesignSystemProvider` and persisted locally for the current browser.
 - Hull surfaces use `ds-hull`; interactive controls use `ds-focus` and reduced-motion media rules.
 
+## Tenant white-label persistence
+
+Public brand resolution is scoped to `osgardnewworld.com` and returns a safe
+default when no authenticated context is present. Authenticated users persist
+their own brand through the backend contract:
+
+- `GET /design/tenant/brand` returns the caller's brand or `null`.
+- `PUT /design/tenant/brand` accepts `{ name, accent, displayFont }`.
+- `user_id` is the isolation boundary; rows cannot be read or written for
+  another account.
+- `/api/design/tenant` forwards the bearer token server-side and falls back to
+  the public OSGARD brand when the backend is unavailable.
+
+Migration: `backend/src/migrations/125_tenant_design_brand.ts`.
+
 ## Verification
 
 - `npx playwright test e2e/design-system.spec.ts --config=playwright.production.config.ts`
