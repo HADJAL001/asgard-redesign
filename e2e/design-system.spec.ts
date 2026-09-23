@@ -10,6 +10,13 @@ test.describe("OSGARD design system", () => {
     expect(body.tokens.motion.reducedMotion).toBe(true)
   })
 
+  test("keeps tenant branding server-scoped", async ({ request }) => {
+    const response = await request.get("/api/design/tenant")
+    expect(response.ok()).toBeTruthy()
+    const body = await response.json()
+    expect(body.brand.tenantId).toBe("osgardnewworld")
+  })
+
   test("cofounder renders hull workspace with keyboard-visible controls", async ({ page }) => {
     await page.goto("/cofounder")
     await expect(page.getByRole("heading", { name: "AI Cofounder" })).toBeVisible()
