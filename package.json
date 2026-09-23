@@ -7,6 +7,8 @@
     "dev:backend": "cd backend && npm run dev",
     "dev:all": "concurrently --kill-others-on-fail --names \"frontend,backend\" --prefix-colors \"cyan,yellow\" \"next dev\" \"cd backend && npm run dev\"",
     "build": "next build",
+    "build-storybook": "storybook build",
+    "storybook": "storybook dev -p 6006",
     "start": "next start",
     "lint": "eslint .",
     "test:e2e": "playwright test"
@@ -45,6 +47,9 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.62.0",
+    "@storybook/addon-a11y": "8.6.14",
+    "@storybook/addon-essentials": "8.6.14",
+    "@storybook/react-vite": "8.6.14",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26",
     "@types/react": "^19",
@@ -56,6 +61,7 @@
     "playwright": "^1.61.1",
     "postcss": "^8.5",
     "sharp": "^0.35.3",
+    "storybook": "8.6.14",
     "tailwindcss": "^4.3.3",
     "typescript": "5.7.3"
   },
