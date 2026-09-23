@@ -53,3 +53,15 @@ export async function GET(request: NextRequest) {
     headers: { "cache-control": "private, max-age=60, stale-while-revalidate=300", vary: "Host, Cookie" },
   })
 }
+
+export async function PUT(request: NextRequest) {
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim()
+  const host = (forwardedHost || request.headers.get("host"))?.split(":")[0]?.toLowerCase()
+  if (host !== "osgardnewworld.com" && host !== "www.osgardnewworld.com") return NextResponse.json({ error: "Tenant недоступен для этого домена" }, { status: 404 })
+  const authorization = request.headers.get("authorization")
+  const backendUrl = (process.env.BACKEND_URL || "").replace(/\/$/, "")
+  if (!backendUrl || !authorization?.startsWith("Bearer ")) return NextResponse.json({ error: "Требуется авторизация" }, { status: 401 })
+  const body = await request.json().catch(() => null)
+  const upstream = await fetch(`${backendUrl}/design/tenant/brand`, { method: "PUT", headers: { authorization, "content-type": "application/json" }, body: JSON.stringify(body), cache: "no-store" })
+  return NextResponse.json(await upstream.json().catch(() => ({ error: "Backend недоступен" })), { status: upstream.status })
+}
