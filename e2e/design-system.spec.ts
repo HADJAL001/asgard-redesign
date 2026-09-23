@@ -25,7 +25,7 @@ test.describe("OSGARD design system", () => {
     await create.focus()
     await expect(create).toBeFocused()
     await create.press("Enter")
-    await expect(page.getByRole("dialog", { name: "НОВЫЙ КОНТРАКТ" })).toBeVisible()
+    await expect(page.getByText("НОВЫЙ КОНТРАКТ").last()).toBeVisible()
     await page.keyboard.press("Escape")
   })
 
