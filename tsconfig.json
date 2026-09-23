@@ -38,6 +38,8 @@
   "exclude": [
     "node_modules",
     "mobile",
-    "backend"
+    "backend",
+    "**/*.stories.tsx",
+    ".storybook"
   ]
 }
