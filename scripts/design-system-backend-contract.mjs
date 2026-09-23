@@ -1,0 +1,8 @@
+const backend = (process.env.DESIGN_SYSTEM_BACKEND_URL || "https://asgard-backend-production.up.railway.app").replace(/\/$/, "")
+const response = await fetch(`${backend}/design/tenant/brand`)
+if (response.status !== 401) throw new Error(`tenant brand auth gate expected 401, got ${response.status}`)
+const publicResponse = await fetch("https://osgardnewworld.com/api/design/tenant")
+if (!publicResponse.ok) throw new Error(`public tenant fallback expected 2xx, got ${publicResponse.status}`)
+const payload = await publicResponse.json()
+if (payload?.brand?.tenantId !== "osgardnewworld" || !/^#/.test(payload?.brand?.accent || "")) throw new Error("invalid public tenant fallback")
+console.log(`tenant-contract:ok auth=${response.status} public=${publicResponse.status}`)
