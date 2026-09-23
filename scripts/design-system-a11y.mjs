@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises"
+import { fileURLToPath } from "node:url"
 import { join } from "node:path"
 
-const root = new URL("../", import.meta.url).pathname
+const root = fileURLToPath(new URL("../", import.meta.url))
 const checks = [
   ["reduced motion", "app/tokens.css", "prefers-reduced-motion"],
   ["visible focus", "app/tokens.css", "focus-visible"],
