@@ -80,3 +80,11 @@ Before this deploy, the domain returned `200`, but `/textures/earth/earth-day.jp
 - Remote smoke checks: root, login and public HTTPS return `200`; day/night Earth textures return `200` with 2,566,770 and 794,479 bytes respectively.
 - `nginx -t` passes and the web service journal has no warning-or-higher entries for the final release.
 - Rollback backup: `/opt/osgard-platform/releases/current-before-commit-b128cfac`.
+
+## Ship-deck visual pass - 2026-09-23
+
+- Commit `993ad87b` removes the atomic cartoon treatment: the orchestrator uses a restrained metal command-deck core, low-energy signal paths and a technical grid panel.
+- Earth lighting is brighter and neutral; the atmosphere rim is restrained rather than a glowing blue ring.
+- Hotspot markers are larger, opaque and readable with icon and label.
+- Production runs `993ad87`; service and nginx are active, HTTP and Earth assets return `200`, nginx syntax passes, and the journal is clean.
+- Rollback backup: `/opt/osgard-platform/releases/current-before-993ad87b`.
