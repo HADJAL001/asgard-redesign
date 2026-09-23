@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises"
+import { join } from "node:path"
 
 const root = new URL("../", import.meta.url).pathname
 const checks = [
@@ -8,7 +9,7 @@ const checks = [
   ["tenant host guard", "app/api/design/tenant/route.ts", "osgardnewworld.com"],
 ]
 for (const [name, file, needle] of checks) {
-  const text = await readFile(new URL(file, root), "utf8")
+  const text = await readFile(join(root, file), "utf8")
   if (!text.includes(needle)) throw new Error(`missing accessibility invariant: ${name}`)
   console.log(`a11y:ok ${name}`)
 }
