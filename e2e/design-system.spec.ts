@@ -20,6 +20,7 @@ test.describe("OSGARD design system", () => {
   test("cofounder renders hull workspace with keyboard-visible controls", async ({ page }) => {
     await page.goto("/cofounder")
     await expect(page.getByRole("heading", { name: "AI Cofounder" })).toBeVisible()
+    await expect(page.getByRole("region", { name: "Memory Fabric live map" })).toBeVisible()
     await expect(page.getByText("Память продукта")).toBeVisible()
     const create = page.getByRole("button", { name: /Создать контракт/ })
     await create.focus()
