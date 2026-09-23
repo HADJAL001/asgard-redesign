@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from "react"
 import { useRouter } from "next/navigation"
 import { Html } from "@react-three/drei"
 import { useFrame } from "@react-three/fiber"
-import { AdditiveBlending, CanvasTexture, Group, Mesh, MeshBasicMaterial, Object3D, Sprite, Vector3 } from "three"
+import { AdditiveBlending, Group, Mesh, Vector3 } from "three"
 import type { PlatformHotspot } from "./hotspots"
 
 function latLonToVector3(lat: number, lon: number, radius: number) {
@@ -19,8 +19,6 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
   const router = useRouter()
   const groupRef = useRef<Group>(null)
   const markerRef = useRef<Mesh>(null)
-  const spriteRef = useRef<Sprite>(null)
-  const pulseRef = useRef<Mesh>(null)
   const [isActive, setIsActive] = useState(false)
   const position = useMemo(() => latLonToVector3(hotspot.lat, hotspot.lon, radius), [hotspot.lat, hotspot.lon, radius])
   useEffect(() => {
@@ -28,30 +26,8 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
     const normal = position.clone().normalize()
     groupRef.current.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), normal)
   }, [position])
-  const glowTexture = useMemo(() => {
-    const canvas = document.createElement("canvas")
-    canvas.width = 64
-    canvas.height = 64
-    const context = canvas.getContext("2d")
-    if (!context) return null
-    const gradient = context.createRadialGradient(32, 32, 2, 32, 32, 32)
-    gradient.addColorStop(0, `${hotspot.color}cc`)
-    gradient.addColorStop(.3, `${hotspot.color}4d`)
-    gradient.addColorStop(1, `${hotspot.color}00`)
-    context.fillStyle = gradient
-    context.fillRect(0, 0, 64, 64)
-    return new CanvasTexture(canvas)
-  }, [hotspot.color])
   useFrame(({ clock }) => {
-    const pulse = reducedMotion ? 1 : 1 + Math.sin(clock.elapsedTime * Math.PI + hotspot.lon) * .08
-    if (markerRef.current) markerRef.current.scale.setScalar(pulse)
-    if (spriteRef.current) spriteRef.current.scale.setScalar(.15 + (pulse - 1) * .05)
-    if (pulseRef.current) {
-      const phase = (clock.elapsedTime * 0.9 + hotspot.lon) % 2
-      pulseRef.current.scale.setScalar(1 + phase * 1.4)
-      const material = pulseRef.current.material as MeshBasicMaterial
-      material.opacity = Math.max(0, .55 - phase * .27)
-    }
+    if (!reducedMotion && markerRef.current) markerRef.current.rotation.y = clock.elapsedTime * .35
   })
   const open = () => router.push(hotspot.href)
   const Icon = hotspot.Icon
@@ -62,15 +38,14 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
         <meshBasicMaterial color={hotspot.color} transparent opacity={.3} blending={AdditiveBlending} />
       </mesh>
       <mesh ref={markerRef} onClick={(event) => { event.stopPropagation(); open() }}>
-        <sphereGeometry args={[.075, 20, 20]} />
+        <sphereGeometry args={[.14, 24, 24]} />
         <meshBasicMaterial color={hotspot.color} />
       </mesh>
-      <mesh ref={pulseRef} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[.09, .12, 32]} />
-        <meshBasicMaterial color={hotspot.color} transparent opacity={.55} depthWrite={false} blending={AdditiveBlending} />
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[.17, .2, 32]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={.92} depthWrite={false} />
       </mesh>
-      {glowTexture ? <sprite ref={spriteRef} scale={[.15, .15, 1]}><spriteMaterial map={glowTexture} color={hotspot.color} transparent opacity={.6} blending={AdditiveBlending} depthWrite={false} /></sprite> : null}
-      <Html transform distanceFactor={.32} className="platform-hotspot-rise" style={{ animationDelay: `${delayMs}ms`, pointerEvents: "none" }}>
+      <Html center className="platform-hotspot-rise" style={{ animationDelay: `${delayMs}ms`, pointerEvents: "none" }}>
         <div className="platform-hotspot-badge" style={{ "--hotspot-color": hotspot.color } as React.CSSProperties}><Icon size={15} strokeWidth={2.2} /><span>{hotspot.label}</span></div>
         {isActive ? <div className="platform-portal-preview" role="status"><span><Icon size={12} /> ПОРТАЛ</span><strong>{hotspot.label}</strong><p>{hotspot.description}</p></div> : null}
       </Html>
