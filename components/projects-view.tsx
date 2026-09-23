@@ -195,8 +195,8 @@ export function ProjectsView() {
             </div>
           </div>
         ) : (
-          <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
-            {projects.map((p) => {
+          <div className="project-gallery mt-8 grid grid-cols-1 gap-7 xl:grid-cols-2">
+            {projects.map((p, projectIndex) => {
               const BadgeIcon = badgeIcon(p.badge)
               const isDeleting = deletingId === p.id
               return (
@@ -219,7 +219,7 @@ export function ProjectsView() {
                   role="button"
                   tabIndex={0}
                   aria-labelledby={`project-card-title-${p.id}`}
-                  className="project-showcase premium-panel group relative flex min-h-[400px] cursor-pointer flex-col overflow-hidden rounded-lg transition-all duration-300"
+                  className="project-showcase project-gallery-card premium-panel group relative flex min-h-[500px] cursor-pointer flex-col overflow-hidden rounded-[18px] transition-all duration-300"
                   style={{ border: `1px solid ${COLORS.border}` }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = "var(--elite-gold, #f5c451)"
@@ -245,9 +245,13 @@ export function ProjectsView() {
                     style={{ background: "radial-gradient(circle, rgba(245,196,81,0.16), transparent 70%)" }}
                   />
 
-                  <div className="project-showcase-preview relative overflow-hidden p-5">
+                  <div className={`project-gallery-preview project-gallery-preview--${projectIndex % 4} relative overflow-hidden`}>
+                    <span className="project-gallery-preview__year">2026</span>
                     <div className="project-showcase-preview__chrome"><i /><i /><i /><span>{p.name}</span></div>
-                    <div className="project-showcase-preview__content"><BadgeIcon size={44} strokeWidth={1.15} aria-hidden="true" /><span>{p.description || t("projects.noDescription")}</span></div>
+                    <div className="project-gallery-preview__copy"><small>OSGARD / PROJECT SHOWCASE</small><strong>{p.name}</strong><span>{p.description || t("projects.noDescription")}</span></div>
+                    <span className="project-gallery-preview__blink" aria-hidden="true" />
+                    <span className="project-gallery-preview__control project-gallery-preview__control--expand"><ExternalLink size={16} /></span>
+                    <span className="project-gallery-preview__control project-gallery-preview__control--inspect"><Wand2 size={16} /></span>
                     <div className="project-showcase-preview__open"><ExternalLink size={16} /> Открыть</div>
                   </div>
                   <div className="relative flex items-start justify-between px-5 pt-5">

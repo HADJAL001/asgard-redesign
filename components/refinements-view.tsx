@@ -135,7 +135,7 @@ export function RefinementsView() {
                   {t("refine.hubPickProject")}
                 </div>
                 <div className="refine-hub-grid">
-                  {projects.map((p) => {
+                  {projects.map((p, projectIndex) => {
                     const BadgeIcon = badgeIcon(p.badge)
                     return (
                       <button
@@ -145,7 +145,7 @@ export function RefinementsView() {
                           track("refinements_open_project", { projectId: p.id })
                           router.push(`/projects/${p.id}?tab=refine`)
                         }}
-                        className="premium-panel refine-hub-card"
+                        className={`premium-panel refine-hub-card refine-gallery-card refine-gallery-card--${projectIndex % 4}`}
                         style={{
                           padding: 22,
                           textAlign: "left",
@@ -319,6 +319,12 @@ export function RefinementsView() {
           box-shadow: 0 24px 60px -28px rgba(245, 196, 81, 0.45), 0 8px 32px rgba(0,0,0,.6);
         }
         .refine-hub-card { background: rgba(20,25,45,.5) !important; border: 1px solid rgba(255,184,0,.3); backdrop-filter: blur(20px); box-shadow: 0 8px 32px rgba(0,0,0,.6); }
+        .refine-gallery-card { min-height: 260px; padding-top: 86px !important; background: linear-gradient(180deg, transparent 0 82px, rgba(9,13,16,.94) 82px), linear-gradient(180deg, #fff0c2, #ef971f 34%, #1a0904 82%) !important; border-color: rgba(255,174,90,.3) !important; }
+        .refine-gallery-card::before { content: "2026  /  REFINEMENT DECK"; position: absolute; top: 19px; left: 20px; z-index: 1; color: rgba(26,18,13,.68); font: 600 8px/1 var(--font-ibm-plex-mono, monospace); letter-spacing: .13em; }
+        .refine-gallery-card::after { content: ""; position: absolute; inset: 0 0 auto; height: 82px; background: repeating-linear-gradient(90deg, rgba(255,255,255,.16) 0 1px, transparent 1px 45px); opacity: .65; pointer-events: none; }
+        .refine-gallery-card--1 { background: linear-gradient(180deg, transparent 0 82px, rgba(9,13,16,.94) 82px), linear-gradient(180deg, #d5f8ff, #418cb8 34%, #061017 82%) !important; }
+        .refine-gallery-card--2 { background: linear-gradient(180deg, transparent 0 82px, rgba(9,13,16,.94) 82px), linear-gradient(180deg, #eddbff, #8760c4 34%, #10071c 82%) !important; }
+        .refine-gallery-card--3 { background: linear-gradient(180deg, transparent 0 82px, rgba(9,13,16,.94) 82px), linear-gradient(180deg, #e6ffe6, #55a77e 34%, #06110d 82%) !important; }
         .refine-evolution { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 2px; }
         .refine-evolution__node { position: relative; padding-top: 11px; color: #64748b; font-size: 10px; text-align: center; }
         .refine-evolution__node::before { content: ""; position: absolute; top: 2px; left: 0; right: 0; height: 2px; background: #34404c; }

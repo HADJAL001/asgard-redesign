@@ -2556,6 +2556,31 @@ svg { width: 1rem; height: 1rem; flex: none; }
 .world-lab::before { content:""; position:fixed; inset:0; z-index:0; pointer-events:none; background-image: repeating-radial-gradient(circle at 50% 38%, rgb(212 175 55 / .08) 0 1px, transparent 1px 56px); opacity:.55; }
 .world-lab > * { position:relative; z-index:1; }
 
+/* Project gallery: a restrained editorial showcase rather than a dashboard card. */
+.project-gallery-card { background:#090d10 !important; border-color:rgb(255 174 90 / .22) !important; box-shadow:0 20px 54px rgb(0 0 0 / .26) !important; }
+.project-gallery-card:hover { border-color:rgb(255 181 105 / .56) !important; }
+.project-gallery-preview { position:relative; height:clamp(280px, 31vw, 390px); isolation:isolate; overflow:hidden; color:#fff; background:linear-gradient(180deg,#fff0c2 0%,#f0a25f 25%,#f15b08 57%,#0a0605 100%); }
+.project-gallery-preview::before { content:""; position:absolute; z-index:-1; inset:0; background:repeating-linear-gradient(90deg, rgb(255 249 218 / .22) 0 1px, transparent 1px 54px), linear-gradient(180deg, transparent 21%, rgb(104 31 0 / .22) 62%, rgb(0 0 0 / .5)); mask-image:linear-gradient(180deg, transparent, #000 25%, #000); }
+.project-gallery-preview::after { content:""; position:absolute; z-index:-1; inset:0; background:radial-gradient(ellipse 50% 48% at 50% 16%, rgb(255 253 220 / .75), transparent 60%), radial-gradient(ellipse 64% 54% at 50% 74%, rgb(255 73 0 / .28), transparent 68%); mix-blend-mode:screen; }
+.project-gallery-preview--1 { background:linear-gradient(180deg,#d5f8ff 0%,#5faed4 30%,#145d8d 59%,#05090d 100%); }
+.project-gallery-preview--2 { background:linear-gradient(180deg,#eddbff 0%,#9a68d4 31%,#40236d 58%,#08050e 100%); }
+.project-gallery-preview--3 { background:linear-gradient(180deg,#e6ffe6 0%,#6ab890 31%,#165a4c 59%,#040a09 100%); }
+.project-gallery-preview__year { position:absolute; top:18px; left:50%; transform:translateX(-50%); color:rgb(20 17 13 / .7); font:600 8px/1 var(--font-ibm-plex-mono,monospace); letter-spacing:.16em; }
+.project-gallery-preview__chrome { position:absolute; top:18px; left:20px; right:20px; display:flex; align-items:center; gap:5px; color:rgb(255 255 255 / .66); font:500 10px/1 var(--font-ibm-plex-mono,monospace); }
+.project-gallery-preview__chrome i { width:6px; height:6px; border-radius:50%; background:rgb(255 255 255 / .7); }
+.project-gallery-preview__chrome span { margin-left:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.project-gallery-preview__copy { position:absolute; z-index:1; left:50%; bottom:58px; width:min(82%, 390px); transform:translateX(-50%); display:grid; gap:8px; text-align:center; text-shadow:0 2px 14px rgb(0 0 0 / .42); }
+.project-gallery-preview__copy small { color:rgb(255 255 255 / .66); font:600 8px/1 var(--font-ibm-plex-mono,monospace); letter-spacing:.1em; }
+.project-gallery-preview__copy strong { overflow:hidden; color:#fff; font-size:clamp(21px, 2.5vw, 31px); font-weight:600; line-height:1.05; text-overflow:ellipsis; white-space:nowrap; letter-spacing:0; }
+.project-gallery-preview__copy span { display:-webkit-box; overflow:hidden; color:rgb(255 255 255 / .76); font-size:10px; line-height:1.4; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+.project-gallery-preview__blink { position:absolute; inset:-20% auto -20% -32%; width:18%; transform:rotate(14deg); background:linear-gradient(90deg,transparent,rgb(255 255 255 / .35),transparent); animation:project-gallery-blink 8s ease-in-out infinite; }
+.project-gallery-preview__control { position:absolute; right:14px; display:grid; width:44px; height:44px; place-items:center; border-radius:13px; color:#111; background:rgb(232 232 232 / .7); backdrop-filter:blur(8px); }
+.project-gallery-preview__control--expand { bottom:70px; }.project-gallery-preview__control--inspect { bottom:18px; }
+.project-gallery-preview .project-showcase-preview__open { display:none; }
+@keyframes project-gallery-blink { 0%,70%,100% { translate:0 0; opacity:0; } 76% { opacity:1; } 88% { translate:720% 0; opacity:0; } }
+@media (prefers-reduced-motion:reduce) { .project-gallery-preview__blink { animation:none; } }
+@media (max-width:640px) { .project-gallery-preview { height:290px; }.project-gallery-preview__copy { bottom:54px; }.project-gallery-preview__control { width:40px; height:40px; }.project-gallery-preview__control--expand { bottom:63px; } }
+
 /* Premium orchestration command deck */
 .orch-3d { position:relative; width:min(100%, 720px); height:430px; overflow:hidden; isolation:isolate; pointer-events:none; background:radial-gradient(circle at 50% 48%, rgb(40 145 194 / .13), transparent 33%), linear-gradient(145deg, #071321, #030812 74%); border:1px solid rgb(101 201 255 / .24); box-shadow:inset 0 1px rgb(255 255 255 / .08), inset 0 0 90px rgb(45 129 177 / .1), 0 20px 50px rgb(0 0 0 / .28); }
 .orch-3d::before { content:"SYSTEM // ORCHESTRATION DECK"; position:absolute; top:14px; left:18px; z-index:2; color:rgb(188 226 242 / .52); font:600 9px/1 var(--font-ibm-plex-mono,monospace); letter-spacing:.14em; pointer-events:none; }
