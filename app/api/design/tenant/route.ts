@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   }
   let brand = readServerBrand()
   const backendUrl = (process.env.BACKEND_URL || "").replace(/\/$/, "")
-  const authorization = request.headers.get("authorization")
+  const authorization = request.headers.get("authorization") || (request.cookies.get("osgard_access")?.value ? `Bearer ${request.cookies.get("osgard_access")!.value}` : null)
   if (backendUrl && authorization?.startsWith("Bearer ")) {
     try {
       const upstream = await fetch(`${backendUrl}/design/tenant/brand`, { headers: { authorization }, cache: "no-store" })
@@ -58,7 +58,7 @@ export async function PUT(request: NextRequest) {
   const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim()
   const host = (forwardedHost || request.headers.get("host"))?.split(":")[0]?.toLowerCase()
   if (host !== "osgardnewworld.com" && host !== "www.osgardnewworld.com") return NextResponse.json({ error: "Tenant недоступен для этого домена" }, { status: 404 })
-  const authorization = request.headers.get("authorization")
+  const authorization = request.headers.get("authorization") || (request.cookies.get("osgard_access")?.value ? `Bearer ${request.cookies.get("osgard_access")!.value}` : null)
   const backendUrl = (process.env.BACKEND_URL || "").replace(/\/$/, "")
   if (!backendUrl || !authorization?.startsWith("Bearer ")) return NextResponse.json({ error: "Требуется авторизация" }, { status: 401 })
   const body = await request.json().catch(() => null)
