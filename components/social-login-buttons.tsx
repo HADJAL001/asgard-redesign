@@ -10,8 +10,6 @@
 
 import type { ReactElement } from "react"
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3002"
-
 const PROVIDERS: { id: string; label: string; icon: ReactElement }[] = [
   {
     id: "google",
@@ -48,7 +46,7 @@ export function SocialLoginButtons() {
         {PROVIDERS.map((p) => (
           <a
             key={p.id}
-            href={`${BACKEND_URL}/auth/${p.id}`}
+            href={`/api/auth/${p.id}`}
             title={p.label}
             className="flex items-center justify-center rounded-lg border border-[#30424b] bg-[#10181d] py-2.5 text-white transition-colors hover:border-[#d7ae57]/50 hover:bg-[#17242a]"
           >

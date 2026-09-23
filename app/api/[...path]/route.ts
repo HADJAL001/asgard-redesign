@@ -253,6 +253,22 @@ async function handleGithubPublishConnect(req: NextRequest) {
   }
 }
 
+/** Browser OAuth must stay same-origin in production. The backend owns the provider redirect,
+ * while this proxy preserves the 302 instead of rendering the upstream response as HTML. */
+async function handleOAuthRedirect(provider: "google" | "github", req: NextRequest) {
+  try {
+    const targetUrl = new URL(`${BACKEND_URL}/auth/${provider}`)
+    req.nextUrl.searchParams.forEach((value, key) => targetUrl.searchParams.set(key, value))
+    const upstream = await fetch(targetUrl, { redirect: "manual", headers: { accept: "text/html" } })
+    const location = upstream.headers.get("location")
+    if (upstream.status >= 300 && upstream.status < 400 && location) return NextResponse.redirect(location)
+    return new NextResponse("OAuth provider did not return a redirect", { status: 502 })
+  } catch (error) {
+    console.error(`${provider} OAuth proxy error:`, error)
+    return new NextResponse("OAuth service unavailable", { status: 502 })
+  }
+}
+
 const ORCHESTRATOR_STREAM_RE = /^orchestrator\/stream\/[^/]+$/
 const GENERATION_STREAM_RE = /^task\/[^/]+\/stream$/
 const TC_MARKET_STREAM_RE = /^tc-market\/stream$/
@@ -377,6 +393,8 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
   if (req.method === "GET" && pathStr === "auth/github/publish/connect") {
     return handleGithubPublishConnect(req)
   }
+  if (req.method === "GET" && pathStr === "auth/google") return handleOAuthRedirect("google", req)
+  if (req.method === "GET" && pathStr === "auth/github") return handleOAuthRedirect("github", req)
 
   const accessToken = req.cookies.get(ACCESS_COOKIE)?.value
 
