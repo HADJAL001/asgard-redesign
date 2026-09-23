@@ -62,15 +62,15 @@ export function Hotspot({ hotspot, radius, occludeRef, delayMs, reducedMotion }:
         <meshBasicMaterial color={hotspot.color} transparent opacity={.3} blending={AdditiveBlending} />
       </mesh>
       <mesh ref={markerRef} onClick={(event) => { event.stopPropagation(); open() }}>
-        <sphereGeometry args={[.03, 16, 16]} />
+        <sphereGeometry args={[.075, 20, 20]} />
         <meshBasicMaterial color={hotspot.color} />
       </mesh>
       <mesh ref={pulseRef} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[.04, .05, 32]} />
+        <ringGeometry args={[.09, .12, 32]} />
         <meshBasicMaterial color={hotspot.color} transparent opacity={.55} depthWrite={false} blending={AdditiveBlending} />
       </mesh>
       {glowTexture ? <sprite ref={spriteRef} scale={[.15, .15, 1]}><spriteMaterial map={glowTexture} color={hotspot.color} transparent opacity={.6} blending={AdditiveBlending} depthWrite={false} /></sprite> : null}
-      <Html transform occlude={[occludeRef as unknown as RefObject<Object3D>]} distanceFactor={.85} className="platform-hotspot-rise" style={{ animationDelay: `${delayMs}ms`, pointerEvents: "none" }}>
+      <Html transform occlude={[occludeRef as unknown as RefObject<Object3D>]} distanceFactor={.55} className="platform-hotspot-rise" style={{ animationDelay: `${delayMs}ms`, pointerEvents: "none" }}>
         <div className="platform-hotspot-badge" style={{ "--hotspot-color": hotspot.color } as React.CSSProperties}><Icon size={15} strokeWidth={2.2} /><span>{hotspot.label}</span></div>
         {isActive ? <div className="platform-portal-preview" role="status"><span><Icon size={12} /> ПОРТАЛ</span><strong>{hotspot.label}</strong><p>{hotspot.description}</p></div> : null}
       </Html>

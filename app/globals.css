@@ -858,7 +858,7 @@ svg { width: 1rem; height: 1rem; flex: none; }
 @keyframes platform-stars-near { to { transform:translate3d(-72px,46px,0); } }
 .platform-map-kicker { color: #aee8ff; font: 600 10px/1.3 var(--font-ibm-plex-mono, monospace); letter-spacing: 0; text-shadow: 0 0 16px rgb(83 199 255 / .72); }
 .platform-hotspot-ui { display: inline-block; }
-.platform-hotspot-badge { display:flex; align-items:center; gap:6px; width:max-content; padding:6px 8px; border:1px solid color-mix(in srgb, var(--hotspot-color) 72%, white 10%); border-radius:5px; background:rgb(3 12 22 / .78); box-shadow:0 0 18px color-mix(in srgb, var(--hotspot-color) 38%, transparent), inset 0 1px rgb(255 255 255 / .16); color:var(--hotspot-color); font:600 10px/1 var(--font-ibm-plex-mono,monospace); letter-spacing:.02em; white-space:nowrap; backdrop-filter:blur(8px); transform:translateY(-2px); }
+.platform-hotspot-badge { display:flex; align-items:center; gap:7px; width:max-content; padding:8px 10px; border:1px solid color-mix(in srgb, var(--hotspot-color) 74%, white 18%); border-radius:4px; background:rgb(3 12 22 / .92); box-shadow:0 3px 18px rgb(0 0 0 / .5), inset 0 1px rgb(255 255 255 / .18); color:var(--hotspot-color); font:700 11px/1 var(--font-ibm-plex-mono,monospace); letter-spacing:.02em; white-space:nowrap; backdrop-filter:blur(8px); transform:translateY(-2px); }
 .platform-hotspot-badge span { color:#edf7ff; }
 .platform-portal { transform-origin: center; border-radius: 2px; letter-spacing: 0; box-shadow: inset 0 1px rgb(255 255 255 / .14); transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease; }
 .platform-hotspot-ui:hover .platform-portal, .platform-portal:focus-visible { border-color: color-mix(in srgb, currentColor 55%, white) !important; box-shadow: 0 0 10px color-mix(in srgb, currentColor 35%, transparent), inset 0 0 6px rgb(255 255 255 / .08) !important; }
@@ -1093,9 +1093,9 @@ svg { width: 1rem; height: 1rem; flex: none; }
   align-items: center;
   justify-content: center;
 }
-.orch-3d { position:relative; width: min(100%, 720px); height: 430px; pointer-events: none; isolation:isolate; }
-.orch-3d::before { content:""; position:absolute; inset:9% 12%; border:1px solid rgb(215 174 87 / .18); border-radius:50%; transform:rotate(-14deg) scaleY(.54); box-shadow:0 0 80px rgb(215 174 87 / .12), inset 0 0 45px rgb(95 177 255 / .06); }
-.orch-3d::after { content:""; position:absolute; inset:0; background:radial-gradient(circle at 50% 48%, rgb(255 194 74 / .12), transparent 21%), radial-gradient(circle at 50% 50%, transparent 34%, rgb(52 137 205 / .08) 57%, transparent 72%); pointer-events:none; }
+.orch-3d { position:relative; width: min(100%, 720px); height: 430px; pointer-events: none; isolation:isolate; background:linear-gradient(145deg, rgb(13 23 31 / .96), rgb(7 12 17 / .98)); border:1px solid rgb(161 181 194 / .18); box-shadow:inset 0 1px rgb(255 255 255 / .08), inset 0 0 70px rgb(83 130 164 / .08); }
+.orch-3d::before { content:""; position:absolute; inset:0; opacity:.3; background:linear-gradient(90deg, transparent 49.8%, rgb(180 198 209 / .12) 50%, transparent 50.2%), linear-gradient(0deg, transparent 49.8%, rgb(180 198 209 / .1) 50%, transparent 50.2%); background-size:64px 64px; }
+.orch-3d::after { content:"SYSTEM // ORCHESTRATION DECK"; position:absolute; left:18px; top:14px; color:rgb(205 220 232 / .4); font:600 9px/1 var(--font-ibm-plex-mono,monospace); letter-spacing:.14em; pointer-events:none; }
 .orch-3d canvas { display: block; width: 100% !important; height: 100% !important; }
 .orch-3d-label { display: block; width: max-content; max-width: 90px; padding: 4px 6px; border: 1px solid color-mix(in srgb, var(--node-color) 55%, transparent); background: rgb(5 12 22 / .78); box-shadow: 0 6px 18px rgb(0 0 0 / .32), inset 0 1px rgb(255 255 255 / .12); color: #edf8ff; font: 600 9px/1.1 var(--font-ibm-plex-mono, monospace); text-align: center; white-space: nowrap; backdrop-filter: blur(8px); }
 .orch-radial-orbit { position: absolute; border: 1px solid rgb(var(--color-gold-rgb) / .16); border-radius: 50%; pointer-events: none; }
