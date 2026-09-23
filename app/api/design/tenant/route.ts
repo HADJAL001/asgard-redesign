@@ -28,7 +28,8 @@ function readServerBrand(): TenantBrand {
 }
 
 export function GET(request: NextRequest) {
-  const host = request.headers.get("host")?.split(":")[0]?.toLowerCase()
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim()
+  const host = (forwardedHost || request.headers.get("host"))?.split(":")[0]?.toLowerCase()
   if (host !== "osgardnewworld.com" && host !== "www.osgardnewworld.com") {
     return NextResponse.json({ error: "Tenant недоступен для этого домена" }, { status: 404 })
   }
