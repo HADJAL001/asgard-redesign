@@ -6,7 +6,7 @@ test.describe("OSGARD design system", () => {
     expect(response.ok()).toBeTruthy()
     const body = await response.json()
     expect(body.preset).toBe("futuristic")
-    expect(body.tokens.colors.primary).toMatch(/^#/) 
+    expect(body.tokens.colors.primary).toMatch(/^#/)
     expect(body.tokens.motion.reducedMotion).toBe(true)
   })
 
@@ -33,7 +33,6 @@ test.describe("OSGARD design system", () => {
   test("reduced motion preference is respected by the document", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" })
     await page.goto("/cofounder")
-    const reduced = await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)
-    expect(reduced).toBe(true)
+    expect(await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(true)
   })
 })
