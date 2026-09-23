@@ -1,8 +1,6 @@
 "use client"
 
-import { memo, useRef } from "react"
-import { Canvas, useFrame } from "@react-three/fiber"
-import type { Group } from "three"
+import { memo } from "react"
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react"
 import { Loader2, CheckCircle2, XCircle, Clock } from "lucide-react"
 import { COLORS } from "@/lib/economy"
@@ -22,25 +20,6 @@ const STALE_PROVIDER_LABELS: Record<string, string> = {
 type OrchestratorNodeRuntimeData = OrchestratorNodeData & {
   status?: OrchestratorNodeRunStatus
   output?: string
-}
-
-function NodeModel({ type, color }: { type: string; color: string }) {
-  const ref = useRef<Group>(null)
-  useFrame(({ clock }) => {
-    if (!ref.current) return
-    ref.current.rotation.y = clock.elapsedTime * 0.7
-    ref.current.rotation.x = Math.sin(clock.elapsedTime * 0.8) * 0.12
-  })
-  return <group ref={ref}>
-    {type === "claude" ? <mesh><icosahedronGeometry args={[0.46, 1]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.55} metalness={0.9} roughness={0.18} /></mesh> : null}
-    {type === "deepseek" ? <mesh><octahedronGeometry args={[0.48, 0]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.5} metalness={0.86} roughness={0.2} /></mesh> : null}
-    {type === "grok" ? <mesh rotation={[0, 0, Math.PI / 4]}><boxGeometry args={[0.58, 0.58, 0.22]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.5} metalness={0.88} roughness={0.2} /></mesh> : null}
-    {type !== "claude" && type !== "deepseek" && type !== "grok" ? <mesh><torusGeometry args={[0.32, 0.1, 8, 20]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.45} metalness={0.8} roughness={0.24} /></mesh> : null}
-  </group>
-}
-
-function Node3DPreview({ type, color }: { type: string; color: string }) {
-  return <span className="orch-node-3d" aria-hidden="true"><Canvas camera={{ position: [0, 0, 2.5], fov: 38 }} dpr={[1, 1.5]} gl={{ alpha: true, antialias: true }}><ambientLight intensity={0.35} /><pointLight position={[2, 2, 3]} intensity={2.4} color={color} /><NodeModel type={type} color={color} /></Canvas></span>
 }
 
 function statusGlow(status?: OrchestratorNodeRunStatus): string {
@@ -101,7 +80,7 @@ export const OrchestratorNode = memo(function OrchestratorNode({
 
         {/* Заголовок ноды */}
         <div className="flex items-center gap-2">
-          {palette && <Node3DPreview type={data.type} color={data.status === "running" ? COLORS.accent : palette.color} />}
+          {palette && <span className="orch-node-icon" style={{ color: data.status === "running" ? COLORS.accent : palette.color }}><palette.Icon size={18} /></span>}
           <span
             className="text-[13px] font-medium"
             style={{
@@ -197,19 +176,18 @@ export const OrchestratorNode = memo(function OrchestratorNode({
    CSS-анимации для нод оркестратора
    ================================================================ */
 const NODE_ANIMATION_CSS = `
-.orch-node { position: relative; border-radius: 14px; backdrop-filter: blur(14px); box-shadow: inset 0 1px rgba(255,255,255,.13), 0 10px 28px rgba(0,0,0,.24); }
-.orch-node-3d { display:block; width:38px; height:38px; flex:0 0 auto; filter:drop-shadow(0 0 8px color-mix(in srgb, var(--mini-color, #d7ae57) 45%, transparent)); }
-.orch-node::before { content:""; position:absolute; inset:5px; border:1px solid rgba(174,216,255,.12); border-radius:10px; pointer-events:none; }
-.orch-node-claude { clip-path: polygon(10% 0,90% 0,100% 25%,100% 75%,90% 100%,10% 100%,0 75%,0 25%); border-radius:0 !important; }
-.orch-node-deepseek { clip-path: polygon(8px 0, calc(100% - 8px) 0,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0 calc(100% - 8px),0 8px); border-radius:0 !important; }
+.orch-node { position: relative; border-radius: 9px; backdrop-filter: blur(18px); box-shadow: inset 0 1px rgba(255,255,255,.12), 0 14px 32px rgba(0,0,0,.35); transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.orch-node:hover { transform: translateY(-2px); box-shadow: inset 0 1px rgba(255,255,255,.16), 0 18px 38px rgba(0,0,0,.48); }
+.orch-node-icon { display:grid; width:30px; height:30px; flex:0 0 auto; place-items:center; border:1px solid currentColor; border-radius:7px; background:rgba(255,255,255,.05); box-shadow:inset 0 0 14px rgba(255,255,255,.04); }
+.orch-node::before { content:""; position:absolute; inset:0; border:1px solid rgba(180,220,255,.08); border-radius:inherit; pointer-events:none; }
 .orch-node-webhook_trigger { border-radius: 999px; min-width: 160px; }
 .orch-node .react-flow__handle { width: 11px; height:11px; border-radius:3px; background:#dff8ff; border:2px solid #5ed8ff; box-shadow:0 0 10px #5ed8ff; transition:transform .16s ease; }
 .orch-node:hover .react-flow__handle { transform:scale(1.55); }
 
 /* Пульсирующее свечение при running */
 @keyframes orch-glow-pulse {
-  0%, 100% { box-shadow: 0 0 0 2px rgba(215, 174, 87,0.25), 0 0 12px rgba(215, 174, 87,0.4); }
-  50%       { box-shadow: 0 0 0 3px rgba(215, 174, 87,0.45), 0 0 24px rgba(215, 174, 87,0.7); }
+  0%, 100% { box-shadow: 0 0 0 1px rgba(94,216,255,.24), 0 0 14px rgba(94,216,255,.25); }
+  50%       { box-shadow: 0 0 0 2px rgba(94,216,255,.5), 0 0 22px rgba(94,216,255,.48); }
 }
 .orch-node-running {
   animation: orch-glow-pulse 1.4s ease-in-out infinite;

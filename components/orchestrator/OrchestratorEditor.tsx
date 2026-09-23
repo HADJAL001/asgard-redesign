@@ -26,6 +26,7 @@ import { ORCHESTRATOR_PALETTE, DRAG_DATA_FORMAT } from "./node-types"
 import { OrchestratorNode } from "./nodes/OrchestratorNode"
 import { OrchestratorRadialShowcase } from "./OrchestratorRadialShowcase"
 import { SnakeEdge } from "./edges/SnakeEdge"
+import { BackgroundSpotlight } from "./BackgroundSpotlight"
 import { PremiumModal } from "@/components/PremiumModal"
 import { integrationsApi } from "@/lib/integrations/api"
 import type { ConnectorPublic, Integration } from "@/lib/integrations/types"
@@ -381,7 +382,8 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-3">
+    <div className="orch-editor-surface relative flex min-w-0 flex-1 flex-col gap-3 overflow-hidden rounded-2xl p-1">
+      <BackgroundSpotlight />
       {/* Toolbar */}
       <style>{EDITOR_CSS}</style>
       <div className="orch-toolbar flex flex-wrap items-center gap-3 rounded-xl p-3">
@@ -539,6 +541,13 @@ function EditorInner({ chainId, initialChain, autoRun, onRegisterAddNode }: Orch
             <MiniMap pannable zoomable style={{ backgroundColor: COLORS.card }} />
           </ReactFlow>
         </div>
+
+        {run.status === "running" && (
+          <div className="orch-execution-overlay" role="status">
+            <span className="orch-live-dot" /> EXECUTION STREAM
+            <strong>{run.nodes.filter((node) => node.status === "done").length}/{nodes.length} NODES ACK</strong>
+          </div>
+        )}
 
         {selectedNode && (
           <div
@@ -814,10 +823,17 @@ export function OrchestratorEditor(props: OrchestratorEditorProps) {
 }
 
 const EDITOR_CSS = `
+.orch-editor-surface { isolation:isolate; background:linear-gradient(145deg,rgba(7,14,24,.92),rgba(10,20,32,.78)); }
+.orch-spotlight { position:absolute; z-index:0; width:420px; height:420px; pointer-events:none; transform:translate(-50%,-50%); border-radius:50%; background:radial-gradient(circle,rgba(94,216,255,.12),transparent 68%); filter:blur(12px); }
+.orch-editor-surface > *:not(.orch-spotlight) { position:relative; z-index:1; }
+.orch-execution-overlay { position:absolute; top:72px; right:18px; z-index:12; display:flex; align-items:center; gap:9px; padding:9px 12px; border:1px solid rgba(94,216,255,.42); border-radius:7px; background:rgba(4,14,24,.86); backdrop-filter:blur(16px); color:#8fe5ff; font:600 10px var(--font-ibm-plex-mono,monospace); letter-spacing:.12em; box-shadow:0 0 22px rgba(94,216,255,.14); }
+.orch-execution-overlay strong { color:#dcefff; font-weight:500; letter-spacing:.05em; }
+.orch-live-dot { width:7px; height:7px; border-radius:50%; background:#5ed8ff; box-shadow:0 0 10px #5ed8ff; animation:orch-live-pulse 1s ease-in-out infinite; }
+@keyframes orch-live-pulse { 50% { opacity:.35; transform:scale(.7); } }
 .orch-toolbar { background: linear-gradient(105deg, rgba(24,22,18,.94), rgba(18,18,18,.82)); border: 1px solid rgba(215,174,87,.24); box-shadow: inset 0 1px rgba(255,255,255,.06); }
 .orch-terminal-input { background:rgba(0,0,0,.42); border:1px solid rgb(255 184 0 / .32); box-shadow:inset 0 0 20px rgb(255 184 0 / .06); color:#ffb800 !important; caret-color:#ffb800; font-family:var(--font-ibm-plex-mono,monospace); transition:border-color .3s ease,box-shadow .3s ease; }.orch-terminal-input:focus { border-color:#ffb800; box-shadow:inset 0 0 20px rgb(255 184 0 / .12),0 0 28px rgb(255 184 0 / .23); }
 .orch-energy-gauge { position:relative; overflow:hidden; border-color:rgb(215 174 87 / .28)!important; background:rgb(9 9 8 / .6)!important; color:#d7ae57!important; font-family:var(--font-ibm-plex-mono,monospace); }.orch-energy-gauge>span:first-child { position:absolute; inset:0; height:100%!important; width:100%; border-radius:0; background:transparent!important; }.orch-energy-gauge>span:first-child>span { background:linear-gradient(90deg,#785e2e,#d7ae57)!important; box-shadow:none; }.orch-energy-gauge { justify-content:flex-end; }
-.orch-launch { position:relative; overflow:hidden; background:rgba(215,174,87,.1); border:1px solid rgba(215,174,87,.7); color:#e6c77e; box-shadow:inset 0 1px rgba(255,255,255,.08); transition:border-color .2s ease,background .2s ease; }.orch-launch:hover { transform:none; background:rgba(215,174,87,.16); border-color:#f0d58b; box-shadow:inset 0 1px rgba(255,255,255,.1); }.orch-launch>* { position:relative; z-index:1; }
+.orch-launch { position:relative; overflow:hidden; background:linear-gradient(100deg,#2bbedb,#3476e8); border:1px solid rgba(151,239,255,.75); color:#f4fdff; box-shadow:0 0 22px rgba(56,189,248,.28),inset 0 1px rgba(255,255,255,.28); transition:border-color .2s ease,filter .2s ease,transform .2s ease; }.orch-launch:hover { transform:translateY(-1px); filter:brightness(1.12); }.orch-launch>* { position:relative; z-index:1; }
 .orch-canvas { background: radial-gradient(circle at 72% 25%, rgba(215,174,87,.09), transparent 28%), radial-gradient(circle at 12% 84%, rgba(130,110,70,.08), transparent 32%), #0b0b0a; }
 .orch-canvas::before { content:""; position:absolute; inset:0; pointer-events:none; z-index:2; opacity:.24; background-image: radial-gradient(circle at 15% 20%,#d7ae57 0 1px,transparent 1.5px),radial-gradient(circle at 74% 13%,#fff2bc 0 1px,transparent 1.5px),radial-gradient(circle at 88% 70%,#8e815f 0 1px,transparent 1.5px); background-size: 190px 160px,240px 210px,280px 230px; animation:orch-stars 16s linear infinite; }
 .orch-canvas-running::before { animation-duration:3s; opacity:.65; }
