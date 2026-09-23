@@ -46,6 +46,21 @@ import { explainDesignQuality } from "../lib/design-qa"
 
 const router = Router()
 
+router.get("/tenant/brand", requireAuth, (req: AuthRequest, res) => {
+  const row = db.prepare(`SELECT tenant_id as tenantId, name, accent, display_font as displayFont FROM tenant_design_brands WHERE user_id = ?`).get(req.user!.userId)
+  res.json({ version: "1.0.0", brand: row ?? null })
+})
+
+router.put("/tenant/brand", requireAuth, (req: AuthRequest, res) => {
+  const name = typeof req.body?.name === "string" ? req.body.name.trim().slice(0, 80) : ""
+  const accent = typeof req.body?.accent === "string" ? req.body.accent.trim() : ""
+  const displayFont = typeof req.body?.displayFont === "string" ? req.body.displayFont.trim().slice(0, 100) : ""
+  if (!name || !/^#[0-9a-f]{6}$/i.test(accent) || !displayFont) return res.status(400).json({ error: "Некорректные параметры бренда" })
+  const now = Date.now()
+  db.prepare(`INSERT INTO tenant_design_brands (user_id, tenant_id, name, accent, display_font, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET name=excluded.name, accent=excluded.accent, display_font=excluded.display_font, updated_at=excluded.updated_at`).run(req.user!.userId, `user-${req.user!.userId}`, name, accent, displayFont, now)
+  res.json({ version: "1.0.0", brand: { tenantId: `user-${req.user!.userId}`, name, accent, displayFont } })
+})
+
 /** Человекочитаемые названия архетипов для UI (паритет с ARCHETYPE_LABEL на фронте). */
 const ARCHETYPE_LABELS: Record<string, string> = {
   arcane: "Тайное знание",

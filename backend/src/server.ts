@@ -256,6 +256,7 @@ import { runSecretRoomEventsMigration } from "./migrations/121_secret_room_event
 import { runSecretRoomActivityMigration } from "./migrations/122_secret_room_activity"
 import { runSecretRoomAvatarMigration } from "./migrations/123_secret_room_avatar"
 import "./migrations/124_secret_room_alpha"
+import "./migrations/125_tenant_design_brand"
 import provenanceRoutes from "./routes/provenance.routes"
 import { runOrderBookMigration } from "./migrations/001_order_book"
 import { runReferralMigration } from "./migrations/002_referral_system"
