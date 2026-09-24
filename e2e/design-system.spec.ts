@@ -17,6 +17,16 @@ test.describe("OSGARD design system", () => {
     expect(body.brand.tenantId).toBe("osgardnewworld")
   })
 
+  test("exposes a guarded universal app manifest", async ({ request }) => {
+    const response = await request.get("/api/design/manifest?app=client-portal&preset=bold")
+    expect(response.ok()).toBeTruthy()
+    const body = await response.json()
+    expect(body.profile).toMatchObject({ app: "client-portal", preset: "bold", universal: true })
+    expect(body.componentRegistry.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining(["app-shell", "preview-frame", "cinematic-sequence"]))
+    expect(body.cinematic.scenes).toEqual(["intent", "architecture", "build", "preview", "approval"])
+    expect(body.guardrails).toMatchObject({ contrast: "WCAG-AA", allowArbitraryHtml: false })
+  })
+
   test("cofounder renders hull workspace with keyboard-visible controls", async ({ page }) => {
     await page.goto("/cofounder")
     await expect(page.getByRole("heading", { name: "AI Cofounder" })).toBeVisible()
