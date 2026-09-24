@@ -42,11 +42,22 @@ export function CofounderConsole() {
   }, [open])
 
   async function loadPreview(id: string, revision: number) {
-    const response = await fetch(`/api/design/blueprint/${id}/preview?revision=${revision}`, { cache: "no-store" })
-    if (!response.ok) return
-    const data = await response.json().catch(() => null)
-    const plan = data?.renderPlan
-    if (plan && Array.isArray(plan.slots)) setPreviewPlan({ revision: data.revision, slots: plan.slots, stages: Array.isArray(plan.stages) ? plan.stages : [] })
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const response = await fetch(`/api/design/blueprint/${id}/preview?revision=${revision}`, { cache: "no-store" })
+        if (!response.ok) throw new Error(`preview_${response.status}`)
+        const data = await response.json()
+        const plan = data?.renderPlan
+        if (plan && Array.isArray(plan.slots)) {
+          setPreviewPlan({ revision: data.revision, slots: plan.slots, stages: Array.isArray(plan.stages) ? plan.stages : [] })
+          return
+        }
+        throw new Error("preview_invalid")
+      } catch {
+        if (attempt < 2) await new Promise((resolve) => window.setTimeout(resolve, 700 * (attempt + 1)))
+      }
+    }
+    setCompileError("Preview временно недоступен. Blueprint сохранён, попробуйте открыть его ещё раз.")
   }
 
   useEffect(() => {
