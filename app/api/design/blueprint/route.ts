@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { saveBlueprint, type StoredBlueprint } from "@/lib/blueprint-store"
 
 const WINDOW_MS = 60_000
 const MAX_REQUESTS = 30
@@ -44,6 +45,7 @@ export async function POST(request: NextRequest) {
     !selected.includes("cinematic-sequence") ? "cinematic_sequence_optional" : null,
   ].filter((value): value is string => Boolean(value))
   const qualityScore = Math.max(0, 100 - warnings.length * 15 - (brief.length < 80 ? 10 : 0))
-  const blueprintId = crypto.randomUUID()
-  return NextResponse.json({ version: "1.1.0", requestId, blueprint: { id: blueprintId, revision: 1, app, preset, brief, components: selected, stages: fallbackStages, generatedAt: new Date().toISOString(), arbitraryHtml: false, quality: { score: qualityScore, warnings, humanReviewRequired: qualityScore < 85 } } }, { status: 201, headers: { ...rateHeaders, "cache-control": "no-store", "x-request-id": requestId } })
+  const blueprint: StoredBlueprint = { id: crypto.randomUUID(), revision: 1, app, preset, brief, components: selected, stages: fallbackStages, generatedAt: new Date().toISOString(), arbitraryHtml: false, quality: { score: qualityScore, warnings, humanReviewRequired: qualityScore < 85 } }
+  saveBlueprint(blueprint)
+  return NextResponse.json({ version: "1.1.0", requestId, blueprint }, { status: 201, headers: { ...rateHeaders, "cache-control": "no-store", "x-request-id": requestId } })
 }

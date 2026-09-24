@@ -53,6 +53,19 @@ test.describe("OSGARD design system", () => {
     expect(body.blueprint.revision).toBe(1)
   })
 
+  test("persists a blueprint for cross-device restore", async ({ request }) => {
+    const response = await request.post("/api/design/blueprint", { data: { app: "restore-check", brief: "A durable workspace for restoring a generated product blueprint." } })
+    expect(response.status()).toBe(201)
+    const created = await response.json()
+    const id = created.blueprint.id
+    const restored = await request.get(`/api/design/blueprint/${id}`)
+    expect(restored.status()).toBe(200)
+    const restoredBody = await restored.json()
+    expect(restoredBody.blueprint.id).toBe(id)
+    expect(restoredBody.blueprint.revision).toBe(1)
+    expect(restoredBody.revisions).toEqual([{ revision: 1, generatedAt: created.blueprint.generatedAt }])
+  })
+
   test("rejects unusable client briefs", async ({ request }) => {
     const response = await request.post("/api/design/blueprint", { data: { brief: "too short" } })
     expect(response.status()).toBe(400)
