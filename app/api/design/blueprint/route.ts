@@ -8,7 +8,7 @@ const requestWindows = new Map<string, { startedAt: number; count: number }>()
 const allowed = new Set(["app-shell", "hero", "bento-grid", "form-wizard", "preview-frame", "cinematic-sequence"])
 const fallbackStages = ["intent", "architecture", "build", "preview", "approval"]
 
-type BlueprintInput = { app?: unknown; brief?: unknown; preset?: unknown; components?: unknown }
+type BlueprintInput = { app?: unknown; brief?: unknown; preset?: unknown; components?: unknown; aiPlan?: unknown }
 
 function text(value: unknown, max: number) {
   return typeof value === "string" ? value.trim().slice(0, max) : ""
@@ -39,13 +39,19 @@ export async function POST(request: NextRequest) {
   const fallbackComponents = ["app-shell", "hero", "bento-grid", "preview-frame", "cinematic-sequence"]
   const requestedComponents = [...new Set(requested.filter(id => allowed.has(id)))]
   const selected = requestedComponents.length ? requestedComponents : fallbackComponents
+  const rawPlan = body.aiPlan && typeof body.aiPlan === "object" && !Array.isArray(body.aiPlan) ? body.aiPlan as { summary?: unknown; components?: unknown; risks?: unknown } : null
+  const aiPlan = rawPlan ? {
+    summary: text(rawPlan.summary, 500),
+    components: Array.isArray(rawPlan.components) ? [...new Set(rawPlan.components.filter((item): item is string => typeof item === "string" && allowed.has(item)))].slice(0, 6) : [],
+    risks: Array.isArray(rawPlan.risks) ? rawPlan.risks.filter((item): item is string => typeof item === "string").map((item) => item.trim().slice(0, 240)).filter(Boolean).slice(0, 8) : [],
+  } : undefined
   const warnings = [
     !selected.includes("app-shell") ? "app_shell_required_for_navigation" : null,
     !selected.includes("preview-frame") ? "preview_required_for_proof" : null,
     !selected.includes("cinematic-sequence") ? "cinematic_sequence_optional" : null,
   ].filter((value): value is string => Boolean(value))
   const qualityScore = Math.max(0, 100 - warnings.length * 15 - (brief.length < 80 ? 10 : 0))
-  const blueprint: StoredBlueprint = { id: crypto.randomUUID(), revision: 1, app, preset, brief, components: selected, stages: fallbackStages, generatedAt: new Date().toISOString(), arbitraryHtml: false, quality: { score: qualityScore, warnings, humanReviewRequired: qualityScore < 85 } }
+  const blueprint: StoredBlueprint = { id: crypto.randomUUID(), revision: 1, app, preset, brief, components: selected, stages: fallbackStages, generatedAt: new Date().toISOString(), arbitraryHtml: false, quality: { score: qualityScore, warnings, humanReviewRequired: qualityScore < 85 }, ...(aiPlan ? { aiPlan } : {}) }
   saveBlueprint(blueprint)
   return NextResponse.json({ version: "1.1.0", requestId, blueprint }, { status: 201, headers: { ...rateHeaders, "cache-control": "no-store", "x-request-id": requestId } })
 }

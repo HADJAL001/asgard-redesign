@@ -12,6 +12,7 @@ export type StoredBlueprint = {
   generatedAt: string
   arbitraryHtml: false
   quality: { score: number; warnings: string[]; humanReviewRequired: boolean }
+  aiPlan?: { summary: string; components: string[]; risks: string[] }
 }
 
 type Store = Record<string, StoredBlueprint[]>

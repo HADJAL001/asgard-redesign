@@ -37,7 +37,7 @@ test.describe("OSGARD design system", () => {
   })
 
   test("builds a guarded blueprint from a client brief", async ({ request }) => {
-    const response = await request.post("/api/design/blueprint", { data: { app: "clinic", brief: "A calm patient portal for booking visits and reviewing care plans.", components: ["hero", "preview-frame", "unknown-html"] } })
+    const response = await request.post("/api/design/blueprint", { data: { app: "clinic", brief: "A calm patient portal for booking visits and reviewing care plans.", components: ["hero", "preview-frame", "unknown-html"], aiPlan: { summary: "A calm review-first portal.", components: ["hero", "preview-frame", "unknown-html"], risks: ["Needs consent copy"] } } })
     expect(response.status()).toBe(201)
     const body = await response.json()
     expect(body.blueprint.components).toEqual(["hero", "preview-frame"])
@@ -45,6 +45,7 @@ test.describe("OSGARD design system", () => {
     expect(body.blueprint.stages).toHaveLength(5)
     expect(body.blueprint.quality.humanReviewRequired).toBe(true)
     expect(body.blueprint.quality.warnings).toContain("app_shell_required_for_navigation")
+    expect(body.blueprint.aiPlan).toEqual({ summary: "A calm review-first portal.", components: ["hero", "preview-frame"], risks: ["Needs consent copy"] })
     expect(body.requestId).toMatch(/^[0-9a-f-]{36}$/)
     expect(response.headers()["x-request-id"]).toBe(body.requestId)
     expect(response.headers()["x-rate-limit-limit"]).toBe("30")
