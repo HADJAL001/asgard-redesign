@@ -13,6 +13,7 @@ import { ProductCatalog, type ProductType, type VisualPreset } from "@/component
 
 type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; productType?: ProductType; preset?: VisualPreset; contractVersion?: string; contractHash?: string; createdAt: string; aiSummary?: string; aiComponents?: string[]; aiRisks?: string[]; approved?: boolean }
 type PreviewPlan = { revision: number; slots: { id: string; component: string; role: string; states: string[] }[]; stages: string[] }
+type EvidenceRecord = { id: string; revision: number; kind: string; status: "passed" | "failed" | "skipped"; summary: string; source: string; capturedAt: string; contractHash: string }
 type GenerationStatus = { status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; currentStep?: string; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string } }
 
 export function CofounderConsole() {
@@ -26,6 +27,7 @@ export function CofounderConsole() {
   const [submitting, setSubmitting] = useState(false)
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null)
   const [previewPlan, setPreviewPlan] = useState<PreviewPlan | null>(null)
+  const [evidence, setEvidence] = useState<EvidenceRecord[]>([])
   const [history, setHistory] = useState<CompileResult[]>(() => {
     if (typeof window === "undefined") return []
     try { return JSON.parse(localStorage.getItem("osgard-blueprint-history") || "[]") as CompileResult[] } catch { return [] }
@@ -61,6 +63,17 @@ export function CofounderConsole() {
       }
     }
     setCompileError("Preview временно недоступен. Blueprint сохранён, попробуйте открыть его ещё раз.")
+  }
+
+  async function loadEvidence(id: string) {
+    try {
+      const response = await fetch(`/api/design/blueprint/${id}/evidence`, { cache: "no-store" })
+      if (!response.ok) return
+      const data = await response.json().catch(() => null)
+      if (Array.isArray(data?.evidence)) setEvidence(data.evidence as EvidenceRecord[])
+    } catch {
+      // Evidence is supplementary to the blueprint and must not block recovery.
+    }
   }
 
   useEffect(() => {
@@ -142,6 +155,7 @@ export function CofounderConsole() {
       setCompileResult(result)
       setPreviewPlan(null)
       void loadPreview(result.id, result.revision)
+      void loadEvidence(result.id)
       setHistory((previous) => { const next = [result, ...previous.filter((item) => item.id !== result.id)].slice(0, 5); localStorage.setItem("osgard-blueprint-history", JSON.stringify(next)); return next })
       track("blueprint_compile_completed", { source: aiPlan ? "cofounder_ai" : "cofounder_fallback", blueprintId: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, humanReviewRequired: data.blueprint.quality.humanReviewRequired, durationMs: Math.round(performance.now() - startedAt) })
     } catch (error) {
@@ -165,6 +179,7 @@ export function CofounderConsole() {
       setCompileResult(restored)
       setPreviewPlan(null)
       void loadPreview(restored.id, restored.revision)
+      void loadEvidence(restored.id)
       setContractName(restored.app)
       setBrief(restored.brief)
       if (restored.productType) setProductType(restored.productType)
@@ -189,6 +204,7 @@ export function CofounderConsole() {
       const approved = data.blueprint
       const next: CompileResult = { id: approved.id, revision: approved.revision, score: approved.quality.score, review: approved.quality.humanReviewRequired, warnings: approved.quality.warnings, app: approved.app, brief: approved.brief, productType: approved.productType || item.productType, preset: approved.preset || item.preset, contractVersion: approved.contractVersion || item.contractVersion, contractHash: approved.contractHash || item.contractHash, createdAt: approved.generatedAt, aiSummary: approved.aiPlan?.summary || item.aiSummary, aiComponents: approved.aiPlan?.components || item.aiComponents, aiRisks: approved.aiPlan?.risks || item.aiRisks, approved: approved.approval?.status === "approved" }
       setCompileResult(next)
+      void loadEvidence(next.id)
       setHistory((previous) => { const updated = [next, ...previous.filter((entry) => entry.id !== next.id || entry.revision !== next.revision)].slice(0, 5); localStorage.setItem("osgard-blueprint-history", JSON.stringify(updated)); return updated })
       track("blueprint_compile_completed", { source: "cofounder_approval", blueprintId: next.id, fromRevision: item.revision, revision: next.revision })
     } catch (error) { setCompileError(error instanceof Error ? error.message : "Не удалось подтвердить preview") } finally { setApproving(false) }
@@ -244,6 +260,7 @@ export function CofounderConsole() {
           {compileError ? <p role="alert" className="ds-dialog-error">{compileError}</p> : null}
           {previewPlan ? <section className="ds-dialog-preview" aria-label="Blueprint preview"><div className="ds-utility">LIVE PREVIEW / REVISION {previewPlan.revision}</div><div className="ds-dialog-preview-slots">{previewPlan.slots.map((slot) => <article key={slot.id} className="ds-dialog-preview-slot"><strong>{slot.component}</strong><span>{slot.role}</span><small>{slot.states.join(" · ")}</small></article>)}</div><div className="ds-dialog-preview-stages" aria-label="Preview stages">{previewPlan.stages.map((stage, index) => <span key={stage} data-active={index === 0}>{stage}</span>)}</div></section> : null}
           {compileResult ? <div className="ds-dialog-result" role="status"><strong>Blueprint готов: {compileResult.score}/100</strong><span>{compileResult.review ? "Нужна ручная проверка перед публикацией." : "Можно переходить к preview."}</span>{compileResult.contractHash ? <small>Contract evidence: {compileResult.contractHash.slice(0, 12)}…</small> : null}{compileResult.warnings.length ? <small>{compileResult.warnings.length} предупреждения требуют внимания</small> : null}</div> : null}
+          {compileResult ? <section className="ds-evidence-ledger" aria-label="Evidence ledger"><div className="ds-evidence-ledger__head"><span className="ds-utility">EVIDENCE LEDGER</span><small>{evidence.length ? `${evidence.length} recorded checks` : "No checks recorded yet"}</small></div>{evidence.length ? <ul>{evidence.map((item) => <li key={item.id}><i data-status={item.status} aria-hidden="true" /><span><strong>{item.kind}</strong><small>{item.summary}</small></span><em>{item.status}</em></li>)}</ul> : <p>Quality gates appear here as soon as a verified check is captured.</p>}</section> : null}
           {history.length > 1 ? <div className="ds-dialog-history" aria-label="История blueprint"><span className="ds-utility">ПРОШЛЫЕ ВЕРСИИ</span>{history.slice(0, 3).map((item) => <button key={item.id} type="button" onClick={() => { setCompileResult(item); setContractName(item.app); setBrief(item.brief); if (item.productType) setProductType(item.productType); if (item.preset) setVisualPreset(item.preset) }} aria-label={`Открыть blueprint ${item.app}`}>{item.app} · {item.score}/100</button>)}</div> : null}
           {compileResult ? <button type="button" className="ds-dialog-secondary" onClick={() => approvePreview(compileResult)} disabled={approving || rollingBack !== null}>{approving ? "Подтверждаем…" : "Подтвердить preview для codegen"}</button> : null}
           {compileResult?.approved ? <button type="button" className="ds-dialog-primary" onClick={() => void launchCodegen(compileResult)} disabled={generating}>{generating ? "Запускаем codegen…" : "Запустить codegen"}</button> : null}
