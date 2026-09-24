@@ -31,6 +31,7 @@ import { ProjectCreateWizard } from "@/components/project-create-wizard"
 import { VoiceInputButton } from "@/components/voice-input-button"
 import { useVoice } from "@/lib/hooks/useVoice"
 import { apiClient } from "@/lib/api-client"
+import { track } from "@/lib/analytics"
 
 /** Живые реплики-приветствия агентов при входе в студию — парасоциальная
  *  оживлённость интерфейса без затрат на инфраструктуру (просто текст,
@@ -227,6 +228,12 @@ export function DevStudioView() {
 
   function startProjectCreation() {
     if (!canCreateProject) return
+    try {
+      window.localStorage.setItem("osgard_first_product_intent_at", String(Date.now()))
+    } catch {
+      /* telemetry must never block project creation */
+    }
+    track("first_product_intent_started", { source: "dev-studio", hasVoiceInput: Boolean(heard) })
     setLuckyStart(false)
     setWizardOpen(true)
   }
@@ -560,6 +567,17 @@ export function DevStudioView() {
           luckyStart={luckyStart}
           onClose={() => { setWizardOpen(false); setLuckyStart(false) }}
           onCreated={(projectId: number) => {
+            let durationMs: number | undefined
+            try {
+              const startedAt = Number(window.localStorage.getItem("osgard_first_product_intent_at"))
+              if (Number.isFinite(startedAt) && startedAt > 0) {
+                durationMs = Math.max(0, Date.now() - startedAt)
+                window.localStorage.removeItem("osgard_first_product_intent_at")
+              }
+            } catch {
+              /* ignore local storage failures */
+            }
+            track("first_product_created", { projectId, source: "dev-studio", durationMs })
             setWizardOpen(false)
             setLuckyStart(false)
             setIdea("")
