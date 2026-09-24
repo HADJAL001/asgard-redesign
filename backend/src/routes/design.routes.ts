@@ -3,6 +3,7 @@ import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { asyncHandler } from "../utils/async-handler"
 import { captureError } from "../lib/sentry"
+import { callClaudeRaw, callDeepSeek, isAiConfigured } from "../services/ai-router"
 import {
   ARCHETYPE_MENU,
   DESIGN_SYSTEM_PATHS,
@@ -45,6 +46,38 @@ import { explainDesignQuality } from "../lib/design-qa"
    ================================================================ */
 
 const router = Router()
+
+const BLUEPRINT_COMPONENTS = new Set(["app-shell", "hero", "bento-grid", "form-wizard", "preview-frame", "cinematic-sequence"])
+
+function parseBlueprintAi(text: string | null) {
+  if (!text) return null
+  const candidate = text.match(/\{[\s\S]*\}/)?.[0]
+  if (!candidate) return null
+  try {
+    const value = JSON.parse(candidate) as { summary?: unknown; components?: unknown; risks?: unknown }
+    const components = Array.isArray(value.components) ? [...new Set(value.components.filter((item): item is string => typeof item === "string" && BLUEPRINT_COMPONENTS.has(item)))] : []
+    if (!components.length) return null
+    return { summary: typeof value.summary === "string" ? value.summary.trim().slice(0, 500) : "", components, risks: Array.isArray(value.risks) ? value.risks.filter((item): item is string => typeof item === "string").slice(0, 8) : [] }
+  } catch {
+    return null
+  }
+}
+
+router.post("/blueprint/compile", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+  const brief = typeof req.body?.brief === "string" ? req.body.brief.trim().slice(0, 1200) : ""
+  if (brief.length < 12) return res.status(400).json({ error: "brief_too_short", minimumCharacters: 12 })
+  if (!isAiConfigured()) return res.status(503).json({ error: "ai_unavailable", fallback: true })
+  const prompt = `You are OSGARD's product architect. Return JSON only with keys summary, components, risks. Choose components only from app-shell, hero, bento-grid, form-wizard, preview-frame, cinematic-sequence. Keep summary under 500 chars and risks under 8 items. Client brief: ${brief}`
+  const system = "Never return markdown or arbitrary HTML. Use only the allowed component identifiers."
+  let result = parseBlueprintAi(await callClaudeRaw(prompt, 700))
+  let source = "claude"
+  if (!result) {
+    result = await callDeepSeek(prompt, (text) => parseBlueprintAi(text), "blueprint-compile", 700, system, 0.2)
+    source = "deepseek"
+  }
+  if (!result) return res.status(503).json({ error: "ai_compile_failed", fallback: true })
+  res.json({ version: "1.0.0", source, blueprint: result })
+}))
 
 router.get("/tenant/brand", requireAuth, (req: AuthRequest, res) => {
   const row = db.prepare(`SELECT tenant_id as tenantId, name, accent, display_font as displayFont FROM tenant_design_brands WHERE user_id = ?`).get(req.user!.userId)
