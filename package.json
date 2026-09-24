@@ -10,6 +10,7 @@
     "build-storybook": "storybook build",
     "storybook": "storybook dev -p 6006",
     "test:design-system-backend": "node scripts/design-system-backend-contract.mjs",
+    "test:design-system": "node scripts/design-system-quality-gate.mjs",
     "start": "next start",
     "lint": "eslint .",
     "test:e2e": "playwright test"

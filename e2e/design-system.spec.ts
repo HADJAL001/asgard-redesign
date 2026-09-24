@@ -35,4 +35,10 @@ test.describe("OSGARD design system", () => {
     await page.goto("/cofounder")
     expect(await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(true)
   })
+
+  test("developer mode exposes the AI Cofounder workspace", async ({ page }) => {
+    await page.goto("/dev")
+    await expect(page.getByRole("navigation", { name: "Разделы студии разработчика" })).toBeVisible()
+    await expect(page.getByRole("link", { name: /AI Cofounder/ })).toHaveAttribute("href", "/cofounder")
+  })
 })
