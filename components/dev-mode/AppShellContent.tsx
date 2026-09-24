@@ -15,14 +15,22 @@
    ================================================================ */
 
 import { type ReactNode } from "react"
+import { useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { useDevMode } from "@/lib/dev-mode"
+import { track } from "@/lib/analytics"
 
 export function AppShellContent({ children }: { children: ReactNode }) {
   const { transitioning } = useDevMode()
+  const pathname = usePathname()
+
+  useEffect(() => {
+    track("route_view", { path: pathname })
+  }, [pathname])
 
   return (
     <div className={transitioning ? "mode-switching" : undefined}>
-      <div className="app-root-content">{children}</div>
+      <main id="main-content" tabIndex={-1} className="app-root-content">{children}</main>
     </div>
   )
 }

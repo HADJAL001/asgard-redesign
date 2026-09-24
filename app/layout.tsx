@@ -72,6 +72,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="ru" className="bg-background" data-scroll-behavior="smooth">
       <body className="font-sans antialiased">
+        <a className="ds-skip-link" href="#main-content">Перейти к содержимому</a>
         <DesignSystemProvider>
         <I18nProvider>
           <AuthProvider>

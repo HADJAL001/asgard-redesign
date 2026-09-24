@@ -41,4 +41,12 @@ test.describe("OSGARD design system", () => {
     await expect(page.getByRole("navigation", { name: "Разделы студии разработчика" })).toBeVisible()
     await expect(page.getByRole("link", { name: /AI Cofounder/ })).toHaveAttribute("href", "/cofounder")
   })
+
+  test("product shell exposes a keyboard skip link", async ({ page }) => {
+    await page.goto("/cofounder")
+    const skip = page.getByRole("link", { name: "Перейти к содержимому" })
+    await expect(skip).toHaveAttribute("href", "#main-content")
+    await skip.focus()
+    await expect(skip).toBeFocused()
+  })
 })
