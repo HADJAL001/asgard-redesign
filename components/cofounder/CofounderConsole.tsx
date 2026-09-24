@@ -28,7 +28,7 @@ export function CofounderConsole() {
         <div>
           <span className="ds-utility"><Radar size={14} /> AI COFOUNDER / COMMAND DECK</span>
           <h1 className="ds-display" style={{ fontSize: "clamp(2rem, 6vw, 5rem)", margin: ".5rem 0" }}>AI Cofounder</h1>
-          <p style={{ color: "var(--ds-muted)" }}>Product contracts, evidence, and human approvals in one controlled contour.</p>
+          <p style={{ color: "var(--ds-muted)" }}>Контракты продукта, доказательства и ручные согласования в одном контуре.</p>
         </div>
         <PresetSwitcher />
       </section>
@@ -36,22 +36,22 @@ export function CofounderConsole() {
       <OrbitalMemory />
       <section className="ds-hull ds-glass" style={{ padding: "clamp(1.25rem, 4vw, 3rem)" }}>
         <header style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
-          <div><span className="ds-utility">WORKING CONTOUR</span><h2 className="ds-display">Controlled delivery</h2><p style={{ color: "var(--ds-muted)" }}>Expected result, evidence, and human approval in one contour.</p></div>
+          <div><span className="ds-utility">РАБОЧИЙ ОТСЕК</span><h2 className="ds-display">Контролируемая доставка</h2><p style={{ color: "var(--ds-muted)" }}>Ожидаемый результат, доказательства и ручное согласование в одном контуре.</p></div>
           <ShieldCheck aria-hidden="true" />
         </header>
-        <button className="ds-hull ds-interactive ds-focus" style={{ marginTop: "1.5rem", padding: ".8rem 1.2rem", color: "var(--ds-ink)", background: "var(--ds-primary)", border: 0, cursor: "pointer" }} onClick={() => setOpen(true)}><FilePlus2 size={17} /> Create contract</button>
+        <button className="ds-hull ds-interactive ds-focus" style={{ marginTop: "1.5rem", padding: ".8rem 1.2rem", color: "var(--ds-ink)", background: "var(--ds-primary)", border: 0, cursor: "pointer" }} onClick={() => setOpen(true)}><FilePlus2 size={17} /> Создать контракт</button>
       </section>
       <dialog ref={dialogRef} className="ds-contract-dialog" aria-label="НОВЫЙ КОНТРАКТ" aria-labelledby="new-contract" open={open} onClose={() => setOpen(false)}>
-        <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="ds-dialog-close"><X size={18} /></button>
+        <button type="button" onClick={() => setOpen(false)} aria-label="Закрыть" className="ds-dialog-close"><X size={18} /></button>
         <span className="ds-utility">AI COFOUNDER / NEW DELIVERY</span>
-        <h2 id="new-contract" className="ds-display">New contract</h2>
-        <p className="ds-dialog-copy">Describe the first product step. The system will preserve context and propose a delivery plan.</p>
+        <h2 id="new-contract" className="ds-display">НОВЫЙ КОНТРАКТ</h2>
+        <p className="ds-dialog-copy">Опишите первый продуктовый шаг. Система сохранит контекст и предложит план доставки.</p>
         <form onSubmit={submitContract}>
-          <label className="ds-field">Name<input required value={contractName} onChange={(event) => setContractName(event.target.value)} placeholder="Partner workspace" /></label>
-          <label className="ds-field">Expected result<textarea required rows={4} placeholder="What should be ready to review?" /></label>
+          <label className="ds-field">Название<input required value={contractName} onChange={(event) => setContractName(event.target.value)} placeholder="Например, кабинет партнёра" /></label>
+          <label className="ds-field">Результат для проверки<textarea required rows={4} placeholder="Какой результат должен быть готов?" /></label>
           <div className="ds-dialog-actions">
-            <button type="button" className="ds-dialog-secondary" onClick={() => setOpen(false)}>Cancel</button>
-            <button type="submit" className="ds-dialog-primary"><FilePlus2 size={16} /> Create plan</button>
+            <button type="button" className="ds-dialog-secondary" onClick={() => setOpen(false)}>Отмена</button>
+            <button type="submit" className="ds-dialog-primary"><FilePlus2 size={16} /> Создать план</button>
           </div>
         </form>
       </dialog>
