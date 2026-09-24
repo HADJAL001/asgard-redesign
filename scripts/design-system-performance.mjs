@@ -1,5 +1,5 @@
 const base = process.env.DESIGN_SYSTEM_BASE_URL || "https://osgardnewworld.com"
-const routes = ["/cofounder", "/api/design/tokens?preset=futuristic", "/api/design/tenant"]
+const routes = ["/cofounder", "/api/design/tokens?preset=futuristic", "/api/design/tenant", "/api/design/manifest?app=universal"]
 for (const route of routes) {
   const started = performance.now()
   const response = await fetch(`${base}${route}`, { redirect: "manual" })

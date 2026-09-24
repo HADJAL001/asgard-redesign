@@ -5,9 +5,12 @@ The isolated `/cofounder` command deck is the reference surface for the platform
 ## Runtime contract
 
 - Tokens: `GET /api/design/tokens?preset=<minimal|bold|playful|corporate|futuristic>`
+- Universal manifest: `GET /api/design/manifest?app=<client-id>&preset=<preset>` returns the component registry, layout contract, cinematic scenes, and accessibility/performance guardrails.
 - Tenant branding: `GET /api/design/tenant` (host allowlisted to `osgardnewworld.com`)
 - Themes and presets are applied by `DesignSystemProvider` and persisted locally for the current browser.
 - Hull surfaces use `ds-hull`; interactive controls use `ds-focus` and reduced-motion media rules.
+
+The manifest is the boundary for AI-generated client interfaces: generation may choose only registry components and declared states. It must not emit arbitrary HTML, and the cinematic layer falls back to static progress when motion is reduced or the device is constrained.
 
 ## Tenant white-label persistence
 
