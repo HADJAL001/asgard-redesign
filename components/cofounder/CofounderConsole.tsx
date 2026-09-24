@@ -216,6 +216,7 @@ export function CofounderConsole() {
       void loadEvidence(next.id)
       setHistory((previous) => { const updated = [next, ...previous.filter((entry) => entry.id !== next.id || entry.revision !== next.revision)].slice(0, 5); localStorage.setItem("osgard-blueprint-history", JSON.stringify(updated)); return updated })
       track("blueprint_compile_completed", { source: "cofounder_approval", blueprintId: next.id, fromRevision: item.revision, revision: next.revision })
+      track("blueprint_approval_completed", { blueprintId: next.id, fromRevision: item.revision, revision: next.revision })
     } catch (error) { setCompileError(error instanceof Error ? error.message : "Не удалось подтвердить preview") } finally { setApproving(false) }
   }
 
@@ -225,7 +226,7 @@ export function CofounderConsole() {
     try {
       const response = await fetch(`/api/design/blueprint/${item.id}/generate`, { method: "POST", credentials: "include" })
       const data = await response.json().catch(() => null)
-      if (!response.ok || !data?.taskId) throw new Error(data?.error === "blueprint_approval_required" ? "Сначала подтвердите preview" : "Не удалось запустить codegen")
+      if (!response.ok || !data?.taskId) { track("blueprint_codegen_blocked", { blueprintId: item.id, revision: item.revision, reason: data?.error || `http_${response.status}`, missing: data?.missing }); throw new Error(data?.error === "blueprint_approval_required" ? "Сначала подтвердите preview" : "Не удалось запустить codegen") }
       setGenerationTask(data.taskId)
       setGenerationStatus({ status: "queued", progress: 0 })
       generationPollFailures.current = 0
