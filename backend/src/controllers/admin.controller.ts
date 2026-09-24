@@ -487,6 +487,27 @@ export class AdminController {
     }
   }
 
+  static async blueprint(req: AuthRequest, res: Response) {
+    try {
+      const days = Math.min(365, Math.max(1, parseInt(String(req.query.days ?? "30"), 10) || 30))
+      const sinceMs = Date.now() - days * 86400000
+      const row = db.prepare(`SELECT
+        COUNT(CASE WHEN event_name='blueprint_compile_started' AND json_extract(meta,'$.source') != 'cofounder_rollback' THEN 1 END) AS started,
+        COUNT(CASE WHEN event_name='blueprint_compile_completed' AND json_extract(meta,'$.source') != 'cofounder_rollback' THEN 1 END) AS completed,
+        COUNT(CASE WHEN event_name='blueprint_compile_failed' AND json_extract(meta,'$.source') != 'cofounder_rollback' THEN 1 END) AS failed,
+        COUNT(CASE WHEN event_name='blueprint_compile_started' AND json_extract(meta,'$.source') = 'cofounder_rollback' THEN 1 END) AS rollbackStarted,
+        COUNT(CASE WHEN event_name='blueprint_compile_completed' AND json_extract(meta,'$.source') = 'cofounder_rollback' THEN 1 END) AS rollbackCompleted,
+        COUNT(CASE WHEN event_name='blueprint_compile_failed' AND json_extract(meta,'$.source') = 'cofounder_rollback' THEN 1 END) AS rollbackFailed
+        FROM analytics_events WHERE created_at >= ? AND event_name IN ('blueprint_compile_started','blueprint_compile_completed','blueprint_compile_failed')`).get(sinceMs) as Record<string, number>
+      const started = Number(row.started || 0)
+      const rollbackStarted = Number(row.rollbackStarted || 0)
+      res.json({ blueprint: { days, started, completed: Number(row.completed || 0), failed: Number(row.failed || 0), successRate: started ? Number(row.completed || 0) / started : 0, rollbackStarted, rollbackCompleted: Number(row.rollbackCompleted || 0), rollbackFailed: Number(row.rollbackFailed || 0), rollbackSuccessRate: rollbackStarted ? Number(row.rollbackCompleted || 0) / rollbackStarted : 0 } })
+    } catch (error) {
+      captureError("Admin blueprint analytics error:", error)
+      res.status(500).json({ error: "Internal server error" })
+    }
+  }
+
   // ===== GET /admin/analytics/growth?days= =====
   // Дашборд серверной петли роста поверх событий, которые пишет lib/analytics.ts
   // (register/login/demo_convert/artifact_share_view, см. #46). Это НАДЁЖНЫЕ

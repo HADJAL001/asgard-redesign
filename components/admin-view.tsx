@@ -128,6 +128,7 @@ type AdminGenerationBudget = {
     { samples: number; limit: TokenLimitRecommendation | null }
   >
 }
+type AdminBlueprintAnalytics = { days: number; started: number; completed: number; failed: number; successRate: number; rollbackStarted: number; rollbackCompleted: number; rollbackFailed: number; rollbackSuccessRate: number }
 type AlphaRelease = { version: string; notes: string; publishedAt: number }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -189,6 +190,7 @@ export function AdminView() {
   const [retention, setRetention] = useState<AdminRetentionRow[]>([])
   const [paywallFunnel, setPaywallFunnel] = useState<AdminPaywallFunnel | null>(null)
   const [generationBudget, setGenerationBudget] = useState<AdminGenerationBudget | null>(null)
+  const [blueprintAnalytics, setBlueprintAnalytics] = useState<AdminBlueprintAnalytics | null>(null)
   const [loadingAnalytics, setLoadingAnalytics] = useState(false)
 
   const [grantingUserId, setGrantingUserId] = useState<number | null>(null)
@@ -301,7 +303,7 @@ export function AdminView() {
   const loadAnalytics = useCallback(async () => {
     setLoadingAnalytics(true)
     try {
-      const [funnelData, retentionData, paywallFunnelData, generationBudgetData] = await Promise.all([
+      const [funnelData, retentionData, paywallFunnelData, generationBudgetData, blueprintData] = await Promise.all([
         apiClient.get<{ funnel: AdminFunnel }>("/admin/analytics/funnel?days=30", { skipAuthRedirect: true }),
         apiClient.get<{ retention: AdminRetentionRow[] }>("/admin/analytics/retention?days=30", {
           skipAuthRedirect: true,
@@ -312,16 +314,19 @@ export function AdminView() {
         apiClient.get<AdminGenerationBudget>("/admin/analytics/generation-budget", {
           skipAuthRedirect: true,
         }),
+        apiClient.get<{ blueprint: AdminBlueprintAnalytics }>("/admin/analytics/blueprint?days=30", { skipAuthRedirect: true }),
       ])
       setFunnel(funnelData.funnel)
       setRetention(retentionData.retention)
       setPaywallFunnel(paywallFunnelData.funnel)
       setGenerationBudget(generationBudgetData)
+      setBlueprintAnalytics(blueprintData.blueprint)
     } catch {
       setFunnel(null)
       setRetention([])
       setPaywallFunnel(null)
       setGenerationBudget(null)
+      setBlueprintAnalytics(null)
     } finally {
       setLoadingAnalytics(false)
     }
@@ -802,6 +807,10 @@ export function AdminView() {
         {/* Analytics */}
         {tab === "analytics" && (
           <div className="space-y-6">
+            <Card>
+              <SectionTitle Icon={Sparkles}>Blueprint / cinematic delivery за 30 дней</SectionTitle>
+              {loadingAnalytics ? <div className="py-4 text-[13px]" style={{ color: LABEL }}>Загрузка...</div> : !blueprintAnalytics ? <div className="py-4 text-[13px]" style={{ color: LABEL }}>Нет данных</div> : <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">{[["Запущено", blueprintAnalytics.started], ["Успешно", `${blueprintAnalytics.completed} · ${(blueprintAnalytics.successRate * 100).toFixed(1)}%`], ["Ошибки", blueprintAnalytics.failed], ["Rollback success", `${blueprintAnalytics.rollbackCompleted} · ${(blueprintAnalytics.rollbackSuccessRate * 100).toFixed(1)}%`]].map(([label, value]) => <div key={String(label)}><div className="text-[24px] font-medium leading-none">{value}</div><div className="mt-2 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>{label}</div></div>)}</div>}
+            </Card>
             <Card>
               <SectionTitle Icon={Gauge}>Расход AI на генерацию приложений</SectionTitle>
               {loadingAnalytics ? (
