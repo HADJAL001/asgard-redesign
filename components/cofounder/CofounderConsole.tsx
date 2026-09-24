@@ -9,7 +9,7 @@ import { CinematicSequence } from "@/components/design-system/CinematicSequence"
 import { track } from "@/lib/analytics"
 import { useAuth } from "@/lib/auth-store"
 
-type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; createdAt: string }
+type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; createdAt: string; aiSummary?: string; aiComponents?: string[]; aiRisks?: string[] }
 
 export function CofounderConsole() {
   const { user } = useAuth()
@@ -38,7 +38,7 @@ export function CofounderConsole() {
     const startedAt = performance.now()
     track("blueprint_compile_started", { source: "cofounder", preset: "futuristic" })
     try {
-      let aiPlan: { components?: string[]; risks?: string[] } | null = null
+      let aiPlan: { summary?: string; components?: string[]; risks?: string[] } | null = null
       if (user) {
         const aiResponse = await fetch("/api/design/blueprint/compile", { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ brief }) })
         if (aiResponse.ok) {
@@ -49,7 +49,7 @@ export function CofounderConsole() {
       const response = await fetch("/api/design/blueprint", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app: contractName, brief, preset: "futuristic", components: aiPlan?.components }) })
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.blueprint?.quality) throw new Error("Не удалось собрать blueprint")
-      const result: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, createdAt: data.blueprint.generatedAt }
+      const result: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, createdAt: data.blueprint.generatedAt, aiSummary: aiPlan?.summary, aiComponents: aiPlan?.components, aiRisks: aiPlan?.risks }
       setCompileResult(result)
       setHistory((previous) => { const next = [result, ...previous.filter((item) => item.id !== result.id)].slice(0, 5); localStorage.setItem("osgard-blueprint-history", JSON.stringify(next)); return next })
       track("blueprint_compile_completed", { source: aiPlan ? "cofounder_ai" : "cofounder_fallback", blueprintId: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, humanReviewRequired: data.blueprint.quality.humanReviewRequired, durationMs: Math.round(performance.now() - startedAt) })
@@ -69,7 +69,7 @@ export function CofounderConsole() {
       const response = await fetch(`/api/design/blueprint/${item.id}/rollback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ revision: item.revision }) })
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.blueprint) throw new Error("Не удалось восстановить revision")
-      const restored: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, createdAt: data.blueprint.generatedAt }
+      const restored: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, createdAt: data.blueprint.generatedAt, aiSummary: item.aiSummary, aiComponents: item.aiComponents, aiRisks: item.aiRisks }
       setCompileResult(restored)
       setContractName(restored.app)
       setBrief(restored.brief)
