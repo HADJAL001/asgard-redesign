@@ -54,6 +54,7 @@ export function CofounderConsole() {
   async function rollbackBlueprint(item: CompileResult) {
     setRollingBack(item.revision)
     setCompileError(null)
+    track("blueprint_compile_started", { source: "cofounder_rollback", blueprintId: item.id, revision: item.revision })
     try {
       const response = await fetch(`/api/design/blueprint/${item.id}/rollback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ revision: item.revision }) })
       const data = await response.json().catch(() => null)
@@ -63,9 +64,10 @@ export function CofounderConsole() {
       setContractName(restored.app)
       setBrief(restored.brief)
       setHistory((previous) => { const next = [restored, ...previous.filter((entry) => entry.id !== restored.id || entry.revision !== restored.revision)].slice(0, 5); localStorage.setItem("osgard-blueprint-history", JSON.stringify(next)); return next })
-      track("blueprint_compile_completed", { source: "cofounder_rollback", blueprintId: restored.id, revision: restored.revision, score: restored.score })
+      track("blueprint_compile_completed", { source: "cofounder_rollback", blueprintId: restored.id, fromRevision: item.revision, revision: restored.revision, score: restored.score })
     } catch (error) {
       setCompileError(error instanceof Error ? error.message : "Не удалось восстановить revision")
+      track("blueprint_compile_failed", { source: "cofounder_rollback", blueprintId: item.id, revision: item.revision })
     } finally {
       setRollingBack(null)
     }
