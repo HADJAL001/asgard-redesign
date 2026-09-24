@@ -22,6 +22,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci --ignore-scripts
+      - run: npm run build
       - run: npm run test:design-system
         env:
           DESIGN_SYSTEM_BASE_URL: https://osgardnewworld.com
