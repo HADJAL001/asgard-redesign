@@ -49,8 +49,15 @@ try {
   if (mobileOverflow) throw new Error("cofounder overflows the mobile viewport")
   await mobilePage.close()
   const motionPage = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: "no-preference" })
+  await motionPage.addInitScript(() => {
+    const original = window.matchMedia
+    window.matchMedia = (query) => {
+      if (query === "(pointer: fine)") return { matches: true, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent() { return false } }
+      return original(query)
+    }
+  })
   await motionPage.goto(`${base}/cofounder`, { waitUntil: "domcontentloaded" })
-  if (!(await motionPage.locator(".ds-cosmic-cursor").isVisible())) throw new Error("cosmic cursor is not available on fine pointer")
+  await motionPage.locator(".ds-cosmic-cursor").waitFor({ state: "visible", timeout: 5000 })
   await motionPage.mouse.move(400, 300)
   const cursorMoved = await motionPage.locator(".ds-cosmic-cursor").evaluate((element) => element.getBoundingClientRect().left > 0)
   if (!cursorMoved) throw new Error("cosmic cursor did not respond to pointer movement")
