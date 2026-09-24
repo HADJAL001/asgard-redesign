@@ -96,6 +96,9 @@ test.describe("OSGARD design system", () => {
     expect(rollbackBody.rolledBackFrom).toBe(1)
     expect(rollbackBody.blueprint.revision).toBe(2)
     expect(rollbackBody.blueprint.brief).toBe(created.blueprint.brief)
+    expect(rollbackBody.evidence).toMatchObject({ kind: "rollback", status: "passed", revision: 2, contractHash: created.blueprint.contractHash })
+    const quality = await request.get(`/api/design/blueprint/${id}/quality`)
+    expect((await quality.json()).missing).toEqual(["security", "performance", "a11y", "visual-diff", "deploy"])
   })
 
   test("exposes a safe render plan for live preview", async ({ request }) => {
