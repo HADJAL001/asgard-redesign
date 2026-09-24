@@ -67,6 +67,10 @@ test.describe("OSGARD design system", () => {
     await expect(create).toBeFocused()
     await create.press("Enter")
     await expect(page.getByText("НОВЫЙ КОНТРАКТ").last()).toBeVisible()
+    await page.locator("dialog input").fill("Client portal")
+    await page.locator("dialog textarea").fill("A working preview for the client review journey.")
+    await page.locator("dialog form button[type=submit]").click()
+    await expect(page.locator('[role="status"]')).toContainText("Blueprint")
     await page.keyboard.press("Escape")
   })
 

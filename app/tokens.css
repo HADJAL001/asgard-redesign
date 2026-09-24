@@ -75,7 +75,11 @@
 .ds-dialog-actions { display:flex; justify-content:flex-end; gap:.75rem; flex-wrap:wrap; margin-top:1.5rem; }
 .ds-dialog-primary, .ds-dialog-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.45rem; min-height:2.75rem; padding:.65rem 1rem; border-radius:var(--ds-radius-sm); font:600 .85rem var(--ds-body); cursor:pointer; }
 .ds-dialog-primary { color:var(--ds-canvas); background:var(--ds-primary); border:1px solid var(--ds-primary); }
+.ds-dialog-primary:disabled { cursor:wait; opacity:.65; }
 .ds-dialog-secondary { color:var(--ds-ink); background:transparent; border:1px solid var(--ds-line); }
+.ds-dialog-error { margin:.9rem 0 0; padding:.7rem .8rem; color:var(--ds-danger); border:1px solid color-mix(in srgb,var(--ds-danger) 45%,transparent); background:color-mix(in srgb,var(--ds-danger) 8%,transparent); }
+.ds-dialog-result { display:grid; gap:.25rem; margin-top:1rem; padding:.8rem; border:1px solid color-mix(in srgb,var(--ds-success) 42%,var(--ds-line)); background:color-mix(in srgb,var(--ds-success) 8%,transparent); }
+.ds-dialog-result strong { color:var(--ds-success); }.ds-dialog-result span,.ds-dialog-result small { color:var(--ds-muted); font-size:.78rem; }
 .ds-dialog-primary:focus-visible, .ds-dialog-secondary:focus-visible, .ds-dialog-close:focus-visible { outline:0; box-shadow:var(--ds-focus); }
 @media (max-width: 520px) { .ds-contract-dialog { width:calc(100vw - 1.25rem); padding:1.25rem; } .ds-dialog-actions > button { flex:1 1 9rem; } }
 @media (prefers-reduced-motion: reduce) { .ds-interactive { transition:none; } }

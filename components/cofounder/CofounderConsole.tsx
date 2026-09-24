@@ -10,17 +10,31 @@ import { CinematicSequence } from "@/components/design-system/CinematicSequence"
 export function CofounderConsole() {
   const [open, setOpen] = useState(false)
   const [contractName, setContractName] = useState("")
+  const [brief, setBrief] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+  const [compileResult, setCompileResult] = useState<{ score: number; review: boolean; warnings: string[] } | null>(null)
+  const [compileError, setCompileError] = useState<string | null>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
     if (open) dialogRef.current?.querySelector<HTMLInputElement>("input")?.focus()
   }, [open])
 
-  function submitContract(event: FormEvent<HTMLFormElement>) {
+  async function submitContract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!contractName.trim()) return
-    setOpen(false)
-    setContractName("")
+    if (!contractName.trim() || !brief.trim()) return
+    setSubmitting(true)
+    setCompileError(null)
+    try {
+      const response = await fetch("/api/design/blueprint", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app: contractName, brief, preset: "futuristic" }) })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.blueprint?.quality) throw new Error("Не удалось собрать blueprint")
+      setCompileResult({ score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings })
+    } catch (error) {
+      setCompileError(error instanceof Error ? error.message : "Не удалось собрать blueprint")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -50,10 +64,12 @@ export function CofounderConsole() {
         <p className="ds-dialog-copy">Опишите первый продуктовый шаг. Система сохранит контекст и предложит план доставки.</p>
         <form onSubmit={submitContract}>
           <label className="ds-field">Название<input required value={contractName} onChange={(event) => setContractName(event.target.value)} placeholder="Например, кабинет партнёра" /></label>
-          <label className="ds-field">Результат для проверки<textarea required rows={4} placeholder="Какой результат должен быть готов?" /></label>
+          <label className="ds-field">Результат для проверки<textarea required rows={4} value={brief} onChange={(event) => setBrief(event.target.value)} placeholder="Какой результат должен быть готов?" /></label>
+          {compileError ? <p role="alert" className="ds-dialog-error">{compileError}</p> : null}
+          {compileResult ? <div className="ds-dialog-result" role="status"><strong>Blueprint готов: {compileResult.score}/100</strong><span>{compileResult.review ? "Нужна ручная проверка перед публикацией." : "Можно переходить к preview."}</span>{compileResult.warnings.length ? <small>{compileResult.warnings.length} предупреждения требуют внимания</small> : null}</div> : null}
           <div className="ds-dialog-actions">
             <button type="button" className="ds-dialog-secondary" onClick={() => setOpen(false)}>Отмена</button>
-            <button type="submit" className="ds-dialog-primary"><FilePlus2 size={16} /> Создать план</button>
+            <button type="submit" className="ds-dialog-primary" disabled={submitting}><FilePlus2 size={16} /> {submitting ? "Собираем…" : "Создать план"}</button>
           </div>
         </form>
       </dialog>
