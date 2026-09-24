@@ -85,6 +85,17 @@ test.describe("OSGARD design system", () => {
     expect(body.renderPlan.slots.map((slot: { component: string }) => slot.component)).toEqual(["hero", "preview-frame"])
   })
 
+  test("requires explicit approval before codegen handoff", async ({ request }) => {
+    const response = await request.post("/api/design/blueprint", { data: { app: "approval-check", brief: "A product preview that requires explicit human approval before delivery." } })
+    const created = await response.json()
+    const approval = await request.post(`/api/design/blueprint/${created.blueprint.id}/approve`, { data: { revision: 1 } })
+    expect(approval.status()).toBe(201)
+    const body = await approval.json()
+    expect(body.blueprint.revision).toBe(2)
+    expect(body.blueprint.approval.status).toBe("approved")
+    expect(body.blueprint.approval.approvedAt).toEqual(expect.any(String))
+  })
+
   test("keeps the AI blueprint compiler behind authentication", async ({ request }) => {
     const response = await request.post("/api/design/blueprint/compile", { data: { brief: "A secure workspace for reviewing a generated product." } })
     expect(response.status()).toBe(401)

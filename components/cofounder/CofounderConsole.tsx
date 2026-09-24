@@ -26,6 +26,7 @@ export function CofounderConsole() {
   })
   const [compileError, setCompileError] = useState<string | null>(null)
   const [rollingBack, setRollingBack] = useState<number | null>(null)
+  const [approving, setApproving] = useState(false)
   const dialogRef = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
@@ -99,6 +100,21 @@ export function CofounderConsole() {
     }
   }
 
+  async function approvePreview(item: CompileResult) {
+    setApproving(true)
+    setCompileError(null)
+    try {
+      const response = await fetch(`/api/design/blueprint/${item.id}/approve`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ revision: item.revision }) })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.blueprint) throw new Error("Не удалось подтвердить preview")
+      const approved = data.blueprint
+      const next: CompileResult = { id: approved.id, revision: approved.revision, score: approved.quality.score, review: approved.quality.humanReviewRequired, warnings: approved.quality.warnings, app: approved.app, brief: approved.brief, createdAt: approved.generatedAt, aiSummary: approved.aiPlan?.summary || item.aiSummary, aiComponents: approved.aiPlan?.components || item.aiComponents, aiRisks: approved.aiPlan?.risks || item.aiRisks }
+      setCompileResult(next)
+      setHistory((previous) => { const updated = [next, ...previous.filter((entry) => entry.id !== next.id || entry.revision !== next.revision)].slice(0, 5); localStorage.setItem("osgard-blueprint-history", JSON.stringify(updated)); return updated })
+      track("blueprint_compile_completed", { source: "cofounder_approval", blueprintId: next.id, fromRevision: item.revision, revision: next.revision })
+    } catch (error) { setCompileError(error instanceof Error ? error.message : "Не удалось подтвердить preview") } finally { setApproving(false) }
+  }
+
   return (
     <main className="ds-body" style={{ minHeight: "100vh", padding: "clamp(1rem, 4vw, 4rem)" }}>
       <section className="ds-hull ds-glass" style={{ padding: "clamp(1.25rem, 4vw, 3rem)", display: "flex", justifyContent: "space-between", gap: "2rem", alignItems: "end" }}>
@@ -133,6 +149,7 @@ export function CofounderConsole() {
           {previewPlan ? <section className="ds-dialog-preview" aria-label="Blueprint preview"><div className="ds-utility">LIVE PREVIEW / REVISION {previewPlan.revision}</div><div className="ds-dialog-preview-slots">{previewPlan.slots.map((slot) => <article key={slot.id} className="ds-dialog-preview-slot"><strong>{slot.component}</strong><span>{slot.role}</span><small>{slot.states.join(" · ")}</small></article>)}</div><div className="ds-dialog-preview-stages" aria-label="Preview stages">{previewPlan.stages.map((stage, index) => <span key={stage} data-active={index === 0}>{stage}</span>)}</div></section> : null}
           {compileResult ? <div className="ds-dialog-result" role="status"><strong>Blueprint готов: {compileResult.score}/100</strong><span>{compileResult.review ? "Нужна ручная проверка перед публикацией." : "Можно переходить к preview."}</span>{compileResult.warnings.length ? <small>{compileResult.warnings.length} предупреждения требуют внимания</small> : null}</div> : null}
           {history.length > 1 ? <div className="ds-dialog-history" aria-label="История blueprint"><span className="ds-utility">ПРОШЛЫЕ ВЕРСИИ</span>{history.slice(0, 3).map((item) => <button key={item.id} type="button" onClick={() => { setCompileResult(item); setContractName(item.app); setBrief(item.brief) }} aria-label={`Открыть blueprint ${item.app}`}>{item.app} · {item.score}/100</button>)}</div> : null}
+          {compileResult ? <button type="button" className="ds-dialog-secondary" onClick={() => approvePreview(compileResult)} disabled={approving || rollingBack !== null}>{approving ? "Подтверждаем…" : "Подтвердить preview для codegen"}</button> : null}
           {compileResult ? <button type="button" className="ds-dialog-secondary" onClick={() => rollbackBlueprint(compileResult)} disabled={rollingBack !== null}>{rollingBack === compileResult.revision ? "Восстанавливаем…" : `Восстановить revision ${compileResult.revision}`}</button> : null}
           <div className="ds-dialog-actions">
             <button type="button" className="ds-dialog-secondary" onClick={() => setOpen(false)}>Отмена</button>
