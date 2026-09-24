@@ -52,7 +52,9 @@ export const GENERATION_DEPTHS: Record<GenerationDepth, GenerationDepthConfig> =
     id: "standard",
     label: "Стандартная",
     description: "Полная AI-генерация приложения с нуля, без шаблонного упрощения.",
-    credits: 0,
+    /* Kept as the durable make-good value. Generation admission itself is
+       charged in TimeCoin; this field prices the platform-funded retry. */
+    credits: 20,
     timecoin: 1,
     forceAi: true,
     bypassCache: false,
@@ -62,7 +64,8 @@ export const GENERATION_DEPTHS: Record<GenerationDepth, GenerationDepthConfig> =
     id: "deep",
     label: "Глубокая",
     description: "Свежая AI-генерация без кеша — максимум деталей и уникальности.",
-    credits: 0,
+    /* Deep failures receive the larger platform-funded retry allowance. */
+    credits: 50,
     timecoin: 2,
     forceAi: true,
     bypassCache: true,
