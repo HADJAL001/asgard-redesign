@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getBlueprint, listBlueprintRevisions, saveBlueprint, type StoredBlueprint } from "@/lib/blueprint-store"
+import { appendBlueprintEvidence, getBlueprint, listBlueprintRevisions, saveBlueprint, type StoredBlueprint } from "@/lib/blueprint-store"
 
 export const dynamic = "force-dynamic"
 
@@ -16,5 +16,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!source || !revisions.length) return NextResponse.json({ error: "blueprint_revision_not_found" }, { status: 404 })
   const rollback: StoredBlueprint = { ...source, revision: revisions[revisions.length - 1].revision + 1, generatedAt: new Date().toISOString() }
   saveBlueprint(rollback)
-  return NextResponse.json({ blueprint: rollback, rolledBackFrom: revision }, { status: 201, headers: { "cache-control": "no-store" } })
+  const evidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: rollback.id, revision: rollback.revision, contractHash: rollback.contractHash, kind: "rollback", status: "passed", summary: `Revision ${revision} restored as revision ${rollback.revision}; quality gates must be rerun`, capturedAt: new Date().toISOString(), source: "blueprint-rollback" })
+  return NextResponse.json({ blueprint: rollback, rolledBackFrom: revision, evidence }, { status: 201, headers: { "cache-control": "no-store" } })
 }
