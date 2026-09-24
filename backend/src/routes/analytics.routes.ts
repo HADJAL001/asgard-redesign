@@ -41,6 +41,7 @@ const ALLOWED_EVENTS = new Set([
   "blueprint_compile_started",
   "blueprint_compile_completed",
   "blueprint_compile_failed",
+  "web_vital",
 ])
 
 const MAX_META_JSON_LENGTH = 2000

@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs"
+import { startWebVitalsMonitor } from "@/lib/web-vitals-monitor"
 
 /* ================================================================
    OSGARD · Sentry (браузер)
@@ -21,3 +22,5 @@ if (dsn) {
 }
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart
+
+if (typeof window !== "undefined") startWebVitalsMonitor()
