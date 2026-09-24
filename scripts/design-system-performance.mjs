@@ -1,4 +1,10 @@
 const base = process.env.DESIGN_SYSTEM_BASE_URL || "https://osgardnewworld.com"
+const pageResponse = await fetch(`${base}/cofounder`, { redirect: "manual" })
+const hsts = pageResponse.headers.get("strict-transport-security") || ""
+if (!hsts.toLowerCase().includes("max-age=31536000") || !hsts.toLowerCase().includes("includesubdomains")) {
+  console.error("security header gate: Strict-Transport-Security is missing or too weak")
+  process.exitCode = 1
+}
 const routes = ["/cofounder", "/api/design/tokens?preset=futuristic", "/api/design/tenant", "/api/design/manifest?app=universal"]
 for (const route of routes) {
   const started = performance.now()
