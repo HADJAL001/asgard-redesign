@@ -21,6 +21,7 @@
    ================================================================ */
 
 import { useEffect, useRef, useState } from "react"
+import { track } from "@/lib/analytics"
 
 export type GenerationStage =
   | "analyzing"
@@ -201,6 +202,7 @@ export function useProjectGenerationStream(
     let attempts = 0
     let closed = false
     let terminated = false
+    let contextReported = false
     let paused = typeof document !== "undefined" && document.visibilityState === "hidden"
 
     const applyStage = (evt: GenerationStageEvent) => {
@@ -220,6 +222,15 @@ export function useProjectGenerationStream(
           connection: prev.connection,
         }
       })
+
+      if (!contextReported) {
+        contextReported = true
+        track("generation_stream_context_received", {
+          projectId,
+          stage: evt.stage,
+          resumed: attempts > 0,
+        })
+      }
 
       if (isTerminalStage(evt.stage) && !terminated) {
         terminated = true
@@ -244,6 +255,7 @@ export function useProjectGenerationStream(
 
       source.onopen = () => {
         attempts = 0
+        track("generation_stream_connected", { projectId })
         setState((prev) => ({ ...prev, connection: "live" }))
       }
 
