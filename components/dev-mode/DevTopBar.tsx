@@ -13,11 +13,13 @@
    Всё остальное на экране принадлежит задаче человека, а не платформе.
    ================================================================ */
 
-import { Volume2, VolumeX, ArrowLeft, ArrowUp, Sparkles, WandSparkles, Landmark, Crown } from "lucide-react"
+import { Volume2, VolumeX, ArrowLeft, ArrowUp, Sparkles, WandSparkles, Landmark, Crown, Activity } from "lucide-react"
 import { usePathname } from "next/navigation"
+import { useEffect, useRef, useState } from "react"
 import { useDevMode, DEV_MODE_ROUTE } from "@/lib/dev-mode"
 import { getActiveVibecoderRank } from "@/lib/dev-mode/vibecoder-rank"
 import { useOsgardStore } from "@/lib/store/osgard-store"
+import { track } from "@/lib/analytics"
 
 export function DevTopBar({ children }: { children?: React.ReactNode }) {
   const { switchMode, transitioning, soundEnabled, toggleSound, modeChosen } = useDevMode()
@@ -37,6 +39,36 @@ export function DevTopBar({ children }: { children?: React.ReactNode }) {
   const pathname = usePathname() || ""
   const isWorkshop = pathname.startsWith(`${DEV_MODE_ROUTE}/workspace/`)
   const showHint = !modeChosen && !transitioning && !isWorkshop
+  const [runtime, setRuntime] = useState<{ state: "checking" | "healthy" | "degraded"; latency?: number }>({ state: "checking" })
+  const lastRuntimeState = useRef<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function checkRuntime() {
+      const started = performance.now()
+      try {
+        const response = await fetch("/api/health", { cache: "no-store" })
+        const latency = Math.round(performance.now() - started)
+        if (cancelled) return
+        const state = response.ok ? "healthy" : "degraded"
+        setRuntime({ state, latency })
+        if (lastRuntimeState.current !== `${state}:${response.status}`) {
+          lastRuntimeState.current = `${state}:${response.status}`
+          track("dev_runtime_health", { state, status: response.status, latencyMs: latency, path: pathname })
+        }
+      } catch {
+        if (cancelled) return
+        setRuntime({ state: "degraded" })
+        if (lastRuntimeState.current !== "degraded:network") {
+          lastRuntimeState.current = "degraded:network"
+          track("dev_runtime_health", { state: "degraded", reason: "network", path: pathname })
+        }
+      }
+    }
+    void checkRuntime()
+    const timer = window.setInterval(checkRuntime, 60_000)
+    return () => { cancelled = true; window.clearInterval(timer) }
+  }, [pathname])
 
   return (
     <header className="flex items-center justify-between gap-4 px-6 py-6 md:px-8">
@@ -68,6 +100,10 @@ export function DevTopBar({ children }: { children?: React.ReactNode }) {
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
+        <span className="hidden items-center gap-1.5 text-[11px] sm:inline-flex" role="status" aria-label={`Runtime ${runtime.state}${runtime.latency ? `, ${runtime.latency} milliseconds` : ""}`}>
+          <Activity size={14} aria-hidden="true" style={{ color: runtime.state === "healthy" ? "#86EFAC" : runtime.state === "degraded" ? "#FBBF24" : "#94A3B8" }} />
+          <span style={{ color: runtime.state === "healthy" ? "#86EFAC" : runtime.state === "degraded" ? "#FBBF24" : "#94A3B8" }}>{runtime.state === "healthy" ? `Runtime ${runtime.latency ? `${runtime.latency}ms` : "ready"}` : runtime.state === "degraded" ? "Runtime degraded" : "Checking runtime"}</span>
+        </span>
         <button
           type="button"
           onClick={toggleSound}
