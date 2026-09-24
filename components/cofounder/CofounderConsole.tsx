@@ -10,6 +10,7 @@ import { track } from "@/lib/analytics"
 import { useAuth } from "@/lib/auth-store"
 
 type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; createdAt: string; aiSummary?: string; aiComponents?: string[]; aiRisks?: string[] }
+type PreviewPlan = { revision: number; slots: { id: string; component: string; role: string; states: string[] }[]; stages: string[] }
 
 export function CofounderConsole() {
   const { user } = useAuth()
@@ -18,6 +19,7 @@ export function CofounderConsole() {
   const [brief, setBrief] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null)
+  const [previewPlan, setPreviewPlan] = useState<PreviewPlan | null>(null)
   const [history, setHistory] = useState<CompileResult[]>(() => {
     if (typeof window === "undefined") return []
     try { return JSON.parse(localStorage.getItem("osgard-blueprint-history") || "[]") as CompileResult[] } catch { return [] }
@@ -29,6 +31,14 @@ export function CofounderConsole() {
   useEffect(() => {
     if (open) dialogRef.current?.querySelector<HTMLInputElement>("input")?.focus()
   }, [open])
+
+  async function loadPreview(id: string, revision: number) {
+    const response = await fetch(`/api/design/blueprint/${id}/preview?revision=${revision}`, { cache: "no-store" })
+    if (!response.ok) return
+    const data = await response.json().catch(() => null)
+    const plan = data?.renderPlan
+    if (plan && Array.isArray(plan.slots)) setPreviewPlan({ revision: data.revision, slots: plan.slots, stages: Array.isArray(plan.stages) ? plan.stages : [] })
+  }
 
   async function submitContract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -52,6 +62,8 @@ export function CofounderConsole() {
       const persistedPlan = data.blueprint.aiPlan || aiPlan
       const result: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, createdAt: data.blueprint.generatedAt, aiSummary: persistedPlan?.summary, aiComponents: persistedPlan?.components, aiRisks: persistedPlan?.risks }
       setCompileResult(result)
+      setPreviewPlan(null)
+      void loadPreview(result.id, result.revision)
       setHistory((previous) => { const next = [result, ...previous.filter((item) => item.id !== result.id)].slice(0, 5); localStorage.setItem("osgard-blueprint-history", JSON.stringify(next)); return next })
       track("blueprint_compile_completed", { source: aiPlan ? "cofounder_ai" : "cofounder_fallback", blueprintId: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, humanReviewRequired: data.blueprint.quality.humanReviewRequired, durationMs: Math.round(performance.now() - startedAt) })
     } catch (error) {
@@ -73,6 +85,8 @@ export function CofounderConsole() {
       const persistedPlan = data.blueprint.aiPlan
       const restored: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, createdAt: data.blueprint.generatedAt, aiSummary: persistedPlan?.summary || item.aiSummary, aiComponents: persistedPlan?.components || item.aiComponents, aiRisks: persistedPlan?.risks || item.aiRisks }
       setCompileResult(restored)
+      setPreviewPlan(null)
+      void loadPreview(restored.id, restored.revision)
       setContractName(restored.app)
       setBrief(restored.brief)
       setHistory((previous) => { const next = [restored, ...previous.filter((entry) => entry.id !== restored.id || entry.revision !== restored.revision)].slice(0, 5); localStorage.setItem("osgard-blueprint-history", JSON.stringify(next)); return next })
@@ -116,6 +130,7 @@ export function CofounderConsole() {
           <label className="ds-field">Результат для проверки<textarea required rows={4} value={brief} onChange={(event) => setBrief(event.target.value)} placeholder="Какой результат должен быть готов?" /></label>
           <p className="ds-dialog-live" role="status" aria-live="polite" aria-atomic="true">{submitting ? "Собираем blueprint…" : compileResult ? "Blueprint готов к проверке." : ""}</p>
           {compileError ? <p role="alert" className="ds-dialog-error">{compileError}</p> : null}
+          {previewPlan ? <section className="ds-dialog-preview" aria-label="Blueprint preview"><div className="ds-utility">LIVE PREVIEW / REVISION {previewPlan.revision}</div><div className="ds-dialog-preview-slots">{previewPlan.slots.map((slot) => <article key={slot.id} className="ds-dialog-preview-slot"><strong>{slot.component}</strong><span>{slot.role}</span><small>{slot.states.join(" · ")}</small></article>)}</div><div className="ds-dialog-preview-stages" aria-label="Preview stages">{previewPlan.stages.map((stage, index) => <span key={stage} data-active={index === 0}>{stage}</span>)}</div></section> : null}
           {compileResult ? <div className="ds-dialog-result" role="status"><strong>Blueprint готов: {compileResult.score}/100</strong><span>{compileResult.review ? "Нужна ручная проверка перед публикацией." : "Можно переходить к preview."}</span>{compileResult.warnings.length ? <small>{compileResult.warnings.length} предупреждения требуют внимания</small> : null}</div> : null}
           {history.length > 1 ? <div className="ds-dialog-history" aria-label="История blueprint"><span className="ds-utility">ПРОШЛЫЕ ВЕРСИИ</span>{history.slice(0, 3).map((item) => <button key={item.id} type="button" onClick={() => { setCompileResult(item); setContractName(item.app); setBrief(item.brief) }} aria-label={`Открыть blueprint ${item.app}`}>{item.app} · {item.score}/100</button>)}</div> : null}
           {compileResult ? <button type="button" className="ds-dialog-secondary" onClick={() => rollbackBlueprint(compileResult)} disabled={rollingBack !== null}>{rollingBack === compileResult.revision ? "Восстанавливаем…" : `Восстановить revision ${compileResult.revision}`}</button> : null}
