@@ -7,10 +7,12 @@ import { OrbitalMemory } from "@/components/design-system/OrbitalMemory"
 import { PresetSwitcher } from "@/components/design-system/PresetSwitcher"
 import { CinematicSequence } from "@/components/design-system/CinematicSequence"
 import { track } from "@/lib/analytics"
+import { useAuth } from "@/lib/auth-store"
 
 type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; createdAt: string }
 
 export function CofounderConsole() {
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [contractName, setContractName] = useState("")
   const [brief, setBrief] = useState("")
@@ -36,13 +38,21 @@ export function CofounderConsole() {
     const startedAt = performance.now()
     track("blueprint_compile_started", { source: "cofounder", preset: "futuristic" })
     try {
-      const response = await fetch("/api/design/blueprint", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app: contractName, brief, preset: "futuristic" }) })
+      let aiPlan: { components?: string[]; risks?: string[] } | null = null
+      if (user) {
+        const aiResponse = await fetch("/api/design/blueprint/compile", { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ brief }) })
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json().catch(() => null)
+          if (Array.isArray(aiData?.blueprint?.components)) aiPlan = aiData.blueprint
+        }
+      }
+      const response = await fetch("/api/design/blueprint", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app: contractName, brief, preset: "futuristic", components: aiPlan?.components }) })
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.blueprint?.quality) throw new Error("Не удалось собрать blueprint")
       const result: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, createdAt: data.blueprint.generatedAt }
       setCompileResult(result)
       setHistory((previous) => { const next = [result, ...previous.filter((item) => item.id !== result.id)].slice(0, 5); localStorage.setItem("osgard-blueprint-history", JSON.stringify(next)); return next })
-      track("blueprint_compile_completed", { source: "cofounder", blueprintId: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, humanReviewRequired: data.blueprint.quality.humanReviewRequired, durationMs: Math.round(performance.now() - startedAt) })
+      track("blueprint_compile_completed", { source: aiPlan ? "cofounder_ai" : "cofounder_fallback", blueprintId: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, humanReviewRequired: data.blueprint.quality.humanReviewRequired, durationMs: Math.round(performance.now() - startedAt) })
     } catch (error) {
       setCompileError(error instanceof Error ? error.message : "Не удалось собрать blueprint")
       track("blueprint_compile_failed", { source: "cofounder", durationMs: Math.round(performance.now() - startedAt) })
