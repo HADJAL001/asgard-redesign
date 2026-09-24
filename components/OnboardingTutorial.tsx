@@ -29,7 +29,7 @@
    сразу отобразил актуальный баланс.
    ================================================================ */
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import {
   Home,
@@ -70,6 +70,9 @@ const ONBOARDING_CSS = `
 .osgard-final-icon {
   animation: osgard-badge-pop 0.6s cubic-bezier(0.34,1.56,0.64,1) both,
              osgard-badge-pulse 2.4s ease-in-out 0.6s infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .osgard-badge-icon, .osgard-final-icon { animation: none; }
 }
 `
 
@@ -146,6 +149,7 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
   const [visible, setVisible] = useState(true)
   const [justEarned, setJustEarned] = useState<StepReward | null>(null)
   const [showFinal, setShowFinal] = useState(false)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
 
   const fetchWallet = useOsgardStore((s) => s.fetchWallet)
   const { user } = useAuth()
@@ -153,6 +157,12 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
   const isAdmin = user?.role === "admin"
 
   /* Подтягиваем актуальный статус онбординга при монтировании */
+  const handleClose = useCallback(() => {
+    track("onboarding_dismissed", { step: currentStep })
+    setVisible(false)
+    onFinish?.()
+  }, [currentStep, onFinish])
+
   useEffect(() => {
     track("onboarding_started", { initialStep })
     let cancelled = false
@@ -174,6 +184,16 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
       cancelled = true
     }
   }, [initialStep])
+
+  useEffect(() => {
+    if (!visible) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !loading) handleClose()
+    }
+    document.addEventListener("keydown", onKeyDown)
+    closeButtonRef.current?.focus()
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [visible, loading, handleClose])
 
   if (!visible) return null
   if (!showFinal && currentStep >= STEPS.length) return null
@@ -223,12 +243,6 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
     }
   }
 
-  function handleClose() {
-    track("onboarding_dismissed", { step: currentStep })
-    setVisible(false)
-    onFinish?.()
-  }
-
   function handleFinalContinue() {
     setVisible(false)
     onFinish?.()
@@ -237,8 +251,11 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
   if (showFinal) {
     return (
       <div
-        className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 text-center"
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto p-6 text-center"
         style={{ backgroundColor: "#10181d" }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-final-title"
       >
         <style>{ONBOARDING_CSS}</style>
         <span
@@ -248,6 +265,7 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
           <Award size={44} strokeWidth={1.5} style={{ color: "#B57BFF" }} />
         </span>
         <h1
+          id="onboarding-final-title"
           className="mb-4 text-[28px] font-semibold tracking-wide"
           style={{
             background: "linear-gradient(135deg, #C9A84C 0%, #E5D4A0 50%, #C9A84C 100%)",
@@ -286,10 +304,14 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
     >
       <style>{ONBOARDING_CSS}</style>
       <div
-        className="relative w-full max-w-md rounded-2xl p-7"
+        className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl p-7"
         style={{ backgroundColor: CARD, border: `1px solid ${BORDER}` }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-step-title"
       >
         <button
+          ref={closeButtonRef}
           type="button"
           onClick={handleClose}
           className="absolute right-4 top-4 rounded-md p-1 transition-colors"
@@ -321,7 +343,7 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
           >
             <activeStep.Icon size={28} strokeWidth={1.5} style={{ color: ACCENT }} />
           </span>
-          <h2 className="text-[20px] font-semibold text-white">{stepTitle}</h2>
+          <h2 id="onboarding-step-title" className="text-[20px] font-semibold text-white">{stepTitle}</h2>
           <p className="mt-2 text-[14px]" style={{ color: "rgba(255,255,255,0.6)" }}>
             {stepDescription}
           </p>
