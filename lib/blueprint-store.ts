@@ -98,6 +98,10 @@ export function listBlueprintEvidence(id: string) {
   return readEvidence()[id] || []
 }
 
+export function latestBlueprintEvidence(id: string, kind: BlueprintEvidenceKind) {
+  return listBlueprintEvidence(id).toReversed().find((entry) => entry.kind === kind) || null
+}
+
 export function appendBlueprintEvidence(evidence: BlueprintEvidence) {
   const store = readEvidence()
   const previous = store[evidence.blueprintId] || []
