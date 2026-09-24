@@ -1,7 +1,7 @@
 "use client"
 
 import { FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { FilePlus2, Radar, ShieldCheck, Share2, X } from "lucide-react"
+import { FilePlus2, Lightbulb, Radar, ShieldCheck, Share2, X } from "lucide-react"
 import { MemoryLayerRail } from "@/components/design-system/MemoryLayerRail"
 import { OrbitalMemory } from "@/components/design-system/OrbitalMemory"
 import { PresetSwitcher } from "@/components/design-system/PresetSwitcher"
@@ -16,6 +16,12 @@ type PreviewPlan = { revision: number; slots: { id: string; component: string; r
 type EvidenceRecord = { id: string; revision: number; kind: string; status: "passed" | "failed" | "skipped"; summary: string; source: string; capturedAt: string; contractHash: string }
 type QualityState = { required: string[]; missing: string[]; stale: { kind: string; reason: string; revision?: number; expectedRevision: number }[]; approval: boolean; readyForCodegen: boolean }
 type GenerationStatus = { status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; currentStep?: string; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string } }
+
+const starterMissions = [
+  { id: "launch", label: "Launch a product", brief: "Create a focused product workspace where a team can move from idea to a verified first release in one session." },
+  { id: "community", label: "Build a community", brief: "Create a trusted community experience with profiles, a live feed, moderation signals, and a clear first contribution path." },
+  { id: "ai-operator", label: "Ship an AI operator", brief: "Create an AI operator with durable memory, transparent evidence, and a safe approval step before code is generated." },
+] as const
 
 export function CofounderConsole() {
   const hydrated = useSyncExternalStore(() => () => {}, () => true, () => false)
@@ -254,6 +260,11 @@ export function CofounderConsole() {
     window.setTimeout(() => setShareStatus(null), 2600)
   }
 
+  function chooseStarterMission(mission: (typeof starterMissions)[number]) {
+    setBrief(mission.brief)
+    track("blueprint_starter_selected", { mission: mission.id, productType, preset: visualPreset })
+  }
+
   return (
     <main className="ds-body" style={{ minHeight: "100vh", padding: "clamp(1rem, 4vw, 4rem)" }}>
       <section className="ds-hull ds-glass" style={{ padding: "clamp(1.25rem, 4vw, 3rem)", display: "flex", justifyContent: "space-between", gap: "2rem", alignItems: "end" }}>
@@ -283,6 +294,7 @@ export function CofounderConsole() {
         <form onSubmit={submitContract}>
           {compileResult && (compileResult.aiSummary || compileResult.aiComponents?.length || compileResult.aiRisks?.length) ? <section className="ds-dialog-result" aria-label="AI architecture signal"><strong>AI architecture signal</strong>{compileResult.aiSummary ? <span>{compileResult.aiSummary}</span> : null}{compileResult.aiComponents?.length ? <small>Selected components: {compileResult.aiComponents.join(", ")}</small> : null}{compileResult.aiRisks?.length ? <small>Risks to review: {compileResult.aiRisks.join("; ")}</small> : null}</section> : null}
           <label className="ds-field">Название<input required value={contractName} onChange={(event) => setContractName(event.target.value)} placeholder="Например, кабинет партнёра" /></label>
+          <section className="ds-brief-starters" aria-labelledby="starter-missions-title"><div className="ds-brief-starters__head"><Lightbulb size={15} aria-hidden="true" /><span id="starter-missions-title" className="ds-utility">STARTER MISSIONS</span><small>Начните с готового вектора</small></div><div className="ds-brief-starters__grid">{starterMissions.map((mission) => <button key={mission.id} type="button" className="ds-brief-starter ds-focus" onClick={() => chooseStarterMission(mission)}><strong>{mission.label}</strong><span>{mission.brief}</span></button>)}</div></section>
           <label className="ds-field">Результат для проверки<textarea required rows={4} value={brief} onChange={(event) => setBrief(event.target.value)} placeholder="Какой результат должен быть готов?" /></label>
           <p className="ds-dialog-live" role="status" aria-live="polite" aria-atomic="true">{submitting ? "Собираем blueprint…" : compileResult ? "Blueprint готов к проверке." : ""}</p>
           {compileError ? <p role="alert" className="ds-dialog-error">{compileError}</p> : null}
