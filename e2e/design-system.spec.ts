@@ -49,4 +49,19 @@ test.describe("OSGARD design system", () => {
     await skip.focus()
     await expect(skip).toBeFocused()
   })
+
+  test("mobile product surfaces stay within the viewport", async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } })
+    for (const route of ["/dev", "/cofounder"]) {
+      const page = await context.newPage()
+      await page.goto(route)
+      const layout = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      }))
+      expect(layout.scrollWidth, `${route} has horizontal overflow`).toBeLessThanOrEqual(layout.clientWidth)
+      await page.close()
+    }
+    await context.close()
+  })
 })
