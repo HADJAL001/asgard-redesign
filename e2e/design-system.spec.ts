@@ -177,6 +177,15 @@ test.describe("OSGARD design system", () => {
     await expect(skip).toBeFocused()
   })
 
+  test("root boot shell covers the hydration gap and then dismisses", async ({ page }) => {
+    await page.goto("/cofounder", { waitUntil: "domcontentloaded" })
+    const boot = page.locator("#osgard-boot-shell")
+    await expect(boot).toBeVisible()
+    await expect(boot).toContainText("OSGARD / INITIALIZING COMMAND DECK")
+    await expect(boot).toBeHidden({ timeout: 5000 })
+    await expect(page.getByRole("heading", { name: "AI Cofounder" })).toBeVisible()
+  })
+
   test("mobile product surfaces stay within the viewport", async ({ browser }) => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } })
     for (const route of ["/dev", "/cofounder"]) {
