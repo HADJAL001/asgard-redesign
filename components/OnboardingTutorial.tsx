@@ -29,7 +29,7 @@
    сразу отобразил актуальный баланс.
    ================================================================ */
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react"
 import Link from "next/link"
 import {
   Home,
@@ -150,6 +150,7 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
   const [justEarned, setJustEarned] = useState<StepReward | null>(null)
   const [showFinal, setShowFinal] = useState(false)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
 
   const fetchWallet = useOsgardStore((s) => s.fetchWallet)
   const { user } = useAuth()
@@ -194,6 +195,25 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
     closeButtonRef.current?.focus()
     return () => document.removeEventListener("keydown", onKeyDown)
   }, [visible, loading, handleClose])
+
+  function handleDialogKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab") return
+    const focusable = Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ) ?? [],
+    )
+    if (!focusable.length) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
 
   if (!visible) return null
   if (!showFinal && currentStep >= STEPS.length) return null
@@ -251,11 +271,13 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
   if (showFinal) {
     return (
       <div
+        ref={dialogRef}
         className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto p-6 text-center"
         style={{ backgroundColor: "#10181d" }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-final-title"
+        onKeyDown={handleDialogKeyDown}
       >
         <style>{ONBOARDING_CSS}</style>
         <span
@@ -304,11 +326,13 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
     >
       <style>{ONBOARDING_CSS}</style>
       <div
+        ref={dialogRef}
         className="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl p-7"
         style={{ backgroundColor: CARD, border: `1px solid ${BORDER}` }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-step-title"
+        onKeyDown={handleDialogKeyDown}
       >
         <button
           ref={closeButtonRef}
