@@ -10,6 +10,7 @@ import { track } from "@/lib/analytics"
 import { useAuth } from "@/lib/auth-store"
 import { CofounderLoadingShell } from "@/components/cofounder/CofounderLoadingShell"
 import { ProductCatalog, type ProductType, type VisualPreset } from "@/components/cofounder/ProductCatalog"
+import { ObsidianCosmos } from "@/components/design-system/ObsidianCosmos"
 
 type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; productType?: ProductType; preset?: VisualPreset; contractVersion?: string; contractHash?: string; createdAt: string; aiSummary?: string; aiComponents?: string[]; aiRisks?: string[]; approved?: boolean }
 type PreviewPlan = { revision: number; slots: { id: string; component: string; role: string; states: string[] }[]; stages: string[] }
@@ -274,7 +275,8 @@ export function CofounderConsole() {
   }
 
   return (
-    <main className="ds-body" style={{ minHeight: "100vh", padding: "clamp(1rem, 4vw, 4rem)" }}>
+    <main className="ds-body cofounder-cosmos" style={{ minHeight: "100vh", padding: "clamp(1rem, 4vw, 4rem)" }}>
+      <ObsidianCosmos />
       <section className="ds-hull ds-glass" style={{ padding: "clamp(1.25rem, 4vw, 3rem)", display: "flex", justifyContent: "space-between", gap: "2rem", alignItems: "end" }}>
         <div>
           <span className="ds-utility"><Radar size={14} /> AI COFOUNDER / COMMAND DECK</span>
