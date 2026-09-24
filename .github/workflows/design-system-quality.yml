@@ -25,6 +25,8 @@ jobs:
       - run: npm audit --audit-level=high
       - run: npm run build
       - run: npm run test:design-system
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test e2e/design-system.spec.ts --reporter=line
         env:
           DESIGN_SYSTEM_BASE_URL: https://osgardnewworld.com
           DESIGN_SYSTEM_ORIGIN: https://osgardnewworld.com
