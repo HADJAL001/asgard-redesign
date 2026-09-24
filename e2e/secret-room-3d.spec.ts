@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test"
 
 test("renders the Secret Room headquarters canvas", async ({ page }) => {
-  await page.route("**/api/secret-room/events", async (route) => route.fulfill({ json: { events: [] } }))
-  await page.route("**/api/secret-room/activity", async (route) => route.fulfill({ json: { activity: [] } }))
-  await page.route("**/api/secret-room", async (route) => route.fulfill({ json: {
+  await page.route("**/secret-room/events", async (route) => route.fulfill({ json: { events: [] } }))
+  await page.route("**/secret-room/activity", async (route) => route.fulfill({ json: { activity: [] } }))
+  await page.route("**/secret-room", async (route) => route.fulfill({ json: {
     hasAccess: true,
     isOwner: true,
     room: {
