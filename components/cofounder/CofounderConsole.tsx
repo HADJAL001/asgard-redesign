@@ -6,6 +6,7 @@ import { MemoryLayerRail } from "@/components/design-system/MemoryLayerRail"
 import { OrbitalMemory } from "@/components/design-system/OrbitalMemory"
 import { PresetSwitcher } from "@/components/design-system/PresetSwitcher"
 import { CinematicSequence } from "@/components/design-system/CinematicSequence"
+import { track } from "@/lib/analytics"
 
 export function CofounderConsole() {
   const [open, setOpen] = useState(false)
@@ -25,13 +26,17 @@ export function CofounderConsole() {
     if (!contractName.trim() || !brief.trim()) return
     setSubmitting(true)
     setCompileError(null)
+    const startedAt = performance.now()
+    track("blueprint_compile_started", { source: "cofounder", preset: "futuristic" })
     try {
       const response = await fetch("/api/design/blueprint", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app: contractName, brief, preset: "futuristic" }) })
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.blueprint?.quality) throw new Error("Не удалось собрать blueprint")
       setCompileResult({ score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings })
+      track("blueprint_compile_completed", { source: "cofounder", score: data.blueprint.quality.score, humanReviewRequired: data.blueprint.quality.humanReviewRequired, durationMs: Math.round(performance.now() - startedAt) })
     } catch (error) {
       setCompileError(error instanceof Error ? error.message : "Не удалось собрать blueprint")
+      track("blueprint_compile_failed", { source: "cofounder", durationMs: Math.round(performance.now() - startedAt) })
     } finally {
       setSubmitting(false)
     }
