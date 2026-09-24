@@ -1,4 +1,6 @@
-import { redirect } from "next/navigation"
+"use client"
+
+import { useEffect } from "react"
 
 /**
  * The former guest code sandbox had no production generation API behind it.
@@ -6,5 +8,9 @@ import { redirect } from "next/navigation"
  * idea -> interview -> generation.
  */
 export default function StudioPage() {
-  redirect("/")
+  useEffect(() => {
+    window.location.replace("/")
+  }, [])
+
+  return <main aria-busy="true" style={{ minHeight: "100vh" }} />
 }
