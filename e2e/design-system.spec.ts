@@ -45,6 +45,8 @@ test.describe("OSGARD design system", () => {
     expect(body.blueprint.stages).toHaveLength(5)
     expect(body.blueprint.quality.humanReviewRequired).toBe(true)
     expect(body.blueprint.quality.warnings).toContain("app_shell_required_for_navigation")
+    expect(body.requestId).toMatch(/^[0-9a-f-]{36}$/)
+    expect(response.headers()["x-request-id"]).toBe(body.requestId)
   })
 
   test("rejects unusable client briefs", async ({ request }) => {
