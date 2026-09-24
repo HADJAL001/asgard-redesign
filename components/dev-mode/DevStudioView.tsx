@@ -509,9 +509,19 @@ export function DevStudioView() {
         ) : null}
 
         {error && !loading ? (
-          <p className="mt-6 text-[13px]" role="status" style={{ color: "#FBBF24" }}>
-            {error}
-          </p>
+          <div className="mt-6 flex flex-wrap items-center gap-3" role="status">
+            <p className="text-[13px]" style={{ color: "#FBBF24" }}>{error}</p>
+            <button
+              type="button"
+              className="dev-btn dev-btn--ghost text-[12px]"
+              onClick={() => {
+                track("dev_projects_retry", { source: "studio" })
+                void fetchProjects({ skipAuthRedirect: true })
+              }}
+            >
+              Повторить
+            </button>
+          </div>
         ) : null}
 
         {!loading && projects.length === 0 ? (
