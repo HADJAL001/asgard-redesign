@@ -1,6 +1,6 @@
 "use client"
 
-import { FormEvent, useEffect, useRef, useState } from "react"
+import { FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { FilePlus2, Radar, ShieldCheck, X } from "lucide-react"
 import { MemoryLayerRail } from "@/components/design-system/MemoryLayerRail"
 import { OrbitalMemory } from "@/components/design-system/OrbitalMemory"
@@ -8,12 +8,14 @@ import { PresetSwitcher } from "@/components/design-system/PresetSwitcher"
 import { CinematicSequence } from "@/components/design-system/CinematicSequence"
 import { track } from "@/lib/analytics"
 import { useAuth } from "@/lib/auth-store"
+import { CofounderLoadingShell } from "@/components/cofounder/CofounderLoadingShell"
 
 type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; createdAt: string; aiSummary?: string; aiComponents?: string[]; aiRisks?: string[]; approved?: boolean }
 type PreviewPlan = { revision: number; slots: { id: string; component: string; role: string; states: string[] }[]; stages: string[] }
 type GenerationStatus = { status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; currentStep?: string; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string } }
 
 export function CofounderConsole() {
+  const hydrated = useSyncExternalStore(() => () => {}, () => true, () => false)
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [contractName, setContractName] = useState("")
@@ -66,6 +68,8 @@ export function CofounderConsole() {
     void poll()
     return () => { cancelled = true }
   }, [generationTask])
+
+  if (!hydrated) return <CofounderLoadingShell />
 
   async function submitContract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
