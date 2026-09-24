@@ -41,6 +41,10 @@ const ALLOWED_EVENTS = new Set([
   "blueprint_compile_started",
   "blueprint_compile_completed",
   "blueprint_compile_failed",
+  "blueprint_codegen_started",
+  "blueprint_codegen_progress",
+  "blueprint_codegen_completed",
+  "blueprint_codegen_failed",
   "web_vital",
 ])
 

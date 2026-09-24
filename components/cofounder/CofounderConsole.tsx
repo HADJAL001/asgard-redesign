@@ -31,6 +31,7 @@ export function CofounderConsole() {
   const [generating, setGenerating] = useState(false)
   const [generationTask, setGenerationTask] = useState<string | null>(null)
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus | null>(null)
+  const lastGenerationStatus = useRef<string | null>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
@@ -54,6 +55,11 @@ export function CofounderConsole() {
       const status = await response.json().catch(() => null) as GenerationStatus | null
       if (!status || cancelled) return
       setGenerationStatus(status)
+      const statusKey = `${status.status}:${status.currentStep || ""}:${Math.round(status.progress || 0)}`
+      if (statusKey !== lastGenerationStatus.current) {
+        lastGenerationStatus.current = statusKey
+        track(status.status === "completed" ? "blueprint_codegen_completed" : status.status === "failed" ? "blueprint_codegen_failed" : "blueprint_codegen_progress", { taskId: generationTask, status: status.status, progress: Math.round(status.progress || 0), step: status.currentStep })
+      }
       if (status.status === "completed" || status.status === "failed" || status.status === "cancelled") return
       window.setTimeout(() => void poll(), 2500)
     }
@@ -144,6 +150,8 @@ export function CofounderConsole() {
       if (!response.ok || !data?.taskId) throw new Error(data?.error === "blueprint_approval_required" ? "Сначала подтвердите preview" : "Не удалось запустить codegen")
       setGenerationTask(data.taskId)
       setGenerationStatus({ status: "queued", progress: 0 })
+      lastGenerationStatus.current = "queued:"
+      track("blueprint_codegen_started", { source: "cofounder", taskId: data.taskId, blueprintId: item.id, revision: item.revision })
       track("blueprint_compile_completed", { source: "cofounder_codegen", blueprintId: item.id, revision: item.revision, taskId: data.taskId })
     } catch (error) { setCompileError(error instanceof Error ? error.message : "Не удалось запустить codegen") } finally { setGenerating(false) }
   }
