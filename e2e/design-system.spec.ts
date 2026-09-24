@@ -43,11 +43,18 @@ test.describe("OSGARD design system", () => {
     expect(body.blueprint.components).toEqual(["hero", "preview-frame"])
     expect(body.blueprint.arbitraryHtml).toBe(false)
     expect(body.blueprint.stages).toHaveLength(5)
+    expect(body.blueprint.quality.humanReviewRequired).toBe(true)
+    expect(body.blueprint.quality.warnings).toContain("app_shell_required_for_navigation")
   })
 
   test("rejects unusable client briefs", async ({ request }) => {
     const response = await request.post("/api/design/blueprint", { data: { brief: "too short" } })
     expect(response.status()).toBe(400)
+  })
+
+  test("rejects non-json blueprint payloads", async ({ request }) => {
+    const response = await request.post("/api/design/blueprint", { data: "not-json", headers: { "content-type": "text/plain" } })
+    expect(response.status()).toBe(415)
   })
 
   test("cofounder renders hull workspace with keyboard-visible controls", async ({ page }) => {

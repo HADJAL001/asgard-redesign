@@ -7,6 +7,7 @@ The isolated `/cofounder` command deck is the reference surface for the platform
 - Tokens: `GET /api/design/tokens?preset=<minimal|bold|playful|corporate|futuristic>`
 - Universal manifest: `GET /api/design/manifest?app=<client-id>&preset=<preset>` returns the component registry, layout contract, cinematic scenes, and accessibility/performance guardrails.
 - Blueprint compiler: `POST /api/design/blueprint` accepts a bounded client brief and returns a component-only blueprint with the cinematic delivery stages. Unknown components and arbitrary HTML are discarded.
+  The response also includes a quality score, warnings, and `humanReviewRequired`; low-confidence blueprints must not be auto-published.
 - Tenant branding: `GET /api/design/tenant` (host allowlisted to `osgardnewworld.com`)
 - Themes and presets are applied by `DesignSystemProvider` and persisted locally for the current browser.
 - Hull surfaces use `ds-hull`; interactive controls use `ds-focus` and reduced-motion media rules.
