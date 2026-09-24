@@ -5,6 +5,7 @@ import { chromium } from "playwright"
 
 const base = (process.env.DESIGN_SYSTEM_BASE_URL || "https://osgardnewworld.com").replace(/\/$/, "")
 const screenshotPath = path.resolve(process.env.DESIGN_SYSTEM_SCREENSHOT || "artifacts/design-system/cofounder.png")
+const visualBaselineSha256 = process.env.DESIGN_SYSTEM_VISUAL_BASELINE || "545c1d6409d53b03a3f2008dbddf8b2581ed168dfd7ba53b6d956934d855c8ad"
 
 async function json(url, options) {
   const response = await fetch(url, options)
@@ -42,6 +43,7 @@ try {
   await page.screenshot({ path: screenshotPath, fullPage: true, animations: "disabled" })
   const screenshotHash = crypto.createHash("sha256").update(await fs.readFile(screenshotPath)).digest("hex")
   const screenshot = { sha256: screenshotHash, bytes: (await fs.stat(screenshotPath)).size }
+  if (screenshotHash !== visualBaselineSha256) throw new Error(`visual baseline mismatch: expected ${visualBaselineSha256}, got ${screenshotHash}`)
   await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -50,7 +52,7 @@ try {
   await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ kind: "visual-diff", status: "passed", summary: `Reduced-motion deterministic screenshot captured (sha256 ${screenshot.sha256.slice(0, 16)}, ${screenshot.bytes} bytes)`, source: "playwright-browser-gate", contractHash: blueprint.contractHash }),
+    body: JSON.stringify({ kind: "visual-diff", status: "passed", summary: `Visual baseline matched (sha256 ${screenshot.sha256.slice(0, 16)}, ${screenshot.bytes} bytes)`, source: "playwright-browser-gate", contractHash: blueprint.contractHash }),
   })
   const healthStarted = performance.now()
   const healthResponse = await fetch(`${base}/api/health`, { cache: "no-store" })
