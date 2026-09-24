@@ -843,6 +843,10 @@ svg { width: 1rem; height: 1rem; flex: none; }
 @keyframes platform-map-boot { from { opacity: 0; transform: scale(.97); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
 .platform-map-boot { animation: platform-map-boot 1s cubic-bezier(.2,.7,.2,1) both; }
 .platform-map-space { background: radial-gradient(ellipse at 50% 43%, rgb(19 55 82 / .86) 0%, rgb(5 15 30 / .86) 45%, #02040a 100%); }
+.platform-map-space { background: radial-gradient(ellipse at 50% 46%, rgb(104 56 147 / .34), transparent 34%), radial-gradient(ellipse at 50% 58%, rgb(210 156 64 / .12), transparent 46%), linear-gradient(145deg, #090613 0%, #120b20 48%, #030309 100%); }
+.platform-map-space::after { content:""; position:absolute; inset:0; pointer-events:none; background:radial-gradient(circle at 50% 52%, rgb(247 190 92 / .18), transparent 26%); mix-blend-mode:screen; }
+.platform-hotspot-badge { min-width:112px !important; padding:9px 12px !important; border:1px solid rgb(214 200 178 / .42) !important; border-radius:999px !important; color:#f2eee7 !important; background:linear-gradient(135deg, rgb(15 14 21 / .94), rgb(25 21 32 / .86)) !important; box-shadow:0 8px 24px rgb(0 0 0 / .45), inset 0 1px rgb(255 255 255 / .12) !important; backdrop-filter:blur(14px); font:600 12px/1 var(--font-inter, Arial, sans-serif) !important; }
+.platform-hotspot-badge svg { color:var(--hotspot-color) !important; filter:drop-shadow(0 0 7px var(--hotspot-color)); }
 
 /* Final screen 008: artifact forge and project showcases. */
 .forge-artifact-preview { height:260px; margin:-4px -4px 24px; overflow:hidden; border:1px solid rgb(245 196 81 / .18); border-radius:8px; background:radial-gradient(circle at 50% 46%, rgb(245 196 81 / .12), transparent 31%),linear-gradient(140deg,rgb(8 15 20 / .95),rgb(20 16 10 / .75)); }

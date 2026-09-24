@@ -1,9 +1,9 @@
 "use client"
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react"
-import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber"
+import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Line, OrbitControls, Points, PointMaterial } from "@react-three/drei"
-import { AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, Color, Group, Mesh, ShaderMaterial, SRGBColorSpace, TextureLoader } from "three"
+import { AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, Color, Group, Mesh, ShaderMaterial } from "three"
 import { Hotspot } from "./Hotspot"
 import type { PlatformHotspot } from "./hotspots"
 
@@ -56,22 +56,10 @@ function CityLights() {
 }
 
 function Globe({ reducedMotion, worldRef, globeRef }: { reducedMotion: boolean; worldRef: React.RefObject<Group | null>; globeRef: React.RefObject<Mesh | null> }) {
-  const rawTexture = useLoader(TextureLoader, "/textures/earth/earth-day.jpg"), rawNight = useLoader(TextureLoader, "/textures/earth/earth-night.jpg"), rawNormal = useLoader(TextureLoader, "/textures/earth/earth_normal_1024.jpg"), rawSpecular = useLoader(TextureLoader, "/textures/earth/earth_specular_1024.jpg")
-  const texture = useMemo(() => { const t = rawTexture.clone(); t.colorSpace = SRGBColorSpace; t.needsUpdate = true; return t }, [rawTexture])
-  const nightTexture = useMemo(() => { const t = rawNight.clone(); t.colorSpace = SRGBColorSpace; t.needsUpdate = true; return t }, [rawNight])
-  const normalMap = useMemo(() => { const t = rawNormal.clone(); t.needsUpdate = true; return t }, [rawNormal])
-  const specularMap = useMemo(() => { const t = rawSpecular.clone(); t.needsUpdate = true; return t }, [rawSpecular])
   // The atlas is a living instrument: keep the Earth turning even when the OS
   // requests reduced motion, while the starfield itself still respects it.
   useFrame((_, delta) => { if (worldRef.current) worldRef.current.rotation.y += delta * .018 })
-  return <><mesh ref={globeRef} scale={GLOBE_RADIUS}><sphereGeometry args={[1, 128, 128]} /><meshPhysicalMaterial map={texture} normalMap={normalMap} roughnessMap={specularMap} emissiveMap={nightTexture} emissive="#18283a" emissiveIntensity={.055} color="#ffffff" normalScale={[.62, .62]} metalness={0} roughness={.9} clearcoat={.08} clearcoatRoughness={.56} /></mesh><CityLights /><Atmosphere /></>
-}
-
-function CloudLayer({ reducedMotion }: { reducedMotion: boolean }) {
-  const raw = useLoader(TextureLoader, "/textures/earth/earth_clouds_1024.png"), ref = useRef<Mesh>(null)
-  const texture = useMemo(() => { const t = raw.clone(); t.colorSpace = SRGBColorSpace; t.needsUpdate = true; return t }, [raw])
-  useFrame((_, delta) => { if (ref.current) ref.current.rotation.y += delta * .024 })
-  return <mesh ref={ref} scale={GLOBE_RADIUS * 1.014}><sphereGeometry args={[1, 96, 96]} /><meshPhongMaterial map={texture} transparent opacity={.28} depthWrite={false} /></mesh>
+  return <><mesh ref={globeRef} scale={GLOBE_RADIUS}><sphereGeometry args={[1, 96, 64]} /><meshPhysicalMaterial color="#08080d" emissive="#482766" emissiveIntensity={.32} metalness={.95} roughness={.2} clearcoat={1} clearcoatRoughness={.12} /></mesh><mesh scale={GLOBE_RADIUS * 1.006}><sphereGeometry args={[1, 32, 20]} /><meshBasicMaterial color="#d6b46a" wireframe transparent opacity={.2} /></mesh><CityLights /><Atmosphere /></>
 }
 
 function SkyParallax({ reducedMotion }: { reducedMotion: boolean }) {
@@ -86,5 +74,5 @@ function CameraDolly() { const done = useRef(false); useFrame((state) => { if (d
 export function PlatformGlobeScene({ sections }: { sections: PlatformHotspot[] }) {
   const globeRef = useRef<Mesh>(null), worldRef = useRef<Group>(null), [reducedMotion, setReducedMotion] = useState(false)
   useEffect(() => { const q = window.matchMedia("(prefers-reduced-motion: reduce)"), sync = () => setReducedMotion(q.matches); sync(); q.addEventListener("change", sync); return () => q.removeEventListener("change", sync) }, [])
-  return <Canvas style={{ width: "100%", height: "100%", background: "transparent" }} camera={{ position: [0, 0, 18], fov: 30 }} gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }} dpr={[1, 1.5]}><SkyParallax reducedMotion={reducedMotion} /><hemisphereLight args={["#d9eaff", "#17283b", .46]} /><directionalLight position={[10, 5, 8]} intensity={1.35} color="#fff8e9" /><ambientLight intensity={.16} color="#9ab6d0" /><CameraDolly /><Suspense fallback={null}><group ref={worldRef} rotation={[0, 0, 23.5 * Math.PI / 180]}><Globe reducedMotion={reducedMotion} worldRef={worldRef} globeRef={globeRef} /><CloudLayer reducedMotion={reducedMotion} /><OrbitalNetwork />{sections.map((section, i) => <Hotspot key={section.key} hotspot={section} radius={GLOBE_RADIUS + .12} occludeRef={globeRef} delayMs={i * 60} reducedMotion={reducedMotion} />)}</group></Suspense><OrbitControls enableDamping dampingFactor={.075} autoRotate={false} enablePan={false} minDistance={10} maxDistance={24} rotateSpeed={.5} /></Canvas>
+  return <Canvas style={{ width: "100%", height: "100%", background: "transparent" }} camera={{ position: [0, 0, 18], fov: 30 }} gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }} dpr={[1, 1.5]}><SkyParallax reducedMotion={reducedMotion} /><hemisphereLight args={["#b79cff", "#080612", .55]} /><directionalLight position={[10, 5, 8]} intensity={1.5} color="#fff4d1" /><pointLight position={[0, 0, 4]} color="#b86cff" intensity={7} distance={14} /><ambientLight intensity={.18} color="#8a72bb" /><CameraDolly /><Suspense fallback={null}><group ref={worldRef} rotation={[0, 0, 23.5 * Math.PI / 180]}><Globe reducedMotion={reducedMotion} worldRef={worldRef} globeRef={globeRef} /><OrbitalNetwork />{sections.map((section, i) => <Hotspot key={section.key} hotspot={section} radius={GLOBE_RADIUS + .12} occludeRef={globeRef} delayMs={i * 60} reducedMotion={reducedMotion} />)}</group></Suspense><OrbitControls enableDamping dampingFactor={.075} autoRotate={false} enablePan={false} minDistance={10} maxDistance={24} rotateSpeed={.5} /></Canvas>
 }
