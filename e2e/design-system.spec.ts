@@ -201,4 +201,35 @@ test.describe("OSGARD design system", () => {
     await context.close()
   })
 
+  test("cofounder meets the production performance budget", async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on("pageerror", (error) => pageErrors.push(error.message))
+    await page.addInitScript(() => {
+      const metricsWindow = window as Window & { __osgardLcp?: number }
+      metricsWindow.__osgardLcp = 0
+      new PerformanceObserver((list) => {
+        const latest = list.getEntries().at(-1)
+        if (latest) metricsWindow.__osgardLcp = latest.startTime
+      }).observe({ type: "largest-contentful-paint", buffered: true })
+    })
+    await page.goto("/cofounder", { waitUntil: "load" })
+    const metrics = await page.evaluate(() => {
+      const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined
+      const paints = performance.getEntriesByType("paint")
+      const metricsWindow = window as Window & { __osgardLcp?: number }
+      return {
+        domContentLoaded: navigation?.domContentLoadedEventEnd ?? 0,
+        firstContentfulPaint: paints.find((entry) => entry.name === "first-contentful-paint")?.startTime ?? 0,
+        lcp: metricsWindow.__osgardLcp ?? 0,
+      }
+    })
+    expect(pageErrors, "production page errors").toEqual([])
+    expect(metrics.domContentLoaded, "DOMContentLoaded budget").toBeGreaterThan(0)
+    expect(metrics.domContentLoaded, "DOMContentLoaded budget").toBeLessThan(3000)
+    expect(metrics.firstContentfulPaint, "FCP budget").toBeGreaterThan(0)
+    expect(metrics.firstContentfulPaint, "FCP budget").toBeLessThan(3000)
+    expect(metrics.lcp, "LCP budget").toBeGreaterThan(0)
+    expect(metrics.lcp, "LCP budget").toBeLessThan(4000)
+  })
+
 })
