@@ -11,6 +11,6 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const evidence = listBlueprintEvidence(id)
   const latest = new Map(evidence.map((entry) => [entry.kind, entry]))
   const required: BlueprintEvidenceKind[] = ["security", "performance", "a11y", "visual-diff", "deploy"]
-  const missing = required.filter((kind) => latest.get(kind)?.contractHash !== blueprint.contractHash || latest.get(kind)?.status !== "passed")
+  const missing = required.filter((kind) => latest.get(kind)?.revision !== blueprint.revision || latest.get(kind)?.contractHash !== blueprint.contractHash || latest.get(kind)?.status !== "passed")
   return NextResponse.json({ blueprintId: id, revision: blueprint.revision, contractHash: blueprint.contractHash, approval: blueprint.approval?.status === "approved", required, missing, readyForCodegen: missing.length === 0 && blueprint.approval?.status === "approved", evidence }, { headers: { "cache-control": "no-store" } })
 }
