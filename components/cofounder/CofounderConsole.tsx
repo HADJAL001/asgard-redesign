@@ -52,7 +52,14 @@ export function CofounderConsole() {
   const dialogRef = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
-    if (open) dialogRef.current?.querySelector<HTMLInputElement>("input")?.focus()
+    const dialog = dialogRef.current
+    if (!dialog) return
+    if (open && !dialog.open) {
+      dialog.showModal()
+      dialog.querySelector<HTMLInputElement>("input")?.focus()
+    } else if (!open && dialog.open) {
+      dialog.close()
+    }
   }, [open])
 
   async function loadPreview(id: string, revision: number) {
@@ -286,7 +293,7 @@ export function CofounderConsole() {
         </header>
         <button className="ds-hull ds-interactive ds-focus" style={{ marginTop: "1.5rem", padding: ".8rem 1.2rem", color: "var(--ds-ink)", background: "var(--ds-primary)", border: 0, cursor: "pointer" }} onClick={() => setOpen(true)}><FilePlus2 size={17} /> Создать контракт</button>
       </section>
-      <dialog ref={dialogRef} className="ds-contract-dialog" aria-label="НОВЫЙ КОНТРАКТ" aria-labelledby="new-contract" open={open} onClose={() => setOpen(false)}>
+      <dialog ref={dialogRef} className="ds-contract-dialog" aria-label="НОВЫЙ КОНТРАКТ" aria-labelledby="new-contract" onClose={() => setOpen(false)}>
         <button type="button" onClick={() => setOpen(false)} aria-label="Закрыть" className="ds-dialog-close"><X size={18} /></button>
         <span className="ds-utility">AI COFOUNDER / NEW DELIVERY</span>
         <h2 id="new-contract" className="ds-display">НОВЫЙ КОНТРАКТ</h2>
