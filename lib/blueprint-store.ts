@@ -7,6 +7,8 @@ export type StoredBlueprint = {
   app: string
   productType?: string
   preset: string
+  contractVersion?: string
+  contractHash?: string
   brief: string
   components: string[]
   stages: string[]
