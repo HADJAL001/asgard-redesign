@@ -49,6 +49,7 @@ import { apiClient } from "@/lib/api-client"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { useAuth } from "@/lib/auth-store"
 import { useTranslation } from "@/lib/i18n/use-translation"
+import { track } from "@/lib/analytics"
 
 const ACCENT = "#d7ae57"
 const CARD = "#17242a"
@@ -153,6 +154,7 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
 
   /* Подтягиваем актуальный статус онбординга при монтировании */
   useEffect(() => {
+    track("onboarding_started", { initialStep })
     let cancelled = false
     ;(async () => {
       try {
@@ -171,7 +173,7 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [initialStep])
 
   if (!visible) return null
   if (!showFinal && currentStep >= STEPS.length) return null
@@ -196,6 +198,12 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
       }>("/onboarding/step", { step: activeStep.step })
 
       setJustEarned(res.reward)
+      track("onboarding_step_completed", {
+        step: activeStep.step,
+        nextStep: res.currentStep,
+        completed: res.completed,
+      })
+      if (res.completed) track("onboarding_completed", { steps: STEPS.length })
 
       // Синхронизируем кошелёк с бэкендом, чтобы UI сразу показал новый баланс
       await fetchWallet({ skipAuthRedirect: true })
@@ -216,6 +224,7 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
   }
 
   function handleClose() {
+    track("onboarding_dismissed", { step: currentStep })
     setVisible(false)
     onFinish?.()
   }
