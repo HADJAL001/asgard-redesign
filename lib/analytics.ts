@@ -17,6 +17,44 @@ const SESSION_KEY = "osgard_analytics_session"
    в localStorage годами, склеивая в один "визит" события, разделённые
    месяцами, и искажая funnel/decision-time метрики. */
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
+const QUEUE_KEY = "osgard_analytics_queue"
+const MAX_QUEUE = 40
+type QueuedEvent = { session_id: string; event_name: string; meta?: Record<string, any> }
+
+function readQueue(): QueuedEvent[] {
+  if (typeof window === "undefined") return []
+  try {
+    const value = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]")
+    return Array.isArray(value) ? value.slice(-MAX_QUEUE) : []
+  } catch { return [] }
+}
+
+function writeQueue(queue: QueuedEvent[]) {
+  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(queue.slice(-MAX_QUEUE))) } catch { /* optional storage */ }
+}
+
+function flushQueuedEvents() {
+  if (typeof window === "undefined") return
+  const queue = readQueue()
+  if (!queue.length) return
+  const payload = JSON.stringify(queue)
+  if (typeof navigator.sendBeacon === "function" && navigator.sendBeacon(`${API_BASE_URL}/analytics/event`, new Blob([payload], { type: "application/json" }))) {
+    writeQueue([])
+    return
+  }
+  fetch(`${API_BASE_URL}/analytics/event`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", keepalive: true, body: payload })
+    .then((response) => { if (response.ok) writeQueue([]) })
+    .catch(() => undefined)
+}
+
+let queueLifecycleBound = false
+function bindQueueLifecycle() {
+  if (queueLifecycleBound || typeof window === "undefined") return
+  queueLifecycleBound = true
+  window.addEventListener("online", flushQueuedEvents)
+  window.addEventListener("pagehide", flushQueuedEvents)
+  window.setTimeout(flushQueuedEvents, 1200)
+}
 
 function generateId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID()
@@ -89,13 +127,16 @@ export function takeShareAttribution(): string | null {
 export function track(eventName: string, meta?: Record<string, any>) {
   if (typeof window === "undefined") return
   try {
+    bindQueueLifecycle()
+    const event: QueuedEvent = { session_id: getAnalyticsSessionId(), event_name: eventName, meta }
     fetch(`${API_BASE_URL}/analytics/event`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       keepalive: true,
-      body: JSON.stringify({ session_id: getAnalyticsSessionId(), event_name: eventName, meta }),
+      body: JSON.stringify(event),
     }).catch(() => {
+      writeQueue([...readQueue(), event])
       /* аналитика не должна ронять страницу при сетевой ошибке */
     })
   } catch {
