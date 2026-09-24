@@ -253,13 +253,14 @@ export function CofounderConsole() {
   async function shareBlueprint(item: CompileResult) {
     const title = `OSGARD mission replay: ${item.app}`
     const text = `${item.app} assembled in OSGARD AI Cofounder: ${item.productType || "product"}, ${item.preset || "futuristic"} preset, ${item.score}/100 blueprint quality.`
+    const replayUrl = `${window.location.origin}/cofounder/replay/${item.id}?revision=${item.revision}`
     const supportsNativeShare = "share" in navigator
     try {
       if (supportsNativeShare) {
-        await navigator.share({ title, text, url: window.location.href })
+        await navigator.share({ title, text, url: replayUrl })
         setShareStatus("Mission replay shared")
       } else {
-        await navigator.clipboard.writeText(`${text} ${window.location.href}`)
+        await navigator.clipboard.writeText(`${text} ${replayUrl}`)
         setShareStatus("Replay link copied")
       }
       track("blueprint_shared", { blueprintId: item.id, revision: item.revision, channel: supportsNativeShare ? "native" : "clipboard" })

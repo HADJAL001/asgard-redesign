@@ -59,6 +59,13 @@ try {
   if (!devFocused) throw new Error("developer mode keyboard focus indicator is not visible")
   await devPage.close()
 
+  const replayPage = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" })
+  const replayResponse = await replayPage.goto(`${base}/cofounder/replay/${blueprint.id}`, { waitUntil: "domcontentloaded" })
+  if (!replayResponse?.ok()) throw new Error(`mission replay returned ${replayResponse?.status() || "no response"}`)
+  await replayPage.getByRole("heading", { name: "browser-quality-gate" }).waitFor({ state: "visible", timeout: 5000 })
+  if (!(await replayPage.getByRole("heading", { name: "Evidence ledger" }).isVisible())) throw new Error("mission replay evidence ledger is not visible")
+  await replayPage.close()
+
   await fs.mkdir(path.dirname(screenshotPath), { recursive: true })
   await page.screenshot({ path: screenshotPath, fullPage: true, animations: "disabled" })
   const screenshotHash = crypto.createHash("sha256").update(await fs.readFile(screenshotPath)).digest("hex")
@@ -83,7 +90,7 @@ try {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ kind: "deploy", status: "passed", summary: `Production health returned HTTP ${healthResponse.status} in ${healthLatencyMs}ms`, source: "production-health-gate", contractHash: blueprint.contractHash }),
   })
-  console.log(JSON.stringify({ blueprintId: blueprint.id, a11y: "passed", visualDiff: "passed", deploy: "passed", healthLatencyMs, developerLatencyMs, screenshot }, null, 2))
+  console.log(JSON.stringify({ blueprintId: blueprint.id, a11y: "passed", visualDiff: "passed", deploy: "passed", replay: "passed", healthLatencyMs, developerLatencyMs, screenshot }, null, 2))
 } finally {
   await browser.close()
 }
