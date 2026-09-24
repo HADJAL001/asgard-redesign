@@ -13,9 +13,24 @@ const stylesheetUrls = [...new Set(
 )]
 if (!stylesheetUrls.length) throw new Error("asset gate: no stylesheets found in document")
 
+async function fetchAsset(url) {
+  let lastError
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await fetch(url)
+      if (response.ok) return response
+      lastError = new Error(`asset gate: ${url} returned ${response.status}`)
+      if (![500, 502, 503, 504].includes(response.status)) throw lastError
+    } catch (error) {
+      lastError = error
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)))
+  }
+  throw lastError || new Error(`asset gate: ${url} request failed`)
+}
+
 const styles = await Promise.all(stylesheetUrls.map(async (url) => {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`asset gate: ${url} returned ${response.status}`)
+  const response = await fetchAsset(url)
   const body = await response.text()
   if (body.trim().length < 100) throw new Error(`asset gate: ${url} is unexpectedly empty`)
   return body
