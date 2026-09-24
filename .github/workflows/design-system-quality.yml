@@ -31,6 +31,10 @@ jobs:
       - run: npm run test:design-system
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test e2e/design-system.spec.ts --reporter=line
+      - run: npm run test:design-system-browser
+        env:
+          DESIGN_SYSTEM_BASE_URL: https://osgardnewworld.com
+          DESIGN_SYSTEM_VISUAL_BASELINE: 545c1d6409d53b03a3f2008dbddf8b2581ed168dfd7ba53b6d956934d855c8ad
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -38,6 +42,7 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            artifacts/design-system/
           if-no-files-found: ignore
         env:
           DESIGN_SYSTEM_BASE_URL: https://osgardnewworld.com
