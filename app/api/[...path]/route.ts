@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 const BACKEND_URL = (process.env.BACKEND_URL || "").replace(/\/$/, "")
+const BACKEND_TIMEOUT_MS = 12_000
 
 export const dynamic = "force-dynamic"
 
@@ -84,11 +85,14 @@ async function forwardToBackend(
     body = await req.text()
   }
 
+  // The incoming Next request can be aborted as soon as the browser finishes
+  // sending a keepalive telemetry request. Keep the upstream call independent
+  // and bound it with a server-side timeout instead.
   const upstream = await fetch(targetUrl.toString(), {
     method,
     headers: forwardHeaders,
     body: method === "GET" || method === "HEAD" ? undefined : body,
-    signal: req.signal,
+    signal: AbortSignal.timeout(BACKEND_TIMEOUT_MS),
   })
 
   const contentType = upstream.headers.get("content-type") || "application/json"
@@ -134,6 +138,11 @@ function buildUpstreamResponse(upstream: Awaited<ReturnType<typeof forwardToBack
   // 304 не может нести тело — Next/undici кидает исключение при попытке его отдать.
   if (upstream.status === 304) {
     return new NextResponse(null, { status: 304, headers })
+  }
+  // A 204 response is explicitly bodyless. Passing an empty string still
+  // counts as a body to the Web Response constructor and throws at runtime.
+  if (upstream.status === 204) {
+    return new NextResponse(null, { status: 204, headers })
   }
   if (upstream.isBinary) {
     return new NextResponse(upstream.buffer, { status: upstream.status, headers })
