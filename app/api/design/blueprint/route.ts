@@ -33,7 +33,9 @@ export async function POST(request: NextRequest) {
   const app = text(body.app, 64).toLowerCase().replace(/[^a-z0-9-_]/g, "-") || "universal"
   const preset = ["minimal", "bold", "playful", "corporate", "futuristic"].includes(text(body.preset, 20)) ? text(body.preset, 20) : "futuristic"
   const requested = Array.isArray(body.components) ? body.components.filter((item): item is string => typeof item === "string") : []
-  const selected = [...new Set((requested.length ? requested : ["app-shell", "hero", "bento-grid", "preview-frame", "cinematic-sequence"]).filter(id => allowed.has(id)))]
+  const fallbackComponents = ["app-shell", "hero", "bento-grid", "preview-frame", "cinematic-sequence"]
+  const requestedComponents = [...new Set(requested.filter(id => allowed.has(id)))]
+  const selected = requestedComponents.length ? requestedComponents : fallbackComponents
   const warnings = [
     !selected.includes("app-shell") ? "app_shell_required_for_navigation" : null,
     !selected.includes("preview-frame") ? "preview_required_for_proof" : null,
