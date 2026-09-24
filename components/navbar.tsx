@@ -34,6 +34,7 @@ import {
   GraduationCap,
   BadgeCheck,
   Terminal,
+  Bot,
   X,
   type LucideIcon,
 } from "lucide-react"
@@ -63,6 +64,7 @@ export const NAV: NavItem[] = [
   { key: "nav.projects", href: "/projects", Icon: FolderKanban },
   { key: "nav.refinements", href: "/refinements", Icon: Wand2 },
   { key: "nav.orchestrator", href: "/orchestrator", Icon: GitBranch },
+  { key: "nav.cofounder", href: "/cofounder", Icon: Bot },
   { key: "nav.integrations", href: "/integrations", Icon: Plug },
   { key: "nav.community", href: "/community", Icon: Beer },
   { key: "nav.feed", href: "/feed", Icon: Activity },
@@ -91,7 +93,7 @@ export const NAV: NavItem[] = [
  *  приложение). Кузница и Маркет — экономический контур — переехали в боковое
  *  меню: оттуда они по-прежнему в один клик, но не спорят за первое место с
  *  главным сценарием платформы. Порядок берётся из NAV (см. фильтр ниже). */
-const CORE_NAV_KEYS = ["nav.home", "nav.projects", "nav.refinements", "nav.orchestrator"]
+const CORE_NAV_KEYS = ["nav.home", "nav.projects", "nav.refinements", "nav.orchestrator", "nav.cofounder"]
 
 /** Вход в режим разработчика — минималистичную студию без экономики.
  *  Namespace NAV намеренно не трогаем: Dev Mode устроен как отдельный

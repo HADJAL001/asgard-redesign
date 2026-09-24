@@ -31,6 +31,7 @@ type DevSection = {
 /** Мастерская намеренно без `[id]`: раздел ведёт на выбор проекта, а
  *  конкретный проект открывается уже оттуда (/dev/workspace/:id). */
 export const DEV_SECTIONS: DevSection[] = [
+  { href: "/cofounder", label: "AI Cofounder", Icon: Bot, hint: "AI Cofounder — контракты, память и контролируемая доставка продукта" },
   { href: "/dev", label: "Студия", Icon: Sparkles, hint: "Студия — описать идею и создать приложение" },
   { href: "/dev/agents", label: "Агенты", Icon: Bot, hint: "Агенты — кто и над чем работает прямо сейчас" },
   { href: "/dev/workspace", label: "Код", Icon: Code2, hint: "Код — файлы, редактор и живое превью приложения" },
