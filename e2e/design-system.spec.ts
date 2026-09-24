@@ -94,6 +94,8 @@ test.describe("OSGARD design system", () => {
     expect(body.blueprint.revision).toBe(2)
     expect(body.blueprint.approval.status).toBe("approved")
     expect(body.blueprint.approval.approvedAt).toEqual(expect.any(String))
+    const generate = await request.post(`/api/design/blueprint/${created.blueprint.id}/generate`)
+    expect([401, 404]).toContain(generate.status())
   })
 
   test("keeps the AI blueprint compiler behind authentication", async ({ request }) => {
