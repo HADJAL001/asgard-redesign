@@ -64,6 +64,13 @@ test.describe("OSGARD design system", () => {
     expect(restoredBody.blueprint.id).toBe(id)
     expect(restoredBody.blueprint.revision).toBe(1)
     expect(restoredBody.revisions).toEqual([{ revision: 1, generatedAt: created.blueprint.generatedAt }])
+
+    const rollback = await request.post(`/api/design/blueprint/${id}/rollback`, { data: { revision: 1 } })
+    expect(rollback.status()).toBe(201)
+    const rollbackBody = await rollback.json()
+    expect(rollbackBody.rolledBackFrom).toBe(1)
+    expect(rollbackBody.blueprint.revision).toBe(2)
+    expect(rollbackBody.blueprint.brief).toBe(created.blueprint.brief)
   })
 
   test("rejects unusable client briefs", async ({ request }) => {
