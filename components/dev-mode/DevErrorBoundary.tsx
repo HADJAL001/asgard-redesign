@@ -4,10 +4,12 @@ import Link from "next/link"
 import { useEffect } from "react"
 import { ArrowLeft, RotateCcw, Terminal } from "lucide-react"
 import { captureError } from "@/lib/sentry-client"
+import { track } from "@/lib/analytics"
 
 export function DevErrorBoundary({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     captureError("[dev/error]", error)
+    track("recovery_surface_shown", { surface: "developer_mode" })
   }, [error])
 
   return (

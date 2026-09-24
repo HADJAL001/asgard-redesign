@@ -4,10 +4,12 @@ import Link from "next/link"
 import { useEffect } from "react"
 import { ArrowLeft, RotateCcw, ShieldAlert } from "lucide-react"
 import { captureError } from "@/lib/sentry-client"
+import { track } from "@/lib/analytics"
 
 export default function CofounderError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     captureError("[cofounder/error]", error)
+    track("recovery_surface_shown", { surface: "cofounder" })
   }, [error])
 
   return (
