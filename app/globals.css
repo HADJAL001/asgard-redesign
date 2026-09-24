@@ -2618,3 +2618,4 @@ svg { width: 1rem; height: 1rem; flex: none; }
 .ds-skip-link:focus-visible {
   transform: translateY(0);
 }
+.osgard-boot-shell{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:#071016;color:#9bb4bc;opacity:1;transition:opacity .18s ease-out;pointer-events:none}.osgard-boot-shell.is-ready{opacity:0}.osgard-boot-shell__core{display:grid;justify-items:center;gap:14px;font:10px var(--font-ibm-plex-mono,monospace);letter-spacing:.12em}.osgard-boot-shell__ring{width:48px;height:48px;border:1px solid #64d9e8;border-radius:50%;box-shadow:0 0 28px #64d9e855,inset 0 0 14px #64d9e833;animation:osgard-boot-pulse 1.4s ease-in-out infinite}.osgard-boot-shell__label{opacity:.7}@keyframes osgard-boot-pulse{50%{transform:scale(1.12);opacity:.55}}@media(prefers-reduced-motion:reduce){.osgard-boot-shell{transition:none}.osgard-boot-shell__ring{animation:none}}
