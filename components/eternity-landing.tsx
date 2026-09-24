@@ -911,6 +911,23 @@ const CSS = `
   .eternity-page h1 { font-size: 48px; }
   .eternity-page .artifact-form { max-width: 100%; }
 }
+
+/* Guest landing luxury pass: obsidian glass, liquid gold and quiet cosmic depth. */
+.eternity-page { color: #e5e4e2; background: radial-gradient(ellipse at 72% 28%, rgba(93,48,137,.2), transparent 38%), linear-gradient(180deg, #100b1d 0%, #05050b 54%, #020206 100%); }
+.eternity-page #globe-bg { opacity: .22; filter: saturate(.7) hue-rotate(18deg); }
+.eternity-page .site-nav-logo { text-shadow: 0 0 18px rgba(215,174,87,.45); }
+.eternity-page .site-nav-link-rustore { border: 1px solid rgba(211,206,195,.38); border-radius: 999px; background: rgba(10,10,16,.52); color: #dedbd3; }
+.eternity-page .site-nav-link-primary { position: relative; overflow: hidden; border: 1px solid rgba(255,226,139,.72); border-radius: 999px; color: #17120b; background: linear-gradient(135deg, #7b5a20 0%, #f8dc78 48%, #a87524 100%); box-shadow: 0 8px 28px rgba(214,163,55,.2); }
+.eternity-page .site-nav-link-primary::after { content: ""; position: absolute; inset: 0 auto 0 -55%; width: 36%; transform: skewX(-18deg); background: rgba(255,255,255,.5); transition: transform .6s ease; }
+.eternity-page .site-nav-link-primary:hover::after { transform: translateX(420%) skewX(-18deg); }
+.eternity-page .hero-content h1 { background: linear-gradient(145deg, #fff, #f4d77a 55%, #aa7627); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 12px 40px rgba(211,160,57,.13); }
+.eternity-page .tc-badge { border-color: rgba(215,174,87,.54); background: rgba(14,11,20,.62); box-shadow: inset 0 1px rgba(255,255,255,.08), 0 0 22px rgba(215,174,87,.1); }
+.eternity-page .artifact-form input { border: 1px solid rgba(215,174,87,.34); border-radius: 14px; background: rgba(9,9,15,.72); box-shadow: inset 0 1px rgba(255,255,255,.06), 0 12px 35px rgba(0,0,0,.25); backdrop-filter: blur(18px); }
+.eternity-page .artifact-form input:focus { border-color: rgba(245,211,111,.88); box-shadow: 0 0 0 3px rgba(215,174,87,.12), 0 0 26px rgba(215,174,87,.16); }
+.eternity-page .artifact-form button { border: 1px solid rgba(255,226,139,.76); border-radius: 14px; color: #18130b; background: linear-gradient(135deg, #80601f, #f4d46d 48%, #ae7c2b); box-shadow: 0 10px 30px rgba(215,174,87,.2); }
+.eternity-page .how-step { position: relative; overflow: hidden; border: 1px solid rgba(203,194,176,.28); border-radius: 16px; background: rgba(12,12,18,.68); box-shadow: inset 0 1px rgba(255,255,255,.07), 0 18px 45px rgba(0,0,0,.22); backdrop-filter: blur(16px); transition: transform .35s ease, border-color .35s ease, box-shadow .35s ease; }
+.eternity-page .how-step::before { content: attr(data-step); position: absolute; top: -16px; right: 12px; color: rgba(215,174,87,.12); font: 700 108px/1 var(--font-playfair, Georgia, serif); pointer-events: none; }
+.eternity-page .how-step:hover { transform: translateY(-8px); border-color: rgba(215,174,87,.66); box-shadow: 0 20px 55px rgba(215,174,87,.14), inset 0 1px rgba(255,255,255,.13); }
 @media (max-width: 600px) {
   .eternity-page .container { padding-top: 128px; }
   .eternity-page h1 { font-size: 36px; }
