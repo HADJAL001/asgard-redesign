@@ -4,6 +4,7 @@ import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { asyncHandler } from "../utils/async-handler"
 import { captureError } from "../lib/sentry"
 import { callClaudeRaw, callDeepSeek, isAiConfigured } from "../services/ai-router"
+import { rateLimit } from "../middleware/rateLimiter"
 import {
   ARCHETYPE_MENU,
   DESIGN_SYSTEM_PATHS,
@@ -63,8 +64,9 @@ function parseBlueprintAi(text: string | null) {
   }
 }
 
-router.post("/blueprint/compile", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+router.post("/blueprint/compile", rateLimit(60_000, 6, (req) => `blueprint-compile:${(req as AuthRequest).user?.userId ?? req.ip}`), requireAuth, asyncHandler(async (req: AuthRequest, res) => {
   const brief = typeof req.body?.brief === "string" ? req.body.brief.trim().slice(0, 1200) : ""
+  if (typeof req.body?.brief === "string" && req.body.brief.length > 1200) return res.status(413).json({ error: "brief_too_large", maxCharacters: 1200 })
   if (brief.length < 12) return res.status(400).json({ error: "brief_too_short", minimumCharacters: 12 })
   if (!isAiConfigured()) return res.status(503).json({ error: "ai_unavailable", fallback: true })
   const prompt = `You are OSGARD's product architect. Return JSON only with keys summary, components, risks. Choose components only from app-shell, hero, bento-grid, form-wizard, preview-frame, cinematic-sequence. Keep summary under 500 chars and risks under 8 items. Client brief: ${brief}`
