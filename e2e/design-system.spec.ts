@@ -98,6 +98,20 @@ test.describe("OSGARD design system", () => {
     expect(generate.status()).toBe(401)
   })
 
+  test("authenticated users still need approval before codegen", async ({ page }) => {
+    await page.goto("/login")
+    const user = page.locator('input[type="text"], input[name="email"]').first()
+    await user.fill("alex_odin")
+    await page.locator('input[type="password"]').first().fill("password123")
+    await page.locator('button[type="submit"]').first().click()
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 })
+    const created = await page.request.post("/api/design/blueprint", { data: { app: "auth-gate-check", brief: "A private workspace used to verify the approval boundary." } })
+    expect(created.status()).toBe(201)
+    const body = await created.json()
+    const generate = await page.request.post(`/api/design/blueprint/${body.blueprint.id}/generate`)
+    expect(generate.status()).toBe(409)
+  })
+
   test("keeps the AI blueprint compiler behind authentication", async ({ request }) => {
     const response = await request.post("/api/design/blueprint/compile", { data: { brief: "A secure workspace for reviewing a generated product." } })
     expect(response.status()).toBe(401)
