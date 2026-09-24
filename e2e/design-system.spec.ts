@@ -36,6 +36,20 @@ test.describe("OSGARD design system", () => {
     expect(body.profile.app).toBe("client-portal-v2")
   })
 
+  test("builds a guarded blueprint from a client brief", async ({ request }) => {
+    const response = await request.post("/api/design/blueprint", { data: { app: "clinic", brief: "A calm patient portal for booking visits and reviewing care plans.", components: ["hero", "preview-frame", "unknown-html"] } })
+    expect(response.status()).toBe(201)
+    const body = await response.json()
+    expect(body.blueprint.components).toEqual(["hero", "preview-frame"])
+    expect(body.blueprint.arbitraryHtml).toBe(false)
+    expect(body.blueprint.stages).toHaveLength(5)
+  })
+
+  test("rejects unusable client briefs", async ({ request }) => {
+    const response = await request.post("/api/design/blueprint", { data: { brief: "too short" } })
+    expect(response.status()).toBe(400)
+  })
+
   test("cofounder renders hull workspace with keyboard-visible controls", async ({ page }) => {
     await page.goto("/cofounder")
     await expect(page.getByRole("heading", { name: "AI Cofounder" })).toBeVisible()
