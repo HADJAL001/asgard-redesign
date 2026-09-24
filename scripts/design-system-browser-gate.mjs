@@ -52,7 +52,16 @@ try {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ kind: "visual-diff", status: "passed", summary: `Reduced-motion deterministic screenshot captured (sha256 ${screenshot.sha256.slice(0, 16)}, ${screenshot.bytes} bytes)`, source: "playwright-browser-gate", contractHash: blueprint.contractHash }),
   })
-  console.log(JSON.stringify({ blueprintId: blueprint.id, a11y: "passed", visualDiff: "passed", screenshot }, null, 2))
+  const healthStarted = performance.now()
+  const healthResponse = await fetch(`${base}/api/health`, { cache: "no-store" })
+  const healthLatencyMs = Math.round(performance.now() - healthStarted)
+  if (!healthResponse.ok) throw new Error(`health returned ${healthResponse.status}`)
+  await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ kind: "deploy", status: "passed", summary: `Production health returned HTTP ${healthResponse.status} in ${healthLatencyMs}ms`, source: "production-health-gate", contractHash: blueprint.contractHash }),
+  })
+  console.log(JSON.stringify({ blueprintId: blueprint.id, a11y: "passed", visualDiff: "passed", deploy: "passed", healthLatencyMs, screenshot }, null, 2))
 } finally {
   await browser.close()
 }
