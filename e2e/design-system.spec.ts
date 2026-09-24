@@ -58,6 +58,20 @@ test.describe("OSGARD design system", () => {
     expect(body.blueprint.revision).toBe(1)
   })
 
+  test("binds evidence ledger entries to the contract hash", async ({ request }) => {
+    const created = await request.post("/api/design/blueprint", { data: { app: "evidence-check", brief: "A product workspace with auditable release evidence and safe delivery." } })
+    const blueprint = (await created.json()).blueprint
+    const evidence = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "a11y", status: "passed", summary: "Keyboard and contrast checks passed", source: "quality-gate", contractHash: blueprint.contractHash } })
+    expect(evidence.status()).toBe(201)
+    const evidenceBody = await evidence.json()
+    expect(evidenceBody.evidence.contractHash).toBe(blueprint.contractHash)
+    const ledger = await request.get(`/api/design/blueprint/${blueprint.id}/evidence`)
+    expect(ledger.status()).toBe(200)
+    expect((await ledger.json()).evidence).toHaveLength(1)
+    const mismatch = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "security", status: "passed", summary: "Wrong contract", source: "quality-gate", contractHash: "0".repeat(64) } })
+    expect(mismatch.status()).toBe(409)
+  })
+
   test("persists a blueprint for cross-device restore", async ({ request }) => {
     const response = await request.post("/api/design/blueprint", { data: { app: "restore-check", brief: "A durable workspace for restoring a generated product blueprint." } })
     expect(response.status()).toBe(201)
