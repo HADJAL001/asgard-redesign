@@ -5,6 +5,7 @@ import { FilePlus2, Radar, ShieldCheck, X } from "lucide-react"
 import { MemoryLayerRail } from "@/components/design-system/MemoryLayerRail"
 import { OrbitalMemory } from "@/components/design-system/OrbitalMemory"
 import { PresetSwitcher } from "@/components/design-system/PresetSwitcher"
+import { CinematicSequence } from "@/components/design-system/CinematicSequence"
 
 export function CofounderConsole() {
   const [open, setOpen] = useState(false)
@@ -34,6 +35,7 @@ export function CofounderConsole() {
       </section>
       <MemoryLayerRail counts={{ Atomic: 12, Semantic: 8, Episodic: 4, Procedural: 3 }} />
       <OrbitalMemory />
+      <CinematicSequence stages={[{ label: "Идея", detail: "Контекст принят", status: "complete" }, { label: "Архитектура", detail: "Собираем решение", status: "active" }, { label: "Preview", detail: "Следующий кадр готовится", status: "pending" }, { label: "Результат", detail: "Проверка человеком", status: "pending" }]} />
       <section className="ds-hull ds-glass" style={{ padding: "clamp(1.25rem, 4vw, 3rem)" }}>
         <header style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
           <div><span className="ds-utility">РАБОЧИЙ ОТСЕК</span><h2 className="ds-display">Контролируемая доставка</h2><p style={{ color: "var(--ds-muted)" }}>Ожидаемый результат, доказательства и ручное согласование в одном контуре.</p></div>

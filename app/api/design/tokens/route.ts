@@ -6,16 +6,18 @@ const themes = {
 } as const
 
 const presets = {
-  minimal: { radius: "4px", density: "compact", effects: "none", theme: "light" },
-  bold: { radius: "8px", density: "comfortable", effects: "contrast", theme: "dark" },
-  playful: { radius: "16px", density: "comfortable", effects: "soft-glow", theme: "light" },
-  corporate: { radius: "6px", density: "compact", effects: "quiet", theme: "light" },
-  futuristic: { radius: "0px", density: "comfortable", effects: "hull-grid", theme: "dark" },
+  minimal: { radius: "4px", density: "compact", effects: "none", theme: "light", motion: "quiet", display: "Plus Jakarta Sans Variable", body: "Inter Variable" },
+  bold: { radius: "8px", density: "comfortable", effects: "contrast", theme: "dark", motion: "cinematic", display: "Unbounded Variable", body: "Inter Variable" },
+  playful: { radius: "16px", density: "comfortable", effects: "soft-glow", theme: "light", motion: "spring", display: "Space Grotesk Variable", body: "Plus Jakarta Sans Variable" },
+  corporate: { radius: "6px", density: "compact", effects: "quiet", theme: "light", motion: "quiet", display: "Plus Jakarta Sans Variable", body: "Inter Variable" },
+  futuristic: { radius: "0px", density: "comfortable", effects: "hull-grid", theme: "dark", motion: "cinematic", display: "Space Grotesk Variable", body: "Onest Variable" },
 } as const
 
 export function GET(request: NextRequest) {
   const rawPreset = request.nextUrl.searchParams.get("preset") || "futuristic"
   const preset = rawPreset in presets ? rawPreset as keyof typeof presets : "futuristic"
   const theme = request.nextUrl.searchParams.get("theme") === "light" ? "light" : presets[preset].theme
-  return NextResponse.json({ version: "1.0.0", preset, theme, tokens: { colors: themes[theme], typography: { display: "Space Grotesk Variable", body: "Onest Variable", utility: "IBM Plex Mono", scale: 1.25 }, spacing: { unit: 4, grid: 8 }, motion: { fast: 140, normal: 220, slow: 420, reducedMotion: true }, presetConfig: presets[preset] } }, { headers: { "cache-control": "public, max-age=300, stale-while-revalidate=3600" } })
+  const config = presets[preset]
+  const app = request.nextUrl.searchParams.get("app") || "universal"
+  return NextResponse.json({ version: "1.1.0", profile: { app, preset, theme, universal: true }, tokens: { colors: themes[theme], typography: { display: config.display, body: config.body, utility: "IBM Plex Mono", scale: 1.25, fallback: "system-ui, sans-serif" }, spacing: { unit: 4, grid: 8 }, motion: { fast: 140, normal: 220, slow: 420, reducedMotion: true, profile: config.motion }, cinematic: { enabled: config.motion === "cinematic", transition: "opacity-transform", maxStages: 6, fallback: "static-progress" }, presetConfig: config } }, { headers: { "cache-control": "public, max-age=300, stale-while-revalidate=3600" } })
 }

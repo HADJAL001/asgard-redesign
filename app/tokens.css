@@ -46,6 +46,24 @@
 .ds-focus:focus-visible { outline:0; box-shadow:var(--ds-focus); }
 .ds-interactive { transition:transform var(--ds-motion-normal) var(--ds-ease-out),border-color var(--ds-motion-normal) var(--ds-ease-out),box-shadow var(--ds-motion-normal) var(--ds-ease-out); }
 .ds-interactive:hover { transform:translateY(-2px); border-color:var(--ds-primary); box-shadow:0 12px 32px color-mix(in srgb,var(--ds-primary) 14%,transparent); }
+.ds-sequence { width:min(1120px,100%); margin:var(--ds-space-6) auto; padding:clamp(1.1rem,3vw,2rem); }
+.ds-sequence__header { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.ds-sequence__signal { color:var(--ds-success); font:600 .65rem var(--ds-utility); letter-spacing:.08em; }
+.ds-sequence__signal i { display:inline-block; width:6px; height:6px; margin-right:5px; border-radius:50%; background:currentColor; box-shadow:0 0 12px currentColor; }
+.ds-sequence__rail { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; padding:0; margin:1.5rem 0 0; list-style:none; }
+.ds-sequence__stage { position:relative; display:grid; grid-template-columns:auto 1fr; gap:.65rem; min-width:0; }
+.ds-sequence__marker { display:grid; place-items:center; width:2rem; height:2rem; color:var(--ds-muted); border:1px solid var(--ds-line); border-radius:50%; background:var(--ds-surface); }
+.ds-sequence__stage--complete .ds-sequence__marker { color:var(--ds-success); border-color:var(--ds-success); }
+.ds-sequence__stage--active .ds-sequence__marker { color:var(--ds-primary); border-color:var(--ds-primary); box-shadow:0 0 20px color-mix(in srgb,var(--ds-primary) 24%,transparent); }
+.ds-sequence__stage--active .ds-sequence__marker svg { animation:ds-sequence-spin 1.4s linear infinite; }
+.ds-sequence__copy { display:grid; gap:.25rem; align-content:center; }
+.ds-sequence__copy strong { color:var(--ds-ink); font-size:.85rem; }
+.ds-sequence__copy small { color:var(--ds-muted); font-size:.7rem; line-height:1.35; }
+.ds-sequence__connector { position:absolute; top:1rem; left:2.4rem; width:calc(100% - 1.4rem); height:1px; background:linear-gradient(90deg,var(--ds-line),transparent); transform:translateX(1rem); }
+@keyframes ds-sequence-spin { to { transform:rotate(360deg); } }
+@media(max-width:680px) { .ds-sequence__rail { grid-template-columns:1fr 1fr; row-gap:1.25rem; } .ds-sequence__connector { display:none; } }
+@media(max-width:420px) { .ds-sequence__rail { grid-template-columns:1fr; } }
+@media(prefers-reduced-motion:reduce) { .ds-sequence__stage--active .ds-sequence__marker svg { animation:none; } }
 .ds-contract-dialog { width:min(92vw, 620px); max-height:min(88dvh, 720px); margin:auto; padding:clamp(1.25rem, 4vw, 2.5rem); color:var(--ds-ink); background:var(--ds-surface); border:1px solid var(--ds-line); box-shadow:0 28px 90px rgb(0 0 0 / 45%), 0 0 0 1px color-mix(in srgb,var(--ds-primary) 12%,transparent); }
 .ds-contract-dialog::backdrop { background:rgb(2 8 14 / 72%); backdrop-filter:blur(8px); }
 .ds-dialog-close { position:absolute; top:1rem; right:1rem; display:grid; place-items:center; width:2rem; height:2rem; color:var(--ds-muted); background:transparent; border:1px solid transparent; cursor:pointer; }
