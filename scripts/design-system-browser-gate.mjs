@@ -39,6 +39,21 @@ try {
   })
   if (!focused) throw new Error("keyboard focus indicator is not visible")
 
+  const devPage = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" })
+  await devPage.goto(`${base}/dev`, { waitUntil: "networkidle" })
+  if (!(await devPage.getByRole("link", { name: /AI Cofounder/ }).isVisible())) throw new Error("developer mode Cofounder link is not visible")
+  const runtimePulse = devPage.locator('[role="status"][aria-label^="Runtime"]')
+  if (!(await runtimePulse.isVisible())) throw new Error("developer mode runtime pulse is not visible")
+  await devPage.keyboard.press("Tab")
+  const devFocused = await devPage.evaluate(() => {
+    const element = document.activeElement
+    if (!(element instanceof HTMLElement)) return false
+    const style = getComputedStyle(element)
+    return style.outlineStyle !== "none" || style.boxShadow !== "none"
+  })
+  if (!devFocused) throw new Error("developer mode keyboard focus indicator is not visible")
+  await devPage.close()
+
   await fs.mkdir(path.dirname(screenshotPath), { recursive: true })
   await page.screenshot({ path: screenshotPath, fullPage: true, animations: "disabled" })
   const screenshotHash = crypto.createHash("sha256").update(await fs.readFile(screenshotPath)).digest("hex")
@@ -47,7 +62,7 @@ try {
   await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ kind: "a11y", status: "passed", summary: `Rendered Cofounder has named heading, ${interactiveCount} interactive controls and visible keyboard focus`, source: "playwright-browser-gate", contractHash: blueprint.contractHash }),
+    body: JSON.stringify({ kind: "a11y", status: "passed", summary: `Cofounder has named heading, ${interactiveCount} controls and focus; developer mode pulse/link/focus passed`, source: "playwright-browser-gate", contractHash: blueprint.contractHash }),
   })
   await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
     method: "POST",
