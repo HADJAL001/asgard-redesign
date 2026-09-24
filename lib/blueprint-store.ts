@@ -5,6 +5,7 @@ export type StoredBlueprint = {
   id: string
   revision: number
   app: string
+  productType?: string
   preset: string
   brief: string
   components: string[]

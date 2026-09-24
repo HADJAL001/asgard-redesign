@@ -9,8 +9,9 @@ import { CinematicSequence } from "@/components/design-system/CinematicSequence"
 import { track } from "@/lib/analytics"
 import { useAuth } from "@/lib/auth-store"
 import { CofounderLoadingShell } from "@/components/cofounder/CofounderLoadingShell"
+import { ProductCatalog, type ProductType, type VisualPreset } from "@/components/cofounder/ProductCatalog"
 
-type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; createdAt: string; aiSummary?: string; aiComponents?: string[]; aiRisks?: string[]; approved?: boolean }
+type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; productType?: ProductType; preset?: VisualPreset; createdAt: string; aiSummary?: string; aiComponents?: string[]; aiRisks?: string[]; approved?: boolean }
 type PreviewPlan = { revision: number; slots: { id: string; component: string; role: string; states: string[] }[]; stages: string[] }
 type GenerationStatus = { status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; currentStep?: string; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string } }
 
@@ -20,6 +21,8 @@ export function CofounderConsole() {
   const [open, setOpen] = useState(false)
   const [contractName, setContractName] = useState("")
   const [brief, setBrief] = useState("")
+  const [productType, setProductType] = useState<ProductType>("application")
+  const [visualPreset, setVisualPreset] = useState<VisualPreset>("futuristic")
   const [submitting, setSubmitting] = useState(false)
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null)
   const [previewPlan, setPreviewPlan] = useState<PreviewPlan | null>(null)
@@ -121,7 +124,7 @@ export function CofounderConsole() {
     setSubmitting(true)
     setCompileError(null)
     const startedAt = performance.now()
-    track("blueprint_compile_started", { source: "cofounder", preset: "futuristic" })
+    track("blueprint_compile_started", { source: "cofounder", productType, preset: visualPreset })
     try {
       let aiPlan: { summary?: string; components?: string[]; risks?: string[] } | null = null
       if (user) {
@@ -131,11 +134,11 @@ export function CofounderConsole() {
           if (Array.isArray(aiData?.blueprint?.components)) aiPlan = aiData.blueprint
         }
       }
-      const response = await fetch("/api/design/blueprint", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app: contractName, brief, preset: "futuristic", components: aiPlan?.components, aiPlan }) })
+      const response = await fetch("/api/design/blueprint", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app: contractName, brief, productType, preset: visualPreset, components: aiPlan?.components, aiPlan }) })
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.blueprint?.quality) throw new Error("Не удалось собрать blueprint")
       const persistedPlan = data.blueprint.aiPlan || aiPlan
-      const result: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, createdAt: data.blueprint.generatedAt, aiSummary: persistedPlan?.summary, aiComponents: persistedPlan?.components, aiRisks: persistedPlan?.risks }
+      const result: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, productType: data.blueprint.productType, preset: data.blueprint.preset, createdAt: data.blueprint.generatedAt, aiSummary: persistedPlan?.summary, aiComponents: persistedPlan?.components, aiRisks: persistedPlan?.risks }
       setCompileResult(result)
       setPreviewPlan(null)
       void loadPreview(result.id, result.revision)
@@ -158,12 +161,14 @@ export function CofounderConsole() {
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.blueprint) throw new Error("Не удалось восстановить revision")
       const persistedPlan = data.blueprint.aiPlan
-      const restored: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, createdAt: data.blueprint.generatedAt, aiSummary: persistedPlan?.summary || item.aiSummary, aiComponents: persistedPlan?.components || item.aiComponents, aiRisks: persistedPlan?.risks || item.aiRisks }
+      const restored: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, productType: data.blueprint.productType || item.productType, preset: data.blueprint.preset || item.preset, createdAt: data.blueprint.generatedAt, aiSummary: persistedPlan?.summary || item.aiSummary, aiComponents: persistedPlan?.components || item.aiComponents, aiRisks: persistedPlan?.risks || item.aiRisks }
       setCompileResult(restored)
       setPreviewPlan(null)
       void loadPreview(restored.id, restored.revision)
       setContractName(restored.app)
       setBrief(restored.brief)
+      if (restored.productType) setProductType(restored.productType)
+      if (restored.preset) setVisualPreset(restored.preset)
       setHistory((previous) => { const next = [restored, ...previous.filter((entry) => entry.id !== restored.id || entry.revision !== restored.revision)].slice(0, 5); localStorage.setItem("osgard-blueprint-history", JSON.stringify(next)); return next })
       track("blueprint_compile_completed", { source: "cofounder_rollback", blueprintId: restored.id, fromRevision: item.revision, revision: restored.revision, score: restored.score })
     } catch (error) {
@@ -182,7 +187,7 @@ export function CofounderConsole() {
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.blueprint) throw new Error("Не удалось подтвердить preview")
       const approved = data.blueprint
-      const next: CompileResult = { id: approved.id, revision: approved.revision, score: approved.quality.score, review: approved.quality.humanReviewRequired, warnings: approved.quality.warnings, app: approved.app, brief: approved.brief, createdAt: approved.generatedAt, aiSummary: approved.aiPlan?.summary || item.aiSummary, aiComponents: approved.aiPlan?.components || item.aiComponents, aiRisks: approved.aiPlan?.risks || item.aiRisks, approved: approved.approval?.status === "approved" }
+      const next: CompileResult = { id: approved.id, revision: approved.revision, score: approved.quality.score, review: approved.quality.humanReviewRequired, warnings: approved.quality.warnings, app: approved.app, brief: approved.brief, productType: approved.productType || item.productType, preset: approved.preset || item.preset, createdAt: approved.generatedAt, aiSummary: approved.aiPlan?.summary || item.aiSummary, aiComponents: approved.aiPlan?.components || item.aiComponents, aiRisks: approved.aiPlan?.risks || item.aiRisks, approved: approved.approval?.status === "approved" }
       setCompileResult(next)
       setHistory((previous) => { const updated = [next, ...previous.filter((entry) => entry.id !== next.id || entry.revision !== next.revision)].slice(0, 5); localStorage.setItem("osgard-blueprint-history", JSON.stringify(updated)); return updated })
       track("blueprint_compile_completed", { source: "cofounder_approval", blueprintId: next.id, fromRevision: item.revision, revision: next.revision })
@@ -216,6 +221,7 @@ export function CofounderConsole() {
         <PresetSwitcher />
       </section>
       <MemoryLayerRail counts={{ Atomic: 12, Semantic: 8, Episodic: 4, Procedural: 3 }} />
+      <ProductCatalog productType={productType} preset={visualPreset} onProductTypeChange={setProductType} onPresetChange={setVisualPreset} />
       <OrbitalMemory />
       <CinematicSequence stages={[{ label: "Идея", detail: "Контекст принят", status: "complete" }, { label: "Архитектура", detail: "Собираем решение", status: "active" }, { label: "Preview", detail: "Следующий кадр готовится", status: "pending" }, { label: "Результат", detail: "Проверка человеком", status: "pending" }]} />
       <section className="ds-hull ds-glass" style={{ padding: "clamp(1.25rem, 4vw, 3rem)" }}>
@@ -238,7 +244,7 @@ export function CofounderConsole() {
           {compileError ? <p role="alert" className="ds-dialog-error">{compileError}</p> : null}
           {previewPlan ? <section className="ds-dialog-preview" aria-label="Blueprint preview"><div className="ds-utility">LIVE PREVIEW / REVISION {previewPlan.revision}</div><div className="ds-dialog-preview-slots">{previewPlan.slots.map((slot) => <article key={slot.id} className="ds-dialog-preview-slot"><strong>{slot.component}</strong><span>{slot.role}</span><small>{slot.states.join(" · ")}</small></article>)}</div><div className="ds-dialog-preview-stages" aria-label="Preview stages">{previewPlan.stages.map((stage, index) => <span key={stage} data-active={index === 0}>{stage}</span>)}</div></section> : null}
           {compileResult ? <div className="ds-dialog-result" role="status"><strong>Blueprint готов: {compileResult.score}/100</strong><span>{compileResult.review ? "Нужна ручная проверка перед публикацией." : "Можно переходить к preview."}</span>{compileResult.warnings.length ? <small>{compileResult.warnings.length} предупреждения требуют внимания</small> : null}</div> : null}
-          {history.length > 1 ? <div className="ds-dialog-history" aria-label="История blueprint"><span className="ds-utility">ПРОШЛЫЕ ВЕРСИИ</span>{history.slice(0, 3).map((item) => <button key={item.id} type="button" onClick={() => { setCompileResult(item); setContractName(item.app); setBrief(item.brief) }} aria-label={`Открыть blueprint ${item.app}`}>{item.app} · {item.score}/100</button>)}</div> : null}
+          {history.length > 1 ? <div className="ds-dialog-history" aria-label="История blueprint"><span className="ds-utility">ПРОШЛЫЕ ВЕРСИИ</span>{history.slice(0, 3).map((item) => <button key={item.id} type="button" onClick={() => { setCompileResult(item); setContractName(item.app); setBrief(item.brief); if (item.productType) setProductType(item.productType); if (item.preset) setVisualPreset(item.preset) }} aria-label={`Открыть blueprint ${item.app}`}>{item.app} · {item.score}/100</button>)}</div> : null}
           {compileResult ? <button type="button" className="ds-dialog-secondary" onClick={() => approvePreview(compileResult)} disabled={approving || rollingBack !== null}>{approving ? "Подтверждаем…" : "Подтвердить preview для codegen"}</button> : null}
           {compileResult?.approved ? <button type="button" className="ds-dialog-primary" onClick={() => void launchCodegen(compileResult)} disabled={generating}>{generating ? "Запускаем codegen…" : "Запустить codegen"}</button> : null}
           {generationTask ? <p className="ds-dialog-live" role="status">Generation task: {generationTask}</p> : null}
