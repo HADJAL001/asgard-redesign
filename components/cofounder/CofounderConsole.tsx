@@ -1,7 +1,7 @@
 "use client"
 
 import { FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { FilePlus2, Radar, ShieldCheck, X } from "lucide-react"
+import { FilePlus2, Radar, ShieldCheck, Share2, X } from "lucide-react"
 import { MemoryLayerRail } from "@/components/design-system/MemoryLayerRail"
 import { OrbitalMemory } from "@/components/design-system/OrbitalMemory"
 import { PresetSwitcher } from "@/components/design-system/PresetSwitcher"
@@ -40,6 +40,7 @@ export function CofounderConsole() {
   const [generating, setGenerating] = useState(false)
   const [generationTask, setGenerationTask] = useState<string | null>(null)
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus | null>(null)
+  const [shareStatus, setShareStatus] = useState<string | null>(null)
   const lastGenerationStatus = useRef<string | null>(null)
   const generationPollFailures = useRef(0)
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -236,6 +237,23 @@ export function CofounderConsole() {
     } catch (error) { setCompileError(error instanceof Error ? error.message : "Не удалось запустить codegen") } finally { setGenerating(false) }
   }
 
+  async function shareBlueprint(item: CompileResult) {
+    const title = `OSGARD mission replay: ${item.app}`
+    const text = `${item.app} assembled in OSGARD AI Cofounder: ${item.productType || "product"}, ${item.preset || "futuristic"} preset, ${item.score}/100 blueprint quality.`
+    const supportsNativeShare = "share" in navigator
+    try {
+      if (supportsNativeShare) {
+        await navigator.share({ title, text, url: window.location.href })
+        setShareStatus("Mission replay shared")
+      } else {
+        await navigator.clipboard.writeText(`${text} ${window.location.href}`)
+        setShareStatus("Replay link copied")
+      }
+      track("blueprint_shared", { blueprintId: item.id, revision: item.revision, channel: supportsNativeShare ? "native" : "clipboard" })
+    } catch { setShareStatus("Share cancelled") }
+    window.setTimeout(() => setShareStatus(null), 2600)
+  }
+
   return (
     <main className="ds-body" style={{ minHeight: "100vh", padding: "clamp(1rem, 4vw, 4rem)" }}>
       <section className="ds-hull ds-glass" style={{ padding: "clamp(1.25rem, 4vw, 3rem)", display: "flex", justifyContent: "space-between", gap: "2rem", alignItems: "end" }}>
@@ -270,6 +288,7 @@ export function CofounderConsole() {
           {compileError ? <p role="alert" className="ds-dialog-error">{compileError}</p> : null}
           {previewPlan ? <section className="ds-dialog-preview" aria-label="Blueprint preview"><div className="ds-utility">LIVE PREVIEW / REVISION {previewPlan.revision}</div><div className="ds-dialog-preview-slots">{previewPlan.slots.map((slot) => <article key={slot.id} className="ds-dialog-preview-slot"><strong>{slot.component}</strong><span>{slot.role}</span><small>{slot.states.join(" · ")}</small></article>)}</div><div className="ds-dialog-preview-stages" aria-label="Preview stages">{previewPlan.stages.map((stage, index) => <span key={stage} data-active={index === 0}>{stage}</span>)}</div></section> : null}
           {compileResult ? <div className="ds-dialog-result" role="status"><strong>Blueprint готов: {compileResult.score}/100</strong><span>{compileResult.review ? "Нужна ручная проверка перед публикацией." : "Можно переходить к preview."}</span>{compileResult.contractHash ? <small>Contract evidence: {compileResult.contractHash.slice(0, 12)}…</small> : null}{compileResult.warnings.length ? <small>{compileResult.warnings.length} предупреждения требуют внимания</small> : null}</div> : null}
+          {compileResult ? <section className="ds-mission-replay" aria-label="Mission replay"><div><span className="ds-utility">MISSION REPLAY / OSGARD</span><strong>{compileResult.app}</strong><small>{compileResult.productType || "product"} · {compileResult.preset || "futuristic"} · revision {compileResult.revision}</small></div><div className="ds-mission-replay__score"><b>{compileResult.score}</b><span>quality</span></div><button type="button" className="ds-dialog-secondary ds-share-button" onClick={() => void shareBlueprint(compileResult)}><Share2 size={15} /> Share replay</button>{shareStatus ? <p role="status" className="ds-share-status">{shareStatus}</p> : null}</section> : null}
           {compileResult ? <section className="ds-evidence-ledger" aria-label="Evidence ledger"><div className="ds-evidence-ledger__head"><span className="ds-utility">EVIDENCE LEDGER</span><small>{evidence.length ? `${evidence.length} recorded checks` : "No checks recorded yet"}</small></div>{qualityState?.missing.length ? <p className="ds-evidence-ledger__missing">Missing gates: {qualityState.missing.join(", ")}</p> : null}{qualityState?.stale.length ? <p className="ds-evidence-ledger__stale">Stale evidence: {qualityState.stale.map((item) => `${item.kind} (${item.reason})`).join(", ")}</p> : null}{qualityState && !qualityState.missing.length && !qualityState.stale.length ? <p className="ds-evidence-ledger__ready">{qualityState.readyForCodegen ? "Verified and ready for codegen" : "All technical gates passed; awaiting approval"}</p> : null}{evidence.length ? <ul>{evidence.map((item) => <li key={item.id}><i data-status={item.status} aria-hidden="true" /><span><strong>{item.kind}</strong><small>{item.summary}</small></span><em>{item.status}</em></li>)}</ul> : <p>Quality gates appear here as soon as a verified check is captured.</p>}</section> : null}
           {history.length > 1 ? <div className="ds-dialog-history" aria-label="История blueprint"><span className="ds-utility">ПРОШЛЫЕ ВЕРСИИ</span>{history.slice(0, 3).map((item) => <button key={item.id} type="button" onClick={() => { setCompileResult(item); setContractName(item.app); setBrief(item.brief); if (item.productType) setProductType(item.productType); if (item.preset) setVisualPreset(item.preset) }} aria-label={`Открыть blueprint ${item.app}`}>{item.app} · {item.score}/100</button>)}</div> : null}
           {compileResult ? <button type="button" className="ds-dialog-secondary" onClick={() => approvePreview(compileResult)} disabled={approving || rollingBack !== null}>{approving ? "Подтверждаем…" : "Подтвердить preview для codegen"}</button> : null}
