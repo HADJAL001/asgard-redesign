@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     for (const [key, value] of requestWindows) if (now - value.startedAt >= WINDOW_MS) requestWindows.delete(key)
   }
   if (current.count > MAX_REQUESTS) return NextResponse.json({ error: "rate_limited", requestId, retryAfterSeconds: Math.ceil((current.startedAt + WINDOW_MS - now) / 1000) }, { status: 429, headers: { "retry-after": String(Math.ceil((current.startedAt + WINDOW_MS - now) / 1000)), "x-request-id": requestId } })
-  if (request.headers.get("content-type")?.includes("application/json") !== true) return NextResponse.json({ error: "json_required" }, { status: 415 })
+  if (request.headers.get("content-type")?.includes("application/json") !== true) return NextResponse.json({ error: "json_required", requestId }, { status: 415, headers: { "x-request-id": requestId } })
   const rawBody = await request.text()
   if (new TextEncoder().encode(rawBody).byteLength > 32_000) return NextResponse.json({ error: "brief_payload_too_large", maxBytes: 32_000, requestId }, { status: 413, headers: { "x-request-id": requestId } })
   const body = (() => { try { return JSON.parse(rawBody) as BlueprintInput } catch { return {} } })()

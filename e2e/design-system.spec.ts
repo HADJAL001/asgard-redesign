@@ -57,6 +57,7 @@ test.describe("OSGARD design system", () => {
   test("rejects non-json blueprint payloads", async ({ request }) => {
     const response = await request.post("/api/design/blueprint", { data: "not-json", headers: { "content-type": "text/plain" } })
     expect(response.status()).toBe(415)
+    expect(response.headers()["x-request-id"]).toMatch(/^[0-9a-f-]{36}$/)
   })
 
   test("rejects oversized blueprint payloads", async ({ request }) => {
