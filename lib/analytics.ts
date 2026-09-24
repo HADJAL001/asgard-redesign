@@ -37,13 +37,13 @@ function flushQueuedEvents() {
   if (typeof window === "undefined") return
   const queue = readQueue()
   if (!queue.length) return
-  const payload = JSON.stringify(queue)
-  if (typeof navigator.sendBeacon === "function" && navigator.sendBeacon(`${API_BASE_URL}/analytics/event`, new Blob([payload], { type: "application/json" }))) {
-    writeQueue([])
+  if (typeof navigator.sendBeacon === "function") {
+    const remaining = queue.filter((event) => !navigator.sendBeacon(`${API_BASE_URL}/analytics/event`, new Blob([JSON.stringify(event)], { type: "application/json" })))
+    writeQueue(remaining)
     return
   }
-  fetch(`${API_BASE_URL}/analytics/event`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", keepalive: true, body: payload })
-    .then((response) => { if (response.ok) writeQueue([]) })
+  Promise.all(queue.map((event) => fetch(`${API_BASE_URL}/analytics/event`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", keepalive: true, body: JSON.stringify(event) })))
+    .then((responses) => { if (responses.every((response) => response.ok)) writeQueue([]) })
     .catch(() => undefined)
 }
 
