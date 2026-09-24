@@ -2226,7 +2226,7 @@ svg { width: 1rem; height: 1rem; flex: none; }
 .dev-mode-nav-btn { animation: dev-nav-pulse 3.4s ease-in-out infinite; }
 .dev-mode-nav-btn:hover { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  .dev-mode-nav-btn { animation: none; transition: none; }
+  .dev-mode-nav-btn, .dev-rail { animation: none; transition: none; }
 }
 
 /* ── Глобальные слои платформы, которым не место в студии ──
