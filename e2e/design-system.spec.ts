@@ -73,6 +73,11 @@ test.describe("OSGARD design system", () => {
     expect(rollbackBody.blueprint.brief).toBe(created.blueprint.brief)
   })
 
+  test("keeps the AI blueprint compiler behind authentication", async ({ request }) => {
+    const response = await request.post("/api/design/blueprint/compile", { data: { brief: "A secure workspace for reviewing a generated product." } })
+    expect(response.status()).toBe(401)
+  })
+
   test("rejects unusable client briefs", async ({ request }) => {
     const response = await request.post("/api/design/blueprint", { data: { brief: "too short" } })
     expect(response.status()).toBe(400)
