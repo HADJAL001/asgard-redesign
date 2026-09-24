@@ -19,10 +19,14 @@ export function DesignSystemProvider({ children }: { children: ReactNode }) {
     }).catch(() => undefined)
   }, [])
   useEffect(() => {
-    const storedPreset = window.localStorage.getItem("osgard-design-preset") as DesignPreset | null
-    const storedTheme = window.localStorage.getItem("osgard-design-theme") as "dark" | "light" | null
-    if (storedPreset && ["minimal", "bold", "playful", "corporate", "futuristic"].includes(storedPreset)) setPreset(storedPreset)
-    if (storedTheme === "light" || storedTheme === "dark") setTheme(storedTheme)
+    const hydrateFromStorage = () => {
+      const storedPreset = window.localStorage.getItem("osgard-design-preset") as DesignPreset | null
+      const storedTheme = window.localStorage.getItem("osgard-design-theme") as "dark" | "light" | null
+      if (storedPreset && ["minimal", "bold", "playful", "corporate", "futuristic"].includes(storedPreset)) setPreset(storedPreset)
+      if (storedTheme === "light" || storedTheme === "dark") setTheme(storedTheme)
+    }
+    const timer = window.setTimeout(hydrateFromStorage, 0)
+    return () => window.clearTimeout(timer)
   }, [])
   useEffect(() => { document.documentElement.dataset.theme = theme; document.documentElement.dataset.designPreset = preset; window.localStorage.setItem("osgard-design-preset", preset); window.localStorage.setItem("osgard-design-theme", theme) }, [preset, theme])
   const value = useMemo(() => ({ preset, theme, setPreset, setTheme }), [preset, theme])
