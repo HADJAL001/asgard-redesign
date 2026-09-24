@@ -1453,6 +1453,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
               actionLabel={isGenerating ? undefined : nextAction.action?.actionLabel}
               onAction={isGenerating || !nextAction.action ? undefined : goToNextAction}
               codePreview={genStream.code}
+              startedAt={genStream.stages[0]?.at ?? null}
             />
           )}
           {/* Пока приложения ещё нет, пустая рамка «Живой запуск» с недоступной

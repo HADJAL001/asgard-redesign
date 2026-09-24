@@ -24,7 +24,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import type { ComponentType } from "react"
-import { CheckCircle2, Loader2, XCircle } from "lucide-react"
+import { CheckCircle2, Loader2, Timer, XCircle } from "lucide-react"
 import { COLORS } from "@/lib/economy"
 
 export type StoryStepState = "idle" | "active" | "done" | "error"
@@ -46,6 +46,7 @@ export function GenerationStory({
   actionLabel,
   onAction,
   codePreview,
+  startedAt,
 }: {
   steps: StoryStep[]
   /** Одна фраза о том, что происходит прямо сейчас. */
@@ -57,11 +58,25 @@ export function GenerationStory({
   actionLabel?: string
   onAction?: () => void
   codePreview?: { path: string; content: string } | null
+  startedAt?: number | null
 }) {
   const activeIndex = steps.findIndex((s) => s.state === "active")
   const doneCount = steps.filter((s) => s.state === "done").length
   const lastSoundIndex = useRef(-1)
   const [typedCode, setTypedCode] = useState("")
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (!startedAt || failed || progress === null || progress <= 0 || progress >= 1) return
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [failed, progress, startedAt])
+
+  const etaMs = startedAt && progress && progress > 0 && progress < 1
+    ? Math.max(0, Math.round((now - startedAt) * ((1 - progress) / progress)))
+    : null
+  const etaSeconds = etaMs === null ? null : Math.max(1, Math.round(etaMs / 1000))
+  const etaText = etaSeconds === null ? null : etaSeconds < 60 ? `~${etaSeconds} sec left` : `~${Math.ceil(etaSeconds / 60)} min left`
 
   useEffect(() => {
     const target = codePreview?.content ?? ""
@@ -131,6 +146,13 @@ export function GenerationStory({
             }}
           />
         </div>
+      )}
+
+      {etaText && !failed && (
+        <p className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: COLORS.label }} role="status" aria-live="polite">
+          <Timer size={13} aria-hidden="true" />
+          {etaText} · approximate
+        </p>
       )}
 
       {codePreview && typedCode && (
