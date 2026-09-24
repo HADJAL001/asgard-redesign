@@ -30,6 +30,11 @@ try {
   if (!(await heading.isVisible())) throw new Error("AI Cofounder heading is not visible")
   const interactiveCount = await page.locator("button, a, input, textarea, select").count()
   if (interactiveCount < 3) throw new Error(`interactive surface too small: ${interactiveCount}`)
+  await page.locator(".ds-memory-orbit").waitFor({ state: "visible", timeout: 5000 })
+  if (await page.locator(".ds-memory-layer").count() !== 4) throw new Error("memory orbit does not expose four layers")
+  if (!(await page.locator(".ds-liquid-gold").isVisible())) throw new Error("liquid gold contract action is not visible")
+  if (!(await page.locator(".ds-catalog-card[data-selected='true']").isVisible())) throw new Error("selected product holographic card is not visible")
+  if (await page.locator(".ds-dna-preview").count() !== 5) throw new Error("visual DNA previews are incomplete")
   await page.keyboard.press("Tab")
   const focused = await page.evaluate(() => {
     const element = document.activeElement
@@ -38,6 +43,11 @@ try {
     return style.outlineStyle !== "none" || style.boxShadow !== "none"
   })
   if (!focused) throw new Error("keyboard focus indicator is not visible")
+  const mobilePage = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" })
+  await mobilePage.goto(`${base}/cofounder`, { waitUntil: "domcontentloaded" })
+  const mobileOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)
+  if (mobileOverflow) throw new Error("cofounder overflows the mobile viewport")
+  await mobilePage.close()
 
   const devPage = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" })
   const devStarted = performance.now()
