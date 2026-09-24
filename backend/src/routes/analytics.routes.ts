@@ -35,6 +35,7 @@ const ALLOWED_EVENTS = new Set([
   "project_generation_retry_started",
   "project_generation_retry_failed",
   "project_generation_retry_accepted",
+  "recovery_surface_shown",
   "refinements_view",
   "refinements_open_project",
   "refinements_cta_register",
