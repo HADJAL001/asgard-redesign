@@ -73,7 +73,13 @@ test.describe("OSGARD design system", () => {
     expect(evidenceBody.evidence.contractHash).toBe(blueprint.contractHash)
     const ledger = await request.get(`/api/design/blueprint/${blueprint.id}/evidence`)
     expect(ledger.status()).toBe(200)
-    expect((await ledger.json()).evidence).toHaveLength(1)
+    const ledgerEntries = (await ledger.json()).evidence
+    expect(ledgerEntries).toHaveLength(3)
+    expect(ledgerEntries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "security", revision: 1, contractHash: blueprint.contractHash }),
+      expect.objectContaining({ kind: "performance", revision: 1, contractHash: blueprint.contractHash }),
+      expect.objectContaining({ kind: "a11y", revision: 1, contractHash: blueprint.contractHash }),
+    ]))
     const mismatch = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "security", status: "passed", summary: "Wrong contract", source: "quality-gate", contractHash: "0".repeat(64) } })
     expect(mismatch.status()).toBe(409)
   })
