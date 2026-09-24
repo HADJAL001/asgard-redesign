@@ -48,6 +48,8 @@ test.describe("OSGARD design system", () => {
     expect(body.blueprint.preset).toBe("futuristic")
     expect(body.blueprint.contractVersion).toBe("1.0.0")
     expect(body.blueprint.contractHash).toMatch(/^[a-f0-9]{64}$/)
+    expect(body.evidence).toHaveLength(1)
+    expect(body.evidence[0]).toMatchObject({ kind: "security", status: "passed", source: "blueprint-guard", contractHash: body.blueprint.contractHash })
     expect(body.blueprint.quality.warnings).toContain("app_shell_required_for_navigation")
     expect(body.blueprint.aiPlan).toEqual({ summary: "A calm review-first portal.", components: ["hero", "preview-frame"], risks: ["Needs consent copy"] })
     expect(body.requestId).toMatch(/^[0-9a-f-]{36}$/)

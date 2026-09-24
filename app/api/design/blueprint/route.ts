@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import crypto from "node:crypto"
-import { saveBlueprint, type StoredBlueprint } from "@/lib/blueprint-store"
+import { appendBlueprintEvidence, saveBlueprint, type StoredBlueprint } from "@/lib/blueprint-store"
 
 const WINDOW_MS = 60_000
 const MAX_REQUESTS = 30
@@ -57,5 +57,6 @@ export async function POST(request: NextRequest) {
   const contractHash = crypto.createHash("sha256").update(JSON.stringify(contract)).digest("hex")
   const blueprint: StoredBlueprint = { id: crypto.randomUUID(), revision: 1, app, productType, preset, contractVersion: "1.0.0", contractHash, brief, components: selected, stages: fallbackStages, generatedAt: new Date().toISOString(), arbitraryHtml: false, quality: { score: qualityScore, warnings, humanReviewRequired: qualityScore < 85 }, ...(aiPlan ? { aiPlan } : {}) }
   saveBlueprint(blueprint)
-  return NextResponse.json({ version: "1.1.0", requestId, blueprint }, { status: 201, headers: { ...rateHeaders, "cache-control": "no-store", "x-request-id": requestId } })
+  const securityEvidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: blueprint.id, revision: blueprint.revision, contractHash, kind: "security", status: "passed", summary: "Component allowlist and arbitrary HTML guard passed", capturedAt: new Date().toISOString(), source: "blueprint-guard" })
+  return NextResponse.json({ version: "1.1.0", requestId, blueprint, evidence: [securityEvidence] }, { status: 201, headers: { ...rateHeaders, "cache-control": "no-store", "x-request-id": requestId } })
 }
