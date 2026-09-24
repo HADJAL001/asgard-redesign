@@ -123,6 +123,11 @@
 .ds-liquid-gold { position:relative; display:inline-flex; align-items:center; justify-content:center; gap:.5rem; min-height:3rem; padding:.8rem 1.25rem; overflow:hidden; color:#080706; background:linear-gradient(110deg,#a98218,#f1d46a 42%,#d4af37 62%,#9b7415); border:1px solid #f1d46a; border-radius:12px; box-shadow:0 10px 26px rgb(212 175 55 / 20%),inset 0 1px rgb(255 255 255 / 45%); font:700 .86rem var(--ds-body); cursor:pointer; }
 .ds-liquid-gold::after { content:""; position:absolute; inset:-40% auto -40% -25%; width:20%; background:linear-gradient(90deg,transparent,rgb(255 255 255 / 70%),transparent); transform:skewX(-18deg); transition:transform .6s ease; }
 .ds-liquid-gold:hover { transform:translateY(-2px) scale(1.02); box-shadow:0 14px 36px rgb(212 175 55 / 34%),inset 0 1px rgb(255 255 255 / 55%); }.ds-liquid-gold:hover::after { transform:translateX(720%) skewX(-18deg); }
+.ds-cosmic-cursor { position:fixed; z-index:20; left:0; top:0; width:8px; height:8px; pointer-events:none; border:1px solid #f1d46a; border-radius:50%; background:#d4af37; box-shadow:0 0 12px 3px rgb(212 175 55 / 55%),0 0 30px 8px rgb(119 78 170 / 18%); transform:translate3d(-50%,-50%,0); transition:opacity .2s ease,scale .2s ease; mix-blend-mode:screen; }
+.cofounder-cosmos:has(.ds-cosmic-cursor) { cursor:none; }
+.cofounder-cosmos:has(.ds-cosmic-cursor) .ds-focus:focus-visible { cursor:auto; }
+@media (pointer:fine) { .ds-cosmic-cursor { animation:ds-cursor-orbit 1.8s ease-in-out infinite; } }
+@keyframes ds-cursor-orbit { 50% { box-shadow:0 0 18px 5px rgb(212 175 55 / 62%),0 0 36px 10px rgb(119 78 170 / 24%); } }
 @media (prefers-reduced-motion:reduce) { .ds-obsidian-cosmos { opacity:.7; } }
 @media (prefers-reduced-motion:reduce) { .ds-memory-layer,.ds-catalog-card,.ds-catalog-preset,.ds-liquid-gold,.ds-liquid-gold::after { transition:none !important; animation:none !important; }.cofounder-cosmos .ds-catalog-card--holo,.cofounder-cosmos .ds-catalog-card--holo:hover,.ds-liquid-gold:hover { transform:none; } }
 @media (prefers-reduced-motion:reduce) { .ds-interactive { transition:none; } .ds-interactive:hover { transform:none; } }

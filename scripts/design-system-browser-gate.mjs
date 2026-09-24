@@ -48,6 +48,13 @@ try {
   const mobileOverflow = await mobilePage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)
   if (mobileOverflow) throw new Error("cofounder overflows the mobile viewport")
   await mobilePage.close()
+  const motionPage = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: "no-preference" })
+  await motionPage.goto(`${base}/cofounder`, { waitUntil: "domcontentloaded" })
+  if (!(await motionPage.locator(".ds-cosmic-cursor").isVisible())) throw new Error("cosmic cursor is not available on fine pointer")
+  await motionPage.mouse.move(400, 300)
+  const cursorMoved = await motionPage.locator(".ds-cosmic-cursor").evaluate((element) => element.getBoundingClientRect().left > 0)
+  if (!cursorMoved) throw new Error("cosmic cursor did not respond to pointer movement")
+  await motionPage.close()
 
   const devPage = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" })
   const devStarted = performance.now()
