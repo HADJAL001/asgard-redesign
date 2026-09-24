@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth-store"
 
 type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; createdAt: string; aiSummary?: string; aiComponents?: string[]; aiRisks?: string[]; approved?: boolean }
 type PreviewPlan = { revision: number; slots: { id: string; component: string; role: string; states: string[] }[]; stages: string[] }
+type GenerationStatus = { status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; currentStep?: string; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string } }
 
 export function CofounderConsole() {
   const { user } = useAuth()
@@ -29,6 +30,7 @@ export function CofounderConsole() {
   const [approving, setApproving] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [generationTask, setGenerationTask] = useState<string | null>(null)
+  const [generationStatus, setGenerationStatus] = useState<GenerationStatus | null>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
@@ -42,6 +44,22 @@ export function CofounderConsole() {
     const plan = data?.renderPlan
     if (plan && Array.isArray(plan.slots)) setPreviewPlan({ revision: data.revision, slots: plan.slots, stages: Array.isArray(plan.stages) ? plan.stages : [] })
   }
+
+  useEffect(() => {
+    if (!generationTask) return
+    let cancelled = false
+    const poll = async () => {
+      const response = await fetch(`/api/task/${encodeURIComponent(generationTask)}`, { credentials: "include", cache: "no-store" })
+      if (!response.ok || cancelled) return
+      const status = await response.json().catch(() => null) as GenerationStatus | null
+      if (!status || cancelled) return
+      setGenerationStatus(status)
+      if (status.status === "completed" || status.status === "failed" || status.status === "cancelled") return
+      window.setTimeout(() => void poll(), 2500)
+    }
+    void poll()
+    return () => { cancelled = true }
+  }, [generationTask])
 
   async function submitContract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -125,6 +143,7 @@ export function CofounderConsole() {
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.taskId) throw new Error(data?.error === "blueprint_approval_required" ? "Сначала подтвердите preview" : "Не удалось запустить codegen")
       setGenerationTask(data.taskId)
+      setGenerationStatus({ status: "queued", progress: 0 })
       track("blueprint_compile_completed", { source: "cofounder_codegen", blueprintId: item.id, revision: item.revision, taskId: data.taskId })
     } catch (error) { setCompileError(error instanceof Error ? error.message : "Не удалось запустить codegen") } finally { setGenerating(false) }
   }
@@ -166,6 +185,7 @@ export function CofounderConsole() {
           {compileResult ? <button type="button" className="ds-dialog-secondary" onClick={() => approvePreview(compileResult)} disabled={approving || rollingBack !== null}>{approving ? "Подтверждаем…" : "Подтвердить preview для codegen"}</button> : null}
           {compileResult?.approved ? <button type="button" className="ds-dialog-primary" onClick={() => void launchCodegen(compileResult)} disabled={generating}>{generating ? "Запускаем codegen…" : "Запустить codegen"}</button> : null}
           {generationTask ? <p className="ds-dialog-live" role="status">Generation task: {generationTask}</p> : null}
+          {generationStatus ? <section className="ds-dialog-generation" aria-label="Code generation progress"><div className="ds-dialog-generation-head"><strong>{generationStatus.status === "completed" ? "Codegen complete" : generationStatus.status === "failed" ? "Codegen failed" : "Codegen in progress"}</strong><span>{Math.round(generationStatus.progress || 0)}%</span></div><div className="ds-dialog-generation-bar"><span style={{ width: `${Math.min(100, Math.max(0, generationStatus.progress || 0))}%` }} /></div>{generationStatus.currentStep ? <small>{generationStatus.currentStep}</small> : null}{generationStatus.error ? <small role="alert">{generationStatus.error}</small> : null}{generationStatus.result ? <div className="ds-dialog-generation-links">{generationStatus.result.previewUrl ? <a href={generationStatus.result.previewUrl} target="_blank" rel="noreferrer">Open preview</a> : null}{generationStatus.result.appUrl ? <a href={generationStatus.result.appUrl} target="_blank" rel="noreferrer">Open app</a> : null}{generationStatus.result.repoUrl ? <a href={generationStatus.result.repoUrl} target="_blank" rel="noreferrer">Open repository</a> : null}</div> : null}</section> : null}
           {compileResult ? <button type="button" className="ds-dialog-secondary" onClick={() => rollbackBlueprint(compileResult)} disabled={rollingBack !== null}>{rollingBack === compileResult.revision ? "Восстанавливаем…" : `Восстановить revision ${compileResult.revision}`}</button> : null}
           <div className="ds-dialog-actions">
             <button type="button" className="ds-dialog-secondary" onClick={() => setOpen(false)}>Отмена</button>
