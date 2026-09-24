@@ -147,6 +147,11 @@ test.describe("OSGARD design system", () => {
     const body = await created.json()
     const generate = await page.request.post(`/api/design/blueprint/${body.blueprint.id}/generate`)
     expect(generate.status()).toBe(409)
+    const approval = await page.request.post(`/api/design/blueprint/${body.blueprint.id}/approve`, { data: { revision: 1 } })
+    expect(approval.status()).toBe(201)
+    const postApprovalGenerate = await page.request.post(`/api/design/blueprint/${body.blueprint.id}/generate`)
+    expect(postApprovalGenerate.status()).toBe(409)
+    expect((await postApprovalGenerate.json()).error).toBe("quality_evidence_required")
   })
 
   test("keeps the AI blueprint compiler behind authentication", async ({ request }) => {
