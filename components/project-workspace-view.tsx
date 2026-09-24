@@ -51,6 +51,7 @@ import { useOsgardStore, type RefinementKind } from "@/lib/store/osgard-store"
 import { COLORS } from "@/lib/economy"
 import { useTranslation } from "@/lib/i18n/use-translation"
 import { API_BASE_URL, apiClient } from "@/lib/api-client"
+import { track } from "@/lib/analytics"
 import { useProjectGenerationStream } from "@/hooks/useProjectGenerationStream"
 import { runInWebContainer, syncFileToPreview } from "@/lib/integrations/webcontainer"
 
@@ -206,6 +207,7 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
      получает его открытым сразу после гидратации и не жмёт кнопку каждый
      раз. */
   const [codeOpen, setCodeOpen] = useState(false)
+  const previousGenerationStatus = useRef<string | null>(null)
   // SSE and status polling may both observe the same terminal generation state.
   // Keep one refresh per project so those signals converge without duplicate I/O.
   const generationRefreshRef = useRef<{ projectId: number; promise: Promise<void> } | null>(null)
@@ -234,6 +236,16 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
   }, [projectId])
 
   const isGenerating = currentProject?.status === "generating"
+
+  useEffect(() => {
+    const status = currentProject?.status
+    if (!status || previousGenerationStatus.current === status) return
+    const previous = previousGenerationStatus.current
+    previousGenerationStatus.current = status
+    track("project_generation_status", { projectId, from: previous, to: status })
+    if (status === "ready") track("project_first_preview_ready", { projectId })
+    if (status === "failed") track("project_generation_failed", { projectId })
+  }, [currentProject?.status, projectId])
 
   /* Живой лог рождения/доработки приложения. На терминальной стадии тянем
      свежий проект, файлы, ленту правок и свежий вердикт — экран оживает без релоада. */
