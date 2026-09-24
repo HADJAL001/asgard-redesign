@@ -65,6 +65,10 @@ try {
   await replayPage.getByRole("heading", { name: "browser-quality-gate" }).waitFor({ state: "visible", timeout: 5000 })
   if (!(await replayPage.getByRole("heading", { name: "Evidence ledger" }).isVisible())) throw new Error("mission replay evidence ledger is not visible")
   await replayPage.close()
+  const socialPreviewResponse = await fetch(`${base}/cofounder/replay/${blueprint.id}/opengraph-image`)
+  const socialPreviewType = socialPreviewResponse.headers.get("content-type") || ""
+  const socialPreviewBytes = (await socialPreviewResponse.arrayBuffer()).byteLength
+  if (!socialPreviewResponse.ok || !socialPreviewType.includes("image/png") || socialPreviewBytes < 1000) throw new Error(`social preview failed: ${socialPreviewResponse.status} ${socialPreviewType} ${socialPreviewBytes} bytes`)
 
   await fs.mkdir(path.dirname(screenshotPath), { recursive: true })
   await page.screenshot({ path: screenshotPath, fullPage: true, animations: "disabled" })
@@ -90,7 +94,7 @@ try {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ kind: "deploy", status: "passed", summary: `Production health returned HTTP ${healthResponse.status} in ${healthLatencyMs}ms`, source: "production-health-gate", contractHash: blueprint.contractHash }),
   })
-  console.log(JSON.stringify({ blueprintId: blueprint.id, a11y: "passed", visualDiff: "passed", deploy: "passed", replay: "passed", healthLatencyMs, developerLatencyMs, screenshot }, null, 2))
+  console.log(JSON.stringify({ blueprintId: blueprint.id, a11y: "passed", visualDiff: "passed", deploy: "passed", replay: "passed", socialPreview: "passed", healthLatencyMs, developerLatencyMs, screenshot }, null, 2))
 } finally {
   await browser.close()
 }
