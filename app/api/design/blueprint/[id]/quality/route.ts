@@ -10,7 +10,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   if (!blueprint) return NextResponse.json({ error: "blueprint_not_found" }, { status: 404 })
   const evidence = listBlueprintEvidence(id)
   const latest = new Map(evidence.map((entry) => [entry.kind, entry]))
-  const required: BlueprintEvidenceKind[] = ["security"]
+  const required: BlueprintEvidenceKind[] = ["security", "performance"]
   const missing = required.filter((kind) => latest.get(kind)?.contractHash !== blueprint.contractHash || latest.get(kind)?.status !== "passed")
   return NextResponse.json({ blueprintId: id, revision: blueprint.revision, contractHash: blueprint.contractHash, approval: blueprint.approval?.status === "approved", required, missing, readyForCodegen: missing.length === 0 && blueprint.approval?.status === "approved", evidence }, { headers: { "cache-control": "no-store" } })
 }

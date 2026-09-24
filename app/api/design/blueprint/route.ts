@@ -16,6 +16,7 @@ function text(value: unknown, max: number) {
 }
 
 export async function POST(request: NextRequest) {
+  const assemblyStartedAt = performance.now()
   const requestId = crypto.randomUUID()
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
   const now = Date.now()
@@ -58,5 +59,7 @@ export async function POST(request: NextRequest) {
   const blueprint: StoredBlueprint = { id: crypto.randomUUID(), revision: 1, app, productType, preset, contractVersion: "1.0.0", contractHash, brief, components: selected, stages: fallbackStages, generatedAt: new Date().toISOString(), arbitraryHtml: false, quality: { score: qualityScore, warnings, humanReviewRequired: qualityScore < 85 }, ...(aiPlan ? { aiPlan } : {}) }
   saveBlueprint(blueprint)
   const securityEvidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: blueprint.id, revision: blueprint.revision, contractHash, kind: "security", status: "passed", summary: "Component allowlist and arbitrary HTML guard passed", capturedAt: new Date().toISOString(), source: "blueprint-guard" })
-  return NextResponse.json({ version: "1.1.0", requestId, blueprint, evidence: [securityEvidence] }, { status: 201, headers: { ...rateHeaders, "cache-control": "no-store", "x-request-id": requestId } })
+  const assemblyDurationMs = Math.round(performance.now() - assemblyStartedAt)
+  const performanceEvidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: blueprint.id, revision: blueprint.revision, contractHash, kind: "performance", status: assemblyDurationMs <= 500 ? "passed" : "failed", summary: `Blueprint assembly completed in ${assemblyDurationMs}ms (budget: 500ms)`, capturedAt: new Date().toISOString(), source: "blueprint-runtime-budget" })
+  return NextResponse.json({ version: "1.1.0", requestId, blueprint, evidence: [securityEvidence, performanceEvidence] }, { status: 201, headers: { ...rateHeaders, "cache-control": "no-store", "x-request-id": requestId } })
 }
