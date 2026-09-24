@@ -62,6 +62,8 @@ try {
   const replayPage = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" })
   const replayResponse = await replayPage.goto(`${base}/cofounder/replay/${blueprint.id}`, { waitUntil: "domcontentloaded" })
   if (!replayResponse?.ok()) throw new Error(`mission replay returned ${replayResponse?.status() || "no response"}`)
+  const replayHtml = await (await fetch(`${base}/cofounder/replay/${blueprint.id}`)).text()
+  if (replayHtml.includes("A cinematic AI product workspace with accessible, measurable delivery proof")) throw new Error("mission replay leaked the private brief")
   await replayPage.getByRole("heading", { name: "browser-quality-gate" }).waitFor({ state: "visible", timeout: 5000 })
   if (!(await replayPage.getByRole("heading", { name: "Evidence ledger" }).isVisible())) throw new Error("mission replay evidence ledger is not visible")
   await replayPage.close()
