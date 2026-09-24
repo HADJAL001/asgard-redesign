@@ -52,7 +52,13 @@ export function CofounderConsole() {
   useEffect(() => {
     if (!generationTask) return
     let cancelled = false
+    let pollTimer: number | undefined
+    const schedulePoll = (delayMs: number) => {
+      if (cancelled) return
+      pollTimer = window.setTimeout(() => void poll(), delayMs)
+    }
     const poll = async () => {
+      if (cancelled) return
       let response: Response
       try {
         response = await fetch(`/api/task/${encodeURIComponent(generationTask)}`, { credentials: "include", cache: "no-store" })
@@ -68,14 +74,15 @@ export function CofounderConsole() {
           track("blueprint_codegen_failed", { taskId: generationTask, status: "poll_error", attempts: generationPollFailures.current })
           return
         }
-        window.setTimeout(() => void poll(), 1500 * generationPollFailures.current)
+        schedulePoll(1500 * generationPollFailures.current)
         return
       }
       const status = await response.json().catch(() => null) as GenerationStatus | null
-      if (!status || cancelled) {
+      if (cancelled) return
+      if (!status) {
         generationPollFailures.current += 1
         if (generationPollFailures.current >= 3) setGenerationStatus({ status: "failed", progress: 0, error: "Сервер вернул неполный статус codegen." })
-        else window.setTimeout(() => void poll(), 1500 * generationPollFailures.current)
+        else schedulePoll(1500 * generationPollFailures.current)
         return
       }
       generationPollFailures.current = 0
@@ -86,10 +93,13 @@ export function CofounderConsole() {
         track(status.status === "completed" ? "blueprint_codegen_completed" : status.status === "failed" ? "blueprint_codegen_failed" : "blueprint_codegen_progress", { taskId: generationTask, status: status.status, progress: Math.round(status.progress || 0), step: status.currentStep })
       }
       if (status.status === "completed" || status.status === "failed" || status.status === "cancelled") return
-      window.setTimeout(() => void poll(), 2500)
+      schedulePoll(2500)
     }
     void poll()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      if (pollTimer !== undefined) window.clearTimeout(pollTimer)
+    }
   }, [generationTask])
 
   if (!hydrated) return <CofounderLoadingShell />
