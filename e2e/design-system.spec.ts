@@ -25,6 +25,15 @@ test.describe("OSGARD design system", () => {
     expect(body.componentRegistry.map((item: { id: string }) => item.id)).toEqual(expect.arrayContaining(["app-shell", "preview-frame", "cinematic-sequence"]))
     expect(body.cinematic.scenes).toEqual(["intent", "architecture", "build", "preview", "approval"])
     expect(body.guardrails).toMatchObject({ contrast: "WCAG-AA", allowArbitraryHtml: false })
+    expect(body.guardrails.maxClientJsKb).toBeLessThanOrEqual(180)
+    expect(body.componentRegistry.find((item: { id: string }) => item.id === "form-wizard").required).toContain("error-summary")
+  })
+
+  test("normalizes client profile identifiers", async ({ request }) => {
+    const response = await request.get("/api/design/manifest?app=Client%20Portal%2Fv2")
+    expect(response.ok()).toBeTruthy()
+    const body = await response.json()
+    expect(body.profile.app).toBe("client-portal-v2")
   })
 
   test("cofounder renders hull workspace with keyboard-visible controls", async ({ page }) => {
