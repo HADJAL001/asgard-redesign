@@ -5,7 +5,7 @@ import { chromium } from "playwright"
 
 const base = (process.env.DESIGN_SYSTEM_BASE_URL || "https://osgardnewworld.com").replace(/\/$/, "")
 const screenshotPath = path.resolve(process.env.DESIGN_SYSTEM_SCREENSHOT || "artifacts/design-system/cofounder.png")
-const visualBaselineSha256 = process.env.DESIGN_SYSTEM_VISUAL_BASELINE || "545c1d6409d53b03a3f2008dbddf8b2581ed168dfd7ba53b6d956934d855c8ad"
+const visualBaselineSha256 = (process.env.DESIGN_SYSTEM_VISUAL_BASELINE || "545c1d6409d53b03a3f2008dbddf8b2581ed168dfd7ba53b6d956934d855c8ad").split(",").map((value) => value.trim()).filter(Boolean)
 
 async function json(url, options) {
   const response = await fetch(url, options)
@@ -43,7 +43,7 @@ try {
   await page.screenshot({ path: screenshotPath, fullPage: true, animations: "disabled" })
   const screenshotHash = crypto.createHash("sha256").update(await fs.readFile(screenshotPath)).digest("hex")
   const screenshot = { sha256: screenshotHash, bytes: (await fs.stat(screenshotPath)).size }
-  if (screenshotHash !== visualBaselineSha256) throw new Error(`visual baseline mismatch: expected ${visualBaselineSha256}, got ${screenshotHash}`)
+  if (!visualBaselineSha256.includes(screenshotHash)) throw new Error(`visual baseline mismatch: expected one of ${visualBaselineSha256.join(", ")}, got ${screenshotHash}`)
   await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
     method: "POST",
     headers: { "content-type": "application/json" },

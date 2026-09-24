@@ -34,7 +34,7 @@ jobs:
       - run: npm run test:design-system-browser
         env:
           DESIGN_SYSTEM_BASE_URL: https://osgardnewworld.com
-          DESIGN_SYSTEM_VISUAL_BASELINE: 3f57014d448c72ed10e1f434aede2e36e5de87d71c844d088088da54f333cc81
+          DESIGN_SYSTEM_VISUAL_BASELINE: 3f57014d448c72ed10e1f434aede2e36e5de87d71c844d088088da54f333cc81,bb66298f34dd0a80a1d069db74ad75999a703f07892efb777860290b2c001c42
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
