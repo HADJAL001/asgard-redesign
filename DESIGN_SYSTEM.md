@@ -8,6 +8,7 @@ The isolated `/cofounder` command deck is the reference surface for the platform
 - Universal manifest: `GET /api/design/manifest?app=<client-id>&preset=<preset>` returns the component registry, layout contract, cinematic scenes, and accessibility/performance guardrails.
 - Blueprint compiler: `POST /api/design/blueprint` accepts a bounded client brief and returns a component-only blueprint with the cinematic delivery stages. Unknown components and arbitrary HTML are discarded.
   The response also includes a quality score, warnings, and `humanReviewRequired`; low-confidence blueprints must not be auto-published.
+  Every blueprint carries an immutable `id` and `revision` to support preview comparison and rollback workflows.
   Requests are bounded to 30 per minute per forwarded client IP, capped at 32 KB, and return an `x-request-id` for support tracing.
 - Tenant branding: `GET /api/design/tenant` (host allowlisted to `osgardnewworld.com`)
 - Themes and presets are applied by `DesignSystemProvider` and persisted locally for the current browser.

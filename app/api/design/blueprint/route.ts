@@ -42,5 +42,6 @@ export async function POST(request: NextRequest) {
     !selected.includes("cinematic-sequence") ? "cinematic_sequence_optional" : null,
   ].filter((value): value is string => Boolean(value))
   const qualityScore = Math.max(0, 100 - warnings.length * 15 - (brief.length < 80 ? 10 : 0))
-  return NextResponse.json({ version: "1.1.0", requestId, blueprint: { app, preset, brief, components: selected, stages: fallbackStages, generatedAt: new Date().toISOString(), arbitraryHtml: false, quality: { score: qualityScore, warnings, humanReviewRequired: qualityScore < 85 } } }, { status: 201, headers: { "cache-control": "no-store", "x-request-id": requestId } })
+  const blueprintId = crypto.randomUUID()
+  return NextResponse.json({ version: "1.1.0", requestId, blueprint: { id: blueprintId, revision: 1, app, preset, brief, components: selected, stages: fallbackStages, generatedAt: new Date().toISOString(), arbitraryHtml: false, quality: { score: qualityScore, warnings, humanReviewRequired: qualityScore < 85 } } }, { status: 201, headers: { "cache-control": "no-store", "x-request-id": requestId } })
 }
