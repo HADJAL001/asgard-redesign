@@ -18,6 +18,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useEffect, useState } from "react"
 import { Sparkles, Bot, Rocket, Code2, Brain, type LucideIcon } from "lucide-react"
 
 type DevSection = {
@@ -51,9 +52,22 @@ function isActive(pathname: string, href: string): boolean {
 
 export function DevRail() {
   const pathname = usePathname() || "/dev"
+  const [hidden, setHidden] = useState(false)
+
+  useEffect(() => {
+    let lastY = window.scrollY
+    const onScroll = () => {
+      const y = window.scrollY
+      if (y < 24) setHidden(false)
+      else if (Math.abs(y - lastY) >= 8) setHidden(y > lastY)
+      lastY = y
+    }
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
 
   return (
-    <nav className="dev-rail" aria-label="Разделы студии разработчика">
+    <nav className={`dev-rail${hidden ? " dev-rail--hidden" : ""}`} aria-label="Разделы студии разработчика">
       {DEV_SECTIONS.map(({ href, label, Icon, hint }) => {
         const active = isActive(pathname, href)
         return (
