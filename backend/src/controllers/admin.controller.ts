@@ -508,6 +508,42 @@ export class AdminController {
     }
   }
 
+  // ===== GET /admin/analytics/web-vitals?days= =====
+  // Возвращаем только агрегаты: сырые browser-события не покидают админский контур.
+  static async webVitals(req: AuthRequest, res: Response) {
+    try {
+      const days = Math.min(90, Math.max(1, parseInt(String(req.query.days ?? "30"), 10) || 30))
+      const sinceMs = Date.now() - days * 86400000
+      const rows = db.prepare(
+        `SELECT meta FROM analytics_events WHERE event_name = 'web_vital' AND created_at >= ? ORDER BY created_at DESC LIMIT 100000`,
+      ).all(sinceMs) as Array<{ meta: string | null }>
+      const values: Record<string, number[]> = { LCP: [], CLS: [], INP: [], FCP: [], TTFB: [] }
+      for (const row of rows) {
+        try {
+          const meta = row.meta ? JSON.parse(row.meta) as { name?: unknown; value?: unknown } : null
+          const name = typeof meta?.name === "string" ? meta.name.toUpperCase() : ""
+          const value = typeof meta?.value === "number" ? meta.value : Number(meta?.value)
+          if (name in values && Number.isFinite(value) && value >= 0) values[name].push(value)
+        } catch {
+          // Ignore malformed legacy events; ingestion validates new payloads.
+        }
+      }
+      const percentile = (sample: number[], p: number) => {
+        if (!sample.length) return null
+        const sorted = [...sample].sort((a, b) => a - b)
+        return sorted[Math.min(sorted.length - 1, Math.ceil(p * sorted.length) - 1)]
+      }
+      const metrics = Object.fromEntries(Object.entries(values).map(([name, sample]) => [name, {
+        count: sample.length,
+        p75: percentile(sample, 0.75),
+      }]))
+      res.json({ days, totalSamples: Object.values(values).reduce((sum, sample) => sum + sample.length, 0), metrics })
+    } catch (error) {
+      captureError("Admin web vitals analytics error:", error)
+      res.status(500).json({ error: "Internal server error" })
+    }
+  }
+
   // ===== GET /admin/analytics/growth?days= =====
   // Дашборд серверной петли роста поверх событий, которые пишет lib/analytics.ts
   // (register/login/demo_convert/artifact_share_view, см. #46). Это НАДЁЖНЫЕ

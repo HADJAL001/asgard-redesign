@@ -129,6 +129,7 @@ type AdminGenerationBudget = {
   >
 }
 type AdminBlueprintAnalytics = { days: number; started: number; completed: number; failed: number; successRate: number; rollbackStarted: number; rollbackCompleted: number; rollbackFailed: number; rollbackSuccessRate: number }
+type AdminWebVitals = { days: number; totalSamples: number; metrics: Record<"LCP" | "CLS" | "INP" | "FCP" | "TTFB", { count: number; p75: number | null }> }
 type AlphaRelease = { version: string; notes: string; publishedAt: number }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -191,6 +192,7 @@ export function AdminView() {
   const [paywallFunnel, setPaywallFunnel] = useState<AdminPaywallFunnel | null>(null)
   const [generationBudget, setGenerationBudget] = useState<AdminGenerationBudget | null>(null)
   const [blueprintAnalytics, setBlueprintAnalytics] = useState<AdminBlueprintAnalytics | null>(null)
+  const [webVitals, setWebVitals] = useState<AdminWebVitals | null>(null)
   const [loadingAnalytics, setLoadingAnalytics] = useState(false)
 
   const [grantingUserId, setGrantingUserId] = useState<number | null>(null)
@@ -303,7 +305,7 @@ export function AdminView() {
   const loadAnalytics = useCallback(async () => {
     setLoadingAnalytics(true)
     try {
-      const [funnelData, retentionData, paywallFunnelData, generationBudgetData, blueprintData] = await Promise.all([
+      const [funnelData, retentionData, paywallFunnelData, generationBudgetData, blueprintData, webVitalsData] = await Promise.all([
         apiClient.get<{ funnel: AdminFunnel }>("/admin/analytics/funnel?days=30", { skipAuthRedirect: true }),
         apiClient.get<{ retention: AdminRetentionRow[] }>("/admin/analytics/retention?days=30", {
           skipAuthRedirect: true,
@@ -315,18 +317,21 @@ export function AdminView() {
           skipAuthRedirect: true,
         }),
         apiClient.get<{ blueprint: AdminBlueprintAnalytics }>("/admin/analytics/blueprint?days=30", { skipAuthRedirect: true }),
+        apiClient.get<AdminWebVitals>("/admin/analytics/web-vitals?days=30", { skipAuthRedirect: true }),
       ])
       setFunnel(funnelData.funnel)
       setRetention(retentionData.retention)
       setPaywallFunnel(paywallFunnelData.funnel)
       setGenerationBudget(generationBudgetData)
       setBlueprintAnalytics(blueprintData.blueprint)
+      setWebVitals(webVitalsData)
     } catch {
       setFunnel(null)
       setRetention([])
       setPaywallFunnel(null)
       setGenerationBudget(null)
       setBlueprintAnalytics(null)
+      setWebVitals(null)
     } finally {
       setLoadingAnalytics(false)
     }
@@ -810,6 +815,21 @@ export function AdminView() {
             <Card>
               <SectionTitle Icon={Sparkles}>Blueprint / cinematic delivery за 30 дней</SectionTitle>
               {loadingAnalytics ? <div className="py-4 text-[13px]" style={{ color: LABEL }}>Загрузка...</div> : !blueprintAnalytics ? <div className="py-4 text-[13px]" style={{ color: LABEL }}>Нет данных</div> : <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">{[["Запущено", blueprintAnalytics.started], ["Успешно", `${blueprintAnalytics.completed} · ${(blueprintAnalytics.successRate * 100).toFixed(1)}%`], ["Ошибки", blueprintAnalytics.failed], ["Rollback success", `${blueprintAnalytics.rollbackCompleted} · ${(blueprintAnalytics.rollbackSuccessRate * 100).toFixed(1)}%`]].map(([label, value]) => <div key={String(label)}><div className="text-[24px] font-medium leading-none">{value}</div><div className="mt-2 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>{label}</div></div>)}</div>}
+            </Card>
+            <Card>
+              <SectionTitle Icon={ActivityIcon}>Web Vitals · p75 за 30 дней</SectionTitle>
+              {loadingAnalytics ? <div className="py-4 text-[13px]" style={{ color: LABEL }}>Загрузка...</div> : !webVitals ? <div className="py-4 text-[13px]" style={{ color: LABEL }}>Нет данных</div> : <>
+                <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+                  {(["LCP", "CLS", "INP", "FCP", "TTFB"] as const).map((name) => {
+                    const metric = webVitals.metrics[name]
+                    const value = metric?.p75
+                    const suffix = name === "CLS" ? "" : " ms"
+                    const good = value !== null && value !== undefined && (name === "LCP" ? value <= 2500 : name === "INP" ? value <= 200 : name === "CLS" ? value <= 0.1 : value <= 1800)
+                    return <div key={name}><div className="text-[22px] font-medium leading-none" style={{ color: value == null ? "rgba(255,255,255,0.5)" : good ? "#8ee6b0" : "#f4bc5a" }}>{value == null ? "—" : `${value.toFixed(name === "CLS" ? 3 : 0)}${suffix}`}</div><div className="mt-2 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>{name} · {metric?.count ?? 0} замеров</div></div>
+                  })}
+                </div>
+                <div className="mt-4 text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>Всего замеров: {new Intl.NumberFormat("ru-RU").format(webVitals.totalSamples)} · пороги Google CrUX</div>
+              </>}
             </Card>
             <Card>
               <SectionTitle Icon={Gauge}>Расход AI на генерацию приложений</SectionTitle>

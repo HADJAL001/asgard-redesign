@@ -29,6 +29,7 @@ router.get("/analytics/guest-funnel", AdminController.guestFunnel)
 router.get("/analytics/guest-hygiene", AdminController.guestHygiene)
 router.get("/analytics/generation-budget", AdminController.generationBudget)
 router.get("/analytics/blueprint", AdminController.blueprint)
+router.get("/analytics/web-vitals", AdminController.webVitals)
 router.get("/secret-room/alpha-release", (_req, res) => {
   res.json({ release: getAlphaRelease() })
 })
