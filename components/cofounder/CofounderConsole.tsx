@@ -8,18 +8,25 @@ import { PresetSwitcher } from "@/components/design-system/PresetSwitcher"
 import { CinematicSequence } from "@/components/design-system/CinematicSequence"
 import { track } from "@/lib/analytics"
 
+type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; createdAt: string }
+
 export function CofounderConsole() {
   const [open, setOpen] = useState(false)
   const [contractName, setContractName] = useState("")
   const [brief, setBrief] = useState("")
   const [submitting, setSubmitting] = useState(false)
-  const [compileResult, setCompileResult] = useState<{ score: number; review: boolean; warnings: string[] } | null>(null)
+  const [compileResult, setCompileResult] = useState<CompileResult | null>(null)
+  const [history, setHistory] = useState<CompileResult[]>([])
   const [compileError, setCompileError] = useState<string | null>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
     if (open) dialogRef.current?.querySelector<HTMLInputElement>("input")?.focus()
   }, [open])
+
+  useEffect(() => {
+    try { setHistory(JSON.parse(localStorage.getItem("osgard-blueprint-history") || "[]")) } catch { setHistory([]) }
+  }, [])
 
   async function submitContract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -32,7 +39,9 @@ export function CofounderConsole() {
       const response = await fetch("/api/design/blueprint", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app: contractName, brief, preset: "futuristic" }) })
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.blueprint?.quality) throw new Error("Не удалось собрать blueprint")
-      setCompileResult({ score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings })
+      const result: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, createdAt: data.blueprint.generatedAt }
+      setCompileResult(result)
+      setHistory((previous) => { const next = [result, ...previous.filter((item) => item.id !== result.id)].slice(0, 5); localStorage.setItem("osgard-blueprint-history", JSON.stringify(next)); return next })
       track("blueprint_compile_completed", { source: "cofounder", blueprintId: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, humanReviewRequired: data.blueprint.quality.humanReviewRequired, durationMs: Math.round(performance.now() - startedAt) })
     } catch (error) {
       setCompileError(error instanceof Error ? error.message : "Не удалось собрать blueprint")
@@ -73,6 +82,7 @@ export function CofounderConsole() {
           <p className="ds-dialog-live" role="status" aria-live="polite" aria-atomic="true">{submitting ? "Собираем blueprint…" : compileResult ? "Blueprint готов к проверке." : ""}</p>
           {compileError ? <p role="alert" className="ds-dialog-error">{compileError}</p> : null}
           {compileResult ? <div className="ds-dialog-result" role="status"><strong>Blueprint готов: {compileResult.score}/100</strong><span>{compileResult.review ? "Нужна ручная проверка перед публикацией." : "Можно переходить к preview."}</span>{compileResult.warnings.length ? <small>{compileResult.warnings.length} предупреждения требуют внимания</small> : null}</div> : null}
+          {history.length > 1 ? <div className="ds-dialog-history" aria-label="История blueprint"><span className="ds-utility">ПРОШЛЫЕ ВЕРСИИ</span>{history.slice(0, 3).map((item) => <button key={item.id} type="button" onClick={() => { setCompileResult(item); setContractName(item.app); setBrief(item.brief) }} aria-label={`Открыть blueprint ${item.app}`}>{item.app} · {item.score}/100</button>)}</div> : null}
           <div className="ds-dialog-actions">
             <button type="button" className="ds-dialog-secondary" onClick={() => setOpen(false)}>Отмена</button>
             <button type="submit" className="ds-dialog-primary" disabled={submitting}><FilePlus2 size={16} /> {submitting ? "Собираем…" : "Создать план"}</button>
