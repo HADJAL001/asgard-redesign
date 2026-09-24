@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getBlueprint, latestBlueprintEvidence } from "@/lib/blueprint-store"
+import { getBlueprint, listBlueprintEvidence, type BlueprintEvidenceKind } from "@/lib/blueprint-store"
 
 const BACKEND_URL = (process.env.BACKEND_URL || "").replace(/\/$/, "")
 
@@ -13,10 +13,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const blueprint = getBlueprint(id)
   if (!blueprint) return NextResponse.json({ error: "blueprint_not_found" }, { status: 404 })
   if (blueprint.approval?.status !== "approved") return NextResponse.json({ error: "blueprint_approval_required" }, { status: 409 })
-  const securityEvidence = latestBlueprintEvidence(id, "security")
-  const performanceEvidence = latestBlueprintEvidence(id, "performance")
-  if (!securityEvidence || securityEvidence.contractHash !== blueprint.contractHash || securityEvidence.status !== "passed") return NextResponse.json({ error: "security_evidence_required" }, { status: 409 })
-  if (!performanceEvidence || performanceEvidence.contractHash !== blueprint.contractHash || performanceEvidence.status !== "passed") return NextResponse.json({ error: "performance_evidence_required" }, { status: 409 })
+  const required: BlueprintEvidenceKind[] = ["security", "performance", "a11y", "visual-diff", "deploy"]
+  const latest = new Map(listBlueprintEvidence(id).map((entry) => [entry.kind, entry]))
+  const missing = required.filter((kind) => latest.get(kind)?.contractHash !== blueprint.contractHash || latest.get(kind)?.status !== "passed")
+  if (missing.length) return NextResponse.json({ error: "quality_evidence_required", missing }, { status: 409 })
   if (!BACKEND_URL) return NextResponse.json({ error: "backend_unavailable" }, { status: 503 })
   const response = await fetch(`${BACKEND_URL}/generate-project`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${access}` }, body: JSON.stringify({ name: blueprint.app, description: `${blueprint.brief}\n\nApproved design components: ${blueprint.components.join(", ")}.` }), signal: AbortSignal.timeout(15_000) }).catch(() => null)
   if (!response) return NextResponse.json({ error: "backend_unavailable" }, { status: 503 })
