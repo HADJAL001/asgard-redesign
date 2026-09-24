@@ -59,6 +59,11 @@ test.describe("OSGARD design system", () => {
     expect(response.status()).toBe(415)
   })
 
+  test("rejects oversized blueprint payloads", async ({ request }) => {
+    const response = await request.post("/api/design/blueprint", { data: { brief: "x".repeat(33_000) } })
+    expect(response.status()).toBe(413)
+  })
+
   test("cofounder renders hull workspace with keyboard-visible controls", async ({ page }) => {
     await page.goto("/cofounder")
     await expect(page.getByRole("heading", { name: "AI Cofounder" })).toBeVisible()

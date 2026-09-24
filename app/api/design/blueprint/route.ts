@@ -25,9 +25,9 @@ export async function POST(request: NextRequest) {
   }
   if (current.count > MAX_REQUESTS) return NextResponse.json({ error: "rate_limited", requestId, retryAfterSeconds: Math.ceil((current.startedAt + WINDOW_MS - now) / 1000) }, { status: 429, headers: { "retry-after": String(Math.ceil((current.startedAt + WINDOW_MS - now) / 1000)), "x-request-id": requestId } })
   if (request.headers.get("content-type")?.includes("application/json") !== true) return NextResponse.json({ error: "json_required" }, { status: 415 })
-  const contentLength = Number(request.headers.get("content-length") || 0)
-  if (contentLength > 32_000) return NextResponse.json({ error: "brief_payload_too_large", maxBytes: 32_000 }, { status: 413 })
-  const body = await request.json().catch(() => ({})) as BlueprintInput
+  const rawBody = await request.text()
+  if (new TextEncoder().encode(rawBody).byteLength > 32_000) return NextResponse.json({ error: "brief_payload_too_large", maxBytes: 32_000, requestId }, { status: 413, headers: { "x-request-id": requestId } })
+  const body = (() => { try { return JSON.parse(rawBody) as BlueprintInput } catch { return {} } })()
   const brief = text(body.brief, 1200)
   if (brief.length < 12) return NextResponse.json({ error: "brief_too_short", minimumCharacters: 12, requestId }, { status: 400, headers: { "x-request-id": requestId } })
   const app = text(body.app, 64).toLowerCase().replace(/[^a-z0-9-_]/g, "-") || "universal"
