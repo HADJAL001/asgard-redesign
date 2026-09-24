@@ -411,11 +411,13 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
      building/repairing вместо немого спиннера. Терминал стадии вернёт вердикт. */
   const handleRepair = useCallback(async () => {
     if (repairing || isGenerating) return
+    track("project_repair_started", { projectId, hasFiles: currentProjectFiles.length > 0 })
     setRepairing(true)
     setRepairNotice(null)
     try {
       const res = await repairProject(projectId)
       if (res.success) {
+        track("project_repair_completed", { projectId })
         setShowReport(true)
         /* Ждём завершения контура опросом статуса, а НЕ только терминальной стадией SSE.
            Причина — реальная гонка, пойманная на живом стенде: механический ремонт без AI
@@ -433,15 +435,21 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     } finally {
       setRepairing(false)
     }
-  }, [fetchProjectEngineering, isGenerating, pollProjectStatus, projectId, repairProject, repairing, t])
+  }, [currentProjectFiles.length, fetchProjectEngineering, isGenerating, pollProjectStatus, projectId, repairProject, repairing, t])
 
   const handleRetryGeneration = useCallback(async () => {
     if (retryingGeneration || isGenerating) return
+    track("project_generation_retry_started", { projectId })
     setRetryingGeneration(true)
     setRepairNotice(null)
     try {
       const res = await retryFailedProject(projectId)
-      if (!res.success) setRepairNotice(res.error || t("workspace.retryFailed"))
+      if (!res.success) {
+        track("project_generation_retry_failed", { projectId })
+        setRepairNotice(res.error || t("workspace.retryFailed"))
+      } else {
+        track("project_generation_retry_accepted", { projectId })
+      }
     } finally {
       setRetryingGeneration(false)
     }
@@ -1193,7 +1201,15 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
         {currentProject.status === "failed" && currentProject.generationError && (
           <div className="mt-3 flex flex-wrap items-start gap-3 rounded-xl px-4 py-3" style={{ backgroundColor: "rgba(248,113,113,0.06)", border: `1px solid ${COLORS.red}` }}>
             <AlertTriangle size={16} style={{ color: COLORS.red, flexShrink: 0, marginTop: 2 }} />
-            <p className="min-w-0 flex-1 whitespace-pre-wrap text-[12.5px]">{currentProject.generationError}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-[12px] font-medium" style={{ color: COLORS.text }}>Генерация остановилась, но ваша идея сохранена.</p>
+              <p className="mt-1 whitespace-pre-wrap text-[12.5px]">{currentProject.generationError}</p>
+              <p className="mt-1 text-[11.5px]" style={{ color: COLORS.label }}>
+                {currentProjectFiles.length === 0
+                  ? "Повторный запуск продолжит с тем же описанием."
+                  : "Существующие файлы останутся на месте; можно запустить ремонт."}
+              </p>
+            </div>
             <button
               type="button"
               onClick={currentProjectFiles.length === 0 ? handleRetryGeneration : handleRepair}
