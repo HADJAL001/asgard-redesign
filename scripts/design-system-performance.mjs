@@ -8,3 +8,8 @@ for (const route of routes) {
   console.log(JSON.stringify({ route, status: response.status, latencyMs, bytes: body.byteLength }))
   if (!response.ok || latencyMs > 2500) process.exitCode = 1
 }
+const started = performance.now()
+const blueprint = await fetch(`${base}/api/design/blueprint`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app: "performance-check", brief: "A production performance probe for the universal client portal preview flow." }) })
+const latencyMs = Math.round(performance.now() - started)
+console.log(JSON.stringify({ route: "/api/design/blueprint [POST]", status: blueprint.status, latencyMs }))
+if (blueprint.status !== 201 || latencyMs > 2500) process.exitCode = 1
