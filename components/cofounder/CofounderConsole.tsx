@@ -16,17 +16,17 @@ export function CofounderConsole() {
   const [brief, setBrief] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null)
-  const [history, setHistory] = useState<CompileResult[]>([])
+  const [history, setHistory] = useState<CompileResult[]>(() => {
+    if (typeof window === "undefined") return []
+    try { return JSON.parse(localStorage.getItem("osgard-blueprint-history") || "[]") as CompileResult[] } catch { return [] }
+  })
   const [compileError, setCompileError] = useState<string | null>(null)
+  const [rollingBack, setRollingBack] = useState<number | null>(null)
   const dialogRef = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
     if (open) dialogRef.current?.querySelector<HTMLInputElement>("input")?.focus()
   }, [open])
-
-  useEffect(() => {
-    try { setHistory(JSON.parse(localStorage.getItem("osgard-blueprint-history") || "[]")) } catch { setHistory([]) }
-  }, [])
 
   async function submitContract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -48,6 +48,26 @@ export function CofounderConsole() {
       track("blueprint_compile_failed", { source: "cofounder", durationMs: Math.round(performance.now() - startedAt) })
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function rollbackBlueprint(item: CompileResult) {
+    setRollingBack(item.revision)
+    setCompileError(null)
+    try {
+      const response = await fetch(`/api/design/blueprint/${item.id}/rollback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ revision: item.revision }) })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.blueprint) throw new Error("Не удалось восстановить revision")
+      const restored: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, createdAt: data.blueprint.generatedAt }
+      setCompileResult(restored)
+      setContractName(restored.app)
+      setBrief(restored.brief)
+      setHistory((previous) => { const next = [restored, ...previous.filter((entry) => entry.id !== restored.id || entry.revision !== restored.revision)].slice(0, 5); localStorage.setItem("osgard-blueprint-history", JSON.stringify(next)); return next })
+      track("blueprint_compile_completed", { source: "cofounder_rollback", blueprintId: restored.id, revision: restored.revision, score: restored.score })
+    } catch (error) {
+      setCompileError(error instanceof Error ? error.message : "Не удалось восстановить revision")
+    } finally {
+      setRollingBack(null)
     }
   }
 
@@ -83,6 +103,7 @@ export function CofounderConsole() {
           {compileError ? <p role="alert" className="ds-dialog-error">{compileError}</p> : null}
           {compileResult ? <div className="ds-dialog-result" role="status"><strong>Blueprint готов: {compileResult.score}/100</strong><span>{compileResult.review ? "Нужна ручная проверка перед публикацией." : "Можно переходить к preview."}</span>{compileResult.warnings.length ? <small>{compileResult.warnings.length} предупреждения требуют внимания</small> : null}</div> : null}
           {history.length > 1 ? <div className="ds-dialog-history" aria-label="История blueprint"><span className="ds-utility">ПРОШЛЫЕ ВЕРСИИ</span>{history.slice(0, 3).map((item) => <button key={item.id} type="button" onClick={() => { setCompileResult(item); setContractName(item.app); setBrief(item.brief) }} aria-label={`Открыть blueprint ${item.app}`}>{item.app} · {item.score}/100</button>)}</div> : null}
+          {compileResult ? <button type="button" className="ds-dialog-secondary" onClick={() => rollbackBlueprint(compileResult)} disabled={rollingBack !== null}>{rollingBack === compileResult.revision ? "Восстанавливаем…" : `Восстановить revision ${compileResult.revision}`}</button> : null}
           <div className="ds-dialog-actions">
             <button type="button" className="ds-dialog-secondary" onClick={() => setOpen(false)}>Отмена</button>
             <button type="submit" className="ds-dialog-primary" disabled={submitting}><FilePlus2 size={16} /> {submitting ? "Собираем…" : "Создать план"}</button>
