@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic"
 export async function generateMetadata({ params }: ReplayPageProps) {
   const { id } = await params
   const blueprint = getBlueprint(id)
-  return { title: blueprint ? `${blueprint.app} / OSGARD Mission Replay` : "OSGARD Mission Replay", description: "A verified product blueprint replay from OSGARD AI Cofounder." }
+  const title = blueprint ? `${blueprint.app} / OSGARD Mission Replay` : "OSGARD Mission Replay"
+  return { title, description: "A verified product blueprint replay from OSGARD AI Cofounder.", openGraph: { title, description: "A verified product blueprint replay from OSGARD AI Cofounder.", type: "website", images: [`/cofounder/replay/${id}/opengraph-image`] } }
 }
 
 export default async function ReplayPage({ params, searchParams }: ReplayPageProps) {
