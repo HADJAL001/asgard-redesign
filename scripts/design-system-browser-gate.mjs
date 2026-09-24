@@ -40,9 +40,14 @@ try {
   if (!focused) throw new Error("keyboard focus indicator is not visible")
 
   const devPage = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" })
-  await devPage.goto(`${base}/dev`, { waitUntil: "networkidle" })
-  if (!(await devPage.getByRole("link", { name: /AI Cofounder/ }).isVisible())) throw new Error("developer mode Cofounder link is not visible")
+  const devStarted = performance.now()
+  const devResponse = await devPage.goto(`${base}/dev`, { waitUntil: "domcontentloaded" })
+  const developerLatencyMs = Math.round(performance.now() - devStarted)
+  if (!devResponse?.ok() || developerLatencyMs > 2500) throw new Error(`developer mode response budget failed: ${devResponse?.status() || "no response"} in ${developerLatencyMs}ms`)
+  const devCofounderLink = devPage.getByRole("link", { name: /AI Cofounder/ })
+  await devCofounderLink.waitFor({ state: "visible", timeout: 5000 })
   const runtimePulse = devPage.locator('[role="status"][aria-label^="Runtime"]')
+  await runtimePulse.waitFor({ state: "visible", timeout: 5000 })
   if (!(await runtimePulse.isVisible())) throw new Error("developer mode runtime pulse is not visible")
   await devPage.keyboard.press("Tab")
   const devFocused = await devPage.evaluate(() => {
@@ -78,7 +83,7 @@ try {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ kind: "deploy", status: "passed", summary: `Production health returned HTTP ${healthResponse.status} in ${healthLatencyMs}ms`, source: "production-health-gate", contractHash: blueprint.contractHash }),
   })
-  console.log(JSON.stringify({ blueprintId: blueprint.id, a11y: "passed", visualDiff: "passed", deploy: "passed", healthLatencyMs, screenshot }, null, 2))
+  console.log(JSON.stringify({ blueprintId: blueprint.id, a11y: "passed", visualDiff: "passed", deploy: "passed", healthLatencyMs, developerLatencyMs, screenshot }, null, 2))
 } finally {
   await browser.close()
 }
