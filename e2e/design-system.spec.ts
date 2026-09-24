@@ -74,6 +74,17 @@ test.describe("OSGARD design system", () => {
     expect(rollbackBody.blueprint.brief).toBe(created.blueprint.brief)
   })
 
+  test("exposes a safe render plan for live preview", async ({ request }) => {
+    const response = await request.post("/api/design/blueprint", { data: { app: "preview-check", brief: "A review workspace with a reliable preview and approval flow.", components: ["hero", "preview-frame"] } })
+    const created = await response.json()
+    const preview = await request.get(`/api/design/blueprint/${created.blueprint.id}/preview`)
+    expect(preview.status()).toBe(200)
+    const body = await preview.json()
+    expect(body.renderPlan.arbitraryHtml).toBe(false)
+    expect(body.renderPlan.layout).toBe("hull-fluid")
+    expect(body.renderPlan.slots.map((slot: { component: string }) => slot.component)).toEqual(["hero", "preview-frame"])
+  })
+
   test("keeps the AI blueprint compiler behind authentication", async ({ request }) => {
     const response = await request.post("/api/design/blueprint/compile", { data: { brief: "A secure workspace for reviewing a generated product." } })
     expect(response.status()).toBe(401)
