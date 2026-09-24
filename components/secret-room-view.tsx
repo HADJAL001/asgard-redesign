@@ -84,7 +84,7 @@ export function SecretRoomView() {
       try {
         const [r, alpha] = await Promise.all([
           apiClient.get<any>("/secret-room", { skipAuthRedirect: true }),
-          apiClient.get<AlphaAccess>("/secret-room/alpha-access", { skipAuthRedirect: true }),
+          apiClient.get<AlphaAccess>("/secret-room/alpha-access", { skipAuthRedirect: true }).catch(() => ({ entitled: false, member: false, release: null })),
         ])
         if (cancelled) return
         setAlphaAccess(alpha)
