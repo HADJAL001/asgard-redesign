@@ -243,7 +243,20 @@ export function ProjectWorkspaceView({ projectId }: { projectId: number }) {
     const previous = previousGenerationStatus.current
     previousGenerationStatus.current = status
     track("project_generation_status", { projectId, from: previous, to: status })
-    if (status === "ready") track("project_first_preview_ready", { projectId })
+    if (status === "ready") {
+      let durationMs: number | undefined
+      try {
+        const key = `osgard_project_${projectId}_intent_at`
+        const startedAt = Number(window.localStorage.getItem(key))
+        if (Number.isFinite(startedAt) && startedAt > 0) {
+          durationMs = Math.max(0, Date.now() - startedAt)
+          window.localStorage.removeItem(key)
+        }
+      } catch {
+        /* telemetry must not interrupt a ready workspace */
+      }
+      track("project_first_preview_ready", { projectId, durationMs })
+    }
     if (status === "failed") track("project_generation_failed", { projectId })
   }, [currentProject?.status, projectId])
 

@@ -572,6 +572,7 @@ export function DevStudioView() {
               const startedAt = Number(window.localStorage.getItem("osgard_first_product_intent_at"))
               if (Number.isFinite(startedAt) && startedAt > 0) {
                 durationMs = Math.max(0, Date.now() - startedAt)
+                window.localStorage.setItem(`osgard_project_${projectId}_intent_at`, String(startedAt))
                 window.localStorage.removeItem("osgard_first_product_intent_at")
               }
             } catch {
