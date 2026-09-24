@@ -101,6 +101,7 @@ export function DevStudioView() {
   const broadcastSessionRef = useRef<string | null>(null)
   const broadcastTicketRef = useRef<string | null>(null)
   const canCreateProject = idea.trim().length > 0
+  const authRequired = Boolean(error && /авториза|unauthoriz|401/i.test(error))
 
   useEffect(() => {
     apiClient.get<{ daily: ServerQuest; weekly: WeeklyQuest }>("/quests/active", { skipAuthRedirect: true })
@@ -515,11 +516,16 @@ export function DevStudioView() {
               type="button"
               className="dev-btn dev-btn--ghost text-[12px]"
               onClick={() => {
-                track("dev_projects_retry", { source: "studio" })
-                void fetchProjects({ skipAuthRedirect: true })
+                if (authRequired) {
+                  track("dev_projects_auth_cta", { source: "studio" })
+                  router.push("/login?next=%2Fdev")
+                } else {
+                  track("dev_projects_retry", { source: "studio" })
+                  void fetchProjects({ skipAuthRedirect: true })
+                }
               }}
             >
-              Повторить
+              {authRequired ? "Войти" : "Повторить"}
             </button>
           </div>
         ) : null}
