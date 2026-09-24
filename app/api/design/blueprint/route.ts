@@ -20,6 +20,9 @@ export async function POST(request: NextRequest) {
   const window = requestWindows.get(ip)
   const current = !window || now - window.startedAt >= WINDOW_MS ? { startedAt: now, count: 1 } : { startedAt: window.startedAt, count: window.count + 1 }
   requestWindows.set(ip, current)
+  if (requestWindows.size > 1000) {
+    for (const [key, value] of requestWindows) if (now - value.startedAt >= WINDOW_MS) requestWindows.delete(key)
+  }
   if (current.count > MAX_REQUESTS) return NextResponse.json({ error: "rate_limited", requestId, retryAfterSeconds: Math.ceil((current.startedAt + WINDOW_MS - now) / 1000) }, { status: 429, headers: { "retry-after": String(Math.ceil((current.startedAt + WINDOW_MS - now) / 1000)), "x-request-id": requestId } })
   if (request.headers.get("content-type")?.includes("application/json") !== true) return NextResponse.json({ error: "json_required" }, { status: 415 })
   const contentLength = Number(request.headers.get("content-length") || 0)
