@@ -1,7 +1,7 @@
 "use client"
 
 import { Check, Globe2, LayoutDashboard, PanelsTopLeft, ShoppingBag, Sparkles, UsersRound } from "lucide-react"
-import type { KeyboardEvent } from "react"
+import type { CSSProperties, KeyboardEvent } from "react"
 
 export type ProductType = "social" | "application" | "website" | "marketplace" | "dashboard" | "ai-tool"
 export type VisualPreset = "minimal" | "bold" | "playful" | "corporate" | "futuristic"
@@ -50,7 +50,7 @@ export function ProductCatalog({ productType, preset, onProductTypeChange, onPre
           <div className="ds-catalog-grid" role="listbox" aria-label="Product type">
             {products.map(({ id, label, detail, Icon }) => {
               const selected = id === productType
-              return <button key={id} type="button" role="option" tabIndex={selected ? 0 : -1} aria-selected={selected} className="ds-catalog-card ds-focus" data-selected={selected} onKeyDown={(event) => moveSelection(event, products.map((product) => product.id), productType, onProductTypeChange)} onClick={() => onProductTypeChange(id)}><Icon size={18} aria-hidden="true" /><span><strong>{label}</strong><small>{detail}</small></span>{selected ? <Check size={15} aria-hidden="true" /> : null}</button>
+              return <button key={id} type="button" role="option" tabIndex={selected ? 0 : -1} aria-selected={selected} className="ds-catalog-card ds-catalog-card--holo ds-focus" data-selected={selected} onPointerMove={(event) => { const rect = event.currentTarget.getBoundingClientRect(); event.currentTarget.style.setProperty("--tilt-x", `${((event.clientY - rect.top) / rect.height - .5) * -4}deg`); event.currentTarget.style.setProperty("--tilt-y", `${((event.clientX - rect.left) / rect.width - .5) * 4}deg`) }} onPointerLeave={(event) => { event.currentTarget.style.removeProperty("--tilt-x"); event.currentTarget.style.removeProperty("--tilt-y") }} onKeyDown={(event) => moveSelection(event, products.map((product) => product.id), productType, onProductTypeChange)} onClick={() => onProductTypeChange(id)}><span className="ds-catalog-icon"><Icon size={18} aria-hidden="true" /></span><span><strong>{label}</strong><small>{detail}</small></span>{selected ? <Check size={15} aria-hidden="true" /> : null}</button>
             })}
           </div>
         </div>
@@ -59,7 +59,7 @@ export function ProductCatalog({ productType, preset, onProductTypeChange, onPre
           <div className="ds-catalog-presets" role="radiogroup" aria-label="Visual DNA">
             {presets.map(({ id, label, detail, color }) => {
               const selected = id === preset
-              return <button key={id} type="button" role="radio" tabIndex={selected ? 0 : -1} aria-checked={selected} className="ds-catalog-preset ds-focus" data-selected={selected} onKeyDown={(event) => moveSelection(event, presets.map((presetItem) => presetItem.id), preset, onPresetChange)} onClick={() => onPresetChange(id)}><i aria-hidden="true" style={{ background: color, boxShadow: selected ? `0 0 18px ${color}` : undefined }} /><span><strong>{label}</strong><small>{detail}</small></span>{selected ? <Check size={15} aria-hidden="true" /> : null}</button>
+              return <button key={id} type="button" role="radio" tabIndex={selected ? 0 : -1} aria-checked={selected} className="ds-catalog-preset ds-focus" data-selected={selected} onKeyDown={(event) => moveSelection(event, presets.map((presetItem) => presetItem.id), preset, onPresetChange)} onClick={() => onPresetChange(id)}><i className={`ds-dna-preview ds-dna-${id}`} aria-hidden="true" style={{ "--dna-color": color } as CSSProperties} /><span><strong>{label}</strong><small>{detail}</small></span>{selected ? <Check size={15} aria-hidden="true" /> : null}</button>
             })}
           </div>
         </div>

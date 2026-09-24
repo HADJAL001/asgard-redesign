@@ -1,7 +1,7 @@
 "use client"
 
 import { FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { FilePlus2, Lightbulb, Radar, ShieldCheck, Share2, X } from "lucide-react"
+import { FilePlus2, Gem, Lightbulb, Radar, ShieldCheck, Share2, X } from "lucide-react"
 import { MemoryLayerRail } from "@/components/design-system/MemoryLayerRail"
 import { OrbitalMemory } from "@/components/design-system/OrbitalMemory"
 import { PresetSwitcher } from "@/components/design-system/PresetSwitcher"
@@ -294,7 +294,7 @@ export function CofounderConsole() {
           <div><span className="ds-utility">РАБОЧИЙ ОТСЕК</span><h2 className="ds-display">Контролируемая доставка</h2><p style={{ color: "var(--ds-muted)" }}>Ожидаемый результат, доказательства и ручное согласование в одном контуре.</p></div>
           <ShieldCheck aria-hidden="true" />
         </header>
-        <button className="ds-hull ds-interactive ds-focus" style={{ marginTop: "1.5rem", padding: ".8rem 1.2rem", color: "var(--ds-ink)", background: "var(--ds-primary)", border: 0, cursor: "pointer" }} onClick={() => setOpen(true)}><FilePlus2 size={17} /> Создать контракт</button>
+        <button className="ds-liquid-gold ds-interactive ds-focus" style={{ marginTop: "1.5rem" }} onClick={() => setOpen(true)}><Gem size={17} aria-hidden="true" /> Создать контракт</button>
       </section>
       <dialog ref={dialogRef} className="ds-contract-dialog" aria-label="НОВЫЙ КОНТРАКТ" aria-labelledby="new-contract" onClose={() => setOpen(false)}>
         <button type="button" onClick={() => setOpen(false)} aria-label="Закрыть" className="ds-dialog-close"><X size={18} /></button>
