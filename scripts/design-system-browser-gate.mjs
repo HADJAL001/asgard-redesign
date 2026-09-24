@@ -94,6 +94,11 @@ try {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ kind: "deploy", status: "passed", summary: `Production health returned HTTP ${healthResponse.status} in ${healthLatencyMs}ms`, source: "production-health-gate", contractHash: blueprint.contractHash }),
   })
+  await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ kind: "social-preview", status: "passed", summary: `Open Graph image returned image/png (${socialPreviewBytes} bytes)`, source: "social-preview-gate", contractHash: blueprint.contractHash }),
+  })
   console.log(JSON.stringify({ blueprintId: blueprint.id, a11y: "passed", visualDiff: "passed", deploy: "passed", replay: "passed", socialPreview: "passed", healthLatencyMs, developerLatencyMs, screenshot }, null, 2))
 } finally {
   await browser.close()

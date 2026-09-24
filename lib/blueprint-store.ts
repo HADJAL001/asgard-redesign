@@ -19,7 +19,7 @@ export type StoredBlueprint = {
   approval?: { status: "approved"; approvedAt: string }
 }
 
-export type BlueprintEvidenceKind = "typecheck" | "unit" | "a11y" | "security" | "performance" | "visual-diff" | "deploy" | "rollback"
+export type BlueprintEvidenceKind = "typecheck" | "unit" | "a11y" | "security" | "performance" | "visual-diff" | "deploy" | "social-preview" | "rollback"
 export type BlueprintEvidence = {
   id: string
   blueprintId: string

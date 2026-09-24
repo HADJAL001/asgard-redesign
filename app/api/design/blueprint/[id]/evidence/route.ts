@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { appendBlueprintEvidence, getBlueprint, listBlueprintEvidence, type BlueprintEvidence, type BlueprintEvidenceKind } from "@/lib/blueprint-store"
 
 export const dynamic = "force-dynamic"
-const kinds = new Set<BlueprintEvidenceKind>(["typecheck", "unit", "a11y", "security", "performance", "visual-diff", "deploy", "rollback"])
+const kinds = new Set<BlueprintEvidenceKind>(["typecheck", "unit", "a11y", "security", "performance", "visual-diff", "deploy", "social-preview", "rollback"])
 const statuses = new Set(["passed", "failed", "skipped"])
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
