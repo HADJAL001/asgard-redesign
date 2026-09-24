@@ -1,0 +1,28 @@
+name: design-system-quality
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "37 5 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  production-contract:
+    name: Production design-system contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run test:design-system
+        env:
+          DESIGN_SYSTEM_BASE_URL: https://osgardnewworld.com
+          DESIGN_SYSTEM_ORIGIN: https://osgardnewworld.com
