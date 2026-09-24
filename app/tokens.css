@@ -46,6 +46,21 @@
 .ds-focus:focus-visible { outline:0; box-shadow:var(--ds-focus); }
 .ds-interactive { transition:transform var(--ds-motion-normal) var(--ds-ease-out),border-color var(--ds-motion-normal) var(--ds-ease-out),box-shadow var(--ds-motion-normal) var(--ds-ease-out); }
 .ds-interactive:hover { transform:translateY(-2px); border-color:var(--ds-primary); box-shadow:0 12px 32px color-mix(in srgb,var(--ds-primary) 14%,transparent); }
+.ds-contract-dialog { width:min(92vw, 620px); max-height:min(88dvh, 720px); margin:auto; padding:clamp(1.25rem, 4vw, 2.5rem); color:var(--ds-ink); background:var(--ds-surface); border:1px solid var(--ds-line); box-shadow:0 28px 90px rgb(0 0 0 / 45%), 0 0 0 1px color-mix(in srgb,var(--ds-primary) 12%,transparent); }
+.ds-contract-dialog::backdrop { background:rgb(2 8 14 / 72%); backdrop-filter:blur(8px); }
+.ds-dialog-close { position:absolute; top:1rem; right:1rem; display:grid; place-items:center; width:2rem; height:2rem; color:var(--ds-muted); background:transparent; border:1px solid transparent; cursor:pointer; }
+.ds-dialog-close:hover { color:var(--ds-ink); border-color:var(--ds-line); }
+.ds-dialog-copy { max-width:48ch; color:var(--ds-muted); line-height:1.55; }
+.ds-field { display:grid; gap:.45rem; margin-top:1rem; color:var(--ds-muted); font-size:.85rem; }
+.ds-field input, .ds-field textarea { width:100%; padding:.75rem .85rem; color:var(--ds-ink); background:color-mix(in srgb,var(--ds-canvas) 72%,transparent); border:1px solid var(--ds-line); border-radius:var(--ds-radius-sm); font:inherit; }
+.ds-field input:focus-visible, .ds-field textarea:focus-visible { outline:0; border-color:var(--ds-primary); box-shadow:var(--ds-focus); }
+.ds-dialog-actions { display:flex; justify-content:flex-end; gap:.75rem; flex-wrap:wrap; margin-top:1.5rem; }
+.ds-dialog-primary, .ds-dialog-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.45rem; min-height:2.75rem; padding:.65rem 1rem; border-radius:var(--ds-radius-sm); font:600 .85rem var(--ds-body); cursor:pointer; }
+.ds-dialog-primary { color:var(--ds-canvas); background:var(--ds-primary); border:1px solid var(--ds-primary); }
+.ds-dialog-secondary { color:var(--ds-ink); background:transparent; border:1px solid var(--ds-line); }
+.ds-dialog-primary:focus-visible, .ds-dialog-secondary:focus-visible, .ds-dialog-close:focus-visible { outline:0; box-shadow:var(--ds-focus); }
+@media (max-width: 520px) { .ds-contract-dialog { width:calc(100vw - 1.25rem); padding:1.25rem; } .ds-dialog-actions > button { flex:1 1 9rem; } }
+@media (prefers-reduced-motion: reduce) { .ds-interactive { transition:none; } }
 @media (prefers-reduced-motion:reduce) { .ds-interactive { transition:none; } .ds-interactive:hover { transform:none; } }
 .ds-preset-switcher { display:inline-flex; align-items:center; gap:.5rem; padding:.35rem .45rem; color:var(--ds-muted); border:1px solid var(--ds-line); background:var(--ds-glass); backdrop-filter:blur(12px); font:12px var(--ds-utility); }
 .ds-preset-switcher select { max-width:9rem; color:var(--ds-ink); background:transparent; border:0; font:inherit; cursor:pointer; }
