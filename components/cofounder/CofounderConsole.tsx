@@ -75,7 +75,10 @@ export function CofounderConsole() {
       if (Array.isArray(data?.evidence)) setEvidence(data.evidence as EvidenceRecord[])
       const qualityResponse = await fetch(`/api/design/blueprint/${id}/quality`, { cache: "no-store" })
       const quality = await qualityResponse.json().catch(() => null)
-      if (qualityResponse.ok && Array.isArray(quality?.required)) setQualityState(quality as QualityState)
+      if (qualityResponse.ok && Array.isArray(quality?.required)) {
+        setQualityState(quality as QualityState)
+        if (!quality.readyForCodegen && (quality.missing?.length || quality.stale?.length)) track("blueprint_quality_blocked", { blueprintId: id, revision: quality.revision, missing: quality.missing, stale: quality.stale?.map((item: { kind: string; reason: string }) => `${item.kind}:${item.reason}`) })
+      }
     } catch {
       // Evidence is supplementary to the blueprint and must not block recovery.
     }
