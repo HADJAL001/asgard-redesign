@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-25  
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Current release:** `90fc7e7d`
+**Current release:** `0bce91a0`
 
 ## Executive status
 
@@ -87,7 +87,8 @@ The production service was active on the last release, the Next build was presen
 
 ## Release history
 
-- `90fc7e7d` Add the blueprint snapshot recovery gate and Windows-compatible durable writes (current production release).
+- `0bce91a0` Publish the recovery-gate documentation release (current production release).
+- `90fc7e7d` Add the blueprint snapshot recovery gate and Windows-compatible durable writes.
 - `1bdf4a86` Recover blueprint store data from durable snapshots.
 - `2dac7435` Flush blueprint store snapshots durably before publish.
 - `efdc7b8f` Prune evidence and tokens for evicted blueprints.
