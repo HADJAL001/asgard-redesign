@@ -250,12 +250,26 @@ test.describe("OSGARD design system", () => {
     const pageErrors: string[] = []
     page.on("pageerror", (error) => pageErrors.push(error.message))
     await page.addInitScript(() => {
-      const metricsWindow = window as Window & { __osgardLcp?: number }
+      const metricsWindow = window as Window & { __osgardLcp?: number; __osgardCls?: number; __osgardInp?: number }
       metricsWindow.__osgardLcp = 0
+      metricsWindow.__osgardCls = 0
+      metricsWindow.__osgardInp = 0
       new PerformanceObserver((list) => {
         const latest = list.getEntries().at(-1)
         if (latest) metricsWindow.__osgardLcp = latest.startTime
       }).observe({ type: "largest-contentful-paint", buffered: true })
+      new PerformanceObserver((list) => {
+        metricsWindow.__osgardCls = (metricsWindow.__osgardCls || 0) + list.getEntries().reduce((sum, entry) => {
+          const shift = entry as PerformanceEntry & { hadRecentInput?: boolean; value?: number }
+          return sum + (shift.hadRecentInput ? 0 : shift.value || 0)
+        }, 0)
+      }).observe({ type: "layout-shift", buffered: true } as PerformanceObserverInit)
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          const event = entry as PerformanceEntry & { duration?: number }
+          metricsWindow.__osgardInp = Math.max(metricsWindow.__osgardInp || 0, event.duration || 0)
+        }
+      }).observe({ type: "event", buffered: true, durationThreshold: 40 } as PerformanceObserverInit)
     })
     await page.goto("/cofounder", { waitUntil: "load" })
     const metrics = await page.evaluate(() => {
@@ -266,6 +280,9 @@ test.describe("OSGARD design system", () => {
         domContentLoaded: navigation?.domContentLoadedEventEnd ?? 0,
         firstContentfulPaint: paints.find((entry) => entry.name === "first-contentful-paint")?.startTime ?? 0,
         lcp: metricsWindow.__osgardLcp ?? 0,
+        cls: metricsWindow.__osgardCls ?? 0,
+        inp: metricsWindow.__osgardInp ?? 0,
+        ttfb: navigation?.responseStart ?? 0,
       }
     })
     expect(pageErrors, "production page errors").toEqual([])
@@ -275,6 +292,10 @@ test.describe("OSGARD design system", () => {
     expect(metrics.firstContentfulPaint, "FCP budget").toBeLessThan(3000)
     expect(metrics.lcp, "LCP budget").toBeGreaterThan(0)
     expect(metrics.lcp, "LCP budget").toBeLessThan(4000)
+    expect(metrics.cls, "CLS budget").toBeLessThan(0.1)
+    expect(metrics.inp, "INP budget").toBeLessThan(200)
+    expect(metrics.ttfb, "TTFB budget").toBeGreaterThan(0)
+    expect(metrics.ttfb, "TTFB budget").toBeLessThan(1800)
   })
 
 })
