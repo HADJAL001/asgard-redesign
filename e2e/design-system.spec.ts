@@ -330,6 +330,12 @@ test.describe("OSGARD design system", () => {
     await expect(page.getByRole("button", { name: "Обновить quality cockpit" })).toBeVisible()
   })
 
+  test("developer cockpit exposes interaction latency", async ({ page }) => {
+    await page.goto("/dev")
+    await expect(page.getByText("Interaction latency")).toBeVisible()
+    await expect(page.getByText("Target < 200ms INP")).toBeVisible()
+  })
+
   test("developer quality keeps blueprint gates when generation status is unavailable", async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem("osgard-blueprint-history", JSON.stringify([{ id: "11111111-1111-4111-8111-111111111111", revision: 2 }]))
