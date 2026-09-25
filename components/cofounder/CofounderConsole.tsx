@@ -228,7 +228,10 @@ export function CofounderConsole() {
       const deliveryResponse = await fetch(`/api/design/blueprint/${data.blueprint.id}/delivery`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ revision: data.blueprint.revision, provider: deliveryProvider, domain: deliveryDomain || undefined, evidenceToken: data.evidenceToken }) })
       const deliveryData = await deliveryResponse.json().catch(() => null)
       if (!deliveryResponse.ok) throw new Error("Не удалось сохранить delivery policy")
-      if (deliveryData?.preflight && Array.isArray(deliveryData.preflight.checks)) setDeliveryPreflight(deliveryData.preflight as DeliveryPreflight)
+      if (deliveryData?.preflight && Array.isArray(deliveryData.preflight.checks)) {
+        setDeliveryPreflight(deliveryData.preflight as DeliveryPreflight)
+        track("delivery_preflight_viewed", { provider: deliveryProvider, hasCustomDomain: Boolean(deliveryDomain.trim()), hasSupabase: Boolean(deliveryData.delivery?.supabaseProjectRef) })
+      }
       track("blueprint_delivery_policy_saved", { blueprintId: data.blueprint.id, revision: data.blueprint.revision, provider: deliveryProvider, hasCustomDomain: Boolean(deliveryDomain.trim()) })
       setCompileResult(result)
       setPreviewPlan(null)
