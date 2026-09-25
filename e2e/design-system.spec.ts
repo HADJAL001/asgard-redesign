@@ -69,6 +69,13 @@ test.describe("OSGARD design system", () => {
     const created = await request.post("/api/design/blueprint", { data: { app: "evidence-check", brief: "A product workspace with auditable release evidence and safe delivery." } })
     const createdBody = await created.json()
     const blueprint = createdBody.blueprint
+    expect(createdBody.evidenceToken).toMatch(/^[a-f0-9]{64}$/)
+    const publicBlueprint = await request.get(`/api/design/blueprint/${blueprint.id}`)
+    expect(publicBlueprint.status()).toBe(200)
+    expect(await publicBlueprint.text()).not.toContain(createdBody.evidenceToken)
+    const replay = await request.get(`/cofounder/replay/${blueprint.id}`)
+    expect(replay.status()).toBe(200)
+    expect(await replay.text()).not.toContain(createdBody.evidenceToken)
     const evidence = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "a11y", status: "passed", summary: "Keyboard and contrast checks passed", source: "quality-gate", contractHash: blueprint.contractHash, evidenceToken: createdBody.evidenceToken } })
     expect(evidence.status()).toBe(201)
     const evidenceBody = await evidence.json()
