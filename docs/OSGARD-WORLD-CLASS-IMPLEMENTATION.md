@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-25  
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Current release:** `0bce91a0`
+**Current release:** `a28fe882`
 
 ## Executive status
 
@@ -38,7 +38,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Evidence tokens are preserved across approval and rollback transitions, so generation progress continues to persist into the tenant-bound Mission Replay after a revision change.
 - Retention cleanup removes evidence and tokens when a blueprint falls outside the bounded store, preventing unbounded `.data` growth and stale-token reuse.
 - Blueprint, evidence, and token snapshots are flushed with `fsync` before atomic rename, reducing data loss risk during process or host interruption.
-- Each artifact keeps a previous durable `.bak` snapshot and falls back to it on parse failure instead of silently returning an empty store.
+- Each artifact keeps a previous durable `.bak` snapshot and falls back to it on parse or semantic validation failure instead of silently returning an empty store.
 
 ### Tenant isolation and delivery policy
 
@@ -81,13 +81,14 @@ Latest recorded production gate:
 
 Latest post-release browser gate (2026-09-25): visual baseline `29db5db17900094946024e8d40a463ff821d2e38b4ecfb46712dac9e82fcad17`, health latency `239 ms`, developer latency `445 ms`; all gates passed. The analytics contract gate reports `43 frontend events, 46 allowlisted`.
 
-Durability verification: `npm run test:blueprint-store-recovery` passed, including recovery from a deliberately corrupted primary snapshot. The gate is now part of the package scripts for CI and release checks.
+Durability verification: `npm run test:blueprint-store-recovery` passed, including recovery from a deliberately corrupted but syntactically valid primary snapshot. The gate is now part of the package scripts for CI and release checks.
 
 The production service was active on the last release, the Next build was present, and the previous checkout was retained at `/opt/osgard-platform/backup-before-ddc3a25f`.
 
 ## Release history
 
-- `0bce91a0` Publish the recovery-gate documentation release (current production release).
+- `a28fe882` Validate blueprint snapshot structure before recovery (current production release).
+- `0bce91a0` Publish the recovery-gate documentation release.
 - `90fc7e7d` Add the blueprint snapshot recovery gate and Windows-compatible durable writes.
 - `1bdf4a86` Recover blueprint store data from durable snapshots.
 - `2dac7435` Flush blueprint store snapshots durably before publish.
