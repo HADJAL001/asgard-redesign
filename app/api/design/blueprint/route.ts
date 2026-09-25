@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import crypto from "node:crypto"
 import { appendBlueprintEvidence, issueBlueprintEvidenceToken, saveBlueprint, type StoredBlueprint } from "@/lib/blueprint-store"
+import { tenantIdFromRequest } from "@/lib/tenant-context"
 
 const WINDOW_MS = 60_000
 const MAX_REQUESTS = 30
@@ -16,6 +17,8 @@ function text(value: unknown, max: number) {
 }
 
 export async function POST(request: NextRequest) {
+  const tenantId = tenantIdFromRequest(request)
+  if (!tenantId) return NextResponse.json({ error: "tenant_not_available" }, { status: 404 })
   const assemblyStartedAt = performance.now()
   const requestId = crypto.randomUUID()
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
@@ -56,11 +59,11 @@ export async function POST(request: NextRequest) {
   const qualityScore = Math.max(0, 100 - warnings.length * 15 - (brief.length < 80 ? 10 : 0))
   const contract = { version: "1.0.0", app, productType, preset, brief, components: selected, aiPlan: aiPlan ?? null }
   const contractHash = crypto.createHash("sha256").update(JSON.stringify(contract)).digest("hex")
-  const blueprint: StoredBlueprint = { id: crypto.randomUUID(), revision: 1, app, productType, preset, contractVersion: "1.0.0", contractHash, brief, components: selected, stages: fallbackStages, generatedAt: new Date().toISOString(), arbitraryHtml: false, quality: { score: qualityScore, warnings, humanReviewRequired: qualityScore < 85 }, ...(aiPlan ? { aiPlan } : {}) }
+  const blueprint: StoredBlueprint = { id: crypto.randomUUID(), tenantId, revision: 1, app, productType, preset, contractVersion: "1.0.0", contractHash, brief, components: selected, stages: fallbackStages, generatedAt: new Date().toISOString(), arbitraryHtml: false, quality: { score: qualityScore, warnings, humanReviewRequired: qualityScore < 85 }, ...(aiPlan ? { aiPlan } : {}) }
   saveBlueprint(blueprint)
-  const evidenceToken = issueBlueprintEvidenceToken(blueprint.id)
-  const securityEvidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: blueprint.id, revision: blueprint.revision, contractHash, kind: "security", status: "passed", summary: "Component allowlist and arbitrary HTML guard passed", capturedAt: new Date().toISOString(), source: "blueprint-guard" })
+  const evidenceToken = issueBlueprintEvidenceToken(blueprint.id, tenantId)
+  const securityEvidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: blueprint.id, tenantId, revision: blueprint.revision, contractHash, kind: "security", status: "passed", summary: "Component allowlist and arbitrary HTML guard passed", capturedAt: new Date().toISOString(), source: "blueprint-guard" })
   const assemblyDurationMs = Math.round(performance.now() - assemblyStartedAt)
-  const performanceEvidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: blueprint.id, revision: blueprint.revision, contractHash, kind: "performance", status: assemblyDurationMs <= 500 ? "passed" : "failed", summary: `Blueprint assembly completed in ${assemblyDurationMs}ms (budget: 500ms)`, capturedAt: new Date().toISOString(), source: "blueprint-runtime-budget" })
+  const performanceEvidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: blueprint.id, tenantId, revision: blueprint.revision, contractHash, kind: "performance", status: assemblyDurationMs <= 500 ? "passed" : "failed", summary: `Blueprint assembly completed in ${assemblyDurationMs}ms (budget: 500ms)`, capturedAt: new Date().toISOString(), source: "blueprint-runtime-budget" })
   return NextResponse.json({ version: "1.1.0", requestId, blueprint, evidenceToken, evidence: [securityEvidence, performanceEvidence] }, { status: 201, headers: { ...rateHeaders, "cache-control": "no-store", "x-request-id": requestId } })
 }

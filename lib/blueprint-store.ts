@@ -4,6 +4,7 @@ import crypto from "node:crypto"
 
 export type StoredBlueprint = {
   id: string
+  tenantId?: string
   revision: number
   app: string
   productType?: string
@@ -26,6 +27,7 @@ export type BlueprintEvidenceKind = "typecheck" | "unit" | "a11y" | "security" |
 export type BlueprintEvidence = {
   id: string
   blueprintId: string
+  tenantId?: string
   revision: number
   contractHash: string
   kind: BlueprintEvidenceKind
@@ -91,22 +93,23 @@ function writeEvidenceTokens(store: Record<string, string>) {
   fs.renameSync(tempPath, evidenceTokensPath)
 }
 
-export function issueBlueprintEvidenceToken(blueprintId: string) {
+export function issueBlueprintEvidenceToken(blueprintId: string, tenantId = DEFAULT_TENANT_ID) {
   const token = crypto.randomBytes(32).toString("hex")
   const tokens = readEvidenceTokens()
-  tokens[blueprintId] = token
+  tokens[`${tenantId}:${blueprintId}`] = token
   writeEvidenceTokens(tokens)
   return token
 }
 
-export function verifyBlueprintEvidenceToken(blueprintId: string, candidate: unknown) {
+export function verifyBlueprintEvidenceToken(blueprintId: string, candidate: unknown, tenantId = DEFAULT_TENANT_ID) {
   if (typeof candidate !== "string" || !/^[a-f0-9]{64}$/.test(candidate)) return false
-  const expected = readEvidenceTokens()[blueprintId]
+  const expected = readEvidenceTokens()[`${tenantId}:${blueprintId}`] || (tenantId === DEFAULT_TENANT_ID ? readEvidenceTokens()[blueprintId] : undefined)
   if (!expected) return false
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(candidate))
 }
 
 export function saveBlueprint(blueprint: StoredBlueprint) {
+  blueprint = { ...blueprint, tenantId: blueprint.tenantId || DEFAULT_TENANT_ID }
   const store = readStore()
   const revisions = store[blueprint.id] || []
   store[blueprint.id] = [...revisions, blueprint].slice(-MAX_REVISIONS_PER_BLUEPRINT)
@@ -118,37 +121,42 @@ export function saveBlueprint(blueprint: StoredBlueprint) {
   return blueprint
 }
 
-export function getBlueprint(id: string, revision?: number) {
+const DEFAULT_TENANT_ID = "osgardnewworld"
+const tenantMatches = (blueprint: StoredBlueprint, tenantId: string) => (blueprint.tenantId || DEFAULT_TENANT_ID) === tenantId
+
+export function getBlueprint(id: string, revision?: number, tenantId = DEFAULT_TENANT_ID) {
   const revisions = readStore()[id]
   if (!revisions?.length) return null
-  if (revision === undefined) return revisions[revisions.length - 1]
-  return revisions.find((item) => item.revision === revision) || null
+  const tenantRevisions = revisions.filter((item) => tenantMatches(item, tenantId))
+  if (revision === undefined) return tenantRevisions[tenantRevisions.length - 1] || null
+  return tenantRevisions.find((item) => item.revision === revision) || null
 }
 
-export function listBlueprintRevisions(id: string) {
-  return readStore()[id] || []
+export function listBlueprintRevisions(id: string, tenantId = DEFAULT_TENANT_ID) {
+  return (readStore()[id] || []).filter((item) => tenantMatches(item, tenantId))
 }
 
-export function updateBlueprintGeneration(id: string, revision: number, generation: StoredBlueprint["generation"]) {
+export function updateBlueprintGeneration(id: string, revision: number, generation: StoredBlueprint["generation"], tenantId = DEFAULT_TENANT_ID) {
   const store = readStore()
   const revisions = store[id]
   if (!revisions?.length) return null
-  const index = revisions.findIndex((item) => item.revision === revision)
+  const index = revisions.findIndex((item) => item.revision === revision && tenantMatches(item, tenantId))
   if (index < 0) return null
   revisions[index] = { ...revisions[index], ...(generation ? { generation } : { generation: undefined }) }
   writeStore(store)
   return revisions[index]
 }
 
-export function listBlueprintEvidence(id: string) {
-  return readEvidence()[id] || []
+export function listBlueprintEvidence(id: string, tenantId = DEFAULT_TENANT_ID) {
+  return (readEvidence()[id] || []).filter((entry) => entry.tenantId === tenantId || (!entry.tenantId && tenantId === DEFAULT_TENANT_ID))
 }
 
-export function latestBlueprintEvidence(id: string, kind: BlueprintEvidenceKind) {
-  return listBlueprintEvidence(id).toReversed().find((entry) => entry.kind === kind) || null
+export function latestBlueprintEvidence(id: string, kind: BlueprintEvidenceKind, tenantId = DEFAULT_TENANT_ID) {
+  return listBlueprintEvidence(id, tenantId).toReversed().find((entry) => entry.kind === kind) || null
 }
 
 export function appendBlueprintEvidence(evidence: BlueprintEvidence) {
+  evidence = { ...evidence, tenantId: evidence.tenantId || DEFAULT_TENANT_ID }
   const store = readEvidence()
   const previous = store[evidence.blueprintId] || []
   store[evidence.blueprintId] = [...previous, evidence].slice(-100)

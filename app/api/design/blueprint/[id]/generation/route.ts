@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getBlueprint, updateBlueprintGeneration, verifyBlueprintEvidenceToken, type StoredBlueprint } from "@/lib/blueprint-store"
+import { tenantIdFromRequest } from "@/lib/tenant-context"
 
 export const dynamic = "force-dynamic"
 
 const statuses = new Set<NonNullable<StoredBlueprint["generation"]>["status"]>(["queued", "processing", "completed", "failed", "cancelled"])
 const MAX_GENERATION_PAYLOAD_BYTES = 16_000
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: "invalid_blueprint_id" }, { status: 400 })
-  const blueprint = getBlueprint(id)
+  const tenantId = tenantIdFromRequest(request)
+  if (!tenantId) return NextResponse.json({ error: "tenant_not_available" }, { status: 404 })
+  const blueprint = getBlueprint(id, undefined, tenantId)
   if (!blueprint) return NextResponse.json({ error: "blueprint_not_found" }, { status: 404 })
   return NextResponse.json({ blueprintId: id, revision: blueprint.revision, generation: blueprint.generation || null }, { headers: { "cache-control": "no-store" } })
 }
@@ -17,14 +20,16 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: "invalid_blueprint_id" }, { status: 400 })
+  const tenantId = tenantIdFromRequest(request)
+  if (!tenantId) return NextResponse.json({ error: "tenant_not_available" }, { status: 404 })
   const raw = await request.text()
   if (new TextEncoder().encode(raw).byteLength > MAX_GENERATION_PAYLOAD_BYTES) return NextResponse.json({ error: "generation_payload_too_large", maxBytes: MAX_GENERATION_PAYLOAD_BYTES }, { status: 413 })
   const body = (() => { try { return JSON.parse(raw) as Record<string, unknown> } catch { return null } })()
   if (!body) return NextResponse.json({ error: "invalid_json" }, { status: 400 })
   const revision = Number(body?.revision)
-  const blueprint = getBlueprint(id, revision)
+  const blueprint = getBlueprint(id, revision, tenantId)
   if (!blueprint) return NextResponse.json({ error: "blueprint_revision_not_found" }, { status: 404 })
-  if (!verifyBlueprintEvidenceToken(id, body?.evidenceToken)) return NextResponse.json({ error: "evidence_token_required" }, { status: 403 })
+  if (!verifyBlueprintEvidenceToken(id, body?.evidenceToken, tenantId)) return NextResponse.json({ error: "evidence_token_required" }, { status: 403 })
   const status = body?.status as NonNullable<StoredBlueprint["generation"]>["status"]
   const taskId = typeof body?.taskId === "string" ? body.taskId.slice(0, 160) : ""
   const progress = Number(body?.progress)
@@ -37,6 +42,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     ...(typeof rawResult.repoUrl === "string" && /^https?:\/\//.test(rawResult.repoUrl) ? { repoUrl: rawResult.repoUrl.slice(0, 500) } : {}),
   } : undefined
   const generation: NonNullable<StoredBlueprint["generation"]> = { taskId, status, progress: Math.min(100, Math.max(0, Math.round(progress))), ...(typeof body?.currentStep === "string" ? { currentStep: body.currentStep.slice(0, 160) } : {}), ...(typeof body?.error === "string" ? { error: body.error.slice(0, 500) } : {}), ...(result && Object.keys(result).length ? { result } : {}), updatedAt: new Date().toISOString() }
-  updateBlueprintGeneration(id, revision, generation)
+  updateBlueprintGeneration(id, revision, generation, tenantId)
   return NextResponse.json({ blueprintId: id, revision, generation }, { status: 201, headers: { "cache-control": "no-store" } })
 }
