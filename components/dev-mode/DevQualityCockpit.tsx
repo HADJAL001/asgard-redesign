@@ -2,6 +2,7 @@
 
 import { Activity, ArrowUpRight, Gauge, RefreshCw, ShieldCheck } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
+import Link from "next/link"
 import { track } from "@/lib/analytics"
 
 type RuntimeState = { status: "checking" | "healthy" | "degraded"; latency?: number }
@@ -93,8 +94,8 @@ export function DevQualityCockpit() {
       <article><Gauge size={16} aria-hidden="true" /><span>Largest paint</span><strong>{metric(frontend.lcp)}</strong><small>Target &lt; 2.5s</small></article>
       <article><ShieldCheck size={16} aria-hidden="true" /><span>Layout stability</span><strong>{frontend.cls === undefined ? "—" : frontend.cls.toFixed(3)}</strong><small>Target &lt; 0.10 CLS</small></article>
       <article><ShieldCheck size={16} aria-hidden="true" /><span>Blueprint gates</span><strong>{qualityError ? "Unavailable" : blueprint ? `${blueprint.required.length - blueprint.missing.length}/${blueprint.required.length} passed` : "No blueprint"}</strong><small>{qualityError ? "Retry quality check" : blueprint ? `${blueprint.stale.length ? `${blueprint.stale.length} stale · ` : ""}Revision ${blueprint.revision}` : "Create a contract to inspect"}</small></article>
-      <article><ArrowUpRight size={16} aria-hidden="true" /><span>Codegen</span><strong>{generationError ? "Unavailable" : generation ? `${generation.status} ${Math.round(generation.progress || 0)}%` : "Not started"}</strong><small>{generationError ? "Retry generation status" : generation?.error || (generation?.revision ? `Revision ${generation.revision}` : "Approve a blueprint to begin")}</small><a href="/cofounder">Open verified builder</a></article>
+      <article><ArrowUpRight size={16} aria-hidden="true" /><span>Codegen</span><strong>{generationError ? "Unavailable" : generation ? `${generation.status} ${Math.round(generation.progress || 0)}%` : "Not started"}</strong><small>{generationError ? "Retry generation status" : generation?.error || (generation?.revision ? `Revision ${generation.revision}` : "Approve a blueprint to begin")}</small><Link href="/cofounder">Open verified builder</Link></article>
     </div>
-    {blueprint ? <div className="dev-quality-cockpit__links" aria-label="Blueprint lifecycle links"><span>Revision {blueprint.revision} lifecycle</span><a href={`/cofounder/replay/${encodeURIComponent(blueprint.id)}?revision=${blueprint.revision}`}>Open replay</a>{generation?.result?.previewUrl ? <a href={generation.result.previewUrl} target="_blank" rel="noreferrer">Preview</a> : null}{generation?.result?.appUrl ? <a href={generation.result.appUrl} target="_blank" rel="noreferrer">Open app</a> : null}{generation?.result?.repoUrl ? <a href={generation.result.repoUrl} target="_blank" rel="noreferrer">Repository</a> : null}</div> : null}
+    {blueprint ? <div className="dev-quality-cockpit__links" aria-label="Blueprint lifecycle links"><span>Revision {blueprint.revision} lifecycle</span><Link href={`/cofounder/replay/${encodeURIComponent(blueprint.id)}?revision=${blueprint.revision}`}>Open replay</Link>{generation?.result?.previewUrl ? <a href={generation.result.previewUrl} target="_blank" rel="noreferrer">Preview</a> : null}{generation?.result?.appUrl ? <a href={generation.result.appUrl} target="_blank" rel="noreferrer">Open app</a> : null}{generation?.result?.repoUrl ? <a href={generation.result.repoUrl} target="_blank" rel="noreferrer">Repository</a> : null}</div> : null}
   </section>
 }
