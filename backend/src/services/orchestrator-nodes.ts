@@ -21,7 +21,7 @@ import type { PlanKey } from "../lib/stripe"
    POST /integrations/:id/execute (см. service-bridge.routes.ts).
    ================================================================ */
 
-export type OrchestratorNodeType = "claude" | "deepseek" | "grok" | "prompt_template" | "service_call" | "webhook_trigger"
+export type OrchestratorNodeType = "claude" | "deepseek" | "grok" | "openai" | "gemini" | "prompt_template" | "service_call" | "webhook_trigger"
 
 export interface OrchestratorNodeConfig {
   type: OrchestratorNodeType
@@ -46,6 +46,37 @@ export interface NodeResult {
 
 const NODE_TIMEOUT_MS = 30_000
 const DEFAULT_MAX_TOKENS = 1024
+
+async function callOpenAiNode(input: string, config: OrchestratorNodeConfig, maxTokens: number): Promise<string | null> {
+  const key = process.env.OPENAI_API_KEY || process.env.VEXLY_API_KEY
+  if (!key) return null
+  const base = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1"
+  const response = await fetch(`${base.replace(/\/$/, "")}/responses`, {
+    method: "POST",
+    signal: AbortSignal.timeout(NODE_TIMEOUT_MS),
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: process.env.OPENAI_MODEL || "gpt-5.6-sol", instructions: config.systemPrompt, input, max_output_tokens: maxTokens }),
+  })
+  if (!response.ok) return null
+  const data: any = await response.json()
+  return data?.output_text || data?.output?.flatMap((item: any) => item.content || []).map((item: any) => item.text || "").join("") || null
+}
+
+async function callGeminiNode(input: string, config: OrchestratorNodeConfig, maxTokens: number): Promise<string | null> {
+  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_STUDIO_KEY
+  if (!key) return null
+  const base = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta"
+  const model = process.env.GEMINI_MODEL || "gemini-3.7-flash"
+  const response = await fetch(`${base.replace(/\/$/, "")}/models/${encodeURIComponent(model)}:generateContent`, {
+    method: "POST",
+    signal: AbortSignal.timeout(NODE_TIMEOUT_MS),
+    headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
+    body: JSON.stringify({ systemInstruction: config.systemPrompt ? { parts: [{ text: config.systemPrompt }] } : undefined, contents: [{ role: "user", parts: [{ text: input }] }], generationConfig: { maxOutputTokens: maxTokens } }),
+  })
+  if (!response.ok) return null
+  const data: any = await response.json()
+  return data?.candidates?.flatMap((item: any) => item.content?.parts || []).map((part: any) => part.text || "").join("") || null
+}
 
 class NodeTimeoutError extends Error {
   constructor(nodeType: string) {
@@ -146,7 +177,7 @@ export async function runNode(config: OrchestratorNodeConfig, input: string, con
     return runServiceCallNode(config, input, context, userId)
   }
 
-  if (config.type !== "claude" && config.type !== "deepseek" && config.type !== "grok") {
+  if (!["claude", "deepseek", "grok", "openai", "gemini"].includes(config.type)) {
     throw new NodeExecutionError(config.type)
   }
 
@@ -161,7 +192,9 @@ export async function runNode(config: OrchestratorNodeConfig, input: string, con
     if (config.type === "deepseek") {
       return callDeepSeek(input, (t) => t, "orchestrator-deepseek", maxTokens, config.systemPrompt, config.temperature)
     }
-    return callGrok(input, (t) => t, "orchestrator-grok", maxTokens, config.systemPrompt, config.temperature)
+    if (config.type === "grok") return callGrok(input, (t) => t, "orchestrator-grok", maxTokens, config.systemPrompt, config.temperature)
+    if (config.type === "openai") return callOpenAiNode(input, config, maxTokens)
+    return callGeminiNode(input, config, maxTokens)
   })()
 
   let text: string | null

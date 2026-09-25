@@ -26,6 +26,8 @@ export const ORCHESTRATOR_NODE_COST_TC = {
   claude: 0.25,
   deepseek: 0.1,
   grok: 0.2,
+  openai: 0.2,
+  gemini: 0.15,
   prompt_template: 0,
   service_call: 0.1,
   webhook_trigger: 0,

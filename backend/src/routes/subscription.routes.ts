@@ -57,6 +57,8 @@ const EXTRA_PACKAGES: Record<AiProvider, { amount: number; priceCents: number; l
   claude: { amount: 5, priceCents: 1900, label: "OSGARD 5.0 +5" },
   grok: { amount: 10, priceCents: 1500, label: "Grok +10" },
   deepseek: { amount: 10, priceCents: 1000, label: "OSGARD 4.0 +10" },
+  openai: { amount: 5, priceCents: 1900, label: "GPT +5" },
+  gemini: { amount: 10, priceCents: 1200, label: "Gemini +10" },
 }
 
 /**

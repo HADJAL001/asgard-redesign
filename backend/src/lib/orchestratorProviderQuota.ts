@@ -2,7 +2,7 @@ import db from "./db"
 import { redisClient, ensureRedisConnected } from "./redis"
 import type { PlanKey } from "./stripe"
 
-export type AiProvider = "claude" | "grok" | "deepseek"
+export type AiProvider = "claude" | "grok" | "deepseek" | "openai" | "gemini"
 
 /* ================================================================
    OSGARD · Месячная квота оркестратора по AI-провайдерам (Supreme+)
