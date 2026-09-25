@@ -221,6 +221,8 @@ test.describe("OSGARD design system", () => {
     await expect(create).toBeFocused()
     await create.press("Enter")
     await expect(page.getByText("НОВЫЙ КОНТРАКТ").last()).toBeVisible()
+    await page.getByRole("button", { name: "Use starter mission: Launch a product" }).click()
+    await expect(page.locator("dialog input")).toHaveValue("Launch a product")
     await page.locator("dialog input").fill("Client portal")
     await page.getByRole("button", { name: "Launch a product" }).click()
     await expect(page.locator("dialog textarea")).toHaveValue(/focused product workspace/)

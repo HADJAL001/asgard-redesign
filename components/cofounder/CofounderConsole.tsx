@@ -273,6 +273,7 @@ export function CofounderConsole() {
   }
 
   function chooseStarterMission(mission: (typeof starterMissions)[number]) {
+    if (!contractName.trim()) setContractName(mission.label)
     setBrief(mission.brief)
     track("blueprint_starter_selected", { mission: mission.id, productType, preset: visualPreset })
   }
