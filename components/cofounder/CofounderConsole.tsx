@@ -220,6 +220,7 @@ export function CofounderConsole() {
       const result: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, productType: data.blueprint.productType, preset: data.blueprint.preset, contractVersion: data.blueprint.contractVersion, contractHash: data.blueprint.contractHash, createdAt: data.blueprint.generatedAt, aiSummary: persistedPlan?.summary, aiComponents: persistedPlan?.components, aiRisks: persistedPlan?.risks, evidenceToken: data.evidenceToken }
       const deliveryResponse = await fetch(`/api/design/blueprint/${data.blueprint.id}/delivery`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ revision: data.blueprint.revision, provider: deliveryProvider, domain: deliveryDomain || undefined, evidenceToken: data.evidenceToken }) })
       if (!deliveryResponse.ok) throw new Error("Не удалось сохранить delivery policy")
+      track("blueprint_delivery_policy_saved", { blueprintId: data.blueprint.id, revision: data.blueprint.revision, provider: deliveryProvider, hasCustomDomain: Boolean(deliveryDomain.trim()) })
       setCompileResult(result)
       setPreviewPlan(null)
       void loadPreview(result.id, result.revision)
