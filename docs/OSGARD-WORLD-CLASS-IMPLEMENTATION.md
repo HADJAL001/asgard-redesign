@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-25  
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Current release:** `be0a08f3`
+**Current release:** `2dac7435`
 
 ## Executive status
 
@@ -37,6 +37,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Evidence and generation history are tenant-bound and visible in Mission Replay.
 - Evidence tokens are preserved across approval and rollback transitions, so generation progress continues to persist into the tenant-bound Mission Replay after a revision change.
 - Retention cleanup removes evidence and tokens when a blueprint falls outside the bounded store, preventing unbounded `.data` growth and stale-token reuse.
+- Blueprint, evidence, and token snapshots are flushed with `fsync` before atomic rename, reducing data loss risk during process or host interruption.
 
 ### Tenant isolation and delivery policy
 
@@ -83,7 +84,8 @@ The production service was active on the last release, the Next build was presen
 
 ## Release history
 
-- `efdc7b8f` Prune evidence and tokens for evicted blueprints (current production release).
+- `2dac7435` Flush blueprint store snapshots durably before publish (current production release).
+- `efdc7b8f` Prune evidence and tokens for evicted blueprints.
 - `c678a767` Preserve evidence tokens across approval/rollback and deploy the verified release.
 - `8c97ea38` Fix delivery-policy telemetry allowlist and deploy the verified release.
 - `a498936d` Record the world-class implementation status and roadmap.
