@@ -47,17 +47,35 @@ const storePath = process.env.BLUEPRINT_STORE_PATH || path.join(process.cwd(), "
 const evidencePath = process.env.BLUEPRINT_EVIDENCE_PATH || path.join(process.cwd(), ".data", "blueprint-evidence.json")
 const evidenceTokensPath = process.env.BLUEPRINT_EVIDENCE_TOKENS_PATH || path.join(process.cwd(), ".data", "blueprint-evidence-tokens.json")
 
-function readStore(): Store {
-  try {
-    const value = JSON.parse(fs.readFileSync(/* turbopackIgnore: true */ storePath, "utf8"))
-    return value && typeof value === "object" && !Array.isArray(value) ? value as Store : {}
-  } catch {
-    return {}
+function readJsonObject(filePath: string): Record<string, unknown> | null {
+  for (const candidate of [filePath, `${filePath}.bak`]) {
+    try {
+      const value = JSON.parse(fs.readFileSync(/* turbopackIgnore: true */ candidate, "utf8"))
+      if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>
+    } catch {
+      // Try the previous durable snapshot before treating an artifact as empty.
+    }
   }
+  return null
+}
+
+function readStore(): Store {
+  return readJsonObject(storePath) as Store || {}
 }
 
 function writeJsonDurably(filePath: string, value: unknown) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  if (fs.existsSync(filePath)) {
+    const backupTempPath = `${filePath}.${process.pid}.bak.tmp`
+    fs.copyFileSync(filePath, backupTempPath)
+    const backupDescriptor = fs.openSync(backupTempPath, "r")
+    try {
+      fs.fsyncSync(backupDescriptor)
+    } finally {
+      fs.closeSync(backupDescriptor)
+    }
+    fs.renameSync(backupTempPath, `${filePath}.bak`)
+  }
   const tempPath = `${filePath}.${process.pid}.tmp`
   const descriptor = fs.openSync(tempPath, "w", 0o600)
   try {
@@ -74,12 +92,7 @@ function writeStore(store: Store) {
 }
 
 function readEvidence(): Record<string, BlueprintEvidence[]> {
-  try {
-    const value = JSON.parse(fs.readFileSync(/* turbopackIgnore: true */ evidencePath, "utf8"))
-    return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, BlueprintEvidence[]> : {}
-  } catch {
-    return {}
-  }
+  return readJsonObject(evidencePath) as Record<string, BlueprintEvidence[]> || {}
 }
 
 function writeEvidence(store: Record<string, BlueprintEvidence[]>) {
@@ -87,12 +100,7 @@ function writeEvidence(store: Record<string, BlueprintEvidence[]>) {
 }
 
 function readEvidenceTokens(): Record<string, string> {
-  try {
-    const value = JSON.parse(fs.readFileSync(/* turbopackIgnore: true */ evidenceTokensPath, "utf8"))
-    return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, string> : {}
-  } catch {
-    return {}
-  }
+  return readJsonObject(evidenceTokensPath) as Record<string, string> || {}
 }
 
 function writeEvidenceTokens(store: Record<string, string>) {
