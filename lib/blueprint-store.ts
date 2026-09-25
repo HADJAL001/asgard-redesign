@@ -59,6 +59,15 @@ function readJsonObject(filePath: string): Record<string, unknown> | null {
   return null
 }
 
+function flushDescriptor(descriptor: number) {
+  try {
+    fs.fsyncSync(descriptor)
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error ? error.code : undefined
+    if (code !== "EPERM" && code !== "ENOSYS") throw error
+  }
+}
+
 function readStore(): Store {
   return readJsonObject(storePath) as Store || {}
 }
@@ -70,7 +79,7 @@ function writeJsonDurably(filePath: string, value: unknown) {
     fs.copyFileSync(filePath, backupTempPath)
     const backupDescriptor = fs.openSync(backupTempPath, "r")
     try {
-      fs.fsyncSync(backupDescriptor)
+      flushDescriptor(backupDescriptor)
     } finally {
       fs.closeSync(backupDescriptor)
     }
@@ -80,7 +89,7 @@ function writeJsonDurably(filePath: string, value: unknown) {
   const descriptor = fs.openSync(tempPath, "w", 0o600)
   try {
     fs.writeFileSync(descriptor, JSON.stringify(value), { encoding: "utf8" })
-    fs.fsyncSync(descriptor)
+    flushDescriptor(descriptor)
   } finally {
     fs.closeSync(descriptor)
   }
