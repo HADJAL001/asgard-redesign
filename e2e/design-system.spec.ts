@@ -226,6 +226,7 @@ test.describe("OSGARD design system", () => {
     await expect(page.locator("dialog textarea")).toHaveValue(/focused product workspace/)
     await page.locator("dialog form button[type=submit]").click()
     await expect(page.locator(".ds-dialog-result")).toContainText("Blueprint")
+    await expect(canvas.getByRole("button", { name: /Move .* (up|down)/ }).first()).toBeVisible({ timeout: 5000 })
     await page.keyboard.press("Escape")
   })
 
