@@ -5,7 +5,7 @@ import { FilePlus2, Gem, Lightbulb, Radar, ShieldCheck, Share2, X } from "lucide
 import { MemoryLayerRail } from "@/components/design-system/MemoryLayerRail"
 import { OrbitalMemory } from "@/components/design-system/OrbitalMemory"
 import { PresetSwitcher } from "@/components/design-system/PresetSwitcher"
-import { CinematicSequence } from "@/components/design-system/CinematicSequence"
+import { CinematicSequence, type SequenceStage } from "@/components/design-system/CinematicSequence"
 import { track } from "@/lib/analytics"
 import { useAuth } from "@/lib/auth-store"
 import { CofounderLoadingShell } from "@/components/cofounder/CofounderLoadingShell"
@@ -275,6 +275,14 @@ export function CofounderConsole() {
     track("blueprint_starter_selected", { mission: mission.id, productType, preset: visualPreset })
   }
 
+  const deliveryStages: SequenceStage[] = [
+    { label: "Идея", detail: brief.trim() ? "Контекст принят" : "Опишите результат", status: brief.trim() ? "complete" : "active" as const },
+    { label: "Blueprint", detail: compileResult ? `Revision ${compileResult.revision} собрана` : submitting ? "Собираем архитектуру" : "Следующий шаг после brief", status: compileResult ? "complete" : submitting ? "active" : "pending" as const },
+    { label: "Preview", detail: previewPlan ? "План интерфейса готов" : compileResult ? "Откройте контракт для preview" : "Появится после blueprint", status: previewPlan ? "complete" : compileResult ? "active" : "pending" as const },
+    { label: "Проверка", detail: qualityState?.readyForCodegen ? "Evidence подтверждены" : previewPlan ? "Проверяем доступность и риски" : "Ожидает preview", status: qualityState?.readyForCodegen ? "complete" : previewPlan ? "active" : "pending" as const },
+    { label: "Публикация", detail: generationStatus?.status === "completed" ? "Приложение готово" : compileResult?.approved ? "Можно запускать codegen" : "Требует approval", status: generationStatus?.status === "completed" ? "complete" : compileResult?.approved ? "active" : "pending" as const },
+  ]
+
   return (
     <main className="ds-body cofounder-cosmos" style={{ minHeight: "100vh", padding: "clamp(1rem, 4vw, 4rem)" }}>
       <ObsidianCosmos />
@@ -290,7 +298,7 @@ export function CofounderConsole() {
       <MemoryLayerRail counts={{ Atomic: 12, Semantic: 8, Episodic: 4, Procedural: 3 }} />
       <ProductCatalog productType={productType} preset={visualPreset} onProductTypeChange={setProductType} onPresetChange={setVisualPreset} />
       <OrbitalMemory />
-      <CinematicSequence stages={[{ label: "Идея", detail: "Контекст принят", status: "complete" }, { label: "Архитектура", detail: "Собираем решение", status: "active" }, { label: "Preview", detail: "Следующий кадр готовится", status: "pending" }, { label: "Результат", detail: "Проверка человеком", status: "pending" }]} />
+      <CinematicSequence stages={deliveryStages} />
       <section className="ds-hull ds-glass" style={{ padding: "clamp(1.25rem, 4vw, 3rem)" }}>
         <header style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
           <div><span className="ds-utility">РАБОЧИЙ ОТСЕК</span><h2 className="ds-display">Контролируемая доставка</h2><p style={{ color: "var(--ds-muted)" }}>Ожидаемый результат, доказательства и ручное согласование в одном контуре.</p></div>
