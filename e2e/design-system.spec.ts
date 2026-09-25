@@ -360,10 +360,15 @@ test.describe("OSGARD design system", () => {
     const pageErrors: string[] = []
     page.on("pageerror", (error) => pageErrors.push(error.message))
     await page.addInitScript(() => {
-      const metricsWindow = window as Window & { __osgardLcp?: number; __osgardCls?: number; __osgardInp?: number }
+      const metricsWindow = window as Window & { __osgardFcp?: number; __osgardLcp?: number; __osgardCls?: number; __osgardInp?: number }
+      metricsWindow.__osgardFcp = 0
       metricsWindow.__osgardLcp = 0
       metricsWindow.__osgardCls = 0
       metricsWindow.__osgardInp = 0
+      new PerformanceObserver((list) => {
+        const fcp = list.getEntries().find((entry) => entry.name === "first-contentful-paint")
+        if (fcp) metricsWindow.__osgardFcp = fcp.startTime
+      }).observe({ type: "paint", buffered: true })
       new PerformanceObserver((list) => {
         const latest = list.getEntries().at(-1)
         if (latest) metricsWindow.__osgardLcp = latest.startTime
@@ -382,13 +387,16 @@ test.describe("OSGARD design system", () => {
       }).observe({ type: "event", buffered: true, durationThreshold: 40 } as PerformanceObserverInit)
     })
     await page.goto("/cofounder", { waitUntil: "load" })
+    // Paint timing can land just after the load event when the command deck's
+    // client shell hydrates; wait for the actual browser entry before reading it.
+    await page.waitForFunction(() => performance.getEntriesByName("first-contentful-paint").length > 0, undefined, { timeout: 3000 }).catch(() => undefined)
     const metrics = await page.evaluate(() => {
       const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined
       const paints = performance.getEntriesByType("paint")
-      const metricsWindow = window as Window & { __osgardLcp?: number; __osgardCls?: number; __osgardInp?: number }
+      const metricsWindow = window as Window & { __osgardFcp?: number; __osgardLcp?: number; __osgardCls?: number; __osgardInp?: number }
       return {
         domContentLoaded: navigation?.domContentLoadedEventEnd ?? 0,
-        firstContentfulPaint: paints.find((entry) => entry.name === "first-contentful-paint")?.startTime ?? 0,
+        firstContentfulPaint: metricsWindow.__osgardFcp || paints.find((entry) => entry.name === "first-contentful-paint")?.startTime || 0,
         lcp: metricsWindow.__osgardLcp ?? 0,
         cls: metricsWindow.__osgardCls ?? 0,
         inp: metricsWindow.__osgardInp ?? 0,

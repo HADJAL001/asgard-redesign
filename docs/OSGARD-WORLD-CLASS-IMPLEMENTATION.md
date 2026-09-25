@@ -28,6 +28,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Accessible focus order, skip link, semantic controls, tooltips, keyboard navigation, and `prefers-reduced-motion` support.
 - React-safe boot shell lifecycle: the hydration overlay is mounted and dismissed through React state, so client navigation cannot encounter `insertBefore`/`removeChild` errors.
 - Regression coverage for `/dev` -> `/cofounder` client navigation, including the absence of the global critical-error surface.
+- Performance gate now waits for the browser's actual FCP paint entry after hydration, avoiding false zero readings while retaining the 3-second budget.
 
 ### Contract, evidence, and generation lifecycle
 
