@@ -95,6 +95,31 @@ function writeEvidenceTokens(store: Record<string, string>) {
   fs.renameSync(tempPath, evidenceTokensPath)
 }
 
+function pruneBlueprintArtifacts(removedIds: string[]) {
+  if (!removedIds.length) return
+  const removed = new Set(removedIds)
+  const evidence = readEvidence()
+  let evidenceChanged = false
+  for (const id of removed) {
+    if (id in evidence) {
+      delete evidence[id]
+      evidenceChanged = true
+    }
+  }
+  if (evidenceChanged) writeEvidence(evidence)
+
+  const tokens = readEvidenceTokens()
+  let tokensChanged = false
+  for (const key of Object.keys(tokens)) {
+    const blueprintId = key.includes(":") ? key.slice(key.lastIndexOf(":") + 1) : key
+    if (removed.has(blueprintId)) {
+      delete tokens[key]
+      tokensChanged = true
+    }
+  }
+  if (tokensChanged) writeEvidenceTokens(tokens)
+}
+
 export function issueBlueprintEvidenceToken(blueprintId: string, tenantId = DEFAULT_TENANT_ID) {
   const token = crypto.randomBytes(32).toString("hex")
   const tokens = readEvidenceTokens()
@@ -116,10 +141,15 @@ export function saveBlueprint(blueprint: StoredBlueprint) {
   const revisions = store[blueprint.id] || []
   store[blueprint.id] = [...revisions, blueprint].slice(-MAX_REVISIONS_PER_BLUEPRINT)
   const ids = Object.keys(store)
+  const removedIds: string[] = []
   if (ids.length > MAX_BLUEPRINTS) {
-    for (const id of ids.slice(0, ids.length - MAX_BLUEPRINTS)) delete store[id]
+    for (const id of ids.slice(0, ids.length - MAX_BLUEPRINTS)) {
+      delete store[id]
+      removedIds.push(id)
+    }
   }
   writeStore(store)
+  pruneBlueprintArtifacts(removedIds)
   return blueprint
 }
 
