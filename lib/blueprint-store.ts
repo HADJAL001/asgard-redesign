@@ -45,6 +45,17 @@ export type BlueprintEvidence = {
   source: string
 }
 
+export type BlueprintComment = {
+  id: string
+  blueprintId: string
+  tenantId: string
+  revision: number
+  contractHash: string
+  author: string
+  body: string
+  createdAt: string
+}
+
 export type BlueprintGraphNodeKind = "idea" | "contract" | "evidence" | "delivery" | "generation"
 export type BlueprintGraphNode = {
   id: string
@@ -75,6 +86,7 @@ const MAX_BLUEPRINTS = 500
 const storePath = process.env.BLUEPRINT_STORE_PATH || path.join(process.cwd(), ".data", "blueprints.json")
 const evidencePath = process.env.BLUEPRINT_EVIDENCE_PATH || path.join(process.cwd(), ".data", "blueprint-evidence.json")
 const evidenceTokensPath = process.env.BLUEPRINT_EVIDENCE_TOKENS_PATH || path.join(process.cwd(), ".data", "blueprint-evidence-tokens.json")
+const commentsPath = process.env.BLUEPRINT_COMMENTS_PATH || path.join(process.cwd(), ".data", "blueprint-comments.json")
 
 function readJsonObject(filePath: string, isValid: (value: Record<string, unknown>) => boolean): Record<string, unknown> | null {
   for (const candidate of [filePath, `${filePath}.bak`]) {
@@ -145,6 +157,14 @@ function writeEvidenceTokens(store: Record<string, string>) {
   writeJsonDurably(evidenceTokensPath, store)
 }
 
+function readComments(): Record<string, BlueprintComment[]> {
+  return readJsonObject(commentsPath, (value) => Object.values(value).every((entries) => Array.isArray(entries) && entries.every((entry) => entry && typeof entry === "object" && typeof entry.id === "string" && typeof entry.blueprintId === "string" && typeof entry.body === "string"))) as Record<string, BlueprintComment[]> || {}
+}
+
+function writeComments(store: Record<string, BlueprintComment[]>) {
+  writeJsonDurably(commentsPath, store)
+}
+
 function pruneBlueprintArtifacts(removedIds: string[]) {
   if (!removedIds.length) return
   const removed = new Set(removedIds)
@@ -168,6 +188,15 @@ function pruneBlueprintArtifacts(removedIds: string[]) {
     }
   }
   if (tokensChanged) writeEvidenceTokens(tokens)
+  const comments = readComments()
+  let commentsChanged = false
+  for (const id of removed) {
+    if (id in comments) {
+      delete comments[id]
+      commentsChanged = true
+    }
+  }
+  if (commentsChanged) writeComments(comments)
 }
 
 export function issueBlueprintEvidenceToken(blueprintId: string, tenantId = DEFAULT_TENANT_ID) {
@@ -256,6 +285,18 @@ export function appendBlueprintEvidence(evidence: BlueprintEvidence) {
   store[evidence.blueprintId] = [...previous, evidence].slice(-100)
   writeEvidence(store)
   return evidence
+}
+
+export function listBlueprintComments(id: string, tenantId = DEFAULT_TENANT_ID) {
+  return (readComments()[id] || []).filter((entry) => entry.tenantId === tenantId).slice(-100)
+}
+
+export function appendBlueprintComment(comment: BlueprintComment) {
+  const store = readComments()
+  const previous = store[comment.blueprintId] || []
+  store[comment.blueprintId] = [...previous, comment].slice(-100)
+  writeComments(store)
+  return comment
 }
 
 /**

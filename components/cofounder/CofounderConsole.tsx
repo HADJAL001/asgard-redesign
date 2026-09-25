@@ -25,6 +25,7 @@ type DeliveryProvider = "osgard-cluster" | "vercel" | "netlify" | "custom"
 type DeliveryPreflight = { ready: boolean; checks: { id: string; status: "passed" | "manual" | "not-requested" | "blocked"; label: string }[] }
 type CommandDiff = { slotId: string; role: string; before: string; after: string }
 type CommandPreview = { intent: string; changes: CommandDiff[]; contractHash: string; revision: number }
+type ApprovalComment = { id: string; revision: number; author: string; body: string; createdAt: string }
 
 const evidenceLabels: Record<string, string> = {
   security: "Security review",
@@ -59,6 +60,9 @@ export function CofounderConsole() {
   const [commandText, setCommandText] = useState("")
   const [commandPreview, setCommandPreview] = useState<CommandPreview | null>(null)
   const [commandBusy, setCommandBusy] = useState(false)
+  const [approvalComments, setApprovalComments] = useState<ApprovalComment[]>([])
+  const [commentDraft, setCommentDraft] = useState("")
+  const [commentBusy, setCommentBusy] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null)
   const [previewPlan, setPreviewPlan] = useState<PreviewPlan | null>(null)
@@ -140,9 +144,24 @@ export function CofounderConsole() {
         if (quality.readyForCodegen) track("blueprint_quality_ready", { blueprintId: id, revision: quality.revision, required: quality.required })
         else if (quality.missing?.length || quality.stale?.length) track("blueprint_quality_blocked", { blueprintId: id, revision: quality.revision, missing: quality.missing, stale: quality.stale?.map((item: { kind: string; reason: string }) => `${item.kind}:${item.reason}`) })
       }
+      const commentsResponse = await fetch(`/api/design/blueprint/${id}/comments`, { cache: "no-store" })
+      const commentsData = await commentsResponse.json().catch(() => null)
+      if (commentsResponse.ok && Array.isArray(commentsData?.comments)) setApprovalComments(commentsData.comments as ApprovalComment[])
     } catch {
       // Evidence is supplementary to the blueprint and must not block recovery.
     }
+  }
+
+  async function addApprovalComment() {
+    if (!compileResult?.evidenceToken || commentDraft.trim().length < 2) return
+    setCommentBusy(true)
+    try {
+      const response = await fetch(`/api/design/blueprint/${compileResult.id}/comments`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ revision: compileResult.revision, comment: commentDraft, author: user?.displayName || user?.username || user?.email || "OSGARD collaborator", evidenceToken: compileResult.evidenceToken }) })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.comment) throw new Error("Не удалось сохранить комментарий")
+      setApprovalComments((current) => [...current, data.comment as ApprovalComment].slice(-100))
+      setCommentDraft("")
+    } catch (error) { setCompileError(error instanceof Error ? error.message : "Не удалось сохранить комментарий") } finally { setCommentBusy(false) }
   }
 
   async function refreshEvidence() {
@@ -435,6 +454,7 @@ export function CofounderConsole() {
         {commandPreview ? <div className="ds-command-diff" role="status"><div className="ds-command-diff__meta"><strong>{commandPreview.intent}</strong><span>{commandPreview.changes.length} changes · revision {commandPreview.revision}</span></div><ul>{commandPreview.changes.map((change) => <li key={change.slotId}><strong>{change.role}</strong><span className="ds-command-diff__before">{change.before || "empty"}</span><span aria-hidden="true">→</span><span className="ds-command-diff__after">{change.after}</span></li>)}</ul><button type="button" className="ds-liquid-gold ds-focus" onClick={() => void applyCommand()} disabled={commandBusy}>Применить изменения</button></div> : null}
       </section>
       <StoryboardRail plan={previewPlan} approved={Boolean(compileResult?.approved)} />
+      {compileResult ? <section className="ds-hull ds-glass ds-approval-room" aria-labelledby="approval-room-title"><div className="ds-command-panel__head"><div><span className="ds-utility">APPROVAL ROOM / REVISION {compileResult.revision}</span><h2 id="approval-room-title" className="ds-display">Решения команды</h2><p>Комментарии привязаны к revision и попадают в Mission Replay.</p></div><ShieldCheck size={18} aria-hidden="true" /></div><div className="ds-approval-room__comments">{approvalComments.length ? approvalComments.map((comment) => <article key={comment.id}><div><strong>{comment.author}</strong><small>{new Date(comment.createdAt).toLocaleString()}</small></div><p>{comment.body}</p></article>) : <p className="ds-field-hint">Пока нет комментариев к этой revision.</p>}</div><div className="ds-approval-room__composer"><label className="ds-field"><span className="sr-only">Комментарий к revision</span><textarea rows={2} value={commentDraft} onChange={(event) => setCommentDraft(event.target.value)} placeholder="Оставьте решение, риск или вопрос для approval room" maxLength={1_000} disabled={commentBusy} /></label><button type="button" className="ds-dialog-secondary ds-focus" onClick={() => void addApprovalComment()} disabled={commentBusy || commentDraft.trim().length < 2}>{commentBusy ? "Сохраняем…" : "Добавить комментарий"}</button></div></section> : null}
       <section className="ds-hull ds-glass" style={{ padding: "clamp(1.25rem, 4vw, 3rem)" }}>
         <header style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
           <div><span className="ds-utility">РАБОЧИЙ ОТСЕК</span><h2 className="ds-display">Контролируемая доставка</h2><p style={{ color: "var(--ds-muted)" }}>Ожидаемый результат, доказательства и ручное согласование в одном контуре.</p></div>
