@@ -4,7 +4,7 @@ import db from "../lib/db"
 import { captureError } from "../lib/sentry"
 import { trackGeneration } from "./generation-metrics.service"
 import { notifyGenerationComplete } from "./webhook.service"
-import type { Agent, Artifact, TaskStatus } from "../types/pipeline.types"
+import type { Agent, Artifact, TaskStatus, DeliveryTarget } from "../types/pipeline.types"
 
 /* ================================================================
    OSGARD · ChainManager — прогон цепочки агентов генерации проекта
@@ -78,12 +78,16 @@ function releaseSlot() {
 }
 
 function rowToStatus(row: any): TaskStatus {
+  let input: any = null
+  try { input = JSON.parse(row.input || "{}") } catch { input = null }
+  const delivery = input?.delivery && typeof input.delivery === "object" ? input.delivery as DeliveryTarget : undefined
   return {
     taskId: row.id,
     userId: String(row.user_id),
     status: row.status,
     progress: row.progress,
     currentStep: row.current_step,
+    ...(delivery ? { delivery } : {}),
     artifacts: JSON.parse(row.artifacts),
     result: row.result ? JSON.parse(row.result) : undefined,
     error: row.error ?? undefined,

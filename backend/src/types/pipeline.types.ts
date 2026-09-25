@@ -26,6 +26,12 @@ export interface Artifact {
 }
 
 export type TaskStatusState = "queued" | "processing" | "completed" | "failed" | "cancelled"
+export interface DeliveryTarget {
+  provider?: string
+  domain?: string
+  supabaseProjectRef?: string
+  integrationIds?: number[]
+}
 
 export interface TaskStatus {
   taskId: string
@@ -33,6 +39,7 @@ export interface TaskStatus {
   status: TaskStatusState
   progress: number
   currentStep: string
+  delivery?: DeliveryTarget
   artifacts: Artifact[]
   result?: {
     appUrl: string
