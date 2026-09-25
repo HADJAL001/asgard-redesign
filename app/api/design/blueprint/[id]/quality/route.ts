@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getBlueprint, listBlueprintEvidence, type BlueprintEvidenceKind } from "@/lib/blueprint-store"
+import { tenantIdFromRequest } from "@/lib/tenant-context"
 
 export const dynamic = "force-dynamic"
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const tenantId = tenantIdFromRequest(request)
+  if (!tenantId) return NextResponse.json({ error: "tenant_not_available" }, { status: 404 })
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: "invalid_blueprint_id" }, { status: 400 })
-  const blueprint = getBlueprint(id)
+  const blueprint = getBlueprint(id, undefined, tenantId)
   if (!blueprint) return NextResponse.json({ error: "blueprint_not_found" }, { status: 404 })
-  const evidence = listBlueprintEvidence(id)
+  const evidence = listBlueprintEvidence(id, tenantId)
   const latest = new Map(evidence.map((entry) => [entry.kind, entry]))
   const required: BlueprintEvidenceKind[] = ["security", "performance", "a11y", "visual-diff", "deploy"]
   const missing = required.filter((kind) => latest.get(kind)?.revision !== blueprint.revision || latest.get(kind)?.contractHash !== blueprint.contractHash || latest.get(kind)?.status !== "passed")

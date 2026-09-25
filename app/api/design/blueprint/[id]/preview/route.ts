@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getBlueprint } from "@/lib/blueprint-store"
+import { tenantIdFromRequest } from "@/lib/tenant-context"
 
 const registry: Record<string, { role: string; states: string[] }> = {
   "app-shell": { role: "navigation", states: ["default", "loading", "error"] },
@@ -12,11 +13,13 @@ const registry: Record<string, { role: string; states: string[] }> = {
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const tenantId = tenantIdFromRequest(request)
+  if (!tenantId) return NextResponse.json({ error: "tenant_not_available" }, { status: 404 })
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: "invalid_blueprint_id" }, { status: 400 })
   const rawRevision = request.nextUrl.searchParams.get("revision")
   const selectedRevision = rawRevision ? Number(rawRevision) : undefined
   if (rawRevision && (!Number.isInteger(selectedRevision) || (selectedRevision as number) < 1)) return NextResponse.json({ error: "invalid_revision" }, { status: 400 })
-  const blueprint = getBlueprint(id, selectedRevision)
+  const blueprint = getBlueprint(id, selectedRevision, tenantId)
   if (!blueprint) return NextResponse.json({ error: "blueprint_not_found" }, { status: 404 })
   const slots = (blueprint.canvasSlots || blueprint.components.map((component, index) => ({
     id: `${component}-${index + 1}`,
