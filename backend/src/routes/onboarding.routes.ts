@@ -64,11 +64,23 @@ router.post("/step", requireAuth, (req: AuthRequest, res) => {
   const reward = ONBOARDING_REWARDS[stepNum]
   const now = Date.now()
 
-  if (reward.credits) {
+  const claimed = db.transaction(() => {
+    // Re-read inside the write transaction so concurrent requests cannot both earn this step.
+    const latest: any = db.prepare(`SELECT onboarding_step FROM users WHERE id = ?`).get(req.user!.userId)
+    if (!latest || (latest.onboarding_step ?? 0) !== currentStep) return false
+
+    const advanced = db.prepare(`UPDATE users SET onboarding_step = ? WHERE id = ? AND onboarding_step = ?`).run(
+      stepNum,
+      req.user!.userId,
+      currentStep,
+    )
+    if (advanced.changes !== 1) return false
+
+    if (reward.credits) {
     db.prepare(
       `UPDATE wallets SET credits = credits + ?, updated_at = ? WHERE user_id = ?`,
     ).run(reward.credits, now, req.user!.userId)
-  }
+    }
 
   if (reward.badge) {
     db.prepare(
@@ -76,11 +88,6 @@ router.post("/step", requireAuth, (req: AuthRequest, res) => {
        VALUES (?, 'badge', ?, 'Онбординг', 0, 'badge', 'done')`,
     ).run(req.user!.userId, reward.badge)
   }
-
-  db.prepare(`UPDATE users SET onboarding_step = ? WHERE id = ?`).run(
-    stepNum,
-    req.user!.userId,
-  )
 
   const rewardParts: string[] = []
   if (reward.credits) rewardParts.push(`${reward.credits} credits`)
@@ -96,6 +103,10 @@ router.post("/step", requireAuth, (req: AuthRequest, res) => {
     reward.credits ? "credits" : "badge",
   )
   logAudit(req.user!.userId, "credit", reward.credits || 0, "onboarding_reward", { step: stepNum, badge: reward.badge })
+    return true
+  })()
+
+  if (!claimed) return res.status(409).json({ error: "Онбординг уже обновляется", code: "ONBOARDING_STEP_CONFLICT" })
 
   const completed = stepNum >= TOTAL_STEPS
 
