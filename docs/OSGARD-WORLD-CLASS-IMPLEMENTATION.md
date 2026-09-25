@@ -97,7 +97,7 @@ Latest recorded production gate:
 | Frontend E2E | 32/32 passed |
 | Backend integration | 773 passed, 2 skipped, 0 failed (775 total) |
 
-Latest post-release browser gate (2026-09-25): visual baseline `b97599be34fdd5177d07cc8d85373daf11dadfeec7c9472f5ce140e05af0a0e5`, health latency `361 ms`, developer latency `842 ms`; all gates passed. Sequential Playwright coverage is `36/36 passed` and `lint:quality` is clean.
+Latest post-release browser gate (2026-09-25): visual baseline `b97599be34fdd5177d07cc8d85373daf11dadfeec7c9472f5ce140e05af0a0e5`, health latency `296 ms`, developer latency `630 ms`; all gates passed. Sequential Playwright coverage is `36/36 passed` and `lint:quality` is clean.
 
 Latest cockpit release gate: browser gate passed with health latency `347 ms` and developer latency `695 ms`; targeted developer-mode regression tests passed `2/2`.
 
