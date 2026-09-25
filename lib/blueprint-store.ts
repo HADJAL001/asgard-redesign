@@ -56,11 +56,21 @@ function readStore(): Store {
   }
 }
 
+function writeJsonDurably(filePath: string, value: unknown) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  const tempPath = `${filePath}.${process.pid}.tmp`
+  const descriptor = fs.openSync(tempPath, "w", 0o600)
+  try {
+    fs.writeFileSync(descriptor, JSON.stringify(value), { encoding: "utf8" })
+    fs.fsyncSync(descriptor)
+  } finally {
+    fs.closeSync(descriptor)
+  }
+  fs.renameSync(tempPath, filePath)
+}
+
 function writeStore(store: Store) {
-  fs.mkdirSync(path.dirname(storePath), { recursive: true })
-  const tempPath = `${storePath}.${process.pid}.tmp`
-  fs.writeFileSync(tempPath, JSON.stringify(store), { encoding: "utf8", mode: 0o600 })
-  fs.renameSync(tempPath, storePath)
+  writeJsonDurably(storePath, store)
 }
 
 function readEvidence(): Record<string, BlueprintEvidence[]> {
@@ -73,10 +83,7 @@ function readEvidence(): Record<string, BlueprintEvidence[]> {
 }
 
 function writeEvidence(store: Record<string, BlueprintEvidence[]>) {
-  fs.mkdirSync(path.dirname(evidencePath), { recursive: true })
-  const tempPath = `${evidencePath}.${process.pid}.tmp`
-  fs.writeFileSync(tempPath, JSON.stringify(store), { encoding: "utf8", mode: 0o600 })
-  fs.renameSync(tempPath, evidencePath)
+  writeJsonDurably(evidencePath, store)
 }
 
 function readEvidenceTokens(): Record<string, string> {
@@ -89,10 +96,7 @@ function readEvidenceTokens(): Record<string, string> {
 }
 
 function writeEvidenceTokens(store: Record<string, string>) {
-  fs.mkdirSync(path.dirname(evidenceTokensPath), { recursive: true })
-  const tempPath = `${evidenceTokensPath}.${process.pid}.tmp`
-  fs.writeFileSync(tempPath, JSON.stringify(store), { encoding: "utf8", mode: 0o600 })
-  fs.renameSync(tempPath, evidenceTokensPath)
+  writeJsonDurably(evidenceTokensPath, store)
 }
 
 function pruneBlueprintArtifacts(removedIds: string[]) {
