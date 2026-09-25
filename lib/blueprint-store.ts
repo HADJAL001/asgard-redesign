@@ -19,6 +19,7 @@ export type StoredBlueprint = {
   aiPlan?: { summary: string; components: string[]; risks: string[] }
   canvasSlots?: { id: string; component: string; role: string; states: string[] }[]
   approval?: { status: "approved"; approvedAt: string }
+  generation?: { taskId: string; status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; currentStep?: string; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string }; updatedAt: string }
 }
 
 export type BlueprintEvidenceKind = "typecheck" | "unit" | "a11y" | "security" | "performance" | "visual-diff" | "deploy" | "social-preview" | "rollback"
@@ -126,6 +127,17 @@ export function getBlueprint(id: string, revision?: number) {
 
 export function listBlueprintRevisions(id: string) {
   return readStore()[id] || []
+}
+
+export function updateBlueprintGeneration(id: string, revision: number, generation: StoredBlueprint["generation"]) {
+  const store = readStore()
+  const revisions = store[id]
+  if (!revisions?.length) return null
+  const index = revisions.findIndex((item) => item.revision === revision)
+  if (index < 0) return null
+  revisions[index] = { ...revisions[index], ...(generation ? { generation } : { generation: undefined }) }
+  writeStore(store)
+  return revisions[index]
 }
 
 export function listBlueprintEvidence(id: string) {

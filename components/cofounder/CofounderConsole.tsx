@@ -70,6 +70,11 @@ export function CofounderConsole() {
     try { localStorage.setItem(GENERATION_STATE_KEY, JSON.stringify({ ...status, taskId, blueprintId, revision, updatedAt: new Date().toISOString() })) } catch { /* optional storage */ }
   }, [compileResult?.id, compileResult?.revision])
 
+  const persistGenerationRemote = useCallback((status: GenerationStatus, taskId: string, blueprintId = compileResult?.id, revision = compileResult?.revision) => {
+    if (!compileResult?.evidenceToken || !blueprintId || !revision) return
+    void fetch(`/api/design/blueprint/${encodeURIComponent(blueprintId)}/generation`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...status, taskId, revision, evidenceToken: compileResult.evidenceToken }) }).catch(() => undefined)
+  }, [compileResult])
+
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
@@ -153,6 +158,7 @@ export function CofounderConsole() {
           const failed = { status: "failed" as const, progress: 0, error }
           setGenerationStatus(failed)
           persistGenerationState(failed, generationTask)
+          persistGenerationRemote(failed, generationTask)
           track("blueprint_codegen_failed", { taskId: generationTask, status: "poll_error", attempts: generationPollFailures.current })
           return
         }
@@ -163,13 +169,14 @@ export function CofounderConsole() {
       if (cancelled) return
       if (!status) {
         generationPollFailures.current += 1
-        if (generationPollFailures.current >= 3) { const failed = { status: "failed" as const, progress: 0, error: "Сервер вернул неполный статус codegen." }; setGenerationStatus(failed); persistGenerationState(failed, generationTask) }
+        if (generationPollFailures.current >= 3) { const failed = { status: "failed" as const, progress: 0, error: "Сервер вернул неполный статус codegen." }; setGenerationStatus(failed); persistGenerationState(failed, generationTask); persistGenerationRemote(failed, generationTask) }
         else schedulePoll(1500 * generationPollFailures.current)
         return
       }
       generationPollFailures.current = 0
       setGenerationStatus(status)
       persistGenerationState(status, generationTask)
+      persistGenerationRemote(status, generationTask)
       const statusKey = `${status.status}:${status.currentStep || ""}:${Math.round(status.progress || 0)}`
       if (statusKey !== lastGenerationStatus.current) {
         lastGenerationStatus.current = statusKey
@@ -183,7 +190,7 @@ export function CofounderConsole() {
       cancelled = true
       if (pollTimer !== undefined) window.clearTimeout(pollTimer)
     }
-  }, [generationTask, persistGenerationState])
+  }, [generationTask, persistGenerationRemote, persistGenerationState])
 
   if (!hydrated) return <CofounderLoadingShell />
 
@@ -278,6 +285,7 @@ export function CofounderConsole() {
       const queued = { status: "queued" as const, progress: 0 }
       setGenerationStatus(queued)
       persistGenerationState(queued, data.taskId, item.id, item.revision)
+      persistGenerationRemote(queued, data.taskId, item.id, item.revision)
       generationPollFailures.current = 0
       lastGenerationStatus.current = "queued:"
       track("blueprint_codegen_started", { source: "cofounder", taskId: data.taskId, blueprintId: item.id, revision: item.revision })

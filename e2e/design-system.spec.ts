@@ -89,6 +89,14 @@ test.describe("OSGARD design system", () => {
       expect.objectContaining({ kind: "performance", revision: 1, contractHash: blueprint.contractHash }),
       expect.objectContaining({ kind: "a11y", revision: 1, contractHash: blueprint.contractHash }),
     ]))
+    const generation = await request.post(`/api/design/blueprint/${blueprint.id}/generation`, { data: { revision: 1, taskId: "task-evidence-check", status: "completed", progress: 100, result: { appUrl: "https://example.com/app", previewUrl: "https://example.com/preview", repoUrl: "https://github.com/example/repo" }, evidenceToken: createdBody.evidenceToken } })
+    expect(generation.status()).toBe(201)
+    const generationBody = await generation.json()
+    expect(generationBody.generation).toMatchObject({ taskId: "task-evidence-check", status: "completed", progress: 100 })
+    const generationRead = await request.get(`/api/design/blueprint/${blueprint.id}/generation`)
+    expect(generationRead.status()).toBe(200)
+    expect((await generationRead.json()).generation.result.appUrl).toBe("https://example.com/app")
+    expect(await generationRead.text()).not.toContain(createdBody.evidenceToken)
     const forged = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "deploy", status: "passed", summary: "Forged evidence", source: "attacker", contractHash: blueprint.contractHash, evidenceToken: "0".repeat(64) } })
     expect(forged.status()).toBe(403)
     const oversized = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "a11y", status: "passed", summary: "x".repeat(20_000), source: "quality-gate", contractHash: blueprint.contractHash, evidenceToken: createdBody.evidenceToken } })

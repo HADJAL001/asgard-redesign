@@ -34,6 +34,9 @@ export function DevQualityCockpit() {
           const qualityResponse = await fetch(`/api/design/blueprint/${encodeURIComponent(latest.id)}/quality`, { cache: "no-store" })
           const quality = await qualityResponse.json().catch(() => null) as { revision?: number; missing?: string[]; required?: string[]; readyForCodegen?: boolean } | null
           if (qualityResponse.ok && quality && Array.isArray(quality.missing) && Array.isArray(quality.required)) setBlueprint({ id: latest.id, revision: quality.revision || latest.revision, missing: quality.missing, required: quality.required, readyForCodegen: Boolean(quality.readyForCodegen) })
+          const generationResponse = await fetch(`/api/design/blueprint/${encodeURIComponent(latest.id)}/generation`, { cache: "no-store" })
+          const generationData = await generationResponse.json().catch(() => null) as { generation?: GenerationSnapshot | null } | null
+          if (generationResponse.ok && generationData?.generation) setGeneration(generationData.generation)
         }
       } catch {
         setBlueprint(null)
