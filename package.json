@@ -13,6 +13,7 @@
     "test:analytics-contract": "node scripts/analytics-contract-gate.mjs",
     "test:design-system": "node scripts/design-system-quality-gate.mjs",
     "test:design-system-browser": "node scripts/design-system-browser-gate.mjs",
+    "lint:quality": "eslint app components lib scripts e2e --max-warnings=0",
     "start": "next start",
     "lint": "eslint .",
     "test:e2e": "playwright test"

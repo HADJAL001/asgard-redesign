@@ -47,6 +47,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm audit --audit-level=high
       - run: npm run build
+      - run: npm run lint:quality
       - run: npm run test:design-system
       - run: npm run test:analytics-contract
       - run: npx playwright install --with-deps chromium
