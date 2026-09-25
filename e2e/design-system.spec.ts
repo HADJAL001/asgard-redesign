@@ -49,6 +49,7 @@ test.describe("OSGARD design system", () => {
     expect(body.blueprint.contractVersion).toBe("1.0.0")
     expect(body.blueprint.contractHash).toMatch(/^[a-f0-9]{64}$/)
     expect(body.evidence).toHaveLength(2)
+    expect(body.evidenceToken).toMatch(/^[a-f0-9]{64}$/)
     expect(body.evidence[0]).toMatchObject({ kind: "security", status: "passed", source: "blueprint-guard", contractHash: body.blueprint.contractHash })
     expect(body.evidence[1]).toMatchObject({ kind: "performance", status: "passed", source: "blueprint-runtime-budget", contractHash: body.blueprint.contractHash })
     const quality = await request.get(`/api/design/blueprint/${body.blueprint.id}/quality`)
@@ -66,8 +67,9 @@ test.describe("OSGARD design system", () => {
 
   test("binds evidence ledger entries to the contract hash", async ({ request }) => {
     const created = await request.post("/api/design/blueprint", { data: { app: "evidence-check", brief: "A product workspace with auditable release evidence and safe delivery." } })
-    const blueprint = (await created.json()).blueprint
-    const evidence = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "a11y", status: "passed", summary: "Keyboard and contrast checks passed", source: "quality-gate", contractHash: blueprint.contractHash } })
+    const createdBody = await created.json()
+    const blueprint = createdBody.blueprint
+    const evidence = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "a11y", status: "passed", summary: "Keyboard and contrast checks passed", source: "quality-gate", contractHash: blueprint.contractHash, evidenceToken: createdBody.evidenceToken } })
     expect(evidence.status()).toBe(201)
     const evidenceBody = await evidence.json()
     expect(evidenceBody.evidence.contractHash).toBe(blueprint.contractHash)
@@ -80,6 +82,8 @@ test.describe("OSGARD design system", () => {
       expect.objectContaining({ kind: "performance", revision: 1, contractHash: blueprint.contractHash }),
       expect.objectContaining({ kind: "a11y", revision: 1, contractHash: blueprint.contractHash }),
     ]))
+    const forged = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "deploy", status: "passed", summary: "Forged evidence", source: "attacker", contractHash: blueprint.contractHash, evidenceToken: "0".repeat(64) } })
+    expect(forged.status()).toBe(403)
     const mismatch = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "security", status: "passed", summary: "Wrong contract", source: "quality-gate", contractHash: "0".repeat(64) } })
     expect(mismatch.status()).toBe(409)
   })
@@ -275,7 +279,7 @@ test.describe("OSGARD design system", () => {
     const metrics = await page.evaluate(() => {
       const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined
       const paints = performance.getEntriesByType("paint")
-      const metricsWindow = window as Window & { __osgardLcp?: number }
+      const metricsWindow = window as Window & { __osgardLcp?: number; __osgardCls?: number; __osgardInp?: number }
       return {
         domContentLoaded: navigation?.domContentLoadedEventEnd ?? 0,
         firstContentfulPaint: paints.find((entry) => entry.name === "first-contentful-paint")?.startTime ?? 0,

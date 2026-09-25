@@ -20,7 +20,8 @@ const created = await json(`${base}/api/design/blueprint`, {
   body: JSON.stringify({ app: "browser-quality-gate", brief: "A cinematic AI product workspace with accessible, measurable delivery proof" }),
 })
 const blueprint = created?.blueprint
-if (!blueprint?.id || !blueprint.contractHash) throw new Error("blueprint contract missing")
+const evidenceToken = created?.evidenceToken
+if (!blueprint?.id || !blueprint.contractHash || !evidenceToken) throw new Error("blueprint contract or evidence token missing")
 
 const browser = await chromium.launch({ headless: true })
 try {
@@ -105,12 +106,12 @@ try {
   await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ kind: "a11y", status: "passed", summary: `Cofounder has named heading, ${interactiveCount} controls and focus; developer mode pulse/link/focus passed`, source: "playwright-browser-gate", contractHash: blueprint.contractHash }),
+    body: JSON.stringify({ kind: "a11y", status: "passed", summary: `Cofounder has named heading, ${interactiveCount} controls and focus; developer mode pulse/link/focus passed`, source: "playwright-browser-gate", contractHash: blueprint.contractHash, evidenceToken }),
   })
   await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ kind: "visual-diff", status: "passed", summary: `Visual baseline matched (sha256 ${screenshot.sha256.slice(0, 16)}, ${screenshot.bytes} bytes)`, source: "playwright-browser-gate", contractHash: blueprint.contractHash }),
+    body: JSON.stringify({ kind: "visual-diff", status: "passed", summary: `Visual baseline matched (sha256 ${screenshot.sha256.slice(0, 16)}, ${screenshot.bytes} bytes)`, source: "playwright-browser-gate", contractHash: blueprint.contractHash, evidenceToken }),
   })
   const healthStarted = performance.now()
   const healthResponse = await fetch(`${base}/api/health`, { cache: "no-store" })
@@ -119,12 +120,12 @@ try {
   await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ kind: "deploy", status: "passed", summary: `Production health returned HTTP ${healthResponse.status} in ${healthLatencyMs}ms`, source: "production-health-gate", contractHash: blueprint.contractHash }),
+    body: JSON.stringify({ kind: "deploy", status: "passed", summary: `Production health returned HTTP ${healthResponse.status} in ${healthLatencyMs}ms`, source: "production-health-gate", contractHash: blueprint.contractHash, evidenceToken }),
   })
   await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ kind: "social-preview", status: "passed", summary: `Open Graph image returned image/png (${socialPreviewBytes} bytes)`, source: "social-preview-gate", contractHash: blueprint.contractHash }),
+    body: JSON.stringify({ kind: "social-preview", status: "passed", summary: `Open Graph image returned image/png (${socialPreviewBytes} bytes)`, source: "social-preview-gate", contractHash: blueprint.contractHash, evidenceToken }),
   })
   console.log(JSON.stringify({ blueprintId: blueprint.id, a11y: "passed", visualDiff: "passed", deploy: "passed", replay: "passed", socialPreview: "passed", healthLatencyMs, developerLatencyMs, screenshot }, null, 2))
 } finally {

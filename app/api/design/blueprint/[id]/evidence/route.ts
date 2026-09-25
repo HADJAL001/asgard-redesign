@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { appendBlueprintEvidence, getBlueprint, listBlueprintEvidence, type BlueprintEvidence, type BlueprintEvidenceKind } from "@/lib/blueprint-store"
+import { appendBlueprintEvidence, getBlueprint, listBlueprintEvidence, type BlueprintEvidence, type BlueprintEvidenceKind, verifyBlueprintEvidenceToken } from "@/lib/blueprint-store"
 
 export const dynamic = "force-dynamic"
 const kinds = new Set<BlueprintEvidenceKind>(["typecheck", "unit", "a11y", "security", "performance", "visual-diff", "deploy", "social-preview", "rollback"])
@@ -24,8 +24,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const summary = typeof body?.summary === "string" ? body.summary.trim().slice(0, 500) : ""
   const source = typeof body?.source === "string" ? body.source.trim().slice(0, 120) : ""
   const contractHash = typeof body?.contractHash === "string" ? body.contractHash : ""
+  const evidenceToken = typeof body?.evidenceToken === "string" ? body.evidenceToken : ""
   if (!kinds.has(kind as BlueprintEvidenceKind) || !statuses.has(status) || !summary || !source || !/^[a-f0-9]{64}$/.test(contractHash)) return NextResponse.json({ error: "invalid_evidence" }, { status: 400 })
   if (!blueprint.contractHash || contractHash !== blueprint.contractHash) return NextResponse.json({ error: "contract_hash_mismatch" }, { status: 409 })
+  if (!verifyBlueprintEvidenceToken(id, evidenceToken)) return NextResponse.json({ error: "evidence_token_required" }, { status: 403 })
   const evidence: BlueprintEvidence = { id: crypto.randomUUID(), blueprintId: id, revision: blueprint.revision, contractHash, kind: kind as BlueprintEvidenceKind, status: status as BlueprintEvidence["status"], summary, capturedAt: new Date().toISOString(), source }
   appendBlueprintEvidence(evidence)
   return NextResponse.json({ evidence }, { status: 201, headers: { "cache-control": "no-store" } })

@@ -1,5 +1,6 @@
 import fs from "node:fs"
 import path from "node:path"
+import crypto from "node:crypto"
 
 export type StoredBlueprint = {
   id: string
@@ -38,6 +39,7 @@ const MAX_REVISIONS_PER_BLUEPRINT = 20
 const MAX_BLUEPRINTS = 500
 const storePath = process.env.BLUEPRINT_STORE_PATH || path.join(process.cwd(), ".data", "blueprints.json")
 const evidencePath = process.env.BLUEPRINT_EVIDENCE_PATH || path.join(process.cwd(), ".data", "blueprint-evidence.json")
+const evidenceTokensPath = process.env.BLUEPRINT_EVIDENCE_TOKENS_PATH || path.join(process.cwd(), ".data", "blueprint-evidence-tokens.json")
 
 function readStore(): Store {
   try {
@@ -69,6 +71,37 @@ function writeEvidence(store: Record<string, BlueprintEvidence[]>) {
   const tempPath = `${evidencePath}.${process.pid}.tmp`
   fs.writeFileSync(tempPath, JSON.stringify(store), { encoding: "utf8", mode: 0o600 })
   fs.renameSync(tempPath, evidencePath)
+}
+
+function readEvidenceTokens(): Record<string, string> {
+  try {
+    const value = JSON.parse(fs.readFileSync(/* turbopackIgnore: true */ evidenceTokensPath, "utf8"))
+    return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, string> : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeEvidenceTokens(store: Record<string, string>) {
+  fs.mkdirSync(path.dirname(evidenceTokensPath), { recursive: true })
+  const tempPath = `${evidenceTokensPath}.${process.pid}.tmp`
+  fs.writeFileSync(tempPath, JSON.stringify(store), { encoding: "utf8", mode: 0o600 })
+  fs.renameSync(tempPath, evidenceTokensPath)
+}
+
+export function issueBlueprintEvidenceToken(blueprintId: string) {
+  const token = crypto.randomBytes(32).toString("hex")
+  const tokens = readEvidenceTokens()
+  tokens[blueprintId] = token
+  writeEvidenceTokens(tokens)
+  return token
+}
+
+export function verifyBlueprintEvidenceToken(blueprintId: string, candidate: unknown) {
+  if (typeof candidate !== "string" || !/^[a-f0-9]{64}$/.test(candidate)) return false
+  const expected = readEvidenceTokens()[blueprintId]
+  if (!expected) return false
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(candidate))
 }
 
 export function saveBlueprint(blueprint: StoredBlueprint) {
