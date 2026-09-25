@@ -226,14 +226,14 @@ test.describe("OSGARD design system", () => {
     await expect(page.locator("dialog textarea")).toHaveValue(/focused product workspace/)
     await page.locator("dialog form button[type=submit]").click()
     await expect(page.locator(".ds-dialog-result")).toContainText("Blueprint")
+    await page.keyboard.press("Escape")
     await expect(canvas.getByRole("button", { name: /Move .* (up|down)/ }).first()).toBeVisible({ timeout: 5000 })
-    const editBlock = canvas.getByRole("button", { name: /Edit .* label/ }).first()
+    const editBlock = canvas.getByRole("button", { name: /^Edit / }).first()
     await editBlock.click()
     const blockInput = canvas.getByRole("textbox", { name: /Edit .* label/ })
     await blockInput.fill("Primary mission block")
     await blockInput.press("Enter")
     await expect(canvas).toContainText("Draft changes · not saved")
-    await page.keyboard.press("Escape")
   })
 
   test("reduced motion preference is respected by the document", async ({ page }) => {
