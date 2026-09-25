@@ -115,6 +115,9 @@ POST /api/error-intelligence/runs/:id/recheck
 POST /api/error-intelligence/findings/:id/suppress # expiry + approver required
 POST /api/error-intelligence/incidents/:id/rollback
 GET  /api/error-intelligence/patterns              # tenant-safe aggregates only
+
+# ProductContract-bound edit loop
+POST /api/design/blueprint/:id/command              # dry-run by default; returns explainable diff
 ```
 
 All mutations require tenant context, idempotency keys, payload limits and
