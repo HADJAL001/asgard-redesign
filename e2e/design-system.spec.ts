@@ -91,6 +91,23 @@ test.describe("OSGARD design system", () => {
     expect(body.blueprint.contractHash).not.toBe(baseBody.blueprint.contractHash)
   })
 
+  test("returns an explainable dry-run and applies a bounded natural-language edit", async ({ request }) => {
+    const created = await request.post("/api/design/blueprint", { data: { app: "command-check", brief: "A workspace for checking safe natural-language product edits before code generation.", intent: { audience: "Product teams", outcome: "Review a safe visual change", platform: "web", constraints: [] } } })
+    const body = await created.json()
+    const preview = await request.post(`/api/design/blueprint/${body.blueprint.id}/command`, { data: { revision: 1, command: "сделай карточки плотнее" } })
+    expect(preview.status()).toBe(200)
+    const previewBody = await preview.json()
+    expect(previewBody.dryRun).toBe(true)
+    expect(previewBody.intent).toBe("dense")
+    expect(previewBody.changes.length).toBeGreaterThan(0)
+    expect(previewBody.contractHash).toMatch(/^[a-f0-9]{64}$/)
+    const applied = await request.post(`/api/design/blueprint/${body.blueprint.id}/command`, { data: { revision: 1, command: "сделай карточки плотнее", dryRun: false, evidenceToken: body.evidenceToken } })
+    expect(applied.status()).toBe(201)
+    const appliedBody = await applied.json()
+    expect(appliedBody.blueprint.revision).toBe(2)
+    expect(appliedBody.evidence).toMatchObject({ kind: "remediation", source: "blueprint-command", revision: 2 })
+  })
+
   test("binds evidence ledger entries to the contract hash", async ({ request }) => {
     const created = await request.post("/api/design/blueprint", { data: { app: "evidence-check", brief: "A product workspace with auditable release evidence and safe delivery." } })
     const createdBody = await created.json()
