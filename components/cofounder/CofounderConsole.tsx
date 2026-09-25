@@ -14,7 +14,8 @@ import { ObsidianCosmos } from "@/components/design-system/ObsidianCosmos"
 import { CosmicCursor } from "@/components/design-system/CosmicCursor"
 import { BlueprintCanvas, type BlueprintCanvasPlan } from "@/components/cofounder/BlueprintCanvas"
 
-type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; productType?: ProductType; preset?: VisualPreset; contractVersion?: string; contractHash?: string; createdAt: string; aiSummary?: string; aiComponents?: string[]; aiRisks?: string[]; approved?: boolean; evidenceToken?: string }
+type ProductIntent = { audience: string; outcome: string; platform: "web" | "mobile" | "desktop" | "cross-platform" | "any"; constraints: string[] }
+type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; intent?: ProductIntent; productType?: ProductType; preset?: VisualPreset; contractVersion?: string; contractHash?: string; createdAt: string; aiSummary?: string; aiComponents?: string[]; aiRisks?: string[]; approved?: boolean; evidenceToken?: string }
 type PreviewPlan = { revision: number; slots: { id: string; component: string; role: string; states: string[] }[]; stages: string[] }
 type EvidenceRecord = { id: string; revision: number; kind: string; status: "passed" | "failed" | "skipped"; summary: string; source: string; capturedAt: string; contractHash: string }
 type QualityState = { required: string[]; missing: string[]; stale: { kind: string; reason: string; revision?: number; expectedRevision: number }[]; approval: boolean; delivery?: boolean; readyForCodegen: boolean }
@@ -43,6 +44,9 @@ export function CofounderConsole() {
   const [open, setOpen] = useState(false)
   const [contractName, setContractName] = useState("")
   const [brief, setBrief] = useState("")
+  const [intentAudience, setIntentAudience] = useState("")
+  const [intentOutcome, setIntentOutcome] = useState("")
+  const [intentConstraints, setIntentConstraints] = useState("")
   const [productType, setProductType] = useState<ProductType>("application")
   const [visualPreset, setVisualPreset] = useState<VisualPreset>("futuristic")
   const [deliveryProvider, setDeliveryProvider] = useState<DeliveryProvider>("osgard-cluster")
@@ -206,7 +210,7 @@ export function CofounderConsole() {
 
   async function submitContract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!contractName.trim() || !brief.trim()) return
+    if (!contractName.trim() || !intentAudience.trim() || !intentOutcome.trim()) return
     setSubmitting(true)
     setCompileError(null)
     const startedAt = performance.now()
@@ -220,11 +224,13 @@ export function CofounderConsole() {
           if (Array.isArray(aiData?.blueprint?.components)) aiPlan = aiData.blueprint
         }
       }
-      const response = await fetch("/api/design/blueprint", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app: contractName, brief, productType, preset: visualPreset, components: aiPlan?.components, aiPlan }) })
+      const normalizedBrief = [brief.trim(), `Audience: ${intentAudience.trim()}`, `Outcome: ${intentOutcome.trim()}`, intentConstraints.trim() ? `Constraints: ${intentConstraints.trim()}` : ""].filter(Boolean).join("\n")
+      const intent: ProductIntent = { audience: intentAudience.trim(), outcome: intentOutcome.trim(), platform: "any", constraints: intentConstraints.split(",").map((item) => item.trim()).filter(Boolean) }
+      const response = await fetch("/api/design/blueprint", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app: contractName, brief: normalizedBrief, intent, productType, preset: visualPreset, components: aiPlan?.components, aiPlan }) })
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.blueprint?.quality) throw new Error("Не удалось собрать blueprint")
       const persistedPlan = data.blueprint.aiPlan || aiPlan
-      const result: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, productType: data.blueprint.productType, preset: data.blueprint.preset, contractVersion: data.blueprint.contractVersion, contractHash: data.blueprint.contractHash, createdAt: data.blueprint.generatedAt, aiSummary: persistedPlan?.summary, aiComponents: persistedPlan?.components, aiRisks: persistedPlan?.risks, evidenceToken: data.evidenceToken }
+      const result: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, intent: data.blueprint.intent, productType: data.blueprint.productType, preset: data.blueprint.preset, contractVersion: data.blueprint.contractVersion, contractHash: data.blueprint.contractHash, createdAt: data.blueprint.generatedAt, aiSummary: persistedPlan?.summary, aiComponents: persistedPlan?.components, aiRisks: persistedPlan?.risks, evidenceToken: data.evidenceToken }
       const deliveryResponse = await fetch(`/api/design/blueprint/${data.blueprint.id}/delivery`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ revision: data.blueprint.revision, provider: deliveryProvider, domain: deliveryDomain || undefined, evidenceToken: data.evidenceToken }) })
       const deliveryData = await deliveryResponse.json().catch(() => null)
       if (!deliveryResponse.ok) throw new Error("Не удалось сохранить delivery policy")
@@ -332,6 +338,9 @@ export function CofounderConsole() {
   function chooseStarterMission(mission: (typeof starterMissions)[number]) {
     if (!contractName.trim()) setContractName(mission.label)
     setBrief(mission.brief)
+    setIntentAudience("Product teams and their customers")
+    setIntentOutcome(mission.brief)
+    setIntentConstraints("")
     track("blueprint_starter_selected", { mission: mission.id, productType, preset: visualPreset })
   }
 
@@ -393,6 +402,12 @@ export function CofounderConsole() {
         <span className="ds-utility">AI COFOUNDER / NEW DELIVERY</span>
         <h2 id="new-contract" className="ds-display">НОВЫЙ КОНТРАКТ</h2>
         <p className="ds-dialog-copy">Опишите первый продуктовый шаг. Система сохранит контекст и предложит план доставки.</p>
+        <section className="ds-interview" aria-labelledby="interview-title">
+          <div className="ds-brief-starters__head"><Lightbulb size={15} aria-hidden="true" /><span id="interview-title" className="ds-utility">THREE-QUESTION INTERVIEW</span><small>Ответы становятся частью ProductContract</small></div>
+          <label className="ds-field">Audience<input required maxLength={240} value={intentAudience} onChange={(event) => setIntentAudience(event.target.value)} placeholder="Кто будет пользоваться продуктом?" /></label>
+          <label className="ds-field">Outcome<input required maxLength={320} value={intentOutcome} onChange={(event) => { const value = event.target.value; setIntentOutcome(value); if (!brief.trim()) setBrief(value) }} placeholder="Какой результат должен быть готов?" /></label>
+          <label className="ds-field">Constraints <span>(optional, comma-separated)</span><input maxLength={640} value={intentConstraints} onChange={(event) => setIntentConstraints(event.target.value)} placeholder="WCAG AA, mobile-first, Stripe" /></label>
+        </section>
         <form onSubmit={submitContract} aria-busy={submitting}>
           {compileResult && qualityState && !qualityState.delivery ? <p className="ds-dialog-error" role="status">Choose a delivery target before code generation can start.</p> : null}
           <fieldset className="ds-field" style={{ border: 0, padding: 0, margin: 0 }}><legend className="ds-utility">DELIVERY TARGET</legend><div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: ".65rem" }}><label>Provider<select value={deliveryProvider} onChange={(event) => setDeliveryProvider(event.target.value as DeliveryProvider)}><option value="osgard-cluster">OSGARD Cluster</option><option value="vercel">Vercel</option><option value="netlify">Netlify</option><option value="custom">Custom server</option></select></label><label>Domain (optional)<input value={deliveryDomain} onChange={(event) => setDeliveryDomain(event.target.value)} placeholder="app.example.com" inputMode="url" /></label></div></fieldset>
