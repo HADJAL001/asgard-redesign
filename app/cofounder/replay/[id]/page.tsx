@@ -1,7 +1,7 @@
 import Link from "next/link"
-import { ArrowLeft, CheckCircle2, ExternalLink, ShieldCheck } from "lucide-react"
+import { ArrowLeft, CheckCircle2, ExternalLink, Network, ShieldCheck } from "lucide-react"
 import { notFound } from "next/navigation"
-import { getBlueprint, listBlueprintEvidence } from "@/lib/blueprint-store"
+import { getBlueprint, getBlueprintGraph, listBlueprintEvidence } from "@/lib/blueprint-store"
 import { ReplayShareButton } from "@/components/cofounder/ReplayShareButton"
 
 type ReplayPageProps = { params: Promise<{ id: string }>; searchParams: Promise<{ revision?: string }> }
@@ -22,6 +22,8 @@ export default async function ReplayPage({ params, searchParams }: ReplayPagePro
   const blueprint = getBlueprint(id, revision)
   if (!blueprint) notFound()
   const evidence = listBlueprintEvidence(blueprint.id).filter((item) => item.revision === blueprint.revision && item.status === "passed")
+  const graph = getBlueprintGraph(blueprint.id)
+  const graphNodes = graph?.nodes.filter((node) => node.revision === blueprint.revision || node.kind === "idea") || []
 
   return (
     <main className="ds-body ds-replay-page">
@@ -29,6 +31,7 @@ export default async function ReplayPage({ params, searchParams }: ReplayPagePro
         <header className="ds-replay-header"><span className="ds-utility">OSGARD / MISSION REPLAY</span><span className="ds-replay-live"><i aria-hidden="true" /> VERIFIED BLUEPRINT</span></header>
         <div className="ds-replay-hero"><div><h1 id="replay-title" className="ds-display">{blueprint.app}</h1><p>A product direction assembled in AI Cofounder and preserved as an inspectable delivery trail.</p></div><div className="ds-replay-score"><b>{blueprint.quality.score}</b><span>quality score</span></div></div>
         <div className="ds-replay-meta"><span>{blueprint.productType || "product"}</span><span>{blueprint.preset} DNA</span><span>revision {blueprint.revision}</span></div>
+        <section className="ds-replay-section" aria-labelledby="replay-graph"><div className="ds-replay-section__title"><Network size={17} aria-hidden="true" /><h2 id="replay-graph">Product Graph</h2><small>{graphNodes.length} linked records</small></div><div className="ds-replay-components">{graphNodes.map((node) => <span key={node.id}>{node.kind === "contract" ? `Contract v${node.revision}` : node.kind === "evidence" ? `${node.label}: ${node.status}` : node.kind === "generation" ? `Codegen: ${node.status}` : node.kind === "delivery" ? `Delivery: ${node.label}` : "Idea"}</span>)}</div></section>
         <section className="ds-replay-section" aria-labelledby="replay-architecture"><div className="ds-replay-section__title"><ShieldCheck size={17} aria-hidden="true" /><h2 id="replay-architecture">Architecture signal</h2></div><div className="ds-replay-components">{blueprint.components.map((component) => <span key={component}>{component}</span>)}</div></section>
         {blueprint.delivery ? <section className="ds-replay-section" aria-labelledby="replay-target"><div className="ds-replay-section__title"><ExternalLink size={17} aria-hidden="true" /><h2 id="replay-target">Delivery target</h2><small>policy saved before codegen</small></div><div className="ds-replay-components"><span>{blueprint.delivery.provider}</span>{blueprint.delivery.domain ? <span>{blueprint.delivery.domain}</span> : null}{blueprint.delivery.supabaseProjectRef ? <span>Supabase {blueprint.delivery.supabaseProjectRef}</span> : null}{blueprint.delivery.integrationIds?.length ? <span>{blueprint.delivery.integrationIds.length} integrations</span> : null}</div></section> : null}
         <section className="ds-replay-section" aria-labelledby="replay-evidence"><div className="ds-replay-section__title"><CheckCircle2 size={17} aria-hidden="true" /><h2 id="replay-evidence">Evidence ledger</h2><small>{evidence.length} passed checks</small></div>{evidence.length ? <ul className="ds-replay-evidence">{evidence.map((item) => <li key={item.id}><CheckCircle2 size={14} aria-hidden="true" /><span><strong>{item.kind}</strong><small>{item.summary}</small></span></li>)}</ul> : <p className="ds-replay-muted">Evidence is still being captured for this revision.</p>}</section>

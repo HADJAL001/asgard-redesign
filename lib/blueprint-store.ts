@@ -39,6 +39,29 @@ export type BlueprintEvidence = {
   source: string
 }
 
+export type BlueprintGraphNodeKind = "idea" | "contract" | "evidence" | "delivery" | "generation"
+export type BlueprintGraphNode = {
+  id: string
+  kind: BlueprintGraphNodeKind
+  label: string
+  revision?: number
+  status?: string
+  timestamp: string
+  contractHash?: string
+}
+export type BlueprintGraphEdge = {
+  id: string
+  from: string
+  to: string
+  kind: "created" | "supersedes" | "verified_by" | "delivered_to" | "generated_as" | "transitioned_to"
+}
+export type BlueprintGraph = {
+  blueprintId: string
+  tenantId: string
+  nodes: BlueprintGraphNode[]
+  edges: BlueprintGraphEdge[]
+}
+
 type Store = Record<string, StoredBlueprint[]>
 
 const MAX_REVISIONS_PER_BLUEPRINT = 20
@@ -227,4 +250,54 @@ export function appendBlueprintEvidence(evidence: BlueprintEvidence) {
   store[evidence.blueprintId] = [...previous, evidence].slice(-100)
   writeEvidence(store)
   return evidence
+}
+
+/**
+ * Build a safe, deterministic Product Graph projection from the durable
+ * blueprint/evidence records. Tokens and delivery credentials never enter the
+ * graph; every node remains scoped to the requesting tenant.
+ */
+export function getBlueprintGraph(id: string, tenantId = DEFAULT_TENANT_ID): BlueprintGraph | null {
+  const revisions = listBlueprintRevisions(id, tenantId)
+  if (!revisions.length) return null
+  const evidence = listBlueprintEvidence(id, tenantId)
+  const nodes: BlueprintGraphNode[] = []
+  const edges: BlueprintGraphEdge[] = []
+  const ideaId = `idea:${id}`
+  const first = revisions[0]
+  nodes.push({ id: ideaId, kind: "idea", label: first.app, timestamp: first.generatedAt })
+
+  revisions.forEach((revision, revisionIndex) => {
+    const contractId = `contract:${id}:${revision.revision}`
+    nodes.push({ id: contractId, kind: "contract", label: `ProductContract v${revision.revision}`, revision: revision.revision, timestamp: revision.generatedAt, contractHash: revision.contractHash })
+    edges.push({ id: `${ideaId}->${contractId}`, from: ideaId, to: contractId, kind: "created" })
+    if (revisionIndex > 0) {
+      const previousId = `contract:${id}:${revisions[revisionIndex - 1].revision}`
+      edges.push({ id: `${previousId}->${contractId}`, from: previousId, to: contractId, kind: "supersedes" })
+    }
+
+    for (const entry of evidence.filter((item) => item.revision === revision.revision)) {
+      const evidenceId = `evidence:${entry.id}`
+      nodes.push({ id: evidenceId, kind: "evidence", label: entry.kind, revision: entry.revision, status: entry.status, timestamp: entry.capturedAt, contractHash: entry.contractHash })
+      edges.push({ id: `${contractId}->${evidenceId}`, from: contractId, to: evidenceId, kind: "verified_by" })
+    }
+
+    if (revision.delivery) {
+      const deliveryId = `delivery:${id}:${revision.revision}`
+      nodes.push({ id: deliveryId, kind: "delivery", label: revision.delivery.provider, revision: revision.revision, timestamp: revision.delivery.updatedAt })
+      edges.push({ id: `${contractId}->${deliveryId}`, from: contractId, to: deliveryId, kind: "delivered_to" })
+    }
+
+    const generationStates = revision.generationHistory || (revision.generation ? [revision.generation] : [])
+    let previousGenerationId: string | null = null
+    generationStates.forEach((state, stateIndex) => {
+      const generationId = `generation:${id}:${revision.revision}:${state.updatedAt}:${stateIndex}`
+      nodes.push({ id: generationId, kind: "generation", label: state.taskId, revision: revision.revision, status: state.status, timestamp: state.updatedAt })
+      edges.push({ id: `${contractId}->${generationId}`, from: contractId, to: generationId, kind: "generated_as" })
+      if (previousGenerationId) edges.push({ id: `${previousGenerationId}->${generationId}`, from: previousGenerationId, to: generationId, kind: "transitioned_to" })
+      previousGenerationId = generationId
+    })
+  })
+
+  return { blueprintId: id, tenantId, nodes, edges }
 }
