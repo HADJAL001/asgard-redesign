@@ -13,6 +13,7 @@ import { ProductCatalog, type ProductType, type VisualPreset } from "@/component
 import { ObsidianCosmos } from "@/components/design-system/ObsidianCosmos"
 import { CosmicCursor } from "@/components/design-system/CosmicCursor"
 import { BlueprintCanvas, type BlueprintCanvasPlan } from "@/components/cofounder/BlueprintCanvas"
+import { StoryboardRail } from "@/components/cofounder/StoryboardRail"
 
 type ProductIntent = { audience: string; outcome: string; platform: "web" | "mobile" | "desktop" | "cross-platform" | "any"; constraints: string[] }
 type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; intent?: ProductIntent; productType?: ProductType; preset?: VisualPreset; contractVersion?: string; contractHash?: string; createdAt: string; aiSummary?: string; aiComponents?: string[]; aiRisks?: string[]; approved?: boolean; evidenceToken?: string }
@@ -390,6 +391,7 @@ export function CofounderConsole() {
       <OrbitalMemory />
       <CinematicSequence stages={deliveryStages} />
       <BlueprintCanvas key={previewPlan?.revision ?? "empty"} plan={previewPlan as BlueprintCanvasPlan | null} productType={productType} preset={visualPreset} onCreate={() => setOpen(true)} onSave={saveCanvasDraft} saving={savingCanvas} />
+      <StoryboardRail plan={previewPlan} approved={Boolean(compileResult?.approved)} />
       <section className="ds-hull ds-glass" style={{ padding: "clamp(1.25rem, 4vw, 3rem)" }}>
         <header style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
           <div><span className="ds-utility">РАБОЧИЙ ОТСЕК</span><h2 className="ds-display">Контролируемая доставка</h2><p style={{ color: "var(--ds-muted)" }}>Ожидаемый результат, доказательства и ручное согласование в одном контуре.</p></div>
