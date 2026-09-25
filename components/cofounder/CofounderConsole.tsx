@@ -1,7 +1,7 @@
 "use client"
 
 import { FormEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { FilePlus2, Gem, Lightbulb, Radar, RefreshCw, ShieldCheck, Share2, X } from "lucide-react"
+import { FilePlus2, Gem, Lightbulb, Radar, RefreshCw, ShieldCheck, Share2, Wand2, X } from "lucide-react"
 import { MemoryLayerRail } from "@/components/design-system/MemoryLayerRail"
 import { OrbitalMemory } from "@/components/design-system/OrbitalMemory"
 import { PresetSwitcher } from "@/components/design-system/PresetSwitcher"
@@ -23,6 +23,8 @@ type QualityState = { required: string[]; missing: string[]; stale: { kind: stri
 type GenerationStatus = { status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; currentStep?: string; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string } }
 type DeliveryProvider = "osgard-cluster" | "vercel" | "netlify" | "custom"
 type DeliveryPreflight = { ready: boolean; checks: { id: string; status: "passed" | "manual" | "not-requested" | "blocked"; label: string }[] }
+type CommandDiff = { slotId: string; role: string; before: string; after: string }
+type CommandPreview = { intent: string; changes: CommandDiff[]; contractHash: string; revision: number }
 
 const evidenceLabels: Record<string, string> = {
   security: "Security review",
@@ -54,6 +56,9 @@ export function CofounderConsole() {
   const [deliveryDomain, setDeliveryDomain] = useState("")
   const [supabaseProjectRef, setSupabaseProjectRef] = useState("")
   const [deliveryPreflight, setDeliveryPreflight] = useState<DeliveryPreflight | null>(null)
+  const [commandText, setCommandText] = useState("")
+  const [commandPreview, setCommandPreview] = useState<CommandPreview | null>(null)
+  const [commandBusy, setCommandBusy] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null)
   const [previewPlan, setPreviewPlan] = useState<PreviewPlan | null>(null)
@@ -367,6 +372,37 @@ export function CofounderConsole() {
     } catch (error) { setCompileError(error instanceof Error ? error.message : "Не удалось сохранить revision canvas") } finally { setSavingCanvas(false) }
   }
 
+  async function previewCommand() {
+    if (!compileResult || commandText.trim().length < 3) return
+    setCommandBusy(true)
+    setCompileError(null)
+    try {
+      const response = await fetch(`/api/design/blueprint/${compileResult.id}/command`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ revision: compileResult.revision, command: commandText, dryRun: true }) })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !Array.isArray(data?.changes)) throw new Error(data?.error === "command_not_supported" ? "Команда пока не поддерживается. Попробуйте: «сделай карточки плотнее», «добавь Stripe» или «сделай мобильную версию»." : "Не удалось построить explainable diff")
+      setCommandPreview({ intent: data.intent, changes: data.changes, contractHash: data.contractHash, revision: data.revision })
+      track("blueprint_command_dry_run", { blueprintId: compileResult.id, revision: compileResult.revision, intent: data.intent, changes: data.changes.length })
+    } catch (error) { setCompileError(error instanceof Error ? error.message : "Не удалось проверить команду") } finally { setCommandBusy(false) }
+  }
+
+  async function applyCommand() {
+    if (!compileResult || !commandPreview?.changes.length || !compileResult.evidenceToken) return
+    setCommandBusy(true)
+    try {
+      const response = await fetch(`/api/design/blueprint/${compileResult.id}/command`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ revision: compileResult.revision, command: commandText, dryRun: false, evidenceToken: compileResult.evidenceToken }) })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.blueprint) throw new Error("Не удалось применить команду")
+      const next: CompileResult = { ...compileResult, revision: data.blueprint.revision, contractHash: data.blueprint.contractHash, score: data.blueprint.quality.score, review: true, approved: false }
+      setCompileResult(next)
+      setCommandPreview(null)
+      setCommandText("")
+      setPreviewPlan(null)
+      void loadPreview(next.id, next.revision)
+      void loadEvidence(next.id)
+      track("blueprint_command_applied", { blueprintId: next.id, revision: next.revision, intent: data.intent, changes: data.changes?.length || 0 })
+    } catch (error) { setCompileError(error instanceof Error ? error.message : "Не удалось применить команду") } finally { setCommandBusy(false) }
+  }
+
   const deliveryStages: SequenceStage[] = [
     { label: "Идея", detail: brief.trim() ? "Контекст принят" : "Опишите результат", status: brief.trim() ? "complete" : "active" as const },
     { label: "Blueprint", detail: compileResult ? `Revision ${compileResult.revision} собрана` : submitting ? "Собираем архитектуру" : "Следующий шаг после brief", status: compileResult ? "complete" : submitting ? "active" : "pending" as const },
@@ -392,6 +428,12 @@ export function CofounderConsole() {
       <OrbitalMemory />
       <CinematicSequence stages={deliveryStages} />
       <BlueprintCanvas key={previewPlan?.revision ?? "empty"} plan={previewPlan as BlueprintCanvasPlan | null} productType={productType} preset={visualPreset} onCreate={() => setOpen(true)} onSave={saveCanvasDraft} saving={savingCanvas} />
+      <section className="ds-hull ds-glass ds-command-panel" aria-labelledby="command-title">
+        <div className="ds-command-panel__head"><div><span className="ds-utility">NATURAL LANGUAGE EDITOR</span><h2 id="command-title" className="ds-display">Скажите, что изменить</h2><p>Сначала увидите explainable diff. Ничего не применится без вашего подтверждения.</p></div><Wand2 size={18} aria-hidden="true" /></div>
+        <div className="ds-command-panel__form"><label className="ds-field"><span className="sr-only">Команда изменения</span><input value={commandText} onChange={(event) => setCommandText(event.target.value)} placeholder="Например: сделай карточки плотнее" maxLength={500} disabled={!compileResult || commandBusy} /><button type="button" className="ds-dialog-secondary ds-focus" onClick={() => void previewCommand()} disabled={!compileResult || commandBusy || commandText.trim().length < 3}>{commandBusy ? "Проверяем…" : "Показать diff"}</button></label></div>
+        {!compileResult ? <small className="ds-field-hint">Сначала создайте blueprint, затем редактируйте его обычной фразой.</small> : null}
+        {commandPreview ? <div className="ds-command-diff" role="status"><div className="ds-command-diff__meta"><strong>{commandPreview.intent}</strong><span>{commandPreview.changes.length} changes · revision {commandPreview.revision}</span></div><ul>{commandPreview.changes.map((change) => <li key={change.slotId}><strong>{change.role}</strong><span className="ds-command-diff__before">{change.before || "empty"}</span><span aria-hidden="true">→</span><span className="ds-command-diff__after">{change.after}</span></li>)}</ul><button type="button" className="ds-liquid-gold ds-focus" onClick={() => void applyCommand()} disabled={commandBusy}>Применить изменения</button></div> : null}
+      </section>
       <StoryboardRail plan={previewPlan} approved={Boolean(compileResult?.approved)} />
       <section className="ds-hull ds-glass" style={{ padding: "clamp(1.25rem, 4vw, 3rem)" }}>
         <header style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
