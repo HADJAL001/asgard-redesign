@@ -6,7 +6,7 @@ import { track } from "@/lib/analytics"
 
 type RuntimeState = { status: "checking" | "healthy" | "degraded"; latency?: number }
 type BlueprintQuality = { id: string; revision: number; missing: string[]; required: string[]; readyForCodegen: boolean }
-type GenerationSnapshot = { taskId: string; status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; revision?: number; error?: string }
+type GenerationSnapshot = { taskId: string; status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; revision?: number; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string } }
 
 function metric(value?: number) {
   return value === undefined ? "—" : `${Math.round(value)}ms`
@@ -73,5 +73,6 @@ export function DevQualityCockpit() {
       <article><ShieldCheck size={16} aria-hidden="true" /><span>Blueprint gates</span><strong>{blueprint ? `${blueprint.required.length - blueprint.missing.length}/${blueprint.required.length} passed` : "No blueprint"}</strong><small>{blueprint ? `Revision ${blueprint.revision}` : "Create a contract to inspect"}</small></article>
       <article><ArrowUpRight size={16} aria-hidden="true" /><span>Codegen</span><strong>{generation ? `${generation.status} ${Math.round(generation.progress || 0)}%` : "Not started"}</strong><small>{generation?.error || (generation?.revision ? `Revision ${generation.revision}` : "Approve a blueprint to begin")}</small><a href="/cofounder">Open verified builder</a></article>
     </div>
+    {blueprint ? <div className="dev-quality-cockpit__links" aria-label="Blueprint lifecycle links"><span>Revision {blueprint.revision} lifecycle</span><a href={`/cofounder/replay/${encodeURIComponent(blueprint.id)}?revision=${blueprint.revision}`}>Open replay</a>{generation?.result?.previewUrl ? <a href={generation.result.previewUrl} target="_blank" rel="noreferrer">Preview</a> : null}{generation?.result?.appUrl ? <a href={generation.result.appUrl} target="_blank" rel="noreferrer">Open app</a> : null}{generation?.result?.repoUrl ? <a href={generation.result.repoUrl} target="_blank" rel="noreferrer">Repository</a> : null}</div> : null}
   </section>
 }
