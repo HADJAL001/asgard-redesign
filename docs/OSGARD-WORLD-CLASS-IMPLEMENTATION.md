@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-25  
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Current release:** `a28fe882`
+**Current release:** `74acd3ea`
 
 ## Executive status
 
@@ -51,6 +51,12 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Stored metadata: provider, custom domain, Supabase project ref, integration IDs, and update timestamp.
 - Code generation is blocked until a delivery policy exists. Credentials are never stored in the policy or generation payload.
 
+### Developer mode quality cockpit
+
+- Runtime, LCP, CLS, blueprint gates, and generation status are shown as independent signals.
+- A generation-status outage no longer hides a successfully loaded quality result; the unavailable signal is explicit and retryable.
+- A browser regression test covers the partial-failure path.
+
 ### Integrations and platform safety
 
 Adapters/catalog coverage exists for Cloudflare, Supabase Management, Hostinger, Contabo, Vercel, GitHub, Docker, Netlify, Stripe, Telegram, Slack, Discord, SendGrid, Notion, and custom REST.
@@ -81,13 +87,16 @@ Latest recorded production gate:
 
 Latest post-release browser gate (2026-09-25): visual baseline `29db5db17900094946024e8d40a463ff821d2e38b4ecfb46712dac9e82fcad17`, health latency `239 ms`, developer latency `445 ms`; all gates passed. The analytics contract gate reports `43 frontend events, 46 allowlisted`.
 
+Latest cockpit release gate: browser gate passed with health latency `347 ms` and developer latency `695 ms`; targeted developer-mode regression tests passed `2/2`.
+
 Durability verification: `npm run test:blueprint-store-recovery` passed, including recovery from a deliberately corrupted but syntactically valid primary snapshot. The gate is now part of the package scripts for CI and release checks.
 
 The production service was active on the last release, the Next build was present, and the previous checkout was retained at `/opt/osgard-platform/backup-before-ddc3a25f`.
 
 ## Release history
 
-- `a28fe882` Validate blueprint snapshot structure before recovery (current production release).
+- `74acd3ea` Isolate Developer Quality Cockpit signals and ship the partial-failure regression test (current production release).
+- `a28fe882` Validate blueprint snapshot structure before recovery.
 - `0bce91a0` Publish the recovery-gate documentation release.
 - `90fc7e7d` Add the blueprint snapshot recovery gate and Windows-compatible durable writes.
 - `1bdf4a86` Recover blueprint store data from durable snapshots.
