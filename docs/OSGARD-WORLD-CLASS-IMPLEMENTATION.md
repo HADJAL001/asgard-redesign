@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-25  
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Current release:** `74acd3ea`
+**Current release:** `bbce2c11`
 
 ## Executive status
 
@@ -57,6 +57,10 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - A generation-status outage no longer hides a successfully loaded quality result; the unavailable signal is explicit and retryable.
 - A browser regression test covers the partial-failure path.
 
+### Telemetry integrity
+
+- Manual evidence refresh no longer emits a synthetic blocked event. Quality telemetry is emitted only from the actual API result (`ready` or `blocked`), keeping funnel and ACE-loop measurements truthful.
+
 ### Integrations and platform safety
 
 Adapters/catalog coverage exists for Cloudflare, Supabase Management, Hostinger, Contabo, Vercel, GitHub, Docker, Netlify, Stripe, Telegram, Slack, Discord, SendGrid, Notion, and custom REST.
@@ -89,13 +93,16 @@ Latest post-release browser gate (2026-09-25): visual baseline `29db5db179000949
 
 Latest cockpit release gate: browser gate passed with health latency `347 ms` and developer latency `695 ms`; targeted developer-mode regression tests passed `2/2`.
 
+Latest telemetry release gate: browser gate passed with health latency `295 ms` and developer latency `820 ms`; evidence-ledger and hull E2E tests passed `2/2`.
+
 Durability verification: `npm run test:blueprint-store-recovery` passed, including recovery from a deliberately corrupted but syntactically valid primary snapshot. The gate is now part of the package scripts for CI and release checks.
 
 The production service was active on the last release, the Next build was present, and the previous checkout was retained at `/opt/osgard-platform/backup-before-ddc3a25f`.
 
 ## Release history
 
-- `74acd3ea` Isolate Developer Quality Cockpit signals and ship the partial-failure regression test (current production release).
+- `bbce2c11` Keep manual evidence telemetry truthful (current production release).
+- `74acd3ea` Isolate Developer Quality Cockpit signals and ship the partial-failure regression test.
 - `a28fe882` Validate blueprint snapshot structure before recovery.
 - `0bce91a0` Publish the recovery-gate documentation release.
 - `90fc7e7d` Add the blueprint snapshot recovery gate and Windows-compatible durable writes.
