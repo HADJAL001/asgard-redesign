@@ -115,3 +115,18 @@ Idea → AI interview → visual storyboard → live app preview → edit by voi
 5. Delivery wizard поверх текущего preflight.
 
 Этот документ является рабочей стратегией, а не утверждением, что все перечисленные фазы уже реализованы.
+## Golden Tasks и benchmark
+
+Исполняемый `npm run test:golden-tasks` проверяет production-путь `contract -> storyboard -> preview -> natural-language diff -> delivery -> approval room -> replay`. Он фиксирует latency каждого шага и общий budget 120 секунд; preview имеет отдельный SLA 60 секунд.
+
+Целевые сравнения измеряются одинаковыми golden tasks, а не маркетинговыми заявлениями:
+
+| Capability | OSGARD target | Builder baseline |
+| --- | ---: | ---: |
+| Idea to inspectable storyboard | < 10 s | manual setup required |
+| First live preview | < 60 s | varies by generated project |
+| Explainable change diff | 100% of bounded edits | usually absent |
+| Evidence-linked approval | 100% of production revisions | separate tools |
+| Replayable delivery trail | 100% | rarely available |
+
+Benchmark results are stored as release evidence and must be rerun after changes to the Cofounder, delivery policy, or preview renderer.
