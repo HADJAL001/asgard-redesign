@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-25  
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Current release:** `ba770abb`
+**Current release:** `f4d48170`
 
 ## Executive status
 
@@ -39,6 +39,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 ### Contract, evidence, and generation lifecycle
 
 - Typed ProductContract and contract hash as the source of truth for code generation.
+- Typed product intent is persisted with each blueprint (`audience`, `outcome`, `platform`, and bounded `constraints`); it is normalized at the API boundary and included in the contract hash so intent changes invalidate stale evidence.
 - Revision lifecycle: create, approve, rollback, and bounded history (100 states).
 - Evidence token and gates for security, performance, accessibility, visual diff, and deploy.
 - Generation states: queued, processing, completed, failed, cancelled.
@@ -109,6 +110,8 @@ Durability verification: `npm run test:blueprint-store-recovery` passed, includi
 The production service was active on the last release, the Next build was present, and the previous checkout was retained at `/opt/osgard-platform/backup-before-ddc3a25f`.
 
 ## Release history
+
+- `f4d48170` Persist typed product intent in blueprints and bind it to contract hashes.
 
 - `ba770abb` Expose the tenant-bound Product Graph in Mission Replay.
 
