@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-25  
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Current release:** `ddc3a25f`
+**Current release:** `8c97ea38`
 
 ## Executive status
 
@@ -57,6 +57,8 @@ Provider fallback, timeouts, sandbox boundaries, SSRF guards, encrypted secrets,
 
 The `blueprint_delivery_policy_saved` event records blueprint ID, revision, provider, and whether a custom domain was supplied. Delivery metadata is propagated into generation tasks and returned from task status without exposing credentials.
 
+The frontend/backend analytics contract is enforced in CI. The delivery-policy event is present in the backend allowlist and has been verified against the public production endpoint with HTTP `204`.
+
 ## Verification record
 
 Latest recorded production gate:
@@ -73,11 +75,15 @@ Latest recorded production gate:
 | Frontend E2E | 32/32 passed |
 | Backend integration | 773 passed, 2 skipped, 0 failed (775 total) |
 
+Latest post-release browser gate (2026-09-25): visual baseline `29db5db17900094946024e8d40a463ff821d2e38b4ecfb46712dac9e82fcad17`, health latency `239 ms`, developer latency `445 ms`; all gates passed. The analytics contract gate reports `43 frontend events, 46 allowlisted`.
+
 The production service was active on the last release, the Next build was present, and the previous checkout was retained at `/opt/osgard-platform/backup-before-ddc3a25f`.
 
 ## Release history
 
-- `ddc3a25f` Expose delivery target in generation status (current production release).
+- `8c97ea38` Fix delivery-policy telemetry allowlist and deploy the verified release (current production release).
+- `a498936d` Record the world-class implementation status and roadmap.
+- `ddc3a25f` Expose delivery target in generation status.
 - `ce4b8f06` Persist structured delivery metadata in generation tasks.
 - `6e7cf7da` Bind blueprint mutations to tenant context.
 - `84c6bec3` Track delivery policy selections.
@@ -132,4 +138,3 @@ The production service was active on the last release, the Next build was presen
 - 100% of tenant mutation endpoints covered by host/RLS isolation tests.
 - Zero unreviewed provider deployments; every production delivery has canary and rollback evidence.
 - Maintain 60 fps for enabled motion on a mid-range device and a fully usable reduced-motion mode.
-
