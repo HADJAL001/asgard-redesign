@@ -30,6 +30,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Regression coverage for `/dev` -> `/cofounder` client navigation, including the absence of the global critical-error surface.
 - Performance gate now waits for the browser's actual FCP paint entry after hydration, avoiding false zero readings while retaining the 3-second budget.
 - Static design-system accessibility checks follow component ownership for the React-managed boot shell, preventing refactors from creating stale invariants.
+- Diamond Cosmos finish pass: faceted glass highlights, sapphire orbital dial depth, Playfair display accents, and restrained gold bezel states with reduced-motion fallback.
 
 ### Contract, evidence, and generation lifecycle
 
