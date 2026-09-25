@@ -4,6 +4,7 @@ import { getBlueprint, updateBlueprintGeneration, verifyBlueprintEvidenceToken, 
 export const dynamic = "force-dynamic"
 
 const statuses = new Set<NonNullable<StoredBlueprint["generation"]>["status"]>(["queued", "processing", "completed", "failed", "cancelled"])
+const MAX_GENERATION_PAYLOAD_BYTES = 16_000
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -16,7 +17,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: "invalid_blueprint_id" }, { status: 400 })
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null
+  const raw = await request.text()
+  if (new TextEncoder().encode(raw).byteLength > MAX_GENERATION_PAYLOAD_BYTES) return NextResponse.json({ error: "generation_payload_too_large", maxBytes: MAX_GENERATION_PAYLOAD_BYTES }, { status: 413 })
+  const body = (() => { try { return JSON.parse(raw) as Record<string, unknown> } catch { return null } })()
+  if (!body) return NextResponse.json({ error: "invalid_json" }, { status: 400 })
   const revision = Number(body?.revision)
   const blueprint = getBlueprint(id, revision)
   if (!blueprint) return NextResponse.json({ error: "blueprint_revision_not_found" }, { status: 404 })
