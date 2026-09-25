@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react"
 import { track } from "@/lib/analytics"
 
 type RuntimeState = { status: "checking" | "healthy" | "degraded"; latency?: number }
+type BlueprintQuality = { id: string; revision: number; missing: string[]; required: string[]; readyForCodegen: boolean }
 
 function metric(value?: number) {
   return value === undefined ? "—" : `${Math.round(value)}ms`
@@ -13,6 +14,7 @@ function metric(value?: number) {
 export function DevQualityCockpit() {
   const [runtime, setRuntime] = useState<RuntimeState>({ status: "checking" })
   const [frontend, setFrontend] = useState<{ lcp?: number; cls?: number }>({})
+  const [blueprint, setBlueprint] = useState<BlueprintQuality | null>(null)
   const [refreshing, setRefreshing] = useState(false)
 
   const refresh = useCallback(async () => {
@@ -21,6 +23,17 @@ export function DevQualityCockpit() {
     try {
       const response = await fetch("/api/health", { cache: "no-store" })
       setRuntime({ status: response.ok ? "healthy" : "degraded", latency: performance.now() - started })
+      try {
+        const history = JSON.parse(window.localStorage.getItem("osgard-blueprint-history") || "[]") as { id?: string; revision?: number }[]
+        const latest = history[0]
+        if (latest?.id && latest.revision) {
+          const qualityResponse = await fetch(`/api/design/blueprint/${encodeURIComponent(latest.id)}/quality`, { cache: "no-store" })
+          const quality = await qualityResponse.json().catch(() => null) as { revision?: number; missing?: string[]; required?: string[]; readyForCodegen?: boolean } | null
+          if (qualityResponse.ok && quality && Array.isArray(quality.missing) && Array.isArray(quality.required)) setBlueprint({ id: latest.id, revision: quality.revision || latest.revision, missing: quality.missing, required: quality.required, readyForCodegen: Boolean(quality.readyForCodegen) })
+        }
+      } catch {
+        setBlueprint(null)
+      }
       track("dev_runtime_health", { source: "quality-cockpit", status: response.ok ? "healthy" : "degraded", latencyMs: Math.round(performance.now() - started) })
     } catch {
       setRuntime({ status: "degraded" })
@@ -52,7 +65,8 @@ export function DevQualityCockpit() {
       <article><Activity size={16} aria-hidden="true" style={{ color: runtimeColor }} /><span>Runtime</span><strong style={{ color: runtimeColor }}>{runtime.status === "healthy" ? `Healthy ${metric(runtime.latency)}` : runtime.status === "degraded" ? "Degraded" : "Checking"}</strong><small>Target &lt; 800ms</small></article>
       <article><Gauge size={16} aria-hidden="true" /><span>Largest paint</span><strong>{metric(frontend.lcp)}</strong><small>Target &lt; 2.5s</small></article>
       <article><ShieldCheck size={16} aria-hidden="true" /><span>Layout stability</span><strong>{frontend.cls === undefined ? "—" : frontend.cls.toFixed(3)}</strong><small>Target &lt; 0.10 CLS</small></article>
-      <article><ArrowUpRight size={16} aria-hidden="true" /><span>Next action</span><strong>AI Cofounder</strong><a href="/cofounder">Open verified builder</a></article>
+      <article><ShieldCheck size={16} aria-hidden="true" /><span>Blueprint gates</span><strong>{blueprint ? `${blueprint.required.length - blueprint.missing.length}/${blueprint.required.length} passed` : "No blueprint"}</strong><small>{blueprint ? `Revision ${blueprint.revision}` : "Create a contract to inspect"}</small></article>
+      <article><ArrowUpRight size={16} aria-hidden="true" /><span>Next action</span><strong>{blueprint?.readyForCodegen ? "Launch codegen" : "AI Cofounder"}</strong><a href="/cofounder">Open verified builder</a></article>
     </div>
   </section>
 }
