@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-25  
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Current release:** `1bdf4a86`
+**Current release:** `90fc7e7d`
 
 ## Executive status
 
@@ -81,11 +81,14 @@ Latest recorded production gate:
 
 Latest post-release browser gate (2026-09-25): visual baseline `29db5db17900094946024e8d40a463ff821d2e38b4ecfb46712dac9e82fcad17`, health latency `239 ms`, developer latency `445 ms`; all gates passed. The analytics contract gate reports `43 frontend events, 46 allowlisted`.
 
+Durability verification: `npm run test:blueprint-store-recovery` passed, including recovery from a deliberately corrupted primary snapshot. The gate is now part of the package scripts for CI and release checks.
+
 The production service was active on the last release, the Next build was present, and the previous checkout was retained at `/opt/osgard-platform/backup-before-ddc3a25f`.
 
 ## Release history
 
-- `1bdf4a86` Recover blueprint store data from durable snapshots (current production release).
+- `90fc7e7d` Add the blueprint snapshot recovery gate and Windows-compatible durable writes (current production release).
+- `1bdf4a86` Recover blueprint store data from durable snapshots.
 - `2dac7435` Flush blueprint store snapshots durably before publish.
 - `efdc7b8f` Prune evidence and tokens for evicted blueprints.
 - `c678a767` Preserve evidence tokens across approval/rollback and deploy the verified release.
