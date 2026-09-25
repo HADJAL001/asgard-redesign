@@ -275,7 +275,9 @@ export async function callOpenAiCompatible<T>(
  * нельзя. Имя модели ОБЯЗАНО задаваться конфигом: прод ходит к Claude через шлюз
  * (CLAUDE_API_URL), а тот знает свой список имён и на незнакомое отдаёт 404.
  */
-const CLAUDE_REASONING_MODEL = process.env.ANTHROPIC_REASONING_MODEL || "claude-opus-4.7"
+// Architecture/review lane. Keep the env override because Anthropic model IDs
+// can differ between direct API and enterprise gateways.
+const CLAUDE_REASONING_MODEL = process.env.ANTHROPIC_REASONING_MODEL || "claude-opus-5"
 
 /** true, если ключ Claude задан — вызов имеет смысл (валидность ключа этим не проверяется). */
 export function isClaudeConfigured(): boolean {

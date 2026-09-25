@@ -75,6 +75,8 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 
 Adapters/catalog coverage exists for Cloudflare, Supabase Management, Hostinger, Contabo, Vercel, GitHub, Docker, Netlify, Stripe, Telegram, Slack, Discord, SendGrid, Notion, and custom REST.
 
+The model gateway is now explicitly role-based: Claude Opus 5 handles architecture/review, GPT-5.6 Sol handles code generation and repair, and Gemini 3.7 Flash handles the fast interview/triage lane. See `docs/OSGARD-MODEL-GATEWAY.md` for the server-only environment contract and routing policy.
+
 Provider fallback, timeouts, sandbox boundaries, SSRF guards, encrypted secrets, quotas, deployment preflight, and audit logging have been exercised by the backend integration suite.
 
 ### Telemetry
