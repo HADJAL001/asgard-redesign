@@ -245,8 +245,10 @@ export function OnboardingTutorial({ initialStep = 0, onFinish }: OnboardingTuto
       })
       if (res.completed) track("onboarding_completed", { steps: STEPS.length })
 
-      // Синхронизируем кошелёк с бэкендом, чтобы UI сразу показал новый баланс
-      await fetchWallet({ skipAuthRedirect: true })
+      // The step and reward are already committed by the backend. A wallet
+      // refresh is only a visual sync and must not turn a successful step into
+      // a false error when the wallet endpoint is briefly unavailable.
+      await fetchWallet({ skipAuthRedirect: true }).catch(() => undefined)
 
       setTimeout(() => {
         setJustEarned(null)
