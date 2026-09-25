@@ -5,6 +5,18 @@ import { tenantIdFromRequest } from "@/lib/tenant-context"
 export const dynamic = "force-dynamic"
 const providers = new Set<NonNullable<StoredBlueprint["delivery"]>["provider"]>(["osgard-cluster", "vercel", "netlify", "custom"])
 
+function preflight(delivery: StoredBlueprint["delivery"]) {
+  if (!delivery) return { ready: false, checks: [{ id: "policy", status: "blocked", label: "Delivery policy is required" }] }
+  return {
+    ready: true,
+    checks: [
+      { id: "provider", status: "passed", label: `${delivery.provider} target recorded` },
+      { id: "domain", status: delivery.domain ? "manual" : "not-requested", label: delivery.domain ? `DNS verification required for ${delivery.domain}` : "Custom domain not requested" },
+      { id: "supabase", status: delivery.supabaseProjectRef ? "passed" : "not-requested", label: delivery.supabaseProjectRef ? "Supabase project reference recorded" : "Supabase project not requested" },
+    ],
+  }
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const tenantId = tenantIdFromRequest(request)
@@ -12,7 +24,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const revision = Number(request.nextUrl.searchParams.get("revision"))
   const blueprint = getBlueprint(id, Number.isInteger(revision) && revision > 0 ? revision : undefined, tenantId)
   if (!blueprint) return NextResponse.json({ error: "blueprint_not_found" }, { status: 404 })
-  return NextResponse.json({ blueprintId: id, revision: blueprint.revision, delivery: blueprint.delivery || null }, { headers: { "cache-control": "no-store" } })
+  return NextResponse.json({ blueprintId: id, revision: blueprint.revision, delivery: blueprint.delivery || null, preflight: preflight(blueprint.delivery) }, { headers: { "cache-control": "no-store" } })
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -32,5 +44,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const integrationIds = Array.isArray(body?.integrationIds) ? [...new Set(body.integrationIds.filter((value): value is number => Number.isInteger(value) && value > 0))].slice(0, 12) : []
   const delivery: NonNullable<StoredBlueprint["delivery"]> = { provider, ...(domain ? { domain } : {}), ...(supabaseProjectRef ? { supabaseProjectRef } : {}), ...(integrationIds.length ? { integrationIds } : {}), updatedAt: new Date().toISOString() }
   const updated = updateBlueprintDelivery(id, revision, delivery, tenantId)
-  return NextResponse.json({ blueprintId: id, revision, delivery: updated?.delivery || delivery }, { status: 200, headers: { "cache-control": "no-store" } })
+  const savedDelivery = updated?.delivery || delivery
+  return NextResponse.json({ blueprintId: id, revision, delivery: savedDelivery, preflight: preflight(savedDelivery) }, { status: 200, headers: { "cache-control": "no-store" } })
 }

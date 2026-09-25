@@ -20,6 +20,7 @@ type EvidenceRecord = { id: string; revision: number; kind: string; status: "pas
 type QualityState = { required: string[]; missing: string[]; stale: { kind: string; reason: string; revision?: number; expectedRevision: number }[]; approval: boolean; delivery?: boolean; readyForCodegen: boolean }
 type GenerationStatus = { status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; currentStep?: string; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string } }
 type DeliveryProvider = "osgard-cluster" | "vercel" | "netlify" | "custom"
+type DeliveryPreflight = { ready: boolean; checks: { id: string; status: "passed" | "manual" | "not-requested" | "blocked"; label: string }[] }
 
 const evidenceLabels: Record<string, string> = {
   security: "Security review",
@@ -46,6 +47,7 @@ export function CofounderConsole() {
   const [visualPreset, setVisualPreset] = useState<VisualPreset>("futuristic")
   const [deliveryProvider, setDeliveryProvider] = useState<DeliveryProvider>("osgard-cluster")
   const [deliveryDomain, setDeliveryDomain] = useState("")
+  const [deliveryPreflight, setDeliveryPreflight] = useState<DeliveryPreflight | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null)
   const [previewPlan, setPreviewPlan] = useState<PreviewPlan | null>(null)
@@ -224,7 +226,9 @@ export function CofounderConsole() {
       const persistedPlan = data.blueprint.aiPlan || aiPlan
       const result: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, productType: data.blueprint.productType, preset: data.blueprint.preset, contractVersion: data.blueprint.contractVersion, contractHash: data.blueprint.contractHash, createdAt: data.blueprint.generatedAt, aiSummary: persistedPlan?.summary, aiComponents: persistedPlan?.components, aiRisks: persistedPlan?.risks, evidenceToken: data.evidenceToken }
       const deliveryResponse = await fetch(`/api/design/blueprint/${data.blueprint.id}/delivery`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ revision: data.blueprint.revision, provider: deliveryProvider, domain: deliveryDomain || undefined, evidenceToken: data.evidenceToken }) })
+      const deliveryData = await deliveryResponse.json().catch(() => null)
       if (!deliveryResponse.ok) throw new Error("Не удалось сохранить delivery policy")
+      if (deliveryData?.preflight && Array.isArray(deliveryData.preflight.checks)) setDeliveryPreflight(deliveryData.preflight as DeliveryPreflight)
       track("blueprint_delivery_policy_saved", { blueprintId: data.blueprint.id, revision: data.blueprint.revision, provider: deliveryProvider, hasCustomDomain: Boolean(deliveryDomain.trim()) })
       setCompileResult(result)
       setPreviewPlan(null)
@@ -389,6 +393,7 @@ export function CofounderConsole() {
         <form onSubmit={submitContract} aria-busy={submitting}>
           {compileResult && qualityState && !qualityState.delivery ? <p className="ds-dialog-error" role="status">Choose a delivery target before code generation can start.</p> : null}
           <fieldset className="ds-field" style={{ border: 0, padding: 0, margin: 0 }}><legend className="ds-utility">DELIVERY TARGET</legend><div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: ".65rem" }}><label>Provider<select value={deliveryProvider} onChange={(event) => setDeliveryProvider(event.target.value as DeliveryProvider)}><option value="osgard-cluster">OSGARD Cluster</option><option value="vercel">Vercel</option><option value="netlify">Netlify</option><option value="custom">Custom server</option></select></label><label>Domain (optional)<input value={deliveryDomain} onChange={(event) => setDeliveryDomain(event.target.value)} placeholder="app.example.com" inputMode="url" /></label></div></fieldset>
+          {deliveryPreflight ? <section className="ds-dialog-result" aria-label="Delivery preflight"><strong>{deliveryPreflight.ready ? "Delivery target saved" : "Delivery target needs attention"}</strong>{deliveryPreflight.checks.map((check) => <small key={check.id} data-status={check.status}>{check.label}</small>)}</section> : null}
           {compileResult && (compileResult.aiSummary || compileResult.aiComponents?.length || compileResult.aiRisks?.length) ? <section className="ds-dialog-result" aria-label="AI architecture signal"><strong>AI architecture signal</strong>{compileResult.aiSummary ? <span>{compileResult.aiSummary}</span> : null}{compileResult.aiComponents?.length ? <small>Selected components: {compileResult.aiComponents.join(", ")}</small> : null}{compileResult.aiRisks?.length ? <small>Risks to review: {compileResult.aiRisks.join("; ")}</small> : null}</section> : null}
           <label className="ds-field">Название<input required value={contractName} onChange={(event) => setContractName(event.target.value)} placeholder="Например, кабинет партнёра" /></label>
           <section className="ds-brief-starters" aria-labelledby="starter-missions-title"><div className="ds-brief-starters__head"><Lightbulb size={15} aria-hidden="true" /><span id="starter-missions-title" className="ds-utility">STARTER MISSIONS</span><small>Начните с готового вектора</small></div><div className="ds-brief-starters__grid">{starterMissions.map((mission) => <button key={mission.id} type="button" className="ds-brief-starter ds-focus" onClick={() => chooseStarterMission(mission)} aria-label={`Use starter mission: ${mission.label}`} title="Fill the brief with this starting direction"><strong>{mission.label}</strong><span>{mission.brief}</span></button>)}</div></section>
