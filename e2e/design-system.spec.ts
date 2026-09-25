@@ -114,6 +114,18 @@ test.describe("OSGARD design system", () => {
     expect(mismatch.status()).toBe(409)
   })
 
+  test("persists a tenant-bound delivery policy before deploy", async ({ request }) => {
+    const created = await request.post("/api/design/blueprint", { data: { app: "delivery-policy", brief: "A launch flow with an explicit provider, domain and Supabase target." } })
+    const body = await created.json()
+    const policy = await request.put(`/api/design/blueprint/${body.blueprint.id}/delivery`, { data: { revision: 1, provider: "osgard-cluster", domain: "portal.example.com", supabaseProjectRef: "project-ref", integrationIds: [3, 3, 8], evidenceToken: body.evidenceToken } })
+    expect(policy.status()).toBe(200)
+    expect((await policy.json()).delivery).toMatchObject({ provider: "osgard-cluster", domain: "portal.example.com", supabaseProjectRef: "project-ref", integrationIds: [3, 8] })
+    const read = await request.get(`/api/design/blueprint/${body.blueprint.id}/delivery?revision=1`)
+    expect((await read.json()).delivery.provider).toBe("osgard-cluster")
+    const forged = await request.put(`/api/design/blueprint/${body.blueprint.id}/delivery`, { data: { revision: 1, provider: "vercel", evidenceToken: "0".repeat(64) } })
+    expect(forged.status()).toBe(403)
+  })
+
   test("persists a blueprint for cross-device restore", async ({ request }) => {
     const response = await request.post("/api/design/blueprint", { data: { app: "restore-check", brief: "A durable workspace for restoring a generated product blueprint." } })
     expect(response.status()).toBe(201)

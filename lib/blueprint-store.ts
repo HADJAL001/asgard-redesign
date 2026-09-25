@@ -22,6 +22,7 @@ export type StoredBlueprint = {
   approval?: { status: "approved"; approvedAt: string }
   generation?: { taskId: string; status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; currentStep?: string; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string }; updatedAt: string }
   generationHistory?: NonNullable<StoredBlueprint["generation"]>[]
+  delivery?: { provider: "osgard-cluster" | "vercel" | "netlify" | "custom"; domain?: string; supabaseProjectRef?: string; integrationIds?: number[]; updatedAt: string }
 }
 
 export type BlueprintEvidenceKind = "typecheck" | "unit" | "a11y" | "security" | "performance" | "visual-diff" | "deploy" | "social-preview" | "rollback"
@@ -145,6 +146,17 @@ export function updateBlueprintGeneration(id: string, revision: number, generati
   if (index < 0) return null
   const previousHistory = revisions[index].generationHistory || (revisions[index].generation ? [revisions[index].generation] : [])
   revisions[index] = { ...revisions[index], ...(generation ? { generation, generationHistory: [...previousHistory, generation].slice(-100) } : { generation: undefined }) }
+  writeStore(store)
+  return revisions[index]
+}
+
+export function updateBlueprintDelivery(id: string, revision: number, delivery: StoredBlueprint["delivery"], tenantId = DEFAULT_TENANT_ID) {
+  const store = readStore()
+  const revisions = store[id]
+  if (!revisions?.length) return null
+  const index = revisions.findIndex((item) => item.revision === revision && tenantMatches(item, tenantId))
+  if (index < 0) return null
+  revisions[index] = { ...revisions[index], ...(delivery ? { delivery } : { delivery: undefined }) }
   writeStore(store)
   return revisions[index]
 }
