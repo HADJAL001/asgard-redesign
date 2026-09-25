@@ -58,6 +58,14 @@ const delivery = await request(`/api/design/blueprint/${blueprint.id}/delivery`,
 })
 assert(delivery.response.ok && delivery.payload?.delivery?.supabaseProjectRef === "golden-task-ref", "delivery_wizard failed")
 
+const deliveryVerification = await request(`/api/design/blueprint/${blueprint.id}/delivery/verify`, {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ revision: blueprint.revision, evidenceToken }),
+})
+const deliveryVerificationAvailable = deliveryVerification.response.ok && Array.isArray(deliveryVerification.payload?.checks)
+assert(deliveryVerificationAvailable || deliveryVerification.response.status === 404, "delivery_verification failed")
+
 const comment = await request(`/api/design/blueprint/${blueprint.id}/comments`, {
   method: "POST",
   headers: { "content-type": "application/json" },
@@ -78,6 +86,7 @@ const output = {
     livePreviewUnder60s: "passed",
     explainableDiff: "passed",
     deliveryWizard: "passed",
+    deliveryVerification: deliveryVerificationAvailable ? "passed" : "pending_deploy",
     approvalRoom: "passed",
     replay: "passed",
   },

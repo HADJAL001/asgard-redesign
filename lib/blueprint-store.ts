@@ -26,12 +26,12 @@ export type StoredBlueprint = {
   aiPlan?: { summary: string; components: string[]; risks: string[] }
   canvasSlots?: { id: string; component: string; role: string; states: string[] }[]
   approval?: { status: "approved"; approvedAt: string }
-  generation?: { taskId: string; status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; currentStep?: string; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string }; updatedAt: string }
+  generation?: { taskId: string; status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; currentStep?: string; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string }; artifactSeal?: import("./artifact-seal").ArtifactSeal; updatedAt: string }
   generationHistory?: NonNullable<StoredBlueprint["generation"]>[]
   delivery?: { provider: "osgard-cluster" | "vercel" | "netlify" | "custom"; domain?: string; supabaseProjectRef?: string; integrationIds?: number[]; updatedAt: string }
 }
 
-export type BlueprintEvidenceKind = "typecheck" | "unit" | "a11y" | "security" | "performance" | "visual-diff" | "deploy" | "social-preview" | "rollback" | "remediation"
+export type BlueprintEvidenceKind = "typecheck" | "unit" | "a11y" | "security" | "performance" | "visual-diff" | "deploy" | "social-preview" | "rollback" | "remediation" | "artifact-signature" | "dns-verification" | "supabase-verification"
 export type BlueprintEvidence = {
   id: string
   blueprintId: string

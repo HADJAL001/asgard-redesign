@@ -3,7 +3,7 @@ import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { asyncHandler } from "../utils/async-handler"
 import { captureError } from "../lib/sentry"
-import { callClaudeRaw, callDeepSeek, isAiConfigured } from "../services/ai-router"
+import { callClaudeRaw, callDeepSeek, callGeminiRaw, isAiConfigured } from "../services/ai-router"
 import { rateLimit } from "../middleware/rateLimiter"
 import {
   ARCHETYPE_MENU,
@@ -49,6 +49,35 @@ import { explainDesignQuality } from "../lib/design-qa"
 const router = Router()
 
 const BLUEPRINT_COMPONENTS = new Set(["app-shell", "hero", "bento-grid", "form-wizard", "preview-frame", "cinematic-sequence"])
+
+const INTERVIEW_FALLBACKS = [
+  "Для кого должен быть создан этот продукт?",
+  "Какой конкретный результат пользователь должен получить?",
+  "Какие функции обязательны в первой версии?",
+]
+
+function parseInterviewQuestion(text: string | null): string | null {
+  if (!text) return null
+  try {
+    const candidate = text.match(/\{[\s\S]*\}/)?.[0]
+    const value = candidate ? JSON.parse(candidate) as { question?: unknown } : null
+    const question = typeof value?.question === "string" ? value.question.trim() : ""
+    return question.length >= 8 && question.length <= 240 ? question : null
+  } catch {
+    return null
+  }
+}
+
+router.post("/interview", rateLimit(60_000, 18, (req) => `design-interview:${req.ip}`), asyncHandler(async (req, res) => {
+  const idea = typeof req.body?.idea === "string" ? req.body.idea.trim().slice(0, 600) : ""
+  const step = Number(req.body?.step)
+  const answers = req.body?.answers && typeof req.body.answers === "object" ? req.body.answers as Record<string, unknown> : {}
+  if (!idea || !Number.isInteger(step) || step < 0 || step > 2) return res.status(400).json({ error: "invalid_interview_input" })
+  const answerContext = Object.entries(answers).filter(([, value]) => typeof value === "string").map(([key, value]) => `${key}: ${String(value).slice(0, 240)}`).join("\n")
+  const prompt = `Return JSON only: {"question":"..."}. Ask exactly one concise product interview question for step ${step + 1} of 3. Do not repeat answered fields. Product idea: ${idea}\nAnswers so far:\n${answerContext || "none"}`
+  const question = parseInterviewQuestion(await callGeminiRaw(prompt, 120)) || INTERVIEW_FALLBACKS[step]
+  res.json({ question, step, source: question === INTERVIEW_FALLBACKS[step] ? "deterministic-fallback" : "gemini-3.7-flash" })
+}))
 
 function parseBlueprintAi(text: string | null) {
   if (!text) return null

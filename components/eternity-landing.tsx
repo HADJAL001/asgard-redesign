@@ -62,6 +62,7 @@ export function EternityLanding() {
   const [briefIdea, setBriefIdea] = useState<string | null>(null)
   const [brief, setBrief] = useState({ audience: "", outcome: "", essentials: "", constraints: "" })
   const [briefStep, setBriefStep] = useState(0)
+  const [interviewQuestion, setInterviewQuestion] = useState<string | null>(null)
   const getGenerationError = (result: { error?: string; code?: string }) =>
     result.code === "GENERATION_PROVIDERS_UNAVAILABLE"
       ? t("landing.generationProvidersUnavailable")
@@ -81,8 +82,19 @@ export function EternityLanding() {
 
   const closeBrief = useCallback(() => {
     setBriefIdea(null)
+    setInterviewQuestion(null)
     requestAnimationFrame(() => briefTriggerRef.current?.focus())
   }, [])
+
+  const loadInterviewQuestion = useCallback(async (idea: string, step: number, answers: typeof brief) => {
+    try {
+      const response = await fetch("/api/design/interview", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idea, step, answers, locale }) })
+      const data = await response.json().catch(() => null)
+      if (response.ok && typeof data?.question === "string") setInterviewQuestion(data.question)
+    } catch {
+      // Deterministic labels remain visible when the fast AI lane is unavailable.
+    }
+  }, [locale])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24)
@@ -305,15 +317,20 @@ export function EternityLanding() {
     setCreateError(null)
     setBrief({ audience: "", outcome: "", essentials: "", constraints: "" })
     setBriefStep(0)
+    setInterviewQuestion(null)
     setBriefIdea(query)
+    void loadInterviewQuestion(query, 0, { audience: "", outcome: "", essentials: "", constraints: "" })
   }
 
   const handleBriefSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!briefIdea || submitting) return
-    if (briefStep < 3) {
+    if (briefStep < 2) {
       if (!isProjectBriefAnswerComplete(briefStepValue)) return
-      setBriefStep((current) => Math.min(3, current + 1))
+      const nextStep = Math.min(2, briefStep + 1)
+      setBriefStep(nextStep)
+      setInterviewQuestion(null)
+      void loadInterviewQuestion(briefIdea, nextStep, brief)
       return
     }
     if (!isProjectBriefComplete(brief)) return
@@ -323,12 +340,11 @@ export function EternityLanding() {
   }
 
   const briefReady = isProjectBriefComplete(brief)
-  const briefStepValue = [brief.audience, brief.outcome, brief.essentials, brief.constraints][briefStep]
+  const briefStepValue = [brief.audience, brief.outcome, brief.essentials][briefStep]
   const briefStepLabels = [
     t("landing.briefAudienceLabel"),
     t("landing.briefOutcomeLabel"),
     t("landing.briefEssentialsLabel"),
-    t("landing.briefConstraintsLabel"),
   ]
 
   return (
@@ -364,17 +380,17 @@ export function EternityLanding() {
             <div className="project-brief-kicker">{t("landing.briefKicker")}</div>
             <h2 id="project-brief-title">{t("landing.briefTitle")}</h2>
             <p id="project-brief-description">{t("landing.briefDescription")}</p>
-            <div className="project-brief-progress" aria-live="polite">{briefStep + 1} / 4</div>
-            <label>{briefStepLabels[briefStep]} {briefStep === 3 && <span>{t("landing.briefOptional")}</span>}
+            <div className="project-brief-progress" aria-live="polite">{briefStep + 1} / 3</div>
+            <label>{interviewQuestion || briefStepLabels[briefStep]}
               {briefStep === 2 ? (
                 <textarea autoFocus value={brief.essentials} onChange={(e) => setBrief((current) => ({ ...current, essentials: e.target.value }))} placeholder={t("landing.briefEssentialsPlaceholder")} maxLength={600} rows={4} required aria-required="true" />
               ) : (
-                <input autoFocus value={briefStep === 0 ? brief.audience : briefStep === 1 ? brief.outcome : brief.constraints} onChange={(e) => setBrief((current) => ({ ...current, [briefStep === 0 ? "audience" : briefStep === 1 ? "outcome" : "constraints"]: e.target.value }))} placeholder={briefStep === 0 ? t("landing.briefAudiencePlaceholder") : briefStep === 1 ? t("landing.briefOutcomePlaceholder") : t("landing.briefConstraintsPlaceholder")} maxLength={briefStep === 1 ? 240 : briefStep === 0 ? 240 : 400} required={briefStep < 3} aria-required={briefStep < 3 ? "true" : undefined} />
+                <input autoFocus value={briefStep === 0 ? brief.audience : brief.outcome} onChange={(e) => setBrief((current) => ({ ...current, [briefStep === 0 ? "audience" : "outcome"]: e.target.value }))} placeholder={briefStep === 0 ? t("landing.briefAudiencePlaceholder") : t("landing.briefOutcomePlaceholder")} maxLength={briefStep === 1 ? 240 : 240} required aria-required="true" />
               )}
             </label>
             <div className="project-brief-actions">
               <button type="button" onClick={() => briefStep > 0 ? setBriefStep((current) => current - 1) : closeBrief()}>{briefStep > 0 ? t("projectWizard.back") : t("landing.briefBack")}</button>
-              <button type="submit" disabled={(briefStep < 3 && !isProjectBriefAnswerComplete(briefStepValue)) || (briefStep === 3 && !briefReady) || submitting}>{briefStep === 3 ? t("landing.briefStart") : t("projectWizard.next")} <ArrowRight size={17} aria-hidden="true" /></button>
+              <button type="submit" disabled={!isProjectBriefAnswerComplete(briefStepValue) || (briefStep === 2 && !briefReady) || submitting}>{briefStep === 2 ? t("landing.briefStart") : t("projectWizard.next")} <ArrowRight size={17} aria-hidden="true" /></button>
             </div>
           </form>
         </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getBlueprint, updateBlueprintGeneration, verifyBlueprintEvidenceToken, type StoredBlueprint } from "@/lib/blueprint-store"
+import { appendBlueprintEvidence, getBlueprint, listBlueprintEvidence, updateBlueprintGeneration, verifyBlueprintEvidenceToken, type StoredBlueprint } from "@/lib/blueprint-store"
 import { tenantIdFromRequest } from "@/lib/tenant-context"
+import { createArtifactSeal } from "@/lib/artifact-seal"
 
 export const dynamic = "force-dynamic"
 
@@ -41,8 +42,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     ...(typeof rawResult.previewUrl === "string" && /^https?:\/\//.test(rawResult.previewUrl) ? { previewUrl: rawResult.previewUrl.slice(0, 500) } : {}),
     ...(typeof rawResult.repoUrl === "string" && /^https?:\/\//.test(rawResult.repoUrl) ? { repoUrl: rawResult.repoUrl.slice(0, 500) } : {}),
   } : undefined
-  const generation: NonNullable<StoredBlueprint["generation"]> = { taskId, status, progress: Math.min(100, Math.max(0, Math.round(progress))), ...(typeof body?.currentStep === "string" ? { currentStep: body.currentStep.slice(0, 160) } : {}), ...(typeof body?.error === "string" ? { error: body.error.slice(0, 500) } : {}), ...(result && Object.keys(result).length ? { result } : {}), updatedAt: new Date().toISOString() }
+  const artifactSeal = status === "completed" && result && Object.keys(result).length
+    ? createArtifactSeal({ blueprintId: id, tenantId, revision, contractHash: blueprint.contractHash || "", taskId, result })
+    : null
+  const generation: NonNullable<StoredBlueprint["generation"]> = { taskId, status, progress: Math.min(100, Math.max(0, Math.round(progress))), ...(typeof body?.currentStep === "string" ? { currentStep: body.currentStep.slice(0, 160) } : {}), ...(typeof body?.error === "string" ? { error: body.error.slice(0, 500) } : {}), ...(result && Object.keys(result).length ? { result } : {}), ...(artifactSeal ? { artifactSeal } : {}), updatedAt: new Date().toISOString() }
   updateBlueprintGeneration(id, revision, generation, tenantId)
+  if (artifactSeal) {
+    const summary = `Generation artifact sealed (${artifactSeal.digest.slice(0, 12)}…)`
+    const alreadyRecorded = listBlueprintEvidence(id, tenantId).some((entry) => entry.kind === "artifact-signature" && entry.revision === revision && entry.summary === summary)
+    if (!alreadyRecorded) appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: id, tenantId, revision, contractHash: blueprint.contractHash || "", kind: "artifact-signature", status: "passed", summary, capturedAt: artifactSeal.signedAt, source: "generation-artifact-seal" })
+  }
   const updated = getBlueprint(id, revision, tenantId)
-  return NextResponse.json({ blueprintId: id, revision, generation, history: updated?.generationHistory || [generation] }, { status: 201, headers: { "cache-control": "no-store" } })
+  return NextResponse.json({ blueprintId: id, revision, generation, sealStatus: artifactSeal ? "signed" : status === "completed" ? "unavailable" : "not_applicable", history: updated?.generationHistory || [generation] }, { status: 201, headers: { "cache-control": "no-store" } })
 }

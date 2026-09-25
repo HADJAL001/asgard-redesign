@@ -4,9 +4,11 @@ import {
   callDeepSeekRaw,
   callGrokRaw,
   callKimiRaw,
+  callOpenAiRaw,
   extractJson,
   isClaudeConfigured,
   isDeepSeekConfigured,
+  isOpenAiConfigured,
   isKimiConfigured,
   markProviderRuntimeFailure,
   probeClaude,
@@ -153,7 +155,12 @@ const PLANNER_CHAIN: RawProvider[] = [callClaudeRaw, callKimiRaw]
 // DeepSeek remains the primary implementation model. Kimi is already a
 // verified reasoning provider and can return raw code too, so it prevents a
 // single coding-provider outage from making the whole project pipeline idle.
-const CODER_CHAIN: RawProvider[] = [callDeepSeekRaw, callKimiRaw]
+// GPT Sol is the preferred implementation model when configured. Existing
+// providers remain explicit fallbacks so an unavailable account never blocks
+// the product pipeline.
+const CODER_CHAIN: RawProvider[] = isOpenAiConfigured()
+  ? [callOpenAiRaw, callDeepSeekRaw, callKimiRaw]
+  : [callDeepSeekRaw, callKimiRaw]
 const REVIEWER_CHAIN: RawProvider[] = [callClaudeRaw, callKimiRaw]
 const GENERAL_CHAIN: RawProvider[] = [callClaudeRaw, callKimiRaw, callDeepSeekRaw, callGrokRaw]
 

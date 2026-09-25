@@ -41,6 +41,12 @@ const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_K
    шлюз (например, на время отсутствия прямого ключа Anthropic). По умолчанию — офиц. API. */
 const CLAUDE_API_URL = process.env.CLAUDE_API_URL || "https://api.anthropic.com/v1/messages"
 const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929"
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.VEXLY_API_KEY || ""
+const OPENAI_API_URL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1"
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.6-sol"
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_STUDIO_KEY || ""
+const GEMINI_API_URL = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta"
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.7-flash"
 
 export function claudeApiFormat(): "anthropic" | "openai" {
   const configured = process.env.CLAUDE_API_FORMAT?.trim().toLowerCase()
@@ -50,7 +56,7 @@ export function claudeApiFormat(): "anthropic" | "openai" {
 
 const DEFAULT_PROVIDER_TIMEOUT_MS = 90_000
 
-export type RuntimeProvider = "claude" | "kimi" | "deepseek" | "grok"
+export type RuntimeProvider = "claude" | "kimi" | "deepseek" | "grok" | "openai" | "gemini"
 type RuntimeProviderBlock = { until: number; reason: string }
 
 const runtimeProviderBlocks = new Map<RuntimeProvider, RuntimeProviderBlock>()
@@ -60,6 +66,8 @@ function runtimeProviderForLabel(label: string): RuntimeProvider | null {
   if (label.startsWith("kimi")) return "kimi"
   if (label.startsWith("deepseek")) return "deepseek"
   if (label.startsWith("grok")) return "grok"
+  if (label.startsWith("openai")) return "openai"
+  if (label.startsWith("gemini")) return "gemini"
   return null
 }
 
@@ -288,6 +296,14 @@ export function isDeepSeekConfigured(): boolean {
   return !!DEEPSEEK_API_KEY
 }
 
+export function isOpenAiConfigured(): boolean {
+  return !!OPENAI_API_KEY
+}
+
+export function isGeminiConfigured(): boolean {
+  return !!GEMINI_API_KEY
+}
+
 /** Какая модель отвечает за рассуждение — для витрин и отчётов (значение неизменяемо снаружи). */
 export function reasoningModelName(): string {
   return CLAUDE_REASONING_MODEL
@@ -449,6 +465,88 @@ export async function callClaudeRaw(prompt: string, maxTokens: number): Promise<
   return callClaudeApi(prompt, maxTokens)
 }
 
+/** OpenAI Responses API adapter used by the typed code-generation lane. */
+export async function callOpenAiRaw(prompt: string, maxTokens: number): Promise<string | null> {
+  if (!OPENAI_API_KEY || runtimeProviderBlock("openai")) return null
+  const startedAt = Date.now()
+  const releaseTokenReservation = reserveAiCallTokens(estimateTokens(prompt), maxTokens)
+  try {
+    const response = await fetch(`${OPENAI_API_URL.replace(/\/$/, "")}/responses`, {
+      method: "POST",
+      signal: AbortSignal.timeout(providerTimeoutMs()),
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: OPENAI_MODEL, input: prompt, max_output_tokens: maxTokens }),
+    })
+    if (!response.ok) {
+      blockRuntimeProvider("openai", `http_${response.status}`)
+      recordAiCall({ provider: "openai", model: OPENAI_MODEL, inputTokens: estimateTokens(prompt), outputTokens: 0, ms: Date.now() - startedAt, estimated: true, ok: false })
+      return null
+    }
+    const data: any = await response.json()
+    const text = typeof data?.output_text === "string"
+      ? data.output_text
+      : Array.isArray(data?.output)
+        ? data.output.flatMap((item: any) => Array.isArray(item?.content) ? item.content : []).map((item: any) => item?.text || "").join("")
+        : ""
+    const usage = data?.usage
+    const measured = typeof usage?.input_tokens === "number" && typeof usage?.output_tokens === "number"
+    const refused = isProviderRefusal(text)
+    recordAiCall({ provider: "openai", model: OPENAI_MODEL, inputTokens: measured ? usage.input_tokens : estimateTokens(prompt), outputTokens: measured ? usage.output_tokens : estimateTokens(text), ms: Date.now() - startedAt, estimated: !measured, ok: !refused })
+    if (!text.trim() || refused) {
+      blockRuntimeProvider("openai", refused ? "runtime_refusal" : "empty_response")
+      return null
+    }
+    clearRuntimeProviderBlock("openai")
+    return text
+  } catch (error) {
+    captureError("[ai-router] OpenAI Responses API call failed:", error)
+    blockRuntimeProvider("openai", error instanceof Error && error.name === "TimeoutError" ? "timeout" : "network_error")
+    recordAiCall({ provider: "openai", model: OPENAI_MODEL, inputTokens: estimateTokens(prompt), outputTokens: 0, ms: Date.now() - startedAt, estimated: true, ok: false })
+    return null
+  } finally {
+    releaseTokenReservation()
+  }
+}
+
+/** Gemini Flash adapter for the low-latency interview and triage lane. */
+export async function callGeminiRaw(prompt: string, maxTokens: number): Promise<string | null> {
+  if (!GEMINI_API_KEY || runtimeProviderBlock("gemini")) return null
+  const startedAt = Date.now()
+  const releaseTokenReservation = reserveAiCallTokens(estimateTokens(prompt), maxTokens)
+  try {
+    const response = await fetch(`${GEMINI_API_URL.replace(/\/$/, "")}/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`, {
+      method: "POST",
+      signal: AbortSignal.timeout(Math.min(providerTimeoutMs(), 30_000)),
+      headers: { "x-goog-api-key": GEMINI_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: maxTokens, temperature: 0.2 } }),
+    })
+    if (!response.ok) {
+      blockRuntimeProvider("gemini", `http_${response.status}`)
+      recordAiCall({ provider: "gemini", model: GEMINI_MODEL, inputTokens: estimateTokens(prompt), outputTokens: 0, ms: Date.now() - startedAt, estimated: true, ok: false })
+      return null
+    }
+    const data: any = await response.json()
+    const text = Array.isArray(data?.candidates) ? data.candidates.flatMap((item: any) => item?.content?.parts || []).map((part: any) => part?.text || "").join("") : ""
+    const usage = data?.usageMetadata
+    const measured = typeof usage?.promptTokenCount === "number" && typeof usage?.candidatesTokenCount === "number"
+    const refused = isProviderRefusal(text)
+    recordAiCall({ provider: "gemini", model: GEMINI_MODEL, inputTokens: measured ? usage.promptTokenCount : estimateTokens(prompt), outputTokens: measured ? usage.candidatesTokenCount : estimateTokens(text), ms: Date.now() - startedAt, estimated: !measured, ok: !refused })
+    if (!text.trim() || refused) {
+      blockRuntimeProvider("gemini", refused ? "runtime_refusal" : "empty_response")
+      return null
+    }
+    clearRuntimeProviderBlock("gemini")
+    return text
+  } catch (error) {
+    captureError("[ai-router] Gemini API call failed:", error)
+    blockRuntimeProvider("gemini", error instanceof Error && error.name === "TimeoutError" ? "timeout" : "network_error")
+    recordAiCall({ provider: "gemini", model: GEMINI_MODEL, inputTokens: estimateTokens(prompt), outputTokens: 0, ms: Date.now() - startedAt, estimated: true, ok: false })
+    return null
+  } finally {
+    releaseTokenReservation()
+  }
+}
+
 export async function callDeepSeekRaw(prompt: string, maxTokens: number): Promise<string | null> {
   return callOpenAiCompatible(DEEPSEEK_API_URL, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, prompt, (t) => t, "deepseek-raw", maxTokens)
 }
@@ -527,7 +625,7 @@ export async function probeClaude(): Promise<ProviderProbe> {
   const runtimeBlock = runtimeProviderBlock("claude")
   if (runtimeBlock) return { configured: true, available: false, reason: runtimeBlock.reason }
   if (claudeApiFormat() === "openai") {
-    return probeOpenAiCompatible(CLAUDE_API_URL, CLAUDE_API_KEY, CLAUDE_MODEL, "claude")
+    return probeOpenAiCompatible(CLAUDE_API_URL, CLAUDE_API_KEY, CLAUDE_REASONING_MODEL, "claude")
   }
   try {
     const response = await fetch(providerModelsUrl(CLAUDE_API_URL), {
@@ -542,7 +640,7 @@ export async function probeClaude(): Promise<ProviderProbe> {
     if (!response.ok) return { configured: true, available: false, reason: `http_${response.status}` }
     const payload = await response.json().catch(() => null)
     const models = Array.isArray(payload?.data) ? payload.data : null
-    if (models && models.length > 0 && !models.some((entry: any) => entry?.id === CLAUDE_MODEL)) {
+    if (models && models.length > 0 && !models.some((entry: any) => entry?.id === CLAUDE_REASONING_MODEL)) {
       return { configured: true, available: false, reason: "model_unavailable" }
     }
     return { configured: true, available: true }

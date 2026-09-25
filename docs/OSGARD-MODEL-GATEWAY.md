@@ -33,11 +33,25 @@ GEMINI_MODEL=gemini-3.7-flash
 
 Model identifiers are environment overrides because provider gateways can publish a different canonical ID. Never commit these values or put them in `NEXT_PUBLIC_*` variables.
 
+## Generated artifact provenance
+
+Every completed generation with a delivery URL is bound to its tenant, blueprint revision,
+ProductContract hash, task ID and sanitized result URLs by a server-side HMAC seal. Configure
+the key only in the `osgard-web` production service:
+
+```env
+ARTIFACT_SIGNING_KEY=long-random-secret-not-stored-in-git
+```
+
+The UI and Evidence Ledger receive only the seal state and digest prefix. The secret is never
+returned to the browser. If the key is unavailable, the response explicitly reports
+`sealStatus: "unavailable"`; an unsigned artifact cannot be represented as verified provenance.
+
 ## Request routing policy
 
-1. Interview and intent extraction: `gemini` first; deterministic validation remains authoritative.
+1. Interview and intent extraction: `POST /design/interview` uses Gemini Flash first; deterministic three-question validation remains authoritative and is the fallback when Gemini is unavailable.
 2. Blueprint architecture and risk review: `claude` with the Opus reasoning model.
-3. Code generation and repair: `openai`; output is accepted only after sandbox, typecheck, accessibility, security, performance, and visual evidence gates.
+3. Code generation and repair: `openai` (GPT-5.6 Sol) when `OPENAI_API_KEY` is configured; DeepSeek/Kimi remain ordered fallbacks. Output is accepted only after sandbox, typecheck, accessibility, security, performance, and visual evidence gates.
 4. Final approval: `claude` reviews the typed diff and evidence ledger; a human approval is still required for deploy.
 
 The gateway is an implementation detail of OSGARD. Tenants select a product outcome and quality policy, not raw provider credentials.

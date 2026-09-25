@@ -1,7 +1,7 @@
 "use client"
 
 import { FormEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { FilePlus2, Gem, Lightbulb, Radar, RefreshCw, ShieldCheck, Share2, Wand2, X } from "lucide-react"
+import { FilePlus2, Gem, Lightbulb, Mic, MicOff, Radar, RefreshCw, ShieldCheck, Share2, Wand2, X } from "lucide-react"
 import { MemoryLayerRail } from "@/components/design-system/MemoryLayerRail"
 import { OrbitalMemory } from "@/components/design-system/OrbitalMemory"
 import { PresetSwitcher } from "@/components/design-system/PresetSwitcher"
@@ -22,7 +22,7 @@ type EvidenceRecord = { id: string; revision: number; kind: string; status: "pas
 type QualityState = { required: string[]; missing: string[]; stale: { kind: string; reason: string; revision?: number; expectedRevision: number }[]; approval: boolean; delivery?: boolean; readyForCodegen: boolean }
 type GenerationStatus = { status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; currentStep?: string; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string } }
 type DeliveryProvider = "osgard-cluster" | "vercel" | "netlify" | "custom"
-type DeliveryPreflight = { ready: boolean; checks: { id: string; status: "passed" | "manual" | "not-requested" | "blocked"; label: string }[] }
+type DeliveryPreflight = { ready: boolean; checks: { id: string; status: "passed" | "failed" | "manual" | "not-requested" | "blocked"; label: string }[] }
 type CommandDiff = { slotId: string; role: string; before: string; after: string }
 type CommandPreview = { intent: string; changes: CommandDiff[]; contractHash: string; revision: number }
 type ApprovalComment = { id: string; revision: number; author: string; body: string; createdAt: string }
@@ -62,6 +62,8 @@ export function CofounderConsole() {
   const [deliveryPreflight, setDeliveryPreflight] = useState<DeliveryPreflight | null>(null)
   const [commandText, setCommandText] = useState("")
   const [commandPreview, setCommandPreview] = useState<CommandPreview | null>(null)
+  const [voiceListening, setVoiceListening] = useState(false)
+  const speechRecognitionRef = useRef<any>(null)
   const [commandBusy, setCommandBusy] = useState(false)
   const [approvalComments, setApprovalComments] = useState<ApprovalComment[]>([])
   const [commentDraft, setCommentDraft] = useState("")
@@ -276,6 +278,9 @@ export function CofounderConsole() {
         setDeliveryPreflight(deliveryData.preflight as DeliveryPreflight)
           track("delivery_preflight_viewed", { provider: deliveryProvider, hasCustomDomain: Boolean(deliveryDomain.trim()), hasSupabase: Boolean(supabaseProjectRef.trim()) })
       }
+      const verificationResponse = await fetch(`/api/design/blueprint/${data.blueprint.id}/delivery/verify`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ revision: data.blueprint.revision, evidenceToken: data.evidenceToken }) })
+      const verification = await verificationResponse.json().catch(() => null)
+      if (verificationResponse.ok && Array.isArray(verification?.checks)) setDeliveryPreflight(verification as DeliveryPreflight)
       track("blueprint_delivery_policy_saved", { blueprintId: data.blueprint.id, revision: data.blueprint.revision, provider: deliveryProvider, hasCustomDomain: Boolean(deliveryDomain.trim()), hasSupabase: Boolean(supabaseProjectRef.trim()) })
       setCompileResult(result)
       setPreviewPlan(null)
@@ -386,6 +391,33 @@ export function CofounderConsole() {
     return evidenceLabels[kind] || kind.replace(/[-_]/g, " ")
   }
 
+  function toggleVoiceCommand() {
+    if (voiceListening) {
+      speechRecognitionRef.current?.stop?.()
+      setVoiceListening(false)
+      return
+    }
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      setCompileError("Голосовой ввод не поддерживается этим браузером")
+      track("blueprint_voice_command_unavailable", {})
+      return
+    }
+    const recognition = new SpeechRecognition()
+    recognition.lang = "ru-RU"
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+    recognition.onstart = () => { setVoiceListening(true); track("blueprint_voice_command_started", {}) }
+    recognition.onresult = (event: any) => {
+      const transcript = String(event.results?.[0]?.[0]?.transcript || "").trim()
+      if (transcript) { setCommandText((current) => current ? `${current} ${transcript}` : transcript); track("blueprint_voice_command_captured", { characters: transcript.length }) }
+    }
+    recognition.onerror = () => { setCompileError("Не удалось распознать голосовую команду"); track("blueprint_voice_command_error", {}) }
+    recognition.onend = () => { setVoiceListening(false); speechRecognitionRef.current = null }
+    speechRecognitionRef.current = recognition
+    recognition.start()
+  }
+
   async function saveCanvasDraft(slots: { id: string; component: string; role: string; states: string[] }[]) {
     if (!compileResult?.evidenceToken) return
     setSavingCanvas(true)
@@ -461,7 +493,7 @@ export function CofounderConsole() {
       <BlueprintCanvas key={previewPlan?.revision ?? "empty"} plan={previewPlan as BlueprintCanvasPlan | null} productType={productType} preset={visualPreset} onCreate={() => setOpen(true)} onSave={saveCanvasDraft} saving={savingCanvas} />
       <section className="ds-hull ds-glass ds-command-panel" aria-labelledby="command-title">
         <div className="ds-command-panel__head"><div><span className="ds-utility">NATURAL LANGUAGE EDITOR</span><h2 id="command-title" className="ds-display">Скажите, что изменить</h2><p>Сначала увидите explainable diff. Ничего не применится без вашего подтверждения.</p></div><Wand2 size={18} aria-hidden="true" /></div>
-        <div className="ds-command-panel__form"><label className="ds-field"><span className="sr-only">Команда изменения</span><input value={commandText} onChange={(event) => setCommandText(event.target.value)} placeholder="Например: сделай карточки плотнее" maxLength={500} disabled={!compileResult || commandBusy} /><button type="button" className="ds-dialog-secondary ds-focus" onClick={() => void previewCommand()} disabled={!compileResult || commandBusy || commandText.trim().length < 3}>{commandBusy ? "Проверяем…" : "Показать diff"}</button></label></div>
+        <div className="ds-command-panel__form"><label className="ds-field"><span className="sr-only">Команда изменения</span><input value={commandText} onChange={(event) => setCommandText(event.target.value)} placeholder="Например: сделай карточки плотнее" maxLength={500} disabled={!compileResult || commandBusy} /><button type="button" className="ds-dialog-secondary ds-focus" onClick={toggleVoiceCommand} disabled={!compileResult || commandBusy} aria-label={voiceListening ? "Остановить голосовой ввод" : "Ввести команду голосом"} title={voiceListening ? "Остановить голосовой ввод" : "Ввести команду голосом"}>{voiceListening ? <MicOff size={16} aria-hidden="true" /> : <Mic size={16} aria-hidden="true" />}</button><button type="button" className="ds-dialog-secondary ds-focus" onClick={() => void previewCommand()} disabled={!compileResult || commandBusy || commandText.trim().length < 3}>{commandBusy ? "Проверяем…" : "Показать diff"}</button></label></div>
         {!compileResult ? <small className="ds-field-hint">Сначала создайте blueprint, затем редактируйте его обычной фразой.</small> : null}
         {commandPreview ? <div className="ds-command-diff" role="status"><div className="ds-command-diff__meta"><strong>{commandPreview.intent}</strong><span>{commandPreview.changes.length} changes · revision {commandPreview.revision}</span></div><ul>{commandPreview.changes.map((change) => <li key={change.slotId}><strong>{change.role}</strong><span className="ds-command-diff__before">{change.before || "empty"}</span><span aria-hidden="true">→</span><span className="ds-command-diff__after">{change.after}</span></li>)}</ul><button type="button" className="ds-liquid-gold ds-focus" onClick={() => void applyCommand()} disabled={commandBusy}>Применить изменения</button></div> : null}
       </section>
