@@ -12,6 +12,12 @@ export type StoredBlueprint = {
   contractVersion?: string
   contractHash?: string
   brief: string
+  intent?: {
+    audience: string
+    outcome: string
+    platform: "web" | "mobile" | "desktop" | "cross-platform" | "any"
+    constraints: string[]
+  }
   components: string[]
   stages: string[]
   generatedAt: string

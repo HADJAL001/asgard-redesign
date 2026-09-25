@@ -65,6 +65,32 @@ test.describe("OSGARD design system", () => {
     expect(body.blueprint.revision).toBe(1)
   })
 
+  test("normalizes typed product intent and binds it to the contract hash", async ({ request }) => {
+    const base = await request.post("/api/design/blueprint", { data: { app: "intent-base", brief: "A product workspace for validating typed intent before code generation." } })
+    const baseBody = await base.json()
+    const response = await request.post("/api/design/blueprint", { data: {
+      app: "intent-check",
+      brief: "A product workspace for validating typed intent before code generation.",
+      intent: {
+        audience: "Independent product teams",
+        outcome: "Ship a reviewed application in one session",
+        platform: "web",
+        constraints: ["WCAG AA", "WCAG AA", "x".repeat(300), 42],
+        ignored: "field",
+      },
+    } })
+    expect(response.status()).toBe(201)
+    const body = await response.json()
+    expect(body.blueprint.intent).toEqual({
+      audience: "Independent product teams",
+      outcome: "Ship a reviewed application in one session",
+      platform: "web",
+      constraints: ["WCAG AA", "x".repeat(160)],
+    })
+    expect(body.blueprint.contractHash).toMatch(/^[a-f0-9]{64}$/)
+    expect(body.blueprint.contractHash).not.toBe(baseBody.blueprint.contractHash)
+  })
+
   test("binds evidence ledger entries to the contract hash", async ({ request }) => {
     const created = await request.post("/api/design/blueprint", { data: { app: "evidence-check", brief: "A product workspace with auditable release evidence and safe delivery." } })
     const createdBody = await created.json()

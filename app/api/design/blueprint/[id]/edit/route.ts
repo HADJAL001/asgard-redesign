@@ -30,7 +30,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   })
   if (slots.some((slot) => !slot.id || !allowed.has(slot.component) || !slot.role || !slot.states.length) || new Set(slots.map((slot) => slot.id)).size !== slots.length) return NextResponse.json({ error: "canvas_slot_not_allowed" }, { status: 400 })
   const components = slots.map((slot) => slot.component)
-  const contract = { version: source.contractVersion || "1.0.0", app: source.app, productType: source.productType, preset: source.preset, brief: source.brief, components, aiPlan: source.aiPlan || null, canvasSlots: slots }
+  const contract = { version: source.contractVersion || "1.0.0", app: source.app, productType: source.productType, preset: source.preset, brief: source.brief, intent: source.intent || null, components, aiPlan: source.aiPlan || null, canvasSlots: slots }
   const contractHash = crypto.createHash("sha256").update(JSON.stringify(contract)).digest("hex")
   const latest = listBlueprintRevisions(id, tenantId).at(-1)
   const edited: StoredBlueprint = { ...source, revision: (latest?.revision || source.revision) + 1, contractHash, canvasSlots: slots, components, generatedAt: new Date().toISOString(), approval: undefined, quality: { ...source.quality, humanReviewRequired: true } }

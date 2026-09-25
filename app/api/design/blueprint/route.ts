@@ -10,10 +10,25 @@ const requestWindows = new Map<string, { startedAt: number; count: number }>()
 const allowed = new Set(["app-shell", "hero", "bento-grid", "form-wizard", "preview-frame", "cinematic-sequence"])
 const fallbackStages = ["intent", "architecture", "build", "preview", "approval"]
 
-type BlueprintInput = { app?: unknown; brief?: unknown; productType?: unknown; preset?: unknown; components?: unknown; aiPlan?: unknown }
+type BlueprintInput = { app?: unknown; brief?: unknown; productType?: unknown; preset?: unknown; components?: unknown; aiPlan?: unknown; intent?: unknown }
 
 function text(value: unknown, max: number) {
   return typeof value === "string" ? value.trim().slice(0, max) : ""
+}
+
+function normalizeIntent(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+  const raw = value as Record<string, unknown>
+  const platforms = new Set(["web", "mobile", "desktop", "cross-platform", "any"])
+  const platformValue = text(raw.platform, 20)
+  const platform = platforms.has(platformValue) ? platformValue as "web" | "mobile" | "desktop" | "cross-platform" | "any" : "any"
+  const constraints = Array.isArray(raw.constraints)
+    ? [...new Set(raw.constraints.filter((item): item is string => typeof item === "string").map((item) => item.trim().slice(0, 160)).filter(Boolean))].slice(0, 8)
+    : []
+  const audience = text(raw.audience, 240)
+  const outcome = text(raw.outcome, 320)
+  if (!audience && !outcome && !constraints.length && platform === "any") return undefined
+  return { audience, outcome, platform, constraints }
 }
 
 export async function POST(request: NextRequest) {
@@ -51,15 +66,16 @@ export async function POST(request: NextRequest) {
     components: Array.isArray(rawPlan.components) ? [...new Set(rawPlan.components.filter((item): item is string => typeof item === "string" && allowed.has(item)))].slice(0, 6) : [],
     risks: Array.isArray(rawPlan.risks) ? rawPlan.risks.filter((item): item is string => typeof item === "string").map((item) => item.trim().slice(0, 240)).filter(Boolean).slice(0, 8) : [],
   } : undefined
+  const intent = normalizeIntent(body.intent)
   const warnings = [
     !selected.includes("app-shell") ? "app_shell_required_for_navigation" : null,
     !selected.includes("preview-frame") ? "preview_required_for_proof" : null,
     !selected.includes("cinematic-sequence") ? "cinematic_sequence_optional" : null,
   ].filter((value): value is string => Boolean(value))
   const qualityScore = Math.max(0, 100 - warnings.length * 15 - (brief.length < 80 ? 10 : 0))
-  const contract = { version: "1.0.0", app, productType, preset, brief, components: selected, aiPlan: aiPlan ?? null }
+  const contract = { version: "1.0.0", app, productType, preset, brief, intent: intent ?? null, components: selected, aiPlan: aiPlan ?? null }
   const contractHash = crypto.createHash("sha256").update(JSON.stringify(contract)).digest("hex")
-  const blueprint: StoredBlueprint = { id: crypto.randomUUID(), tenantId, revision: 1, app, productType, preset, contractVersion: "1.0.0", contractHash, brief, components: selected, stages: fallbackStages, generatedAt: new Date().toISOString(), arbitraryHtml: false, quality: { score: qualityScore, warnings, humanReviewRequired: qualityScore < 85 }, ...(aiPlan ? { aiPlan } : {}) }
+  const blueprint: StoredBlueprint = { id: crypto.randomUUID(), tenantId, revision: 1, app, productType, preset, contractVersion: "1.0.0", contractHash, brief, ...(intent ? { intent } : {}), components: selected, stages: fallbackStages, generatedAt: new Date().toISOString(), arbitraryHtml: false, quality: { score: qualityScore, warnings, humanReviewRequired: qualityScore < 85 }, ...(aiPlan ? { aiPlan } : {}) }
   saveBlueprint(blueprint)
   const evidenceToken = issueBlueprintEvidenceToken(blueprint.id, tenantId)
   const securityEvidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: blueprint.id, tenantId, revision: blueprint.revision, contractHash, kind: "security", status: "passed", summary: "Component allowlist and arbitrary HTML guard passed", capturedAt: new Date().toISOString(), source: "blueprint-guard" })
