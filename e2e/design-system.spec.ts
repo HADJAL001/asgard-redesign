@@ -227,6 +227,12 @@ test.describe("OSGARD design system", () => {
     await page.locator("dialog form button[type=submit]").click()
     await expect(page.locator(".ds-dialog-result")).toContainText("Blueprint")
     await expect(canvas.getByRole("button", { name: /Move .* (up|down)/ }).first()).toBeVisible({ timeout: 5000 })
+    const editBlock = canvas.getByRole("button", { name: /Edit .* label/ }).first()
+    await editBlock.click()
+    const blockInput = canvas.getByRole("textbox", { name: /Edit .* label/ })
+    await blockInput.fill("Primary mission block")
+    await blockInput.press("Enter")
+    await expect(canvas).toContainText("Draft changes · not saved")
     await page.keyboard.press("Escape")
   })
 
