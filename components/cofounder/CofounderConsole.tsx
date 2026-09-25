@@ -1,7 +1,7 @@
 "use client"
 
 import { FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { FilePlus2, Gem, Lightbulb, Radar, ShieldCheck, Share2, X } from "lucide-react"
+import { FilePlus2, Gem, Lightbulb, Radar, RefreshCw, ShieldCheck, Share2, X } from "lucide-react"
 import { MemoryLayerRail } from "@/components/design-system/MemoryLayerRail"
 import { OrbitalMemory } from "@/components/design-system/OrbitalMemory"
 import { PresetSwitcher } from "@/components/design-system/PresetSwitcher"
@@ -59,6 +59,7 @@ export function CofounderConsole() {
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus | null>(null)
   const [shareStatus, setShareStatus] = useState<string | null>(null)
   const [savingCanvas, setSavingCanvas] = useState(false)
+  const [refreshingEvidence, setRefreshingEvidence] = useState(false)
   const lastGenerationStatus = useRef<string | null>(null)
   const generationPollFailures = useRef(0)
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -108,6 +109,17 @@ export function CofounderConsole() {
       }
     } catch {
       // Evidence is supplementary to the blueprint and must not block recovery.
+    }
+  }
+
+  async function refreshEvidence() {
+    if (!compileResult) return
+    setRefreshingEvidence(true)
+    try {
+      await loadEvidence(compileResult.id)
+      track("blueprint_quality_refreshed", { blueprintId: compileResult.id, revision: compileResult.revision, source: "cofounder" })
+    } finally {
+      setRefreshingEvidence(false)
     }
   }
 
@@ -354,7 +366,7 @@ export function CofounderConsole() {
           {previewPlan ? <section className="ds-dialog-preview" aria-label="Blueprint preview"><div className="ds-utility">LIVE PREVIEW / REVISION {previewPlan.revision}</div><div className="ds-dialog-preview-slots">{previewPlan.slots.map((slot) => <article key={slot.id} className="ds-dialog-preview-slot"><strong>{slot.component}</strong><span>{slot.role}</span><small>{slot.states.join(" · ")}</small></article>)}</div><div className="ds-dialog-preview-stages" aria-label="Preview stages">{previewPlan.stages.map((stage, index) => <span key={stage} data-active={index === 0}>{stage}</span>)}</div></section> : null}
           {compileResult ? <div className="ds-dialog-result" role="status"><strong>Blueprint готов: {compileResult.score}/100</strong><span>{compileResult.review ? "Нужна ручная проверка перед публикацией." : "Можно переходить к preview."}</span>{compileResult.contractHash ? <small>Contract evidence: {compileResult.contractHash.slice(0, 12)}…</small> : null}{compileResult.warnings.length ? <small>{compileResult.warnings.length} предупреждения требуют внимания</small> : null}</div> : null}
           {compileResult ? <section className="ds-mission-replay" aria-label="Mission replay"><div><span className="ds-utility">MISSION REPLAY / OSGARD</span><strong>{compileResult.app}</strong><small>{compileResult.productType || "product"} · {compileResult.preset || "futuristic"} · revision {compileResult.revision}</small></div><div className="ds-mission-replay__score"><b>{compileResult.score}</b><span>quality</span></div><button type="button" className="ds-dialog-secondary ds-share-button" onClick={() => void shareBlueprint(compileResult)}><Share2 size={15} /> Share replay</button>{shareStatus ? <p role="status" className="ds-share-status">{shareStatus}</p> : null}</section> : null}
-          {compileResult ? <section className="ds-evidence-ledger" aria-label="Evidence ledger"><div className="ds-evidence-ledger__head"><span className="ds-utility">EVIDENCE LEDGER</span><small>{evidence.length ? `${evidence.length} recorded checks` : "No checks recorded yet"}</small></div>{qualityState ? <div className="ds-evidence-ledger__gates" aria-label="Required quality gates">{qualityState.required.map((kind) => { const passed = !qualityState.missing.includes(kind) && !qualityState.stale.some((item) => item.kind === kind); return <span key={kind} data-status={passed ? "passed" : "pending"}><i aria-hidden="true" />{evidenceLabel(kind)}<em>{passed ? "Passed" : "Pending"}</em></span> })}</div> : null}{qualityState?.missing.length ? <p className="ds-evidence-ledger__missing">Перед публикацией нужно пройти: {qualityState.missing.map(evidenceLabel).join(", ")}</p> : null}{qualityState?.stale.length ? <p className="ds-evidence-ledger__stale">Проверки требуют обновления после изменения revision: {qualityState.stale.map((item) => evidenceLabel(item.kind)).join(", ")}</p> : null}{qualityState && !qualityState.missing.length && !qualityState.stale.length ? <p className="ds-evidence-ledger__ready">{qualityState.readyForCodegen ? "Все проверки пройдены. Можно запускать codegen." : "Проверки пройдены. Подтвердите preview для codegen."}</p> : null}{evidence.length ? <ul>{evidence.map((item) => <li key={item.id}><i data-status={item.status} aria-hidden="true" /><span><strong>{evidenceLabel(item.kind)}</strong><small>{item.summary}</small></span><em>{item.status}</em></li>)}</ul> : <p>Quality gates appear here as soon as a verified check is captured.</p>}</section> : null}
+          {compileResult ? <section className="ds-evidence-ledger" aria-label="Evidence ledger"><div className="ds-evidence-ledger__head"><div><span className="ds-utility">EVIDENCE LEDGER</span><small>{evidence.length ? `${evidence.length} recorded checks` : "No checks recorded yet"}</small></div><button type="button" className="ds-focus ds-evidence-ledger__refresh" onClick={() => void refreshEvidence()} disabled={refreshingEvidence} title="Refresh quality evidence" aria-label="Refresh quality evidence"><RefreshCw size={13} aria-hidden="true" className={refreshingEvidence ? "ds-spin" : undefined} /></button></div>{qualityState ? <div className="ds-evidence-ledger__gates" aria-label="Required quality gates">{qualityState.required.map((kind) => { const passed = !qualityState.missing.includes(kind) && !qualityState.stale.some((item) => item.kind === kind); return <span key={kind} data-status={passed ? "passed" : "pending"}><i aria-hidden="true" />{evidenceLabel(kind)}<em>{passed ? "Passed" : "Pending"}</em></span> })}</div> : null}{qualityState?.missing.length ? <p className="ds-evidence-ledger__missing">Перед публикацией нужно пройти: {qualityState.missing.map(evidenceLabel).join(", ")}</p> : null}{qualityState?.stale.length ? <p className="ds-evidence-ledger__stale">Проверки требуют обновления после изменения revision: {qualityState.stale.map((item) => evidenceLabel(item.kind)).join(", ")}</p> : null}{qualityState && !qualityState.missing.length && !qualityState.stale.length ? <p className="ds-evidence-ledger__ready">{qualityState.readyForCodegen ? "Все проверки пройдены. Можно запускать codegen." : "Проверки пройдены. Подтвердите preview для codegen."}</p> : null}{evidence.length ? <ul>{evidence.map((item) => <li key={item.id}><i data-status={item.status} aria-hidden="true" /><span><strong>{evidenceLabel(item.kind)}</strong><small>{item.summary}</small></span><em>{item.status}</em></li>)}</ul> : <p>Quality gates appear here as soon as a verified check is captured.</p>}</section> : null}
           {history.length > 1 ? <div className="ds-dialog-history" aria-label="История blueprint"><span className="ds-utility">ПРОШЛЫЕ ВЕРСИИ</span>{history.slice(0, 3).map((item) => <button key={item.id} type="button" onClick={() => { setCompileResult(item); setContractName(item.app); setBrief(item.brief); if (item.productType) setProductType(item.productType); if (item.preset) setVisualPreset(item.preset) }} aria-label={`Открыть blueprint ${item.app}`}>{item.app} · {item.score}/100</button>)}</div> : null}
           {compileResult ? <button type="button" className="ds-dialog-secondary" onClick={() => approvePreview(compileResult)} disabled={approving || rollingBack !== null} title="Approve this revision so code generation can start">{approving ? "Подтверждаем…" : "Подтвердить preview для codegen"}</button> : null}
           {compileResult?.approved ? <button type="button" className="ds-dialog-primary" onClick={() => void launchCodegen(compileResult)} disabled={generating} title="Generate the application from the approved blueprint">{generating ? "Запускаем codegen…" : "Запустить codegen"}</button> : null}
