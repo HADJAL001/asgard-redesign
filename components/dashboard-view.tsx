@@ -29,6 +29,7 @@ import { useAuth } from "@/lib/auth-store"
 import { savePendingGeneration, takePendingGeneration, type PendingGeneration } from "@/lib/pending-generation"
 import { formatTokens, badgeIcon } from "@/lib/economy"
 import { fmtTC } from "@/lib/tc-market"
+import { track } from "@/lib/analytics"
 
 
 /* ---- Palette ----
@@ -526,6 +527,7 @@ export function DashboardView() {
         <Card>
           <SectionTitle Icon={Plus}>Быстрые действия</SectionTitle>
           <div className="flex flex-col gap-3 sm:flex-row">
+            <QuickAction Icon={Bot} label="AI Cofounder" title="Перейти к AI Cofounder: собрать blueprint и delivery plan" onClick={() => { track("dashboard_cofounder_cta", { source: "quick_actions" }); router.push("/cofounder") }} />
             <QuickAction Icon={FolderKanban} label="Создать проект" onClick={() => router.push("/projects")} />
             <QuickAction Icon={Wand2} label="Создать артефакт" onClick={() => router.push("/forge")} />
             <QuickAction Icon={MessageCircle} label="Перейти в чат" onClick={() => router.push("/messages")} />
@@ -536,11 +538,12 @@ export function DashboardView() {
   )
 }
 
-function QuickAction({ Icon, label, onClick }: { Icon: LucideIcon; label: string; onClick: () => void }) {
+function QuickAction({ Icon, label, title, onClick }: { Icon: LucideIcon; label: string; title?: string; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      title={title}
       className="group flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-[14px] transition-colors"
       style={{ border: `1px solid ${BORDER}`, color: "#FFFFFF", backgroundColor: "transparent" }}
       onMouseEnter={(e) => {

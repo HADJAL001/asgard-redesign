@@ -57,6 +57,7 @@ const ALLOWED_EVENTS = new Set([
   "blueprint_canvas_revision_saved",
   "blueprint_delivery_policy_saved",
   "delivery_preflight_viewed",
+  "dashboard_cofounder_cta",
   "web_vital",
 ])
 
