@@ -5,7 +5,7 @@ import { chromium } from "playwright"
 
 const base = (process.env.DESIGN_SYSTEM_BASE_URL || "https://osgardnewworld.com").replace(/\/$/, "")
 const screenshotPath = path.resolve(process.env.DESIGN_SYSTEM_SCREENSHOT || "artifacts/design-system/cofounder.png")
-const visualBaselineSha256 = (process.env.DESIGN_SYSTEM_VISUAL_BASELINE || "33d8d3b6dc4a0ac191b088ac755eabf6b99d22d0f0097c00cd28f619738dbbc2,4334546d2733739cd459352fb14ccc78acd021beb3ed1a8c8f54481d11f5bbea").split(",").map((value) => value.trim()).filter(Boolean)
+const visualBaselineSha256 = (process.env.DESIGN_SYSTEM_VISUAL_BASELINE || "33d8d3b6dc4a0ac191b088ac755eabf6b99d22d0f0097c00cd28f619738dbbc2,4334546d2733739cd459352fb14ccc78acd021beb3ed1a8c8f54481d11f5bbea,86cd89cbde4babce41077f65626a77da5b7ea1b3f48aa79c90e646ecf6062423").split(",").map((value) => value.trim()).filter(Boolean)
 
 async function json(url, options) {
   const response = await fetch(url, options)
