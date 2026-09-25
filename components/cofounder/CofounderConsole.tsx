@@ -1,6 +1,6 @@
 "use client"
 
-import { FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { FormEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { FilePlus2, Gem, Lightbulb, Radar, RefreshCw, ShieldCheck, Share2, X } from "lucide-react"
 import { MemoryLayerRail } from "@/components/design-system/MemoryLayerRail"
 import { OrbitalMemory } from "@/components/design-system/OrbitalMemory"
@@ -33,6 +33,7 @@ const starterMissions = [
   { id: "community", label: "Build a community", brief: "Create a trusted community experience with profiles, a live feed, moderation signals, and a clear first contribution path." },
   { id: "ai-operator", label: "Ship an AI operator", brief: "Create an AI operator with durable memory, transparent evidence, and a safe approval step before code is generated." },
 ] as const
+const GENERATION_STATE_KEY = "osgard-latest-generation"
 
 export function CofounderConsole() {
   const hydrated = useSyncExternalStore(() => () => {}, () => true, () => false)
@@ -63,6 +64,11 @@ export function CofounderConsole() {
   const lastGenerationStatus = useRef<string | null>(null)
   const generationPollFailures = useRef(0)
   const dialogRef = useRef<HTMLDialogElement>(null)
+
+  const persistGenerationState = useCallback((status: GenerationStatus, taskId: string, blueprintId = compileResult?.id, revision = compileResult?.revision) => {
+    if (typeof window === "undefined") return
+    try { localStorage.setItem(GENERATION_STATE_KEY, JSON.stringify({ ...status, taskId, blueprintId, revision, updatedAt: new Date().toISOString() })) } catch { /* optional storage */ }
+  }, [compileResult?.id, compileResult?.revision])
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -144,7 +150,9 @@ export function CofounderConsole() {
         generationPollFailures.current += 1
         if (generationPollFailures.current >= 3) {
           const error = "Не удалось получить статус codegen. Обновите страницу и проверьте историю blueprint."
-          setGenerationStatus({ status: "failed", progress: 0, error })
+          const failed = { status: "failed" as const, progress: 0, error }
+          setGenerationStatus(failed)
+          persistGenerationState(failed, generationTask)
           track("blueprint_codegen_failed", { taskId: generationTask, status: "poll_error", attempts: generationPollFailures.current })
           return
         }
@@ -155,12 +163,13 @@ export function CofounderConsole() {
       if (cancelled) return
       if (!status) {
         generationPollFailures.current += 1
-        if (generationPollFailures.current >= 3) setGenerationStatus({ status: "failed", progress: 0, error: "Сервер вернул неполный статус codegen." })
+        if (generationPollFailures.current >= 3) { const failed = { status: "failed" as const, progress: 0, error: "Сервер вернул неполный статус codegen." }; setGenerationStatus(failed); persistGenerationState(failed, generationTask) }
         else schedulePoll(1500 * generationPollFailures.current)
         return
       }
       generationPollFailures.current = 0
       setGenerationStatus(status)
+      persistGenerationState(status, generationTask)
       const statusKey = `${status.status}:${status.currentStep || ""}:${Math.round(status.progress || 0)}`
       if (statusKey !== lastGenerationStatus.current) {
         lastGenerationStatus.current = statusKey
@@ -174,7 +183,7 @@ export function CofounderConsole() {
       cancelled = true
       if (pollTimer !== undefined) window.clearTimeout(pollTimer)
     }
-  }, [generationTask])
+  }, [generationTask, persistGenerationState])
 
   if (!hydrated) return <CofounderLoadingShell />
 
@@ -266,7 +275,9 @@ export function CofounderConsole() {
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.taskId) { track("blueprint_codegen_blocked", { blueprintId: item.id, revision: item.revision, reason: data?.error || `http_${response.status}`, missing: data?.missing }); throw new Error(data?.error === "blueprint_approval_required" ? "Сначала подтвердите preview" : "Не удалось запустить codegen") }
       setGenerationTask(data.taskId)
-      setGenerationStatus({ status: "queued", progress: 0 })
+      const queued = { status: "queued" as const, progress: 0 }
+      setGenerationStatus(queued)
+      persistGenerationState(queued, data.taskId, item.id, item.revision)
       generationPollFailures.current = 0
       lastGenerationStatus.current = "queued:"
       track("blueprint_codegen_started", { source: "cofounder", taskId: data.taskId, blueprintId: item.id, revision: item.revision })
