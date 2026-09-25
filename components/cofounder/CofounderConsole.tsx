@@ -131,7 +131,6 @@ export function CofounderConsole() {
     setRefreshingEvidence(true)
     try {
       await loadEvidence(compileResult.id)
-      track("blueprint_quality_blocked", { blueprintId: compileResult.id, revision: compileResult.revision, source: "manual_refresh", missing: [] })
     } finally {
       setRefreshingEvidence(false)
     }
