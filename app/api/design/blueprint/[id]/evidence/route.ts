@@ -4,6 +4,7 @@ import { appendBlueprintEvidence, getBlueprint, listBlueprintEvidence, type Blue
 export const dynamic = "force-dynamic"
 const kinds = new Set<BlueprintEvidenceKind>(["typecheck", "unit", "a11y", "security", "performance", "visual-diff", "deploy", "social-preview", "rollback"])
 const statuses = new Set(["passed", "failed", "skipped"])
+const MAX_EVIDENCE_PAYLOAD_BYTES = 16_000
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -18,7 +19,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!request.headers.get("content-type")?.includes("application/json")) return NextResponse.json({ error: "json_required" }, { status: 415 })
   const blueprint = getBlueprint(id)
   if (!blueprint) return NextResponse.json({ error: "blueprint_not_found" }, { status: 404 })
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null
+  const rawBody = await request.text()
+  if (new TextEncoder().encode(rawBody).byteLength > MAX_EVIDENCE_PAYLOAD_BYTES) return NextResponse.json({ error: "evidence_payload_too_large", maxBytes: MAX_EVIDENCE_PAYLOAD_BYTES }, { status: 413 })
+  const body = (() => { try { return JSON.parse(rawBody) as Record<string, unknown> } catch { return null } })()
   const kind = typeof body?.kind === "string" ? body.kind : ""
   const status = typeof body?.status === "string" ? body.status : ""
   const summary = typeof body?.summary === "string" ? body.summary.trim().slice(0, 500) : ""

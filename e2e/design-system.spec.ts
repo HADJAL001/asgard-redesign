@@ -84,6 +84,8 @@ test.describe("OSGARD design system", () => {
     ]))
     const forged = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "deploy", status: "passed", summary: "Forged evidence", source: "attacker", contractHash: blueprint.contractHash, evidenceToken: "0".repeat(64) } })
     expect(forged.status()).toBe(403)
+    const oversized = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "a11y", status: "passed", summary: "x".repeat(20_000), source: "quality-gate", contractHash: blueprint.contractHash, evidenceToken: createdBody.evidenceToken } })
+    expect(oversized.status()).toBe(413)
     const mismatch = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "security", status: "passed", summary: "Wrong contract", source: "quality-gate", contractHash: "0".repeat(64) } })
     expect(mismatch.status()).toBe(409)
   })
