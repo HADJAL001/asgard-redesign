@@ -298,6 +298,21 @@ test.describe("OSGARD design system", () => {
     await expect(page.getByRole("button", { name: "Обновить quality cockpit" })).toBeVisible()
   })
 
+  test("developer quality keeps blueprint gates when generation status is unavailable", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("osgard-blueprint-history", JSON.stringify([{ id: "11111111-1111-4111-8111-111111111111", revision: 2 }]))
+      localStorage.removeItem("osgard-latest-generation")
+    })
+    await page.route("**/api/design/blueprint/11111111-1111-4111-8111-111111111111/quality", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ revision: 2, required: ["security", "performance", "a11y", "visual-diff", "deploy"], missing: [], stale: [], readyForCodegen: false }) })
+    })
+    await page.route("**/api/design/blueprint/**/generation", async (route) => {
+      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "temporarily_unavailable" }) })
+    })
+    await page.goto("/dev")
+    await expect(page.getByText("5/5 passed")).toBeVisible({ timeout: 5000 })
+  })
+
   test("product shell exposes a keyboard skip link", async ({ page }) => {
     await page.goto("/cofounder")
     const skip = page.getByRole("link", { name: "Перейти к содержимому" })
