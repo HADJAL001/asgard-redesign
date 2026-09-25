@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-25  
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Current release:** `bbce2c11`
+**Current release:** `510dbd6c`
 
 ## Executive status
 
