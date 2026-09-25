@@ -22,7 +22,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (missing.length) return NextResponse.json({ error: "quality_evidence_required", missing }, { status: 409 })
   if (!blueprint.delivery) return NextResponse.json({ error: "delivery_policy_required" }, { status: 409 })
   if (!BACKEND_URL) return NextResponse.json({ error: "backend_unavailable" }, { status: 503 })
-  const response = await fetch(`${BACKEND_URL}/generate-project`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${access}` }, body: JSON.stringify({ name: blueprint.app, description: `${blueprint.brief}\n\nApproved design components: ${blueprint.components.join(", ")}.` }), signal: AbortSignal.timeout(15_000) }).catch(() => null)
+  const delivery = blueprint.delivery
+  const deliveryBrief = [`Delivery provider: ${delivery.provider}.`, delivery.domain ? `Custom domain: ${delivery.domain}.` : null, delivery.supabaseProjectRef ? `Supabase project ref: ${delivery.supabaseProjectRef}.` : null, delivery.integrationIds?.length ? `Integration IDs: ${delivery.integrationIds.join(", ")}.` : null].filter(Boolean).join(" ")
+  const response = await fetch(`${BACKEND_URL}/generate-project`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${access}` }, body: JSON.stringify({ name: blueprint.app, description: `${blueprint.brief}\n\nApproved design components: ${blueprint.components.join(", ")}.\n\n${deliveryBrief}` }), signal: AbortSignal.timeout(15_000) }).catch(() => null)
   if (!response) return NextResponse.json({ error: "backend_unavailable" }, { status: 503 })
   const payload = await response.text()
   return new NextResponse(payload, { status: response.status, headers: { "content-type": response.headers.get("content-type") || "application/json", "cache-control": "no-store" } })
