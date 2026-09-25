@@ -32,6 +32,7 @@ import { VoiceInputButton } from "@/components/voice-input-button"
 import { useVoice } from "@/lib/hooks/useVoice"
 import { apiClient } from "@/lib/api-client"
 import { track } from "@/lib/analytics"
+import { DevQualityCockpit } from "@/components/dev-mode/DevQualityCockpit"
 
 /** Живые реплики-приветствия агентов при входе в студию — парасоциальная
  *  оживлённость интерфейса без затрат на инфраструктуру (просто текст,
@@ -497,6 +498,8 @@ export function DevStudioView() {
       </section>
 
       {/* ── Свои проекты ── */}
+      <DevQualityCockpit />
+
       <section className="mt-14">
         <h2 className="dev-title text-[17px] tracking-[0.06em]">Мои проекты</h2>
 
