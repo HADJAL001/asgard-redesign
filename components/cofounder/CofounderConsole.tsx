@@ -14,7 +14,7 @@ import { ObsidianCosmos } from "@/components/design-system/ObsidianCosmos"
 import { CosmicCursor } from "@/components/design-system/CosmicCursor"
 import { BlueprintCanvas, type BlueprintCanvasPlan } from "@/components/cofounder/BlueprintCanvas"
 
-type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; productType?: ProductType; preset?: VisualPreset; contractVersion?: string; contractHash?: string; createdAt: string; aiSummary?: string; aiComponents?: string[]; aiRisks?: string[]; approved?: boolean }
+type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; productType?: ProductType; preset?: VisualPreset; contractVersion?: string; contractHash?: string; createdAt: string; aiSummary?: string; aiComponents?: string[]; aiRisks?: string[]; approved?: boolean; evidenceToken?: string }
 type PreviewPlan = { revision: number; slots: { id: string; component: string; role: string; states: string[] }[]; stages: string[] }
 type EvidenceRecord = { id: string; revision: number; kind: string; status: "passed" | "failed" | "skipped"; summary: string; source: string; capturedAt: string; contractHash: string }
 type QualityState = { required: string[]; missing: string[]; stale: { kind: string; reason: string; revision?: number; expectedRevision: number }[]; approval: boolean; readyForCodegen: boolean }
@@ -50,6 +50,7 @@ export function CofounderConsole() {
   const [generationTask, setGenerationTask] = useState<string | null>(null)
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus | null>(null)
   const [shareStatus, setShareStatus] = useState<string | null>(null)
+  const [savingCanvas, setSavingCanvas] = useState(false)
   const lastGenerationStatus = useRef<string | null>(null)
   const generationPollFailures = useRef(0)
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -177,7 +178,7 @@ export function CofounderConsole() {
       const data = await response.json().catch(() => null)
       if (!response.ok || !data?.blueprint?.quality) throw new Error("Не удалось собрать blueprint")
       const persistedPlan = data.blueprint.aiPlan || aiPlan
-      const result: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, productType: data.blueprint.productType, preset: data.blueprint.preset, contractVersion: data.blueprint.contractVersion, contractHash: data.blueprint.contractHash, createdAt: data.blueprint.generatedAt, aiSummary: persistedPlan?.summary, aiComponents: persistedPlan?.components, aiRisks: persistedPlan?.risks }
+      const result: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, productType: data.blueprint.productType, preset: data.blueprint.preset, contractVersion: data.blueprint.contractVersion, contractHash: data.blueprint.contractHash, createdAt: data.blueprint.generatedAt, aiSummary: persistedPlan?.summary, aiComponents: persistedPlan?.components, aiRisks: persistedPlan?.risks, evidenceToken: data.evidenceToken }
       setCompileResult(result)
       setPreviewPlan(null)
       void loadPreview(result.id, result.revision)
@@ -276,6 +277,23 @@ export function CofounderConsole() {
     track("blueprint_starter_selected", { mission: mission.id, productType, preset: visualPreset })
   }
 
+  async function saveCanvasDraft(slots: { id: string; component: string; role: string; states: string[] }[]) {
+    if (!compileResult?.evidenceToken) return
+    setSavingCanvas(true)
+    try {
+      const response = await fetch(`/api/design/blueprint/${compileResult.id}/edit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ revision: compileResult.revision, evidenceToken: compileResult.evidenceToken, slots }) })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.blueprint) throw new Error("Не удалось сохранить revision canvas")
+      const next = { ...compileResult, revision: data.blueprint.revision, contractHash: data.blueprint.contractHash, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, approved: false }
+      setCompileResult(next)
+      setPreviewPlan(null)
+      void loadPreview(next.id, next.revision)
+      void loadEvidence(next.id)
+      setCompileError(null)
+      track("blueprint_canvas_revision_saved", { blueprintId: next.id, revision: next.revision })
+    } catch (error) { setCompileError(error instanceof Error ? error.message : "Не удалось сохранить revision canvas") } finally { setSavingCanvas(false) }
+  }
+
   const deliveryStages: SequenceStage[] = [
     { label: "Идея", detail: brief.trim() ? "Контекст принят" : "Опишите результат", status: brief.trim() ? "complete" : "active" as const },
     { label: "Blueprint", detail: compileResult ? `Revision ${compileResult.revision} собрана` : submitting ? "Собираем архитектуру" : "Следующий шаг после brief", status: compileResult ? "complete" : submitting ? "active" : "pending" as const },
@@ -300,7 +318,7 @@ export function CofounderConsole() {
       <ProductCatalog productType={productType} preset={visualPreset} onProductTypeChange={setProductType} onPresetChange={setVisualPreset} />
       <OrbitalMemory />
       <CinematicSequence stages={deliveryStages} />
-      <BlueprintCanvas key={previewPlan?.revision ?? "empty"} plan={previewPlan as BlueprintCanvasPlan | null} productType={productType} preset={visualPreset} onCreate={() => setOpen(true)} />
+      <BlueprintCanvas key={previewPlan?.revision ?? "empty"} plan={previewPlan as BlueprintCanvasPlan | null} productType={productType} preset={visualPreset} onCreate={() => setOpen(true)} onSave={saveCanvasDraft} saving={savingCanvas} />
       <section className="ds-hull ds-glass" style={{ padding: "clamp(1.25rem, 4vw, 3rem)" }}>
         <header style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
           <div><span className="ds-utility">РАБОЧИЙ ОТСЕК</span><h2 className="ds-display">Контролируемая доставка</h2><p style={{ color: "var(--ds-muted)" }}>Ожидаемый результат, доказательства и ручное согласование в одном контуре.</p></div>

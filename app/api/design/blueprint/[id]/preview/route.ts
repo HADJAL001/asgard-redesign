@@ -18,12 +18,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (rawRevision && (!Number.isInteger(selectedRevision) || (selectedRevision as number) < 1)) return NextResponse.json({ error: "invalid_revision" }, { status: 400 })
   const blueprint = getBlueprint(id, selectedRevision)
   if (!blueprint) return NextResponse.json({ error: "blueprint_not_found" }, { status: 404 })
-  const slots = blueprint.components.map((component, index) => ({
+  const slots = (blueprint.canvasSlots || blueprint.components.map((component, index) => ({
     id: `${component}-${index + 1}`,
     component,
     role: registry[component]?.role || "content",
     states: registry[component]?.states || ["default"],
     order: index,
-  }))
+  }))).map((slot, index) => ({ ...slot, order: index }))
   return NextResponse.json({ version: "1.0.0", blueprintId: blueprint.id, revision: blueprint.revision, profile: { app: blueprint.app, preset: blueprint.preset }, renderPlan: { layout: "hull-fluid", grid: 12, slots, stages: blueprint.stages, arbitraryHtml: false }, quality: blueprint.quality, aiPlan: blueprint.aiPlan || null }, { headers: { "cache-control": "no-store" } })
 }

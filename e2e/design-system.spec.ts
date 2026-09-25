@@ -234,6 +234,8 @@ test.describe("OSGARD design system", () => {
     await blockInput.fill("Primary mission block")
     await blockInput.press("Enter")
     await expect(canvas).toContainText("Draft changes · not saved")
+    await canvas.getByRole("button", { name: "Save revision" }).click()
+    await expect(canvas).toContainText(/Revision \d+ ·/)
   })
 
   test("reduced motion preference is respected by the document", async ({ page }) => {

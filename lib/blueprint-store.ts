@@ -17,6 +17,7 @@ export type StoredBlueprint = {
   arbitraryHtml: false
   quality: { score: number; warnings: string[]; humanReviewRequired: boolean }
   aiPlan?: { summary: string; components: string[]; risks: string[] }
+  canvasSlots?: { id: string; component: string; role: string; states: string[] }[]
   approval?: { status: "approved"; approvedAt: string }
 }
 

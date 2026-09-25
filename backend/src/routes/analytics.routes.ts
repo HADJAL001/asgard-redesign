@@ -54,6 +54,7 @@ const ALLOWED_EVENTS = new Set([
   "blueprint_codegen_progress",
   "blueprint_codegen_completed",
   "blueprint_codegen_failed",
+  "blueprint_canvas_revision_saved",
   "web_vital",
 ])
 
