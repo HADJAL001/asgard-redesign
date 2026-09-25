@@ -33,7 +33,7 @@ router.post(
   requireAuth,
   asyncHandler(async (req: AuthRequest, res) => {
     const userId = req.user!.userId
-    const { name, description } = req.body || {}
+    const { name, description, delivery } = req.body || {}
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return res.status(400).json({ error: "Укажите название проекта" })
@@ -69,9 +69,16 @@ router.post(
       }
     }
 
+    const deliveryInput = delivery && typeof delivery === "object" ? {
+      provider: typeof delivery.provider === "string" ? delivery.provider.slice(0, 40) : undefined,
+      domain: typeof delivery.domain === "string" ? delivery.domain.slice(0, 253) : undefined,
+      supabaseProjectRef: typeof delivery.supabaseProjectRef === "string" ? delivery.supabaseProjectRef.slice(0, 80) : undefined,
+      integrationIds: Array.isArray(delivery.integrationIds) ? delivery.integrationIds.filter((value: any): value is number => Number.isInteger(value) && value > 0).slice(0, 12) : undefined,
+    } : undefined
     const taskId = chainManager.start(userId, {
       name: name.trim(),
       description: typeof description === "string" ? description : undefined,
+      ...(deliveryInput ? { delivery: deliveryInput } : {}),
     })
 
     res.status(202).json({ taskId })
