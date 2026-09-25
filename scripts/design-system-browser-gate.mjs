@@ -91,6 +91,7 @@ try {
   if (replayHtml.includes("A cinematic AI product workspace with accessible, measurable delivery proof")) throw new Error("mission replay leaked the private brief")
   await replayPage.getByRole("heading", { name: "browser-quality-gate" }).waitFor({ state: "visible", timeout: 5000 })
   if (!(await replayPage.getByRole("heading", { name: "Evidence ledger" }).isVisible())) throw new Error("mission replay evidence ledger is not visible")
+  if (!(await replayPage.getByRole("heading", { name: "Delivery outcome" }).isVisible())) throw new Error("mission replay delivery outcome is not visible")
   if (!(await replayPage.getByRole("button", { name: "Share replay" }).isVisible())) throw new Error("mission replay share control is not visible")
   await replayPage.close()
   const socialPreviewResponse = await fetch(`${base}/cofounder/replay/${blueprint.id}/opengraph-image`)
