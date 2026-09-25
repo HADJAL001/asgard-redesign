@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-25  
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Current release:** `8c97ea38`
+**Current release:** `c678a767`
 
 ## Executive status
 
@@ -35,6 +35,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Generation states: queued, processing, completed, failed, cancelled.
 - Task takeover protection: a conflicting task ID returns `409 generation_task_conflict`.
 - Evidence and generation history are tenant-bound and visible in Mission Replay.
+- Evidence tokens are preserved across approval and rollback transitions, so generation progress continues to persist into the tenant-bound Mission Replay after a revision change.
 
 ### Tenant isolation and delivery policy
 
@@ -81,7 +82,8 @@ The production service was active on the last release, the Next build was presen
 
 ## Release history
 
-- `8c97ea38` Fix delivery-policy telemetry allowlist and deploy the verified release (current production release).
+- `c678a767` Preserve evidence tokens across approval/rollback and deploy the verified release (current production release).
+- `8c97ea38` Fix delivery-policy telemetry allowlist and deploy the verified release.
 - `a498936d` Record the world-class implementation status and roadmap.
 - `ddc3a25f` Expose delivery target in generation status.
 - `ce4b8f06` Persist structured delivery metadata in generation tasks.
