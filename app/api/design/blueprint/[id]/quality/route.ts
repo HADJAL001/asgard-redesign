@@ -20,5 +20,5 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const reason = !entry ? "missing" : entry.revision !== blueprint.revision ? "revision" : entry.contractHash !== blueprint.contractHash ? "contract" : entry.status !== "passed" ? entry.status : "unknown"
     return { kind, reason, revision: entry?.revision, expectedRevision: blueprint.revision }
   })
-  return NextResponse.json({ blueprintId: id, revision: blueprint.revision, contractHash: blueprint.contractHash, approval: blueprint.approval?.status === "approved", required, missing, stale, readyForCodegen: missing.length === 0 && blueprint.approval?.status === "approved", evidence }, { headers: { "cache-control": "no-store" } })
+  return NextResponse.json({ blueprintId: id, revision: blueprint.revision, contractHash: blueprint.contractHash, approval: blueprint.approval?.status === "approved", delivery: Boolean(blueprint.delivery), required, missing, stale, readyForCodegen: missing.length === 0 && blueprint.approval?.status === "approved" && Boolean(blueprint.delivery), evidence }, { headers: { "cache-control": "no-store" } })
 }
