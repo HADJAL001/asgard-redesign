@@ -53,6 +53,9 @@ export function DevQualityCockpit() {
 
   useEffect(() => {
     const refreshTimer = window.setTimeout(() => void refresh(), 0)
+    const pollTimer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refresh()
+    }, 15_000)
     const lcpObserver = typeof PerformanceObserver !== "undefined" && PerformanceObserver.supportedEntryTypes?.includes("largest-contentful-paint") ? new PerformanceObserver((list) => {
       const entry = list.getEntries().at(-1)
       if (entry) setFrontend((current) => ({ ...current, lcp: entry.startTime }))
@@ -63,7 +66,7 @@ export function DevQualityCockpit() {
     }) : null
     lcpObserver?.observe({ type: "largest-contentful-paint", buffered: true })
     clsObserver?.observe({ type: "layout-shift", buffered: true })
-    return () => { window.clearTimeout(refreshTimer); lcpObserver?.disconnect(); clsObserver?.disconnect() }
+    return () => { window.clearTimeout(refreshTimer); window.clearInterval(pollTimer); lcpObserver?.disconnect(); clsObserver?.disconnect() }
   }, [refresh])
 
   const runtimeColor = runtime.status === "healthy" ? "#86EFAC" : runtime.status === "degraded" ? "#FBBF24" : "#94A3B8"
