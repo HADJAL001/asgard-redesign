@@ -24,7 +24,7 @@ function readStorage<T>(key: string, fallback: T): T {
 
 export function DevQualityCockpit() {
   const [runtime, setRuntime] = useState<RuntimeState>({ status: "checking" })
-  const [frontend, setFrontend] = useState<{ lcp?: number; cls?: number }>({})
+  const [frontend, setFrontend] = useState<{ lcp?: number; inp?: number; cls?: number }>({})
   const [blueprint, setBlueprint] = useState<BlueprintQuality | null>(null)
   const [generation, setGeneration] = useState<GenerationSnapshot | null>(null)
   const [qualityError, setQualityError] = useState(false)
@@ -81,9 +81,14 @@ export function DevQualityCockpit() {
       const value = list.getEntries().reduce((total, entry) => total + ((entry as PerformanceEntry & { value?: number; hadRecentInput?: boolean }).hadRecentInput ? 0 : ((entry as PerformanceEntry & { value?: number }).value || 0)), 0)
       setFrontend((current) => ({ ...current, cls: value }))
     }) : null
+    const inpObserver = typeof PerformanceObserver !== "undefined" && PerformanceObserver.supportedEntryTypes?.includes("event") ? new PerformanceObserver((list) => {
+      const maxDuration = list.getEntries().reduce((max, entry) => Math.max(max, entry.duration), 0)
+      if (maxDuration > 0) setFrontend((current) => ({ ...current, inp: Math.max(current.inp || 0, maxDuration) }))
+    }) : null
     lcpObserver?.observe({ type: "largest-contentful-paint", buffered: true })
     clsObserver?.observe({ type: "layout-shift", buffered: true })
-    return () => { window.clearTimeout(refreshTimer); window.clearInterval(pollTimer); lcpObserver?.disconnect(); clsObserver?.disconnect() }
+    inpObserver?.observe({ type: "event", buffered: true, durationThreshold: 40 } as PerformanceObserverInit)
+    return () => { window.clearTimeout(refreshTimer); window.clearInterval(pollTimer); lcpObserver?.disconnect(); clsObserver?.disconnect(); inpObserver?.disconnect() }
   }, [refresh])
 
   const runtimeColor = runtime.status === "healthy" ? "#86EFAC" : runtime.status === "degraded" ? "#FBBF24" : "#94A3B8"
@@ -92,6 +97,7 @@ export function DevQualityCockpit() {
     <div className="dev-quality-cockpit__grid">
       <article><Activity size={16} aria-hidden="true" style={{ color: runtimeColor }} /><span>Runtime</span><strong style={{ color: runtimeColor }}>{runtime.status === "healthy" ? `Healthy ${metric(runtime.latency)}` : runtime.status === "degraded" ? "Degraded" : "Checking"}</strong><small>Target &lt; 800ms</small></article>
       <article><Gauge size={16} aria-hidden="true" /><span>Largest paint</span><strong>{metric(frontend.lcp)}</strong><small>Target &lt; 2.5s</small></article>
+      <article><Gauge size={16} aria-hidden="true" /><span>Interaction latency</span><strong>{metric(frontend.inp)}</strong><small>Target &lt; 200ms INP</small></article>
       <article><ShieldCheck size={16} aria-hidden="true" /><span>Layout stability</span><strong>{frontend.cls === undefined ? "—" : frontend.cls.toFixed(3)}</strong><small>Target &lt; 0.10 CLS</small></article>
       <article><ShieldCheck size={16} aria-hidden="true" /><span>Blueprint gates</span><strong>{qualityError ? "Unavailable" : blueprint ? `${blueprint.required.length - blueprint.missing.length}/${blueprint.required.length} passed` : "No blueprint"}</strong><small>{qualityError ? "Retry quality check" : blueprint ? `${blueprint.stale.length ? `${blueprint.stale.length} stale · ` : ""}Revision ${blueprint.revision}` : "Create a contract to inspect"}</small></article>
       <article><ArrowUpRight size={16} aria-hidden="true" /><span>Codegen</span><strong>{generationError ? "Unavailable" : generation ? `${generation.status} ${Math.round(generation.progress || 0)}%` : "Not started"}</strong><small>{generationError ? "Retry generation status" : generation?.error || (generation?.revision ? `Revision ${generation.revision}` : "Approve a blueprint to begin")}</small><Link href="/cofounder">Open verified builder</Link></article>
