@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-25  
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Current release:** `ecb6f34b`
+**Current release:** `10e4e73f`
 
 ## Executive status
 
@@ -33,6 +33,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Diamond Cosmos finish pass: faceted glass highlights, sapphire orbital dial depth, Playfair display accents, and restrained gold bezel states with reduced-motion fallback.
 - Browser quality evidence refreshed for the Diamond Cosmos visual baseline (`b97599be…`): a11y, visual diff, replay, social preview, and production health all passed.
 - Preview recovery is actionable: after three transient preview failures the UI exposes a keyboard-accessible `Повторить preview` control and recovers without a page reload.
+- Developer Quality Cockpit uses client-side navigation for internal Cofounder and Mission Replay links, preserving the React tree and avoiding a full reload between sections.
 
 ### Contract, evidence, and generation lifecycle
 
@@ -96,7 +97,7 @@ Latest recorded production gate:
 | Frontend E2E | 32/32 passed |
 | Backend integration | 773 passed, 2 skipped, 0 failed (775 total) |
 
-Latest post-release browser gate (2026-09-25): visual baseline `b97599be34fdd5177d07cc8d85373daf11dadfeec7c9472f5ce140e05af0a0e5`, health latency `361 ms`, developer latency `842 ms`; all gates passed. Sequential Playwright coverage is `35/35 passed` and `lint:quality` is clean.
+Latest post-release browser gate (2026-09-25): visual baseline `b97599be34fdd5177d07cc8d85373daf11dadfeec7c9472f5ce140e05af0a0e5`, health latency `361 ms`, developer latency `842 ms`; all gates passed. Sequential Playwright coverage is `36/36 passed` and `lint:quality` is clean.
 
 Latest cockpit release gate: browser gate passed with health latency `347 ms` and developer latency `695 ms`; targeted developer-mode regression tests passed `2/2`.
 
@@ -107,6 +108,9 @@ Durability verification: `npm run test:blueprint-store-recovery` passed, includi
 The production service was active on the last release, the Next build was present, and the previous checkout was retained at `/opt/osgard-platform/backup-before-ddc3a25f`.
 
 ## Release history
+
+- `10e4e73f` Preserve client navigation from the Developer Quality Cockpit.
+- `927ae071` Record preview recovery release evidence.
 
 - `bbce2c11` Keep manual evidence telemetry truthful (current production release).
 - `74acd3ea` Isolate Developer Quality Cockpit signals and ship the partial-failure regression test.
