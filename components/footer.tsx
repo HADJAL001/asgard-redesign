@@ -1,46 +1,22 @@
 import Link from "next/link"
-import { ExternalLink, Smartphone } from "lucide-react"
+import { ArrowLeftRight, BadgeDollarSign, ExternalLink, FileText, FolderKanban, Hammer, LifeBuoy, MessageCircle, Shield, ShoppingBag, Smartphone, Sparkles, Trophy, WalletCards } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 
 const RUSTORE_APP_URL = "https://www.rustore.ru/catalog/app/com.osgard.app"
 
-const FOOTER_LINKS = [
-  {
-    title: "Платформа",
-    links: [
-      { label: "Кузница", href: "/forge" },
-      { label: "Маркетплейс", href: "/marketplace" },
-      { label: "Биржа", href: "/exchange" },
-      { label: "Стейкинг", href: "/stake" },
-    ],
-  },
-  {
-    title: "Сообщество",
-    links: [
-      { label: "Проекты", href: "/projects" },
-      { label: "Зал Славы", href: "/hall-of-fame" },
-      { label: "Зал редчайших", href: "/rarest" },
-      { label: "Лидеры", href: "/leaderboard" },
-      { label: "Реферальная", href: "/referral" },
-    ],
-  },
-  {
-    title: "Аккаунт",
-    links: [
-      { label: "Кошелёк", href: "/wallet" },
-      { label: "Транзакции", href: "/transactions" },
-      { label: "Близнец", href: "/twin" },
-      { label: "Обратная связь", href: "/feedback" },
-    ],
-  },
-  {
-    title: "Документы",
-    links: [
-      { label: "Тарифы", href: "/pricing" },
-      { label: "Поддержка", href: "/support" },
-      { label: "Условия использования", href: "/terms" },
-      { label: "Политика конфиденциальности", href: "/privacy" },
-    ],
-  },
+const DOCK_LINKS: { label: string; href: string; Icon: LucideIcon }[] = [
+  { label: "Кузница", href: "/forge", Icon: Hammer },
+  { label: "Маркетплейс", href: "/marketplace", Icon: ShoppingBag },
+  { label: "Биржа", href: "/exchange", Icon: ArrowLeftRight },
+  { label: "Стейкинг", href: "/stake", Icon: BadgeDollarSign },
+  { label: "Проекты", href: "/projects", Icon: FolderKanban },
+  { label: "Зал славы", href: "/hall-of-fame", Icon: Trophy },
+  { label: "Кошелёк", href: "/wallet", Icon: WalletCards },
+  { label: "AI-близнец", href: "/twin", Icon: Sparkles },
+  { label: "Поддержка", href: "/support", Icon: LifeBuoy },
+  { label: "Обратная связь", href: "/feedback", Icon: MessageCircle },
+  { label: "Тарифы", href: "/pricing", Icon: BadgeDollarSign },
+  { label: "Документы", href: "/privacy", Icon: FileText },
 ]
 
 export function Footer() {
@@ -48,22 +24,18 @@ export function Footer() {
 
   return (
     <footer
-      style={{
-        background: "linear-gradient(180deg, #10181d 0%, #0A1128 100%)",
-        borderTop: "1px solid rgba(229,228,226,0.08)",
-      }}
+      className="osgard-footer"
     >
       {/* Разделитель с неоновым свечением */}
       <div
         style={{
           height: 1,
-          background: "linear-gradient(90deg, transparent, rgba(45,125,210,0.5) 30%, rgba(106,90,205,0.5) 70%, transparent)",
+          background: "linear-gradient(90deg, transparent, rgba(229,228,226,0.28) 50%, transparent)",
         }}
       />
 
       <div className="mx-auto max-w-[1240px] px-6 py-12 md:px-10">
-        {/* Верхняя часть — лого + колонки ссылок */}
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr_1fr]">
+        <div className="osgard-footer__top">
           {/* Лого + описание */}
           <div>
             <Link href="/" className="inline-flex items-baseline gap-2 transition-opacity hover:opacity-80">
@@ -114,46 +86,22 @@ export function Footer() {
               <ExternalLink aria-hidden="true" size={13} strokeWidth={1.8} className="opacity-60" />
             </a>
 
-            {/* Декоративный неон-градиент бар */}
-            <div
-              className="mt-6 h-0.5 w-16 rounded-full"
-              style={{
-                background: "linear-gradient(90deg, #C9A84C, #2D7DD2)",
-                boxShadow: "0 0 8px rgba(45,125,210,0.5)",
-              }}
-            />
+            <span className="osgard-footer__mark" aria-hidden="true" />
           </div>
 
-          {/* Колонки ссылок */}
-          {FOOTER_LINKS.map((col) => (
-            <div key={col.title}>
-              <p
-                className="mb-4 text-[11px] font-semibold uppercase tracking-[0.2em]"
-                style={{ color: "#C9A84C" }}
-              >
-                {col.title}
-              </p>
-              <ul className="space-y-2.5">
-                {col.links.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="text-[13px] transition-colors hover:text-white"
-                      style={{ color: "rgba(229,228,226,0.5)" }}
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <nav className="osgard-dock" aria-label="Основная навигация платформы">
+            {DOCK_LINKS.map(({ label, href, Icon }) => (
+              <Link key={href} href={href} className="osgard-dock__item" aria-label={label} title={label}>
+                <Icon aria-hidden="true" size={18} strokeWidth={1.6} />
+                <span>{label}</span>
+              </Link>
+            ))}
+          </nav>
         </div>
 
         {/* Нижняя часть — копирайт */}
         <div
-          className="mt-10 flex flex-col items-center justify-between gap-3 border-t pt-6 text-[12px] sm:flex-row"
-          style={{ borderColor: "rgba(229,228,226,0.08)", color: "rgba(229,228,226,0.3)" }}
+          className="osgard-footer__bottom"
         >
           <span>
             © {year}{" "}
@@ -162,16 +110,7 @@ export function Footer() {
             <span style={{ color: "rgba(229,228,226,0.15)" }}>· платежа</span>
           </span>
           <div className="flex items-center gap-1.5">
-            <span
-              style={{
-                display: "inline-block",
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: "#2D7DD2",
-                boxShadow: "0 0 6px #2D7DD2",
-              }}
-            />
+            <Shield aria-hidden="true" size={12} strokeWidth={1.5} />
             <span>Создаём проекты вместе · TimeCoin внутри платформы</span>
           </div>
         </div>
