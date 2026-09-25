@@ -12,7 +12,7 @@ function preflight(delivery: StoredBlueprint["delivery"]) {
     checks: [
       { id: "provider", status: "passed", label: `${delivery.provider} target recorded` },
       { id: "domain", status: delivery.domain ? "manual" : "not-requested", label: delivery.domain ? `DNS verification required for ${delivery.domain}` : "Custom domain not requested" },
-      { id: "supabase", status: delivery.supabaseProjectRef ? "passed" : "not-requested", label: delivery.supabaseProjectRef ? "Supabase project reference recorded" : "Supabase project not requested" },
+      { id: "supabase", status: delivery.supabaseProjectRef ? "manual" : "not-requested", label: delivery.supabaseProjectRef ? "Supabase reference recorded; connection test required in Integrations" : "Supabase project not requested" },
     ],
   }
 }

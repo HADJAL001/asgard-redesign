@@ -74,6 +74,7 @@
 @media(prefers-reduced-motion:reduce) { .ds-sequence::before,.ds-sequence__stage--active .ds-sequence__marker svg { animation:none; } }
 .ds-contract-dialog { width:min(92vw, 620px); max-height:min(88dvh, 720px); margin:auto; padding:clamp(1.25rem, 4vw, 2.5rem); color:var(--ds-ink); background:var(--ds-surface); border:1px solid var(--ds-line); box-shadow:0 28px 90px rgb(0 0 0 / 45%), 0 0 0 1px color-mix(in srgb,var(--ds-primary) 12%,transparent); }
 .ds-contract-dialog::backdrop { background:rgb(2 8 14 / 72%); backdrop-filter:blur(8px); }
+.ds-field-hint { display:block; margin-top:.45rem; color:var(--ds-muted); font-size:.68rem; line-height:1.45; }
 .ds-dialog-close { position:absolute; top:1rem; right:1rem; display:grid; place-items:center; width:2rem; height:2rem; color:var(--ds-muted); background:transparent; border:1px solid transparent; cursor:pointer; }
 .ds-dialog-close:hover { color:var(--ds-ink); border-color:var(--ds-line); }
 .ds-dialog-copy { max-width:48ch; color:var(--ds-muted); line-height:1.55; }
@@ -101,7 +102,7 @@
 .ds-dialog-generation { display:grid; gap:.45rem; margin-top:1rem; padding:.85rem; border:1px solid color-mix(in srgb,var(--ds-primary) 32%,var(--ds-line)); background:color-mix(in srgb,var(--ds-primary) 6%,transparent); }.ds-dialog-generation-head { display:flex; justify-content:space-between; gap:1rem; font-size:.78rem; }.ds-dialog-generation-head span { color:var(--ds-primary); font-family:var(--font-ibm-plex-mono,monospace); }.ds-dialog-generation-bar { height:4px; overflow:hidden; background:var(--ds-line); }.ds-dialog-generation-bar span { display:block; height:100%; background:var(--ds-primary); transition:width .35s ease; }.ds-dialog-generation small { color:var(--ds-muted); font-size:.72rem; }.ds-dialog-generation-links { display:flex; flex-wrap:wrap; gap:.6rem; }.ds-dialog-generation-links a { color:var(--ds-primary); font-size:.72rem; text-decoration:underline; text-underline-offset:3px; }
 .ds-dialog-primary:focus-visible, .ds-dialog-secondary:focus-visible, .ds-dialog-close:focus-visible { outline:0; box-shadow:var(--ds-focus); }
 @media (max-width: 520px) { .ds-contract-dialog { width:calc(100vw - 1.25rem); padding:1.25rem; } .ds-dialog-actions > button { flex:1 1 9rem; } }
-@media (max-width: 620px) { .ds-brief-starters__grid { grid-template-columns:1fr; } .ds-brief-starter { min-height:auto; } }
+@media (max-width: 620px) { .ds-brief-starters__grid { grid-template-columns:1fr; } .ds-brief-starter { min-height:auto; } .ds-contract-dialog fieldset > div { grid-template-columns:1fr !important; } }
 @media (prefers-reduced-motion: reduce) { .ds-interactive { transition:none; } }
 @media (prefers-reduced-motion: reduce) { .ds-brief-starter { transition:none; } .ds-brief-starter:hover { transform:none; } }
 @media (prefers-reduced-motion: reduce) { .ds-mission-replay::after { animation:none; } }
