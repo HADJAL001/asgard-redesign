@@ -1,14 +1,23 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
 export function BootShellDismiss() {
+  const [visible, setVisible] = useState(true)
+
   useEffect(() => {
-    const shell = document.getElementById("osgard-boot-shell")
-    if (!shell) return
-    shell.classList.add("is-ready")
-    window.setTimeout(() => shell.remove(), 220)
+    const fadeTimer = window.setTimeout(() => setVisible(false), 220)
+    return () => window.clearTimeout(fadeTimer)
   }, [])
 
-  return null
+  if (!visible) return null
+
+  return (
+    <div id="osgard-boot-shell" className="osgard-boot-shell is-ready" aria-hidden="true">
+      <div className="osgard-boot-shell__core">
+        <span className="osgard-boot-shell__ring" />
+        <span className="osgard-boot-shell__label">OSGARD / INITIALIZING COMMAND DECK</span>
+      </div>
+    </div>
+  )
 }

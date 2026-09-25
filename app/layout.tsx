@@ -74,12 +74,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="ru" className="bg-background" data-scroll-behavior="smooth">
       <body className="font-sans antialiased">
-        <div id="osgard-boot-shell" className="osgard-boot-shell" aria-hidden="true">
-          <div className="osgard-boot-shell__core">
-            <span className="osgard-boot-shell__ring" />
-            <span className="osgard-boot-shell__label">OSGARD / INITIALIZING COMMAND DECK</span>
-          </div>
-        </div>
+        <BootShellDismiss />
         <a className="ds-skip-link" href="#main-content">Перейти к содержимому</a>
         <DesignSystemProvider>
         <I18nProvider>
@@ -88,7 +83,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               <AppShell>
                 {children}
               </AppShell>
-              <BootShellDismiss />
               <DeferredFooter>
                 <Footer />
               </DeferredFooter>

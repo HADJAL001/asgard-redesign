@@ -321,6 +321,17 @@ test.describe("OSGARD design system", () => {
     await expect(skip).toBeFocused()
   })
 
+  test("client navigation into cofounder keeps the React tree intact", async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on("pageerror", (error) => pageErrors.push(error.message))
+    await page.goto("/dev")
+    await page.getByRole("link", { name: /AI Cofounder/ }).click()
+    await expect(page).toHaveURL(/\/cofounder$/)
+    await expect(page.getByRole("heading", { name: "AI Cofounder" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: /Критическая ошибка|Приложение не смогло загрузиться/ })).toHaveCount(0)
+    expect(pageErrors.filter((message) => /NotFoundError|insertBefore|removeChild/.test(message))).toEqual([])
+  })
+
   test("root boot shell covers the hydration gap and then dismisses", async ({ page }) => {
     await page.goto("/cofounder", { waitUntil: "domcontentloaded" })
     const boot = page.locator("#osgard-boot-shell")
