@@ -29,6 +29,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const taskId = typeof body?.taskId === "string" ? body.taskId.slice(0, 160) : ""
   const progress = Number(body?.progress)
   if (!taskId || !statuses.has(status) || !Number.isFinite(progress)) return NextResponse.json({ error: "invalid_generation_state" }, { status: 400 })
+  if (blueprint.generation?.taskId && blueprint.generation.taskId !== taskId) return NextResponse.json({ error: "generation_task_conflict" }, { status: 409 })
   const rawResult = body?.result && typeof body.result === "object" ? body.result as Record<string, unknown> : null
   const result = rawResult ? {
     ...(typeof rawResult.appUrl === "string" && /^https?:\/\//.test(rawResult.appUrl) ? { appUrl: rawResult.appUrl.slice(0, 500) } : {}),

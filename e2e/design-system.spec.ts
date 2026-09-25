@@ -97,6 +97,8 @@ test.describe("OSGARD design system", () => {
     expect(generationRead.status()).toBe(200)
     expect((await generationRead.json()).generation.result.appUrl).toBe("https://example.com/app")
     expect(await generationRead.text()).not.toContain(createdBody.evidenceToken)
+    const conflictingGeneration = await request.post(`/api/design/blueprint/${blueprint.id}/generation`, { data: { revision: 1, taskId: "different-task", status: "processing", progress: 20, evidenceToken: createdBody.evidenceToken } })
+    expect(conflictingGeneration.status()).toBe(409)
     const forgedGeneration = await request.post(`/api/design/blueprint/${blueprint.id}/generation`, { data: { revision: 1, taskId: "forged", status: "completed", progress: 100, evidenceToken: "0".repeat(64) } })
     expect(forgedGeneration.status()).toBe(403)
     const oversizedGeneration = await request.post(`/api/design/blueprint/${blueprint.id}/generation`, { data: { revision: 1, taskId: "oversized", status: "processing", progress: 20, error: "x".repeat(20_000), evidenceToken: createdBody.evidenceToken } })
