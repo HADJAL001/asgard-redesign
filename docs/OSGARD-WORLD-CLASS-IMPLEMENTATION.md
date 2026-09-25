@@ -31,6 +31,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Performance gate now waits for the browser's actual FCP paint entry after hydration, avoiding false zero readings while retaining the 3-second budget.
 - Static design-system accessibility checks follow component ownership for the React-managed boot shell, preventing refactors from creating stale invariants.
 - Diamond Cosmos finish pass: faceted glass highlights, sapphire orbital dial depth, Playfair display accents, and restrained gold bezel states with reduced-motion fallback.
+- Browser quality evidence refreshed for the Diamond Cosmos visual baseline (`b97599be…`): a11y, visual diff, replay, social preview, and production health all passed.
 
 ### Contract, evidence, and generation lifecycle
 
