@@ -267,7 +267,7 @@ test.describe("OSGARD design system", () => {
     await page.getByRole("button", { name: "Launch a product" }).click()
     await expect(page.locator("dialog textarea")).toHaveValue(/focused product workspace/)
     await page.locator("dialog form button[type=submit]").click()
-    await expect(page.locator(".ds-dialog-result")).toContainText("Blueprint")
+    await expect(page.locator('.ds-dialog-result[role="status"]')).toContainText("Blueprint")
     const refreshEvidence = page.getByRole("button", { name: "Refresh quality evidence" })
     await expect(refreshEvidence).toBeVisible()
     await refreshEvidence.click()
