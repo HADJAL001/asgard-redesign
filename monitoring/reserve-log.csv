@@ -1061,3 +1061,4 @@ timestamp,treasury_tc,total_infinity,ratio,status
 2026-09-25T00:46:42Z,0,74160,0,critical_low
 2026-09-25T05:27:36Z,0,74160,0,critical_low
 2026-09-25T10:26:20Z,,,,unknown
+2026-09-25T15:25:01Z,0,74160,0,critical_low
