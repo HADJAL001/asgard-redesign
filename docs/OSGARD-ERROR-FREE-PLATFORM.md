@@ -156,3 +156,46 @@ verified Playbook marketplace and benchmark dashboard.
 The defensible promise is therefore: **OSGARD makes the path to a correct,
 reviewable, reproducible release dramatically faster and safer, and proves why
 the release is trusted.**
+
+## Model Gateway
+
+Models connect server-side through the existing orchestrator adapters. API keys
+never reach the browser, ProductContract, Evidence Ledger, or generated client
+code. The gateway chooses a model by task risk, latency budget, cost, and
+benchmark score, and records provider/model/latency/token evidence for every call.
+
+| Role | Default model | Responsibility |
+| --- | --- | --- |
+| Architecture and high-risk review | Claude Opus 5 | threat model, contract review, difficult diagnosis, final review |
+| Code generation and typed repair | GPT-5.6 Sol | TypeScript/React generation, schema transforms, deterministic patches |
+| Fast interaction and triage | Gemini 3.7 Flash | interview, UI copy, quick diagnostics, progress summaries, low-risk classification |
+
+Recommended routing:
+
+```text
+3-question interview          -> Gemini Flash
+ProductContract/storyboard    -> GPT Sol, Claude review
+new application code           -> GPT Sol
+security/RLS/billing review   -> Claude Opus
+lint/type/test diagnosis      -> Gemini triage -> GPT patch
+patch approval for high risk  -> Claude Opus
+visual/a11y summary            -> Gemini Flash
+```
+
+The first provider failure triggers a policy-approved fallback, never a silent
+model swap. High-risk tasks cannot fall back to a cheaper model without an
+explicit policy decision. Each model response is treated as an untrusted
+proposal until sandbox tests and evidence gates pass.
+
+Server configuration is intentionally provider-specific:
+
+```text
+ANTHROPIC_API_KEY=...        ANTHROPIC_REASONING_MODEL=claude-opus-5
+OPENAI_API_KEY=...           OPENAI_MODEL=gpt-5.6-sol
+GEMINI_API_KEY=...           GEMINI_MODEL=gemini-3.7-flash
+```
+
+The exact model IDs remain environment overrides because provider catalogues can
+change. Production activation requires a provider probe, pricing entry,
+timeout/circuit-breaker policy, and a golden-task benchmark before the model is
+eligible for routing.
