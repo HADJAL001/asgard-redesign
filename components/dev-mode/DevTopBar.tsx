@@ -20,6 +20,7 @@ import { useDevMode, DEV_MODE_ROUTE } from "@/lib/dev-mode"
 import { getActiveVibecoderRank } from "@/lib/dev-mode/vibecoder-rank"
 import { useOsgardStore } from "@/lib/store/osgard-store"
 import { track } from "@/lib/analytics"
+import { DevQualityPulse } from "@/components/dev-mode/DevQualityPulse"
 
 export function DevTopBar({ children }: { children?: React.ReactNode }) {
   const { switchMode, transitioning, soundEnabled, toggleSound, modeChosen } = useDevMode()
@@ -100,6 +101,7 @@ export function DevTopBar({ children }: { children?: React.ReactNode }) {
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
+        <DevQualityPulse />
         <span className="hidden items-center gap-1.5 text-[11px] sm:inline-flex" role="status" aria-label={`Runtime ${runtime.state}${runtime.latency ? `, ${runtime.latency} milliseconds` : ""}`}>
           <Activity size={14} aria-hidden="true" style={{ color: runtime.state === "healthy" ? "#86EFAC" : runtime.state === "degraded" ? "#FBBF24" : "#94A3B8" }} />
           <span style={{ color: runtime.state === "healthy" ? "#86EFAC" : runtime.state === "degraded" ? "#FBBF24" : "#94A3B8" }}>{runtime.state === "healthy" ? `Runtime ${runtime.latency ? `${runtime.latency}ms` : "ready"}` : runtime.state === "degraded" ? "Runtime degraded" : "Checking runtime"}</span>

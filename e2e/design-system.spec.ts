@@ -235,6 +235,7 @@ test.describe("OSGARD design system", () => {
     await expect(page.getByRole("navigation", { name: "Разделы студии разработчика" })).toBeVisible()
     await expect(page.getByRole("link", { name: /AI Cofounder/ })).toHaveAttribute("href", "/cofounder")
     await expect(page.getByRole("status", { name: /Runtime/ })).toBeVisible()
+    await expect(page.getByRole("status", { name: /Frontend quality/ })).toBeVisible()
   })
 
   test("product shell exposes a keyboard skip link", async ({ page }) => {
