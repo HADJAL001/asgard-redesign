@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!tenantId) return NextResponse.json({ error: "tenant_not_available" }, { status: 404 })
   const blueprint = getBlueprint(id, undefined, tenantId)
   if (!blueprint) return NextResponse.json({ error: "blueprint_not_found" }, { status: 404 })
-  return NextResponse.json({ blueprintId: id, revision: blueprint.revision, generation: blueprint.generation || null }, { headers: { "cache-control": "no-store" } })
+  return NextResponse.json({ blueprintId: id, revision: blueprint.revision, generation: blueprint.generation || null, history: blueprint.generationHistory || [] }, { headers: { "cache-control": "no-store" } })
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -43,5 +43,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   } : undefined
   const generation: NonNullable<StoredBlueprint["generation"]> = { taskId, status, progress: Math.min(100, Math.max(0, Math.round(progress))), ...(typeof body?.currentStep === "string" ? { currentStep: body.currentStep.slice(0, 160) } : {}), ...(typeof body?.error === "string" ? { error: body.error.slice(0, 500) } : {}), ...(result && Object.keys(result).length ? { result } : {}), updatedAt: new Date().toISOString() }
   updateBlueprintGeneration(id, revision, generation, tenantId)
-  return NextResponse.json({ blueprintId: id, revision, generation }, { status: 201, headers: { "cache-control": "no-store" } })
+  const updated = getBlueprint(id, revision, tenantId)
+  return NextResponse.json({ blueprintId: id, revision, generation, history: updated?.generationHistory || [generation] }, { status: 201, headers: { "cache-control": "no-store" } })
 }
