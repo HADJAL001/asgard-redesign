@@ -108,6 +108,12 @@ export function CofounderConsole() {
     setCompileError("Preview временно недоступен. Blueprint сохранён, попробуйте открыть его ещё раз.")
   }
 
+  function retryPreview() {
+    if (!compileResult) return
+    setCompileError(null)
+    void loadPreview(compileResult.id, compileResult.revision)
+  }
+
   async function loadEvidence(id: string) {
     try {
       const response = await fetch(`/api/design/blueprint/${id}/evidence`, { cache: "no-store" })
@@ -380,7 +386,7 @@ export function CofounderConsole() {
         <span className="ds-utility">AI COFOUNDER / NEW DELIVERY</span>
         <h2 id="new-contract" className="ds-display">НОВЫЙ КОНТРАКТ</h2>
         <p className="ds-dialog-copy">Опишите первый продуктовый шаг. Система сохранит контекст и предложит план доставки.</p>
-        <form onSubmit={submitContract}>
+        <form onSubmit={submitContract} aria-busy={submitting}>
           {compileResult && qualityState && !qualityState.delivery ? <p className="ds-dialog-error" role="status">Choose a delivery target before code generation can start.</p> : null}
           <fieldset className="ds-field" style={{ border: 0, padding: 0, margin: 0 }}><legend className="ds-utility">DELIVERY TARGET</legend><div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: ".65rem" }}><label>Provider<select value={deliveryProvider} onChange={(event) => setDeliveryProvider(event.target.value as DeliveryProvider)}><option value="osgard-cluster">OSGARD Cluster</option><option value="vercel">Vercel</option><option value="netlify">Netlify</option><option value="custom">Custom server</option></select></label><label>Domain (optional)<input value={deliveryDomain} onChange={(event) => setDeliveryDomain(event.target.value)} placeholder="app.example.com" inputMode="url" /></label></div></fieldset>
           {compileResult && (compileResult.aiSummary || compileResult.aiComponents?.length || compileResult.aiRisks?.length) ? <section className="ds-dialog-result" aria-label="AI architecture signal"><strong>AI architecture signal</strong>{compileResult.aiSummary ? <span>{compileResult.aiSummary}</span> : null}{compileResult.aiComponents?.length ? <small>Selected components: {compileResult.aiComponents.join(", ")}</small> : null}{compileResult.aiRisks?.length ? <small>Risks to review: {compileResult.aiRisks.join("; ")}</small> : null}</section> : null}
@@ -388,7 +394,7 @@ export function CofounderConsole() {
           <section className="ds-brief-starters" aria-labelledby="starter-missions-title"><div className="ds-brief-starters__head"><Lightbulb size={15} aria-hidden="true" /><span id="starter-missions-title" className="ds-utility">STARTER MISSIONS</span><small>Начните с готового вектора</small></div><div className="ds-brief-starters__grid">{starterMissions.map((mission) => <button key={mission.id} type="button" className="ds-brief-starter ds-focus" onClick={() => chooseStarterMission(mission)} aria-label={`Use starter mission: ${mission.label}`} title="Fill the brief with this starting direction"><strong>{mission.label}</strong><span>{mission.brief}</span></button>)}</div></section>
           <label className="ds-field">Результат для проверки<textarea required rows={4} value={brief} onChange={(event) => setBrief(event.target.value)} placeholder="Какой результат должен быть готов?" /></label>
           <p className="ds-dialog-live" role="status" aria-live="polite" aria-atomic="true">{submitting ? "Собираем blueprint…" : compileResult ? "Blueprint готов к проверке." : ""}</p>
-          {compileError ? <p role="alert" className="ds-dialog-error">{compileError}</p> : null}
+          {compileError ? <div className="ds-dialog-error" role="alert"><p>{compileError}</p>{compileResult ? <button type="button" className="ds-dialog-secondary ds-focus" onClick={retryPreview}>Повторить preview</button> : null}</div> : null}
           {previewPlan ? <section className="ds-dialog-preview" aria-label="Blueprint preview"><div className="ds-utility">LIVE PREVIEW / REVISION {previewPlan.revision}</div><div className="ds-dialog-preview-slots">{previewPlan.slots.map((slot) => <article key={slot.id} className="ds-dialog-preview-slot"><strong>{slot.component}</strong><span>{slot.role}</span><small>{slot.states.join(" · ")}</small></article>)}</div><div className="ds-dialog-preview-stages" aria-label="Preview stages">{previewPlan.stages.map((stage, index) => <span key={stage} data-active={index === 0}>{stage}</span>)}</div></section> : null}
           {compileResult ? <div className="ds-dialog-result" role="status"><strong>Blueprint готов: {compileResult.score}/100</strong><span>{compileResult.review ? "Нужна ручная проверка перед публикацией." : "Можно переходить к preview."}</span>{compileResult.contractHash ? <small>Contract evidence: {compileResult.contractHash.slice(0, 12)}…</small> : null}{compileResult.warnings.length ? <small>{compileResult.warnings.length} предупреждения требуют внимания</small> : null}</div> : null}
           {compileResult ? <section className="ds-mission-replay" aria-label="Mission replay"><div><span className="ds-utility">MISSION REPLAY / OSGARD</span><strong>{compileResult.app}</strong><small>{compileResult.productType || "product"} · {compileResult.preset || "futuristic"} · revision {compileResult.revision}</small></div><div className="ds-mission-replay__score"><b>{compileResult.score}</b><span>quality</span></div><button type="button" className="ds-dialog-secondary ds-share-button" onClick={() => void shareBlueprint(compileResult)}><Share2 size={15} /> Share replay</button>{shareStatus ? <p role="status" className="ds-share-status">{shareStatus}</p> : null}</section> : null}

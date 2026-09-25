@@ -288,6 +288,28 @@ test.describe("OSGARD design system", () => {
     expect(await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(true)
   })
 
+  test("cofounder offers an accessible preview retry after a transient preview outage", async ({ page }) => {
+    let previewAttempts = 0
+    await page.route("**/api/design/blueprint/*/preview?*", async (route) => {
+      previewAttempts += 1
+      if (previewAttempts <= 3) {
+        await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "temporarily_unavailable" }) })
+        return
+      }
+      await route.continue()
+    })
+    await page.goto("/cofounder")
+    await page.getByRole("button", { name: /РЎРѕР·РґР°С‚СЊ РєРѕРЅС‚СЂР°РєС‚/ }).click()
+    await page.getByRole("button", { name: "Use starter mission: Launch a product" }).click()
+    await page.getByRole("textbox", { name: "РќР°Р·РІР°РЅРёРµ" }).fill("Preview recovery")
+    await page.locator("dialog form button[type=submit]").click()
+    const retry = page.getByRole("button", { name: "Повторить preview" })
+    await expect(retry).toBeVisible({ timeout: 6000 })
+    await retry.click()
+    await expect(page.getByLabel("Blueprint preview")).toBeVisible({ timeout: 6000 })
+    expect(previewAttempts).toBeGreaterThanOrEqual(4)
+  })
+
   test("developer mode exposes the AI Cofounder workspace", async ({ page }) => {
     await page.goto("/dev")
     await expect(page.getByRole("navigation", { name: "Разделы студии разработчика" })).toBeVisible()
