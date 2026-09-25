@@ -8,7 +8,7 @@ const checks = [
   ["visible focus", "app/tokens.css", "focus-visible"],
   ["dialog accessible name", "components/cofounder/CofounderConsole.tsx", "aria-label=\"НОВЫЙ КОНТРАКТ\""],
   ["tenant host guard", "app/api/design/tenant/route.ts", "osgardnewworld.com"],
-  ["first-paint boot shell", "app/layout.tsx", "osgard-boot-shell"],
+  ["first-paint boot shell", "components/boot-shell-dismiss.tsx", "osgard-boot-shell"],
   ["boot shell reduced motion", "app/globals.css", "osgard-boot-pulse"],
 ]
 for (const [name, file, needle] of checks) {
