@@ -47,11 +47,11 @@ const storePath = process.env.BLUEPRINT_STORE_PATH || path.join(process.cwd(), "
 const evidencePath = process.env.BLUEPRINT_EVIDENCE_PATH || path.join(process.cwd(), ".data", "blueprint-evidence.json")
 const evidenceTokensPath = process.env.BLUEPRINT_EVIDENCE_TOKENS_PATH || path.join(process.cwd(), ".data", "blueprint-evidence-tokens.json")
 
-function readJsonObject(filePath: string): Record<string, unknown> | null {
+function readJsonObject(filePath: string, isValid: (value: Record<string, unknown>) => boolean): Record<string, unknown> | null {
   for (const candidate of [filePath, `${filePath}.bak`]) {
     try {
       const value = JSON.parse(fs.readFileSync(/* turbopackIgnore: true */ candidate, "utf8"))
-      if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>
+      if (value && typeof value === "object" && !Array.isArray(value) && isValid(value as Record<string, unknown>)) return value as Record<string, unknown>
     } catch {
       // Try the previous durable snapshot before treating an artifact as empty.
     }
@@ -69,7 +69,7 @@ function flushDescriptor(descriptor: number) {
 }
 
 function readStore(): Store {
-  return readJsonObject(storePath) as Store || {}
+  return readJsonObject(storePath, (value) => Object.values(value).every((revisions) => Array.isArray(revisions) && revisions.every((revision) => revision && typeof revision === "object" && typeof revision.id === "string" && Number.isInteger(revision.revision)))) as Store || {}
 }
 
 function writeJsonDurably(filePath: string, value: unknown) {
@@ -101,7 +101,7 @@ function writeStore(store: Store) {
 }
 
 function readEvidence(): Record<string, BlueprintEvidence[]> {
-  return readJsonObject(evidencePath) as Record<string, BlueprintEvidence[]> || {}
+  return readJsonObject(evidencePath, (value) => Object.values(value).every((entries) => Array.isArray(entries) && entries.every((entry) => entry && typeof entry === "object" && typeof entry.id === "string" && typeof entry.blueprintId === "string" && typeof entry.kind === "string" && typeof entry.contractHash === "string"))) as Record<string, BlueprintEvidence[]> || {}
 }
 
 function writeEvidence(store: Record<string, BlueprintEvidence[]>) {
@@ -109,7 +109,7 @@ function writeEvidence(store: Record<string, BlueprintEvidence[]>) {
 }
 
 function readEvidenceTokens(): Record<string, string> {
-  return readJsonObject(evidenceTokensPath) as Record<string, string> || {}
+  return readJsonObject(evidenceTokensPath, (value) => Object.values(value).every((token) => typeof token === "string" && /^[a-f0-9]{64}$/.test(token))) as Record<string, string> || {}
 }
 
 function writeEvidenceTokens(store: Record<string, string>) {

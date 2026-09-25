@@ -30,7 +30,7 @@ try {
   }
   store.saveBlueprint(blueprint)
   store.saveBlueprint({ ...blueprint, revision: 2, brief: "A second durable recovery verification brief" })
-  fs.writeFileSync(paths.store, "{broken")
+  fs.writeFileSync(paths.store, "{\"not-a-revision-list\":true}")
   const recovered = store.getBlueprint(blueprint.id)
   if (!recovered || recovered.revision !== 1) throw new Error("durable blueprint recovery failed")
   if (!fs.existsSync(`${paths.store}.bak`)) throw new Error("blueprint backup snapshot missing")
