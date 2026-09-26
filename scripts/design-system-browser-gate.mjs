@@ -101,6 +101,9 @@ try {
   if (!(await replayPage.getByRole("button", { name: "Share replay" }).isVisible())) throw new Error("mission replay share control is not visible")
   if (await replayPage.getByRole("contentinfo").count()) throw new Error("mission replay rendered the global platform footer")
   await replayPage.close()
+  const diagnosticsResponse = await fetch(`${base}/api/design/blueprint/${blueprint.id}/diagnostics`, { cache: "no-store" })
+  const diagnostics = await diagnosticsResponse.json().catch(() => null)
+  if (!diagnosticsResponse.ok || diagnostics?.run?.blueprintId !== blueprint.id || !Array.isArray(diagnostics?.findings) || diagnostics?.policy?.maxRepairAttempts !== 3) throw new Error("error intelligence diagnostics contract failed")
   const socialPreviewResponse = await fetch(`${base}/cofounder/replay/${blueprint.id}/opengraph-image`)
   const socialPreviewType = socialPreviewResponse.headers.get("content-type") || ""
   const socialPreviewBytes = (await socialPreviewResponse.arrayBuffer()).byteLength
