@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-26
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Runtime implementation release:** `02335dcc`
+**Runtime implementation release:** `91ad9576`
 
 ## Executive status
 
@@ -90,6 +90,8 @@ The `blueprint_delivery_policy_saved` event records blueprint ID, revision, prov
 
 The frontend/backend analytics contract is enforced in CI. The delivery-policy event is present in the backend allowlist and has been verified against the public production endpoint with HTTP `204`.
 
+The allowlist now also covers command-example selection, command dry-run/apply, delivery verification, and voice-command lifecycle events. Contract coverage is `53` frontend events against `56` backend allowlisted events; `blueprint_command_example_selected` was verified on production with HTTP `204` after release `91ad9576`.
+
 ## Verification record
 
 Latest recorded production gate:
@@ -118,6 +120,8 @@ Natural-language command coverage is part of the golden task: `сделай ка
 
 Latest command-deck regression gate (2026-09-26): the global footer exclusion passed for both `/cofounder` and Mission Replay. Browser evidence also passed for accessibility, visual diff, replay, Open Graph preview, and production health (`284 ms`); Developer Quality Cockpit navigation completed in `523 ms`.
 
+Latest telemetry allowlist release (2026-09-26): `91ad9576` deployed to `osgard-web.service`; public health returned HTTP `200`, the command-example telemetry contract returned HTTP `204`, and the browser quality gate passed with health latency `281 ms` and Developer Quality Cockpit latency `617 ms`. Visual baseline remained `9e88b2bdff7bda45e6eb4e7bb3cff89cebc2678b0b6229ac82f553239c597df6`.
+
 Latest expanded golden workflow (2026-09-26): all three natural-language commands passed, the density command created revision 2, and the complete contract -> storyboard -> preview -> commands -> delivery verification -> approval room -> replay flow completed in `1904 ms`.
 
 Durability verification: `npm run test:blueprint-store-recovery` passed, including recovery from a deliberately corrupted but syntactically valid primary snapshot. The gate is now part of the package scripts for CI and release checks.
@@ -125,6 +129,8 @@ Durability verification: `npm run test:blueprint-store-recovery` passed, includi
 The production service was active on the last release, the Next build was present, and the previous checkout was retained at `/opt/osgard-platform/backup-before-ddc3a25f`.
 
 ## Release history
+
+- `91ad9576` Add complete command, delivery, and voice analytics allowlist coverage.
 
 - `02335dcc` Add visible keyboard focus treatment to Canvas blocks.
 - `7940fa15` Make Canvas multi-select keyboard accessible.
