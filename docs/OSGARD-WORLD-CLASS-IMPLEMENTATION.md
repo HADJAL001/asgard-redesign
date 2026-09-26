@@ -43,6 +43,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - The existing backend Docker sandbox remains the execution boundary for generated code; ErrorRun persistence is the control-plane foundation that will attach sandbox exit code, timeout, redacted logs, and signed artifact references to the same revision instead of creating a parallel executor.
 - Diagnostics now includes a sandbox phase: failed generation is a high-severity blocking finding, while a completed result must verify its HMAC artifact seal against tenant, revision, contract hash, task ID, and result URLs. Unsigned or tampered completion cannot be treated as trusted delivery evidence.
 - Generation state accepts an explicit sandbox provenance envelope (`status`, `exitCode`, `timedOut`, `durationMs`, redacted log tail). Secrets are removed and logs are capped at 800 characters; completed results without verified sandbox metadata are marked blocking `sandbox.result-unverified` rather than being presented as trusted.
+- The backend `DeployAgent` now invokes the existing Docker `verifyBuildInSandbox` before Vercel/GitHub adapters. Failed, timed-out, or skipped builds return fallback with sandbox provenance and do not publish. `GET /task/:taskId` exposes the sanitized envelope at top level for the Cofounder generation bridge.
 
 ### Contract, evidence, and generation lifecycle
 
@@ -140,6 +141,8 @@ Latest sandbox provenance release (2026-09-26): `71ff0853` added sandbox/artifac
 
 Latest sandbox metadata release (2026-09-26): `e2698c8e` added the redacted sandbox provenance envelope to generation persistence and diagnostics. Production service is active, health returned `200`, and browser quality gates passed with health latency `325 ms` and Developer Quality Cockpit latency `603 ms`.
 
+Latest backend sandbox gate release (2026-09-26): `a3d98053` connected `DeployAgent` to the isolated build gate and exposed task-level sandbox provenance. Backend TypeScript build passed and Railway production health returned HTTP `200`. A live authenticated generation task was not fabricated for verification; the fail-closed path is explicit when Docker is unavailable.
+
 Latest expanded golden workflow (2026-09-26): all three natural-language commands passed, the density command created revision 2, and the complete contract -> storyboard -> preview -> commands -> delivery verification -> approval room -> replay flow completed in `1904 ms`.
 
 Durability verification: `npm run test:blueprint-store-recovery` passed, including recovery from a deliberately corrupted but syntactically valid primary snapshot. The gate is now part of the package scripts for CI and release checks.
@@ -155,6 +158,7 @@ The production service was active on the last release, the Next build was presen
 - `a26f4fd4` Persist bounded Error Intelligence run history.
 - `71ff0853` Bind diagnostics to sandbox failures and artifact provenance.
 - `e2698c8e` Persist redacted sandbox exit, timeout, duration, and log provenance.
+- `a3d98053` Gate external deploy adapters on the isolated sandbox build.
 
 - `02335dcc` Add visible keyboard focus treatment to Canvas blocks.
 - `7940fa15` Make Canvas multi-select keyboard accessible.
