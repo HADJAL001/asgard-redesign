@@ -15,6 +15,7 @@ const checks = [
   ["canvas block actions are named", "components/cofounder/BlueprintCanvas.tsx", "aria-label={`Move ${slot.role} earlier`}"],
   ["canvas preview modes are named", "components/cofounder/BlueprintCanvas.tsx", "aria-label=\"Desktop preview\""],
   ["theme toggle has a tooltip", "components/design-system/PresetSwitcher.tsx", "title={themeAction}"],
+  ["delivery wizard links to integrations", "components/cofounder/CofounderConsole.tsx", "href=\"/integrations\" target=\"_blank\""],
 ]
 for (const [name, file, needle] of checks) {
   const text = await readFile(join(root, file), "utf8")

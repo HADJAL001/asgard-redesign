@@ -32,6 +32,7 @@ try {
   // The Cofounder is an isolated command deck. Economy navigation belongs to
   // the global platform shell and must never leak into this focused workflow.
   if (await page.getByRole("contentinfo").count()) throw new Error("cofounder rendered the global platform footer")
+  if (await page.locator('dialog a[href="/integrations"][target="_blank"]').count() !== 1) throw new Error("delivery wizard has no integration handoff")
   const interactiveCount = await page.locator("button, a, input, textarea, select").count()
   if (interactiveCount < 3) throw new Error(`interactive surface too small: ${interactiveCount}`)
   await page.locator(".ds-memory-orbit").waitFor({ state: "visible", timeout: 5000 })
