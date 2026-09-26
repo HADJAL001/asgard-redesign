@@ -7,6 +7,7 @@ import {
   callClaudeRaw,
   callDeepSeek,
   callGeminiRaw,
+  callOpenAiRaw,
   isAiConfigured,
   probeClaude,
   probeGemini,
@@ -126,6 +127,10 @@ router.post("/blueprint/compile", rateLimit(60_000, 6, (req) => `blueprint-compi
   const system = "Never return markdown or arbitrary HTML. Use only the allowed component identifiers."
   let result = parseBlueprintAi(await callClaudeRaw(prompt, 700))
   let source = "claude"
+  if (!result) {
+    result = parseBlueprintAi(await callOpenAiRaw(prompt, 700))
+    source = "openai"
+  }
   if (!result) {
     result = await callDeepSeek(prompt, (text) => parseBlueprintAi(text), "blueprint-compile", 700, system, 0.2)
     source = "deepseek"

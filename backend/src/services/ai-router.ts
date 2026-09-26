@@ -719,7 +719,7 @@ export async function callGrok<T>(
 
 /** true, если хотя бы один реальный AI-провайдер сконфигурирован (иначе везде используется fallback). */
 export function isAiConfigured(): boolean {
-  return !!(DEEPSEEK_API_KEY || KIMI_API_KEY || GROK_API_KEY || CLAUDE_API_KEY)
+  return !!(DEEPSEEK_API_KEY || KIMI_API_KEY || GROK_API_KEY || CLAUDE_API_KEY || OPENAI_API_KEY || GEMINI_API_KEY)
 }
 
 export function isKimiConfigured(): boolean {
