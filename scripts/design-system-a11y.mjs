@@ -17,6 +17,8 @@ const checks = [
   ["theme toggle has a tooltip", "components/design-system/PresetSwitcher.tsx", "title={themeAction}"],
   ["delivery wizard links to integrations", "components/cofounder/CofounderConsole.tsx", "href=\"/integrations\" target=\"_blank\""],
   ["cofounder has a first-screen primary action", "components/cofounder/CofounderConsole.tsx", "data-primary-action=\"create-contract\""],
+  ["canvas exposes keyboard multi-select", "components/cofounder/BlueprintCanvas.tsx", "aria-multiselectable=\"true\""],
+  ["canvas options are keyboard focusable", "components/cofounder/BlueprintCanvas.tsx", "role=\"option\""],
 ]
 for (const [name, file, needle] of checks) {
   const text = await readFile(join(root, file), "utf8")

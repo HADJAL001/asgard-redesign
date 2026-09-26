@@ -224,11 +224,15 @@ export function BlueprintCanvas({
                 </button>
               ) : null}
             </div>
-            <div className="ds-blueprint-canvas__slots">
+            <div className="ds-blueprint-canvas__slots" role="listbox" aria-label="Editable product blocks" aria-multiselectable="true">
               {slots.map((slot, index) => (
                 <article
                   key={slot.id}
                   className={`ds-blueprint-canvas__slot${draggedId === slot.id ? " is-dragged" : ""}${selectedIds.includes(slot.id) ? " is-selected" : ""}`}
+                  role="option"
+                  tabIndex={0}
+                  aria-selected={selectedIds.includes(slot.id)}
+                  aria-label={`${slot.role}, ${selectedIds.includes(slot.id) ? "selected" : "not selected"}`}
                   draggable
                   onClick={() =>
                     setSelectedIds((ids) =>
@@ -237,6 +241,15 @@ export function BlueprintCanvas({
                         : [...ids, slot.id],
                     )
                   }
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return
+                    event.preventDefault()
+                    setSelectedIds((ids) =>
+                      ids.includes(slot.id)
+                        ? ids.filter((id) => id !== slot.id)
+                        : [...ids, slot.id],
+                    )
+                  }}
                   onDragStart={() => setDraggedId(slot.id)}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={() => {
