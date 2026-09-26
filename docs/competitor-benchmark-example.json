@@ -1,0 +1,17 @@
+{
+  "runs": [
+    {
+      "provider": "OSGARD",
+      "taskId": "designer-marketplace",
+      "capturedAt": "2026-09-26T00:00:00.000Z",
+      "evidenceUrl": "https://osgardnewworld.com/cofounder",
+      "metrics": {
+        "firstPreviewMs": 250,
+        "workflowMs": 1698,
+        "taskSuccess": 1,
+        "axeViolations": 0,
+        "evidenceCoverage": 1
+      }
+    }
+  ]
+}

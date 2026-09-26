@@ -1,0 +1,26 @@
+{
+  "version": "1.0.0",
+  "title": "OSGARD comparable product-builder tasks",
+  "rules": [
+    "Use a new account or isolated workspace for every run.",
+    "Record an uncut screen capture and retain the resulting public preview URL.",
+    "Use the exact prompt without product-specific shortcuts.",
+    "Measure from submit to the first inspectable preview, not to a loading indicator.",
+    "Do not report a provider score without evidenceUrl and capturedAt."
+  ],
+  "tasks": [
+    {
+      "id": "designer-marketplace",
+      "prompt": "Build a marketplace for independent designers in a Diamond Cosmos visual style. Visitors must discover products, open a product page, add an item to cart, and reach a clear checkout action. Make it mobile-ready and accessible.",
+      "required": ["catalog", "product-detail", "cart", "checkout-action", "responsive-mobile", "keyboard-focus"],
+      "budgets": { "firstPreviewMs": 60000, "verifiedWorkflowMs": 120000 }
+    },
+    {
+      "id": "team-operator",
+      "prompt": "Build an AI operator workspace for a product team. Include a task queue, evidence status, approval step, and a clear action to publish a verified release. Make state and next actions understandable without documentation.",
+      "required": ["task-queue", "evidence-status", "approval", "publish-action", "empty-state", "error-state"],
+      "budgets": { "firstPreviewMs": 60000, "verifiedWorkflowMs": 120000 }
+    }
+  ],
+  "metrics": ["firstPreviewMs", "workflowMs", "taskSuccess", "firstPassAccepted", "axeViolations", "lcpMs", "inpMs", "cls", "costUsd", "evidenceCoverage", "rollbackMs", "blindVisualScore"]
+}
