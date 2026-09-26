@@ -18,6 +18,12 @@ The orchestration node types are the stable boundary:
 
 Each node is tenant-scoped, quota checked, time limited, and recorded in generation telemetry. A failed provider produces an explicit evidence event; it is not silently treated as a successful generation.
 
+## Activation proof
+
+`GET /design/provider-readiness` is authenticated and runs a token-free catalogue preflight for Claude, OpenAI and Gemini. It returns only `configured`, `available` and the assigned role; credentials, provider endpoints and account metadata are never exposed. A configured key is not treated as active until its requested model is discoverable.
+
+For the production service, the operator sets the values in `/etc/osgard-platform/web.env`, restarts `osgard-web.service`, then opens the protected endpoint. This is the activation record; an absent key or unavailable model remains visible as unavailable instead of silently falling through as a successful AI generation.
+
 ## Production environment
 
 Set these values on the `osgard-web` service only:

@@ -13,7 +13,9 @@ import {
   markProviderRuntimeFailure,
   probeClaude,
   probeDeepSeek,
+  probeGemini,
   probeKimi,
+  probeOpenAi,
   type ProviderProbe,
 } from "./ai-router"
 import { captureError } from "../lib/sentry"
@@ -271,7 +273,7 @@ export type ProjectGenerationReadiness = {
   roles: { planner: boolean; coder: boolean; reviewer: boolean }
   missing: Array<"planner" | "coder" | "reviewer">
   checkedAt?: number
-  providers?: { deepSeek: ProviderProbe; claude: ProviderProbe; kimi: ProviderProbe }
+  providers?: { deepSeek: ProviderProbe; claude: ProviderProbe; kimi: ProviderProbe; openAi?: ProviderProbe; gemini?: ProviderProbe }
 }
 
 export type PublicProjectGenerationReadiness = Pick<ProjectGenerationReadiness, "ready" | "checkedAt">
@@ -291,11 +293,13 @@ export function resolveProjectGenerationReadiness(config: {
   deepSeek: boolean
   claude: boolean
   kimi: boolean
+  openAi?: boolean
+  gemini?: boolean
 }): ProjectGenerationReadiness {
   const reasoningProvider = config.claude || config.kimi
   const roles = {
     planner: reasoningProvider,
-    coder: config.deepSeek || config.kimi,
+    coder: !!config.openAi || config.deepSeek || config.kimi,
     reviewer: reasoningProvider,
   }
   const missing = (Object.keys(roles) as Array<keyof typeof roles>).filter((role) => !roles[role])
@@ -307,6 +311,7 @@ export function getProjectGenerationReadiness(): ProjectGenerationReadiness {
     deepSeek: isDeepSeekConfigured(),
     claude: isClaudeConfigured(),
     kimi: isKimiConfigured(),
+    openAi: isOpenAiConfigured(),
   })
 }
 
@@ -320,16 +325,17 @@ export async function getVerifiedProjectGenerationReadiness(
     return verifiedReadinessCache.value
   }
 
-  const [deepSeek, claude, kimi] = await Promise.all([probeDeepSeek(), probeClaude(), probeKimi()])
+  const [deepSeek, claude, kimi, openAi, gemini] = await Promise.all([probeDeepSeek(), probeClaude(), probeKimi(), probeOpenAi(), probeGemini()])
   const resolved = resolveProjectGenerationReadiness({
     deepSeek: deepSeek.available,
     claude: claude.available,
     kimi: kimi.available,
+    openAi: openAi.available,
   })
   const value: ProjectGenerationReadiness = {
     ...resolved,
     checkedAt: now,
-    providers: { deepSeek, claude, kimi },
+    providers: { deepSeek, claude, kimi, openAi, gemini },
   }
   const configuredTtl = Number(process.env.AI_PROVIDER_PREFLIGHT_TTL_MS)
   const ttl = Number.isFinite(configuredTtl)

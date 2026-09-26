@@ -3,7 +3,15 @@ import db from "../lib/db"
 import { requireAuth, AuthRequest } from "../middleware/authMiddleware"
 import { asyncHandler } from "../utils/async-handler"
 import { captureError } from "../lib/sentry"
-import { callClaudeRaw, callDeepSeek, callGeminiRaw, isAiConfigured } from "../services/ai-router"
+import {
+  callClaudeRaw,
+  callDeepSeek,
+  callGeminiRaw,
+  isAiConfigured,
+  probeClaude,
+  probeGemini,
+  probeOpenAi,
+} from "../services/ai-router"
 import { rateLimit } from "../middleware/rateLimiter"
 import {
   ARCHETYPE_MENU,
@@ -47,6 +55,22 @@ import { explainDesignQuality } from "../lib/design-qa"
    ================================================================ */
 
 const router = Router()
+
+/**
+ * Authenticated operational status for the three product lanes. This deliberately
+ * exposes no key material, endpoint, raw provider payload, or account metadata.
+ */
+router.get("/provider-readiness", requireAuth, asyncHandler(async (_req: AuthRequest, res) => {
+  const [claude, openai, gemini] = await Promise.all([probeClaude(), probeOpenAi(), probeGemini()])
+  res.json({
+    checkedAt: Date.now(),
+    providers: {
+      claude: { role: "architect-reviewer", configured: claude.configured, available: claude.available },
+      openai: { role: "builder-repair", configured: openai.configured, available: openai.available },
+      gemini: { role: "interview-triage", configured: gemini.configured, available: gemini.available },
+    },
+  })
+}))
 
 const BLUEPRINT_COMPONENTS = new Set(["app-shell", "hero", "bento-grid", "form-wizard", "preview-frame", "cinematic-sequence"])
 

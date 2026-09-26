@@ -30,6 +30,16 @@ test("project generation requires a coder plus Claude or Kimi reasoning", () => 
     resolveProjectGenerationReadiness({ deepSeek: true, claude: false, kimi: false }).ready,
     false,
   )
+
+  assert.deepEqual(
+    resolveProjectGenerationReadiness({ deepSeek: false, claude: true, kimi: false, openAi: true }),
+    {
+      ready: true,
+      roles: { planner: true, coder: true, reviewer: true },
+      missing: [],
+    },
+    "a verified OpenAI builder lane is sufficient with Claude review",
+  )
 })
 
 test("planner chain falls through when the first provider returns non-JSON", async () => {

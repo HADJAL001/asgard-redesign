@@ -616,6 +616,38 @@ export function probeDeepSeek(): Promise<ProviderProbe> {
   return probeOpenAiCompatible(DEEPSEEK_API_URL, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, "deepseek")
 }
 
+/** OpenAI uses the same authenticated, token-free model catalogue preflight. */
+export function probeOpenAi(): Promise<ProviderProbe> {
+  return probeOpenAiCompatible(`${OPENAI_API_URL.replace(/\/$/, "")}/chat/completions`, OPENAI_API_KEY, OPENAI_MODEL, "openai")
+}
+
+/** Gemini's catalogue names models as `models/<id>`, unlike OpenAI's `id`. */
+export async function probeGemini(): Promise<ProviderProbe> {
+  if (!GEMINI_API_KEY) return { configured: false, available: false, reason: "key_missing" }
+  const runtimeBlock = runtimeProviderBlock("gemini")
+  if (runtimeBlock) return { configured: true, available: false, reason: runtimeBlock.reason }
+  try {
+    const response = await fetch(`${GEMINI_API_URL.replace(/\/$/, "")}/models`, {
+      method: "GET",
+      signal: AbortSignal.timeout(preflightTimeoutMs()),
+      headers: { "x-goog-api-key": GEMINI_API_KEY },
+    })
+    if (!response.ok) return { configured: true, available: false, reason: `http_${response.status}` }
+    const payload = await response.json().catch(() => null)
+    const models = Array.isArray(payload?.models) ? payload.models : null
+    if (models && models.length > 0 && !models.some((entry: any) => entry?.name === `models/${GEMINI_MODEL}` || entry?.name === GEMINI_MODEL)) {
+      return { configured: true, available: false, reason: "model_unavailable" }
+    }
+    return { configured: true, available: true }
+  } catch (error) {
+    return {
+      configured: true,
+      available: false,
+      reason: error instanceof Error && error.name === "TimeoutError" ? "timeout" : "network_error",
+    }
+  }
+}
+
 export function probeKimi(): Promise<ProviderProbe> {
   return probeOpenAiCompatible(KIMI_API_URL, KIMI_API_KEY, KIMI_MODEL, "kimi")
 }
