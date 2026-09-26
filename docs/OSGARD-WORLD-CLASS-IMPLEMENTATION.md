@@ -40,6 +40,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Error Intelligence is now part of every Cofounder revision: `GET /api/design/blueprint/:id/diagnostics` returns tenant-bound findings with fingerprint, category, severity, confidence, source, contract hash, and a bounded next action. It blocks high-risk states, permits only deterministic auto-repair classes (maximum three attempts), and routes medium/high-risk changes back through explainable diff, evidence, and approval.
 - Error Intelligence now runs a reproducible phase scan (`contract`, `evidence`, `delivery`, `approval`) with stable fingerprints, blocking state, evidence references, and `POST .../diagnostics { action: "recheck" }` for an explicit fresh scan. Repair is proposal-only at this layer; no client request can execute arbitrary code.
 - Error Intelligence runs are now durable and tenant-bound in `.data/blueprint-error-runs.json`, capped at 100 runs per blueprint and pruned with the blueprint lifecycle. Mission diagnostics returns a bounded history so regressions and verified improvements can be compared across rechecks.
+- The existing backend Docker sandbox remains the execution boundary for generated code; ErrorRun persistence is the control-plane foundation that will attach sandbox exit code, timeout, redacted logs, and signed artifact references to the same revision instead of creating a parallel executor.
 
 ### Contract, evidence, and generation lifecycle
 
