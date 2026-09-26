@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-26
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Runtime implementation release:** `7bb6cef2`
+**Runtime implementation release:** `02335dcc`
 
 ## Executive status
 
@@ -35,6 +35,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Preview recovery is actionable: after three transient preview failures the UI exposes a keyboard-accessible `Повторить preview` control and recovers without a page reload.
 - Developer Quality Cockpit uses client-side navigation for internal Cofounder and Mission Replay links, preserving the React tree and avoiding a full reload between sections.
 - AI Cofounder and Mission Replay are isolated command-deck views: the global economy footer is intentionally omitted, and the browser gate fails if it returns.
+- The primary contract action is visible above the fold; Canvas multi-select exposes keyboard listbox semantics, Enter/Space selection, and a visible gold focus ring.
 - Product Graph projection links the tenant-scoped idea, ProductContract revisions, evidence, delivery policy, and generation state transitions; Mission Replay exposes the linked records without evidence tokens.
 
 ### Contract, evidence, and generation lifecycle
@@ -117,12 +118,22 @@ Natural-language command coverage is part of the golden task: `сделай ка
 
 Latest command-deck regression gate (2026-09-26): the global footer exclusion passed for both `/cofounder` and Mission Replay. Browser evidence also passed for accessibility, visual diff, replay, Open Graph preview, and production health (`284 ms`); Developer Quality Cockpit navigation completed in `523 ms`.
 
+Latest expanded golden workflow (2026-09-26): all three natural-language commands passed, the density command created revision 2, and the complete contract -> storyboard -> preview -> commands -> delivery verification -> approval room -> replay flow completed in `1904 ms`.
+
 Durability verification: `npm run test:blueprint-store-recovery` passed, including recovery from a deliberately corrupted but syntactically valid primary snapshot. The gate is now part of the package scripts for CI and release checks.
 
 The production service was active on the last release, the Next build was present, and the previous checkout was retained at `/opt/osgard-platform/backup-before-ddc3a25f`.
 
 ## Release history
 
+- `02335dcc` Add visible keyboard focus treatment to Canvas blocks.
+- `7940fa15` Make Canvas multi-select keyboard accessible.
+- `76f16dff` Link delivery wizard to the Integrations Service Bridge.
+- `6b9376fa` Cover natural-language builder commands in the golden task.
+- `8469e1c1` Record the above-fold Cofounder visual baseline.
+- `5d3f6c71` Surface the primary contract action above the fold.
+- `387e2855` Assert the primary contract action explicitly in the browser gate.
+- `eed5e2ba` Name Command Deck icon controls and tooltips.
 - `7bb6cef2` Guard Cofounder and Mission Replay from global-footer regression.
 - `cf62fa1e` Keep Cofounder Command Deck free of the global footer.
 
