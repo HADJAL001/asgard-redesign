@@ -8,6 +8,7 @@ SERVICE="${OSGARD_WEB_SERVICE:-osgard-web.service}"
 HEALTH_URL="${OSGARD_HEALTH_URL:-http://127.0.0.1:3000/api/health}"
 CANARY_ATTEMPTS="${OSGARD_CANARY_ATTEMPTS:-3}"
 CANARY_INTERVAL_SECONDS="${OSGARD_CANARY_INTERVAL_SECONDS:-5}"
+READINESS_TIMEOUT_SECONDS="${OSGARD_READINESS_TIMEOUT_SECONDS:-30}"
 TARGET="${1:-origin/main}"
 
 if [[ "$(id -u)" -ne 0 ]]; then
@@ -18,7 +19,7 @@ if [[ ! -d "$ROOT/.git" ]]; then
   echo "Refusing release: invalid checkout root." >&2
   exit 1
 fi
-if ! [[ "$CANARY_ATTEMPTS" =~ ^[1-9][0-9]*$ ]] || ! [[ "$CANARY_INTERVAL_SECONDS" =~ ^[0-9]+$ ]]; then
+if ! [[ "$CANARY_ATTEMPTS" =~ ^[1-9][0-9]*$ ]] || ! [[ "$CANARY_INTERVAL_SECONDS" =~ ^[0-9]+$ ]] || ! [[ "$READINESS_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
   echo "Refusing release: invalid canary settings." >&2
   exit 1
 fi
@@ -46,6 +47,14 @@ npm ci
 npm run build
 systemctl restart "$SERVICE"
 systemctl is-active --quiet "$SERVICE"
+deadline=$((SECONDS + READINESS_TIMEOUT_SECONDS))
+until curl --fail --silent --show-error --max-time 5 "$HEALTH_URL" >/dev/null; do
+  if (( SECONDS >= deadline )); then
+    echo "Release failed: health endpoint did not become ready within ${READINESS_TIMEOUT_SECONDS}s." >&2
+    exit 1
+  fi
+  sleep 1
+done
 for ((attempt = 1; attempt <= CANARY_ATTEMPTS; attempt++)); do
   curl --fail --silent --show-error --max-time 15 "$HEALTH_URL" >/dev/null
   if (( attempt < CANARY_ATTEMPTS )); then sleep "$CANARY_INTERVAL_SECONDS"; fi

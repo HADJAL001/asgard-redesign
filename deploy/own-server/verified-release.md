@@ -17,3 +17,5 @@ It writes commit transition metadata to
 This is a post-restart canary, not blue/green traffic splitting. Use
 `OSGARD_CANARY_ATTEMPTS` and `OSGARD_CANARY_INTERVAL_SECONDS` to tune the
 window; a real traffic canary requires separate upstream instances.
+The first probe waits up to 30 seconds for Next.js readiness; configure this
+with `OSGARD_READINESS_TIMEOUT_SECONDS` when the host needs a different bound.
