@@ -3,10 +3,10 @@
 **Scope:** only `osgardnewworld.com` and its repository `HADJAL001/asgard-redesign`.
 No changes, deployments, credentials, or integrations for `osgardos.com`, Senjorio, or any other project are in scope.
 
-**Last updated:** 2026-09-25  
+**Last updated:** 2026-09-26  
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Current release:** `f4d48170`
+**Current release:** `c1f7ef75`
 
 ## Executive status
 
@@ -60,6 +60,9 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Supported targets: `osgard-cluster`, `vercel`, `netlify`, `custom`.
 - Stored metadata: provider, custom domain, Supabase project ref, integration IDs, and update timestamp.
 - Code generation is blocked until a delivery policy exists. Credentials are never stored in the policy or generation payload.
+- Custom domains and Supabase references become revision-bound evidence gates. A delivery cannot proceed until the current contract has passed DNS and Supabase reachability checks.
+- Selected infrastructure adapters are checked against the authenticated Service Bridge account. They must exist, be active, and have a passed latest test before code generation.
+- Adapter readiness is rechecked immediately before generation, so historical evidence cannot authorize a disabled or stale integration.
 
 ### Developer mode quality cockpit
 
@@ -107,11 +110,21 @@ Latest cockpit release gate: browser gate passed with health latency `347 ms` an
 
 Latest telemetry release gate: browser gate passed with health latency `295 ms` and developer latency `820 ms`; evidence-ledger and hull E2E tests passed `2/2`.
 
+Latest verified production workflow (2026-09-26): browser quality gate passed; golden task `contract -> storyboard -> preview -> command diff -> delivery verification -> approval room -> replay` completed in `1618 ms`. The first preview response was `255 ms`, within the `60,000 ms` SLA. The benchmark manifest validator passed for the documented OSGARD run. This is evidence for OSGARD only; comparable external Lovable, Bolt, and Tilda runs have not yet been captured and must not be claimed as completed.
+
 Durability verification: `npm run test:blueprint-store-recovery` passed, including recovery from a deliberately corrupted but syntactically valid primary snapshot. The gate is now part of the package scripts for CI and release checks.
 
 The production service was active on the last release, the Next build was present, and the previous checkout was retained at `/opt/osgard-platform/backup-before-ddc3a25f`.
 
 ## Release history
+
+- `c1f7ef75` Recheck selected infrastructure adapters at codegen time.
+- `64583e6c` Verify selected infrastructure adapters before codegen.
+- `e48c90ea` Surface DNS, Supabase, and adapter delivery gates in the quality ledger.
+- `2c6202bc` Add in-product delivery verification retry without a page reload.
+- `80b4684b` Gate delivery on current DNS/Supabase verification evidence.
+- `8b4d08bf` Prevent provider-readiness cache leakage outside the authenticated response.
+- `84cd1d58` Cache provider readiness probes and prevent probe stampedes.
 
 - `f4d48170` Persist typed product intent in blueprints and bind it to contract hashes.
 
