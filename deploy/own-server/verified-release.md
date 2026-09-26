@@ -9,6 +9,11 @@ sudo /opt/osgard-platform/current/deploy/own-server/verified-release.sh origin/m
 ```
 
 The script accepts only a commit reachable from `origin/main`, rebuilds before
-restart, verifies the local health endpoint, and restores the previous commit
-when any guarded step fails. It writes commit transition metadata to
+restart, verifies the local health endpoint three times across a post-restart
+canary window, and restores the previous commit when any guarded step fails.
+It writes commit transition metadata to
 `/opt/osgard-platform/releases/verified-release.log`; secrets are never logged.
+
+This is a post-restart canary, not blue/green traffic splitting. Use
+`OSGARD_CANARY_ATTEMPTS` and `OSGARD_CANARY_INTERVAL_SECONDS` to tune the
+window; a real traffic canary requires separate upstream instances.

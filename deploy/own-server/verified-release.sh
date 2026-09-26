@@ -6,6 +6,8 @@ set -euo pipefail
 ROOT="${OSGARD_RELEASE_ROOT:-/opt/osgard-platform/current}"
 SERVICE="${OSGARD_WEB_SERVICE:-osgard-web.service}"
 HEALTH_URL="${OSGARD_HEALTH_URL:-http://127.0.0.1:3000/api/health}"
+CANARY_ATTEMPTS="${OSGARD_CANARY_ATTEMPTS:-3}"
+CANARY_INTERVAL_SECONDS="${OSGARD_CANARY_INTERVAL_SECONDS:-5}"
 TARGET="${1:-origin/main}"
 
 if [[ "$(id -u)" -ne 0 ]]; then
@@ -14,6 +16,10 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 if [[ ! -d "$ROOT/.git" ]]; then
   echo "Refusing release: invalid checkout root." >&2
+  exit 1
+fi
+if ! [[ "$CANARY_ATTEMPTS" =~ ^[1-9][0-9]*$ ]] || ! [[ "$CANARY_INTERVAL_SECONDS" =~ ^[0-9]+$ ]]; then
+  echo "Refusing release: invalid canary settings." >&2
   exit 1
 fi
 
@@ -40,9 +46,12 @@ npm ci
 npm run build
 systemctl restart "$SERVICE"
 systemctl is-active --quiet "$SERVICE"
-curl --fail --silent --show-error --max-time 15 "$HEALTH_URL" >/dev/null
+for ((attempt = 1; attempt <= CANARY_ATTEMPTS; attempt++)); do
+  curl --fail --silent --show-error --max-time 15 "$HEALTH_URL" >/dev/null
+  if (( attempt < CANARY_ATTEMPTS )); then sleep "$CANARY_INTERVAL_SECONDS"; fi
+done
 
 mkdir -p /opt/osgard-platform/releases
 printf '%s %s %s\n' "$(date -u +%FT%TZ)" "$previous" "$target_sha" >> /opt/osgard-platform/releases/verified-release.log
 trap - ERR
-echo "Released ${target_sha}; health check passed."
+echo "Released ${target_sha}; ${CANARY_ATTEMPTS} post-restart health checks passed."
