@@ -13,6 +13,8 @@ const checks = [
   ["canvas bulk actions have a named toolbar", "components/cofounder/BlueprintCanvas.tsx", "aria-label=\"Bulk canvas actions\""],
   ["canvas selection announces changes", "components/cofounder/BlueprintCanvas.tsx", "aria-live=\"polite\""],
   ["canvas block actions are named", "components/cofounder/BlueprintCanvas.tsx", "aria-label={`Move ${slot.role} earlier`}"],
+  ["canvas preview modes are named", "components/cofounder/BlueprintCanvas.tsx", "aria-label=\"Desktop preview\""],
+  ["theme toggle has a tooltip", "components/design-system/PresetSwitcher.tsx", "title={themeAction}"],
 ]
 for (const [name, file, needle] of checks) {
   const text = await readFile(join(root, file), "utf8")

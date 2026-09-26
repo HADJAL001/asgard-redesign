@@ -125,6 +125,8 @@ export function BlueprintCanvas({
             className="ds-focus"
             aria-pressed={viewport === "desktop"}
             onClick={() => setViewport("desktop")}
+            aria-label="Desktop preview"
+            title="Desktop preview (1440px)"
           >
             <Monitor size={15} aria-hidden="true" />
           </button>
@@ -133,6 +135,8 @@ export function BlueprintCanvas({
             className="ds-focus"
             aria-pressed={viewport === "mobile"}
             onClick={() => setViewport("mobile")}
+            aria-label="Mobile preview"
+            title="Mobile preview (390px)"
           >
             <Smartphone size={15} aria-hidden="true" />
           </button>
@@ -155,6 +159,7 @@ export function BlueprintCanvas({
                   onClick={undo}
                   disabled={!past.length}
                   aria-label="Undo"
+                  title="Undo last canvas change"
                 >
                   <Undo2 size={13} />
                 </button>
@@ -164,6 +169,7 @@ export function BlueprintCanvas({
                   onClick={redo}
                   disabled={!future.length}
                   aria-label="Redo"
+                  title="Redo canvas change"
                 >
                   <Redo2 size={13} />
                 </button>
