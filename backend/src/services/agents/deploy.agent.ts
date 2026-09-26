@@ -3,6 +3,7 @@ import { deployToVercel } from "../integrations/vercel"
 import { createGitHubRepo } from "../integrations/github"
 import { generateDockerfile } from "../integrations/docker"
 import { captureError } from "../../lib/sentry"
+import { verifyBuildInSandbox } from "../sandbox.service"
 import type { DeployAgentInput, DeployArtifact, GeneratedFile } from "./types"
 
 /* ================================================================
@@ -45,6 +46,15 @@ export class DeployAgent extends BaseAgent<DeployAgentInput, DeployArtifact> {
 
     const { files, dockerfile } = ensureDockerfile(input.files, input.projectName)
 
+    const sandbox = await verifyBuildInSandbox(files, { profile: "fullstack", logLabel: `generated-${input.projectName}` })
+    const sandboxStatus = sandbox.skipped ? "unavailable" as const : sandbox.timedOut ? "timeout" as const : sandbox.ok ? "passed" as const : "failed" as const
+    const rawLog = sandbox.logs.replace(/[\r\n\t]+/g, " ")
+    const logTail = rawLog.replace(/(api[_-]?key|token|secret|password)\s*[=:]\s*[^\s,;]+/gi, "$1=[REDACTED]").slice(-800)
+    const sandboxProvenance = { status: sandboxStatus, exitCode: sandbox.skipped ? null : sandbox.ok ? 0 : 1, timedOut: sandbox.timedOut, durationMs: sandbox.durationMs, ...(logTail ? { logTail } : {}) }
+    if (sandboxStatus !== "passed") {
+      return { type: "deployed", appUrl: null, repoUrl: null, dockerfile, source: "fallback", sandbox: sandboxProvenance }
+    }
+
     const [appUrl, repoUrl] = await Promise.all([
       deployToVercel(files, input.projectName).catch((err) => {
         captureError("[deploy-agent] Vercel deploy failed:", err)
@@ -62,6 +72,7 @@ export class DeployAgent extends BaseAgent<DeployAgentInput, DeployArtifact> {
       repoUrl,
       dockerfile,
       source: appUrl && repoUrl ? "live" : "fallback",
+      sandbox: sandboxProvenance,
     }
   }
 }

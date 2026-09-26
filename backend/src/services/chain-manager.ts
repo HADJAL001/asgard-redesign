@@ -80,7 +80,10 @@ function releaseSlot() {
 function rowToStatus(row: any): TaskStatus {
   let input: any = null
   try { input = JSON.parse(row.input || "{}") } catch { input = null }
+  let result: any = undefined
+  try { result = row.result ? JSON.parse(row.result) : undefined } catch { result = undefined }
   const delivery = input?.delivery && typeof input.delivery === "object" ? input.delivery as DeliveryTarget : undefined
+  const sandbox = result?.deploy?.sandbox && typeof result.deploy.sandbox === "object" ? result.deploy.sandbox : undefined
   return {
     taskId: row.id,
     userId: String(row.user_id),
@@ -89,8 +92,9 @@ function rowToStatus(row: any): TaskStatus {
     currentStep: row.current_step,
     ...(delivery ? { delivery } : {}),
     artifacts: JSON.parse(row.artifacts),
-    result: row.result ? JSON.parse(row.result) : undefined,
+    result,
     error: row.error ?? undefined,
+    ...(sandbox ? { sandbox } : {}),
   }
 }
 

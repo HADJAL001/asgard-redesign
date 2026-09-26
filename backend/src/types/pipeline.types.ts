@@ -47,6 +47,7 @@ export interface TaskStatus {
     previewUrl?: string
   }
   error?: string
+  sandbox?: { status: "passed" | "failed" | "timeout" | "unavailable"; exitCode: number | null; timedOut: boolean; durationMs: number; logTail?: string }
 }
 
 export interface AgentContext {

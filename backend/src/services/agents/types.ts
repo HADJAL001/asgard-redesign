@@ -113,6 +113,7 @@ export interface DeployArtifact {
   /** "fallback" — нет токена/сетевая ошибка на любом из шагов (appUrl и/или repoUrl уйдут в null),
    *  а не выдуманный URL: вызывающий код не должен путать это с успешным деплоем. */
   source: "live" | "fallback"
+  sandbox?: { status: "passed" | "failed" | "timeout" | "unavailable"; exitCode: number | null; timedOut: boolean; durationMs: number; logTail?: string }
 }
 
 export type AgentArtifact = BackendArtifact | TestArtifact | OptimizedArtifact | SecurityReport | DeployArtifact
