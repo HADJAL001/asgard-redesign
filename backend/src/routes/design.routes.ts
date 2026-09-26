@@ -56,21 +56,28 @@ import { explainDesignQuality } from "../lib/design-qa"
    ================================================================ */
 
 const router = Router()
+type PublicProviderReadiness = { checkedAt: number; providers: Record<string, { role: string; configured: boolean; available: boolean }> }
+let providerReadinessCache: { expiresAt: number; value: PublicProviderReadiness } | null = null
+let providerReadinessInFlight: Promise<PublicProviderReadiness> | null = null
 
 /**
  * Authenticated operational status for the three product lanes. This deliberately
  * exposes no key material, endpoint, raw provider payload, or account metadata.
  */
 router.get("/provider-readiness", requireAuth, asyncHandler(async (_req: AuthRequest, res) => {
-  const [claude, openai, gemini] = await Promise.all([probeClaude(), probeOpenAi(), probeGemini()])
-  res.json({
+  const now = Date.now()
+  if (providerReadinessCache && providerReadinessCache.expiresAt > now) return res.json(providerReadinessCache.value)
+  providerReadinessInFlight ??= Promise.all([probeClaude(), probeOpenAi(), probeGemini()]).then(([claude, openai, gemini]) => ({
     checkedAt: Date.now(),
     providers: {
       claude: { role: "architect-reviewer", configured: claude.configured, available: claude.available },
       openai: { role: "builder-repair", configured: openai.configured, available: openai.available },
       gemini: { role: "interview-triage", configured: gemini.configured, available: gemini.available },
     },
-  })
+  })).finally(() => { providerReadinessInFlight = null })
+  const value = await providerReadinessInFlight
+  providerReadinessCache = { value, expiresAt: Date.now() + 30_000 }
+  res.json(value)
 }))
 
 const BLUEPRINT_COMPONENTS = new Set(["app-shell", "hero", "bento-grid", "form-wizard", "preview-frame", "cinematic-sequence"])
