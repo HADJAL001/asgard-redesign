@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-26
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Runtime implementation release:** `30f36288`
+**Runtime implementation release:** `7f8d5635`
 
 ## Executive status
 
@@ -37,6 +37,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - AI Cofounder and Mission Replay are isolated command-deck views: the global economy footer is intentionally omitted, and the browser gate fails if it returns.
 - The primary contract action is visible above the fold; Canvas multi-select exposes keyboard listbox semantics, Enter/Space selection, and a visible gold focus ring.
 - Product Graph projection links the tenant-scoped idea, ProductContract revisions, evidence, delivery policy, and generation state transitions; Mission Replay exposes the linked records without evidence tokens.
+- Error Intelligence is now part of every Cofounder revision: `GET /api/design/blueprint/:id/diagnostics` returns tenant-bound findings with fingerprint, category, severity, confidence, source, contract hash, and a bounded next action. It blocks high-risk states, permits only deterministic auto-repair classes (maximum three attempts), and routes medium/high-risk changes back through explainable diff, evidence, and approval.
 
 ### Contract, evidence, and generation lifecycle
 
@@ -124,6 +125,8 @@ Latest telemetry allowlist release (2026-09-26): `91ad9576` deployed to `osgard-
 
 Latest benchmark-gate release (2026-09-26): `30f36288` makes `npm run validate:competitor-benchmark` reproducible without a manual argument and validates task budgets, evidence coverage, axe-violation integer values, and binary task success. Production golden task passed in `2458 ms` with preview in `279 ms`; browser quality gate passed with health latency `332 ms` and Developer Quality Cockpit latency `719 ms`. The benchmark currently contains an OSGARD run only; competitor runs remain explicitly unclaimed until captured with equivalent evidence.
 
+Latest Error Intelligence release (2026-09-26): `7f8d5635` deployed the tenant-bound diagnostics surface and its browser assertion. Next build completed on the production checkout, `osgard-web.service` is active, health returned `200`, and the browser gate passed with health latency `275 ms` and Developer Quality Cockpit latency `652 ms`.
+
 Latest expanded golden workflow (2026-09-26): all three natural-language commands passed, the density command created revision 2, and the complete contract -> storyboard -> preview -> commands -> delivery verification -> approval room -> replay flow completed in `1904 ms`.
 
 Durability verification: `npm run test:blueprint-store-recovery` passed, including recovery from a deliberately corrupted but syntactically valid primary snapshot. The gate is now part of the package scripts for CI and release checks.
@@ -134,6 +137,7 @@ The production service was active on the last release, the Next build was presen
 
 - `91ad9576` Add complete command, delivery, and voice analytics allowlist coverage.
 - `30f36288` Make the competitor benchmark validator a reproducible quality gate.
+- `7f8d5635` Add evidence-backed Error Intelligence diagnostics to Cofounder revisions.
 
 - `02335dcc` Add visible keyboard focus treatment to Canvas blocks.
 - `7940fa15` Make Canvas multi-select keyboard accessible.
