@@ -544,10 +544,11 @@ export function CofounderConsole() {
       <CosmicCursor />
       <section className="ds-hull ds-glass" style={{ padding: "clamp(1.25rem, 4vw, 3rem)", display: "flex", justifyContent: "space-between", gap: "2rem", alignItems: "end" }}>
         <div>
-          <span className="ds-utility"><Radar size={14} /> AI COFOUNDER / COMMAND DECK</span>
-          <h1 className="ds-display" style={{ fontSize: "clamp(2rem, 6vw, 5rem)", margin: ".5rem 0" }}>AI Cofounder</h1>
-          <p style={{ color: "var(--ds-muted)" }}>Контракты продукта, доказательства и ручные согласования в одном контуре.</p>
-        </div>
+           <span className="ds-utility"><Radar size={14} /> AI COFOUNDER / COMMAND DECK</span>
+           <h1 className="ds-display" style={{ fontSize: "clamp(2rem, 6vw, 5rem)", margin: ".5rem 0" }}>AI Cofounder</h1>
+           <p style={{ color: "var(--ds-muted)" }}>Контракты продукта, доказательства и ручные согласования в одном контуре.</p>
+           <button type="button" className="ds-liquid-gold ds-interactive ds-focus" style={{ marginTop: "1.25rem" }} onClick={() => setOpen(true)} aria-haspopup="dialog" data-primary-action="create-contract" title="Open the product brief and start a verified blueprint"><Gem size={17} aria-hidden="true" /> Создать контракт</button>
+         </div>
         <PresetSwitcher />
       </section>
       <MemoryLayerRail counts={{ Atomic: 12, Semantic: 8, Episodic: 4, Procedural: 3 }} />

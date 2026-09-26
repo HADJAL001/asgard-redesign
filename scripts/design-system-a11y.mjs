@@ -16,6 +16,7 @@ const checks = [
   ["canvas preview modes are named", "components/cofounder/BlueprintCanvas.tsx", "aria-label=\"Desktop preview\""],
   ["theme toggle has a tooltip", "components/design-system/PresetSwitcher.tsx", "title={themeAction}"],
   ["delivery wizard links to integrations", "components/cofounder/CofounderConsole.tsx", "href=\"/integrations\" target=\"_blank\""],
+  ["cofounder has a first-screen primary action", "components/cofounder/CofounderConsole.tsx", "data-primary-action=\"create-contract\""],
 ]
 for (const [name, file, needle] of checks) {
   const text = await readFile(join(root, file), "utf8")
