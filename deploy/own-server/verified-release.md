@@ -1,0 +1,14 @@
+# Verified production release
+
+`verified-release.sh` is the only release helper for `osgardnewworld.com`.
+It runs on `84.46.244.117` from `/opt/osgard-platform/current` and only touches
+`osgard-web.service`.
+
+```bash
+sudo /opt/osgard-platform/current/deploy/own-server/verified-release.sh origin/main
+```
+
+The script accepts only a commit reachable from `origin/main`, rebuilds before
+restart, verifies the local health endpoint, and restores the previous commit
+when any guarded step fails. It writes commit transition metadata to
+`/opt/osgard-platform/releases/verified-release.log`; secrets are never logged.
