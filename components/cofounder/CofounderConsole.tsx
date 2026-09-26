@@ -36,6 +36,8 @@ const evidenceLabels: Record<string, string> = {
   a11y: "Accessibility",
   "visual-diff": "Visual regression",
   deploy: "Deployment check",
+  "dns-verification": "DNS verification",
+  "supabase-verification": "Supabase verification",
 }
 
 const starterMissions = [
