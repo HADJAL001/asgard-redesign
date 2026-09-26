@@ -70,6 +70,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Diagnostics history now preserves sandbox status, exit code, duration, timeout, and verification state for every recheck; browser gate passed against release `12d14443` (health 327 ms, developer route 1023 ms).
 - Latest golden-task benchmark passed in `1933 ms`: contract, storyboard, live preview SLA, explainable diff, natural-language commands, delivery wizard/verification, approval room, and replay all passed.
 - Production remains synchronized at `5d0d571f`; public `/api/health` returned HTTP 200 after the release. A direct SSH localhost probe may exceed its timeout while the public Nginx route remains healthy.
+- End-to-end verification (2026-09-27): golden workflow passed in `2186 ms`; browser gate passed with health `285 ms` and developer route `538 ms`; backend suite passed `773/775` with zero failures; analytics and static accessibility gates passed.
 
 ### Tenant isolation and delivery policy
 
