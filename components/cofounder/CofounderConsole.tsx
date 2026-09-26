@@ -62,6 +62,7 @@ export function CofounderConsole() {
   const [deliveryIntegrations, setDeliveryIntegrations] = useState<DeliveryIntegration[]>([])
   const [selectedIntegrationIds, setSelectedIntegrationIds] = useState<number[]>([])
   const [deliveryPreflight, setDeliveryPreflight] = useState<DeliveryPreflight | null>(null)
+  const [verifyingDelivery, setVerifyingDelivery] = useState(false)
   const [modelReadiness, setModelReadiness] = useState<ModelReadiness | null>(null)
   const [interviewQuestions, setInterviewQuestions] = useState(defaultInterviewQuestions)
   const [commandText, setCommandText] = useState("")
@@ -222,6 +223,29 @@ export function CofounderConsole() {
       await loadEvidence(compileResult.id)
     } finally {
       setRefreshingEvidence(false)
+    }
+  }
+
+  async function verifyDelivery() {
+    if (!compileResult?.evidenceToken) return
+    setVerifyingDelivery(true)
+    setCompileError(null)
+    try {
+      const response = await fetch(`/api/design/blueprint/${compileResult.id}/delivery/verify`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ revision: compileResult.revision, evidenceToken: compileResult.evidenceToken }),
+        cache: "no-store",
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !Array.isArray(data?.checks)) throw new Error("Delivery verification is temporarily unavailable")
+      setDeliveryPreflight(data as DeliveryPreflight)
+      await loadEvidence(compileResult.id)
+      track("blueprint_delivery_verified", { blueprintId: compileResult.id, revision: compileResult.revision, ready: Boolean(data.ready) })
+    } catch (error) {
+      setCompileError(error instanceof Error ? error.message : "Delivery verification is temporarily unavailable")
+    } finally {
+      setVerifyingDelivery(false)
     }
   }
 
@@ -558,7 +582,7 @@ export function CofounderConsole() {
         <form onSubmit={submitContract} aria-busy={submitting}>
           {compileResult && qualityState && !qualityState.delivery ? <p className="ds-dialog-error" role="status">Choose a delivery target before code generation can start.</p> : null}
           <fieldset className="ds-field" style={{ border: 0, padding: 0, margin: 0 }}><legend className="ds-utility">DELIVERY TARGET</legend><div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: ".65rem" }}><label>Provider<select value={deliveryProvider} onChange={(event) => setDeliveryProvider(event.target.value as DeliveryProvider)}><option value="osgard-cluster">OSGARD Cluster</option><option value="vercel">Vercel</option><option value="netlify">Netlify</option><option value="custom">Custom server</option></select></label><label>Domain (optional)<input value={deliveryDomain} onChange={(event) => setDeliveryDomain(event.target.value)} placeholder="app.example.com" inputMode="url" /></label><label>Supabase project ref (optional)<input value={supabaseProjectRef} onChange={(event) => setSupabaseProjectRef(event.target.value)} placeholder="abcdefghijklmnop" autoComplete="off" /></label></div><small className="ds-field-hint">Connect Cloudflare, hosting and Supabase credentials in Integrations. This wizard stores only public references and never stores secrets.</small>{deliveryIntegrations.length ? <div className="ds-delivery-integrations" aria-label="Connected delivery integrations"><span className="ds-utility">CONNECTED ADAPTERS</span>{deliveryIntegrations.filter((item) => ["cloudflare", "supabase-management", "vercel", "netlify", "hostinger", "contabo"].includes(item.connectorId)).map((item) => <label key={item.id}><input type="checkbox" checked={selectedIntegrationIds.includes(item.id)} onChange={(event) => setSelectedIntegrationIds((ids) => event.target.checked ? [...ids, item.id] : ids.filter((id) => id !== item.id))} /><span>{item.connectorName} · {item.name}</span><small data-status={item.lastTestStatus || "untested"}>{item.lastTestStatus || "untested"}</small></label>)}</div> : <small className="ds-field-hint">No domain or infrastructure adapter is connected yet. Open Integrations to connect one, then return here.</small>}</fieldset>
-          {deliveryPreflight ? <section className="ds-dialog-result" aria-label="Delivery preflight"><strong>{deliveryPreflight.ready ? "Delivery target saved" : "Delivery target needs attention"}</strong>{deliveryPreflight.checks.map((check) => <small key={check.id} data-status={check.status}>{check.label}</small>)}</section> : null}
+          {deliveryPreflight ? <section className="ds-dialog-result" aria-label="Delivery preflight"><strong>{deliveryPreflight.ready ? "Delivery target verified" : "Delivery target needs attention"}</strong>{deliveryPreflight.checks.map((check) => <small key={check.id} data-status={check.status}>{check.label}</small>)}{compileResult ? <button type="button" className="ds-dialog-secondary ds-focus" onClick={() => void verifyDelivery()} disabled={verifyingDelivery}>{verifyingDelivery ? "Проверяем delivery…" : "Проверить снова"}</button> : null}</section> : null}
           {compileResult && (compileResult.aiSummary || compileResult.aiComponents?.length || compileResult.aiRisks?.length) ? <section className="ds-dialog-result" aria-label="AI architecture signal"><strong>AI architecture signal</strong>{compileResult.aiSummary ? <span>{compileResult.aiSummary}</span> : null}{compileResult.aiComponents?.length ? <small>Selected components: {compileResult.aiComponents.join(", ")}</small> : null}{compileResult.aiRisks?.length ? <small>Risks to review: {compileResult.aiRisks.join("; ")}</small> : null}</section> : null}
           <label className="ds-field">Название<input required value={contractName} onChange={(event) => setContractName(event.target.value)} placeholder="Например, кабинет партнёра" /></label>
           <section className="ds-brief-starters" aria-labelledby="starter-missions-title"><div className="ds-brief-starters__head"><Lightbulb size={15} aria-hidden="true" /><span id="starter-missions-title" className="ds-utility">STARTER MISSIONS</span><small>Начните с готового вектора</small></div><div className="ds-brief-starters__grid">{starterMissions.map((mission) => <button key={mission.id} type="button" className="ds-brief-starter ds-focus" onClick={() => chooseStarterMission(mission)} aria-label={`Use starter mission: ${mission.label}`} title="Fill the brief with this starting direction"><strong>{mission.label}</strong><span>{mission.brief}</span></button>)}</div></section>
