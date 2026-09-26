@@ -66,6 +66,7 @@ let providerReadinessInFlight: Promise<PublicProviderReadiness> | null = null
  */
 router.get("/provider-readiness", requireAuth, asyncHandler(async (_req: AuthRequest, res) => {
   const now = Date.now()
+  res.setHeader("Cache-Control", "private, no-store")
   if (providerReadinessCache && providerReadinessCache.expiresAt > now) return res.json(providerReadinessCache.value)
   providerReadinessInFlight ??= Promise.all([probeClaude(), probeOpenAi(), probeGemini()]).then(([claude, openai, gemini]) => ({
     checkedAt: Date.now(),
