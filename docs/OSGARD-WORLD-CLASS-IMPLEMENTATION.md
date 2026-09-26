@@ -66,6 +66,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Browser quality gate passed: a11y, visual diff, deploy, replay, and social preview.
 - Measured gate latency: frontend health 296 ms; developer route 895 ms.
 - Backend health returned HTTP 200. No authenticated production generation task was run in this release, so Docker sandbox execution is implemented and gated but not claimed as production-observed evidence.
+- Backend verification suite: 775 tests collected, 773 passed, 0 failed, and 2 intentionally skipped.
 
 ### Tenant isolation and delivery policy
 
