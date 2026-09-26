@@ -17,6 +17,14 @@ type ArtifactSealInput = {
   result: Record<string, string>
 }
 
+const MIN_SIGNING_KEY_BYTES = 32
+
+/** A blank or short key must never turn an artifact into verified evidence. */
+export function artifactSigningKey(): string | null {
+  const key = process.env.ARTIFACT_SIGNING_KEY?.trim()
+  return key && Buffer.byteLength(key, "utf8") >= MIN_SIGNING_KEY_BYTES ? key : null
+}
+
 function canonicalize(input: ArtifactSealInput): string {
   return JSON.stringify({
     blueprintId: input.blueprintId,
@@ -29,7 +37,7 @@ function canonicalize(input: ArtifactSealInput): string {
 }
 
 export function createArtifactSeal(input: ArtifactSealInput, signedAt = new Date().toISOString()): ArtifactSeal | null {
-  const key = process.env.ARTIFACT_SIGNING_KEY?.trim()
+  const key = artifactSigningKey()
   if (!key) return null
   const canonical = canonicalize(input)
   const digest = crypto.createHash("sha256").update(canonical).digest("hex")
@@ -38,7 +46,7 @@ export function createArtifactSeal(input: ArtifactSealInput, signedAt = new Date
 }
 
 export function verifyArtifactSeal(input: ArtifactSealInput, seal: ArtifactSeal): boolean {
-  const key = process.env.ARTIFACT_SIGNING_KEY?.trim()
+  const key = artifactSigningKey()
   if (!key || seal.algorithm !== "HMAC-SHA256" || seal.signer !== "osgard-web") return false
   const digest = crypto.createHash("sha256").update(canonicalize(input)).digest("hex")
   const expected = crypto.createHmac("sha256", key).update(`${digest}.${seal.signedAt}`).digest("hex")

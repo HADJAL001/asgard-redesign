@@ -14,7 +14,7 @@ const input = {
 
 test("artifact seal is verifiable and bound to the complete generation identity", () => {
   const previous = process.env.ARTIFACT_SIGNING_KEY
-  process.env.ARTIFACT_SIGNING_KEY = "unit-test-artifact-key"
+  process.env.ARTIFACT_SIGNING_KEY = "unit-test-artifact-key-with-32-bytes"
   const seal = createArtifactSeal(input, "2026-09-26T00:00:00.000Z")
   assert.ok(seal)
   assert.equal(verifyArtifactSeal(input, seal), true)
@@ -28,6 +28,14 @@ test("artifact seal is verifiable and bound to the complete generation identity"
 test("missing signing configuration never reports a signed artifact", () => {
   const previous = process.env.ARTIFACT_SIGNING_KEY
   delete process.env.ARTIFACT_SIGNING_KEY
+  assert.equal(createArtifactSeal(input), null)
+  if (previous === undefined) delete process.env.ARTIFACT_SIGNING_KEY
+  else process.env.ARTIFACT_SIGNING_KEY = previous
+})
+
+test("short signing configuration never reports a signed artifact", () => {
+  const previous = process.env.ARTIFACT_SIGNING_KEY
+  process.env.ARTIFACT_SIGNING_KEY = "too-short"
   assert.equal(createArtifactSeal(input), null)
   if (previous === undefined) delete process.env.ARTIFACT_SIGNING_KEY
   else process.env.ARTIFACT_SIGNING_KEY = previous
