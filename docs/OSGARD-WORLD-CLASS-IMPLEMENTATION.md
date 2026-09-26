@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-26
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Runtime implementation release:** `e2698c8e`
+**Runtime implementation release:** `7ca40a61`
 
 ## Executive status
 
@@ -42,6 +42,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Error Intelligence runs are now durable and tenant-bound in `.data/blueprint-error-runs.json`, capped at 100 runs per blueprint and pruned with the blueprint lifecycle. Mission diagnostics returns a bounded history so regressions and verified improvements can be compared across rechecks.
 - The existing backend Docker sandbox remains the execution boundary for generated code; ErrorRun persistence is the control-plane foundation that will attach sandbox exit code, timeout, redacted logs, and signed artifact references to the same revision instead of creating a parallel executor.
 - Diagnostics now includes a sandbox phase: failed generation is a high-severity blocking finding, while a completed result must verify its HMAC artifact seal against tenant, revision, contract hash, task ID, and result URLs. Unsigned or tampered completion cannot be treated as trusted delivery evidence.
+- Error Intelligence exposes sandbox provenance directly in the Cofounder panel: status, exit code, duration, and cryptographic verification are visible for every completed generation; the browser gate asserts the fresh blueprint `not-run` baseline.
 - Generation state accepts an explicit sandbox provenance envelope (`status`, `exitCode`, `timedOut`, `durationMs`, redacted log tail). Secrets are removed and logs are capped at 800 characters; completed results without verified sandbox metadata are marked blocking `sandbox.result-unverified` rather than being presented as trusted.
 - The backend `DeployAgent` now invokes the existing Docker `verifyBuildInSandbox` before Vercel/GitHub adapters. Failed, timed-out, or skipped builds return fallback with sandbox provenance and do not publish. `GET /task/:taskId` exposes the sanitized envelope at top level for the Cofounder generation bridge.
 
@@ -58,6 +59,13 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Retention cleanup removes evidence and tokens when a blueprint falls outside the bounded store, preventing unbounded `.data` growth and stale-token reuse.
 - Blueprint, evidence, and token snapshots are flushed with `fsync` before atomic rename, reducing data loss risk during process or host interruption.
 - Each artifact keeps a previous durable `.bak` snapshot and falls back to it on parse or semantic validation failure instead of silently returning an empty store.
+
+### Latest production verification
+
+- Release `7ca40a61` built successfully on the production host and `osgard-web.service` is active.
+- Browser quality gate passed: a11y, visual diff, deploy, replay, and social preview.
+- Measured gate latency: frontend health 296 ms; developer route 895 ms.
+- Backend health returned HTTP 200. No authenticated production generation task was run in this release, so Docker sandbox execution is implemented and gated but not claimed as production-observed evidence.
 
 ### Tenant isolation and delivery policy
 
