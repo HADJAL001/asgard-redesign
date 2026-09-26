@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-26
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Runtime implementation release:** `91ad9576`
+**Runtime implementation release:** `30f36288`
 
 ## Executive status
 
@@ -122,6 +122,8 @@ Latest command-deck regression gate (2026-09-26): the global footer exclusion pa
 
 Latest telemetry allowlist release (2026-09-26): `91ad9576` deployed to `osgard-web.service`; public health returned HTTP `200`, the command-example telemetry contract returned HTTP `204`, and the browser quality gate passed with health latency `281 ms` and Developer Quality Cockpit latency `617 ms`. Visual baseline remained `9e88b2bdff7bda45e6eb4e7bb3cff89cebc2678b0b6229ac82f553239c597df6`.
 
+Latest benchmark-gate release (2026-09-26): `30f36288` makes `npm run validate:competitor-benchmark` reproducible without a manual argument and validates task budgets, evidence coverage, axe-violation integer values, and binary task success. Production golden task passed in `2458 ms` with preview in `279 ms`; browser quality gate passed with health latency `332 ms` and Developer Quality Cockpit latency `719 ms`. The benchmark currently contains an OSGARD run only; competitor runs remain explicitly unclaimed until captured with equivalent evidence.
+
 Latest expanded golden workflow (2026-09-26): all three natural-language commands passed, the density command created revision 2, and the complete contract -> storyboard -> preview -> commands -> delivery verification -> approval room -> replay flow completed in `1904 ms`.
 
 Durability verification: `npm run test:blueprint-store-recovery` passed, including recovery from a deliberately corrupted but syntactically valid primary snapshot. The gate is now part of the package scripts for CI and release checks.
@@ -131,6 +133,7 @@ The production service was active on the last release, the Next build was presen
 ## Release history
 
 - `91ad9576` Add complete command, delivery, and voice analytics allowlist coverage.
+- `30f36288` Make the competitor benchmark validator a reproducible quality gate.
 
 - `02335dcc` Add visible keyboard focus treatment to Canvas blocks.
 - `7940fa15` Make Canvas multi-select keyboard accessible.
