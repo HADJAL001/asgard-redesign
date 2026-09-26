@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-26
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Runtime implementation release:** `a26f4fd4`
+**Runtime implementation release:** `71ff0853`
 
 ## Executive status
 
@@ -41,6 +41,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Error Intelligence now runs a reproducible phase scan (`contract`, `evidence`, `delivery`, `approval`) with stable fingerprints, blocking state, evidence references, and `POST .../diagnostics { action: "recheck" }` for an explicit fresh scan. Repair is proposal-only at this layer; no client request can execute arbitrary code.
 - Error Intelligence runs are now durable and tenant-bound in `.data/blueprint-error-runs.json`, capped at 100 runs per blueprint and pruned with the blueprint lifecycle. Mission diagnostics returns a bounded history so regressions and verified improvements can be compared across rechecks.
 - The existing backend Docker sandbox remains the execution boundary for generated code; ErrorRun persistence is the control-plane foundation that will attach sandbox exit code, timeout, redacted logs, and signed artifact references to the same revision instead of creating a parallel executor.
+- Diagnostics now includes a sandbox phase: failed generation is a high-severity blocking finding, while a completed result must verify its HMAC artifact seal against tenant, revision, contract hash, task ID, and result URLs. Unsigned or tampered completion cannot be treated as trusted delivery evidence.
 
 ### Contract, evidence, and generation lifecycle
 
@@ -134,6 +135,8 @@ Latest Error Intelligence hardening release (2026-09-26): `29d782d8` added phase
 
 Latest ErrorRun persistence release (2026-09-26): `a26f4fd4` added durable tenant-bound run history and lifecycle pruning. Production build completed, service health returned `200`, and the browser gate verified two distinct recheck snapshots for the same revision; health latency `299 ms`, Developer Quality Cockpit latency `736 ms`.
 
+Latest sandbox provenance release (2026-09-26): `71ff0853` added sandbox/artifact checks to Error Intelligence and browser-gate coverage for the sandbox phase. Production service is active, health returned `200`, and the full browser gate passed with health latency `267 ms` and Developer Quality Cockpit latency `714 ms`.
+
 Latest expanded golden workflow (2026-09-26): all three natural-language commands passed, the density command created revision 2, and the complete contract -> storyboard -> preview -> commands -> delivery verification -> approval room -> replay flow completed in `1904 ms`.
 
 Durability verification: `npm run test:blueprint-store-recovery` passed, including recovery from a deliberately corrupted but syntactically valid primary snapshot. The gate is now part of the package scripts for CI and release checks.
@@ -147,6 +150,7 @@ The production service was active on the last release, the Next build was presen
 - `7f8d5635` Add evidence-backed Error Intelligence diagnostics to Cofounder revisions.
 - `29d782d8` Harden Error Intelligence provenance and recheck semantics.
 - `a26f4fd4` Persist bounded Error Intelligence run history.
+- `71ff0853` Bind diagnostics to sandbox failures and artifact provenance.
 
 - `02335dcc` Add visible keyboard focus treatment to Canvas blocks.
 - `7940fa15` Make Canvas multi-select keyboard accessible.
