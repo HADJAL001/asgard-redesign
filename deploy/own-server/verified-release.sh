@@ -9,6 +9,7 @@ HEALTH_URL="${OSGARD_HEALTH_URL:-http://127.0.0.1:3000/api/health}"
 CANARY_ATTEMPTS="${OSGARD_CANARY_ATTEMPTS:-3}"
 CANARY_INTERVAL_SECONDS="${OSGARD_CANARY_INTERVAL_SECONDS:-5}"
 READINESS_TIMEOUT_SECONDS="${OSGARD_READINESS_TIMEOUT_SECONDS:-30}"
+ENV_FILE="${OSGARD_ENV_FILE:-/etc/osgard-platform/web.env}"
 TARGET="${1:-origin/main}"
 
 if [[ "$(id -u)" -ne 0 ]]; then
@@ -21,6 +22,15 @@ if [[ ! -d "$ROOT/.git" ]]; then
 fi
 if ! [[ "$CANARY_ATTEMPTS" =~ ^[1-9][0-9]*$ ]] || ! [[ "$CANARY_INTERVAL_SECONDS" =~ ^[0-9]+$ ]] || ! [[ "$READINESS_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
   echo "Refusing release: invalid canary settings." >&2
+  exit 1
+fi
+if [[ ! -f "$ENV_FILE" ]] || ! grep -qE '^ARTIFACT_SIGNING_KEY=.{32,}$' "$ENV_FILE"; then
+  echo "Refusing release: ARTIFACT_SIGNING_KEY is missing or too short." >&2
+  exit 1
+fi
+env_mode="$(stat -c '%a' "$ENV_FILE")"
+if (( 8#$env_mode & 007 )); then
+  echo "Refusing release: environment file must not be readable by group or others." >&2
   exit 1
 fi
 

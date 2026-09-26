@@ -19,3 +19,8 @@ This is a post-restart canary, not blue/green traffic splitting. Use
 window; a real traffic canary requires separate upstream instances.
 The first probe waits up to 30 seconds for Next.js readiness; configure this
 with `OSGARD_READINESS_TIMEOUT_SECONDS` when the host needs a different bound.
+
+Before touching the checkout, the script validates `ARTIFACT_SIGNING_KEY` in
+`/etc/osgard-platform/web.env`: the key must be at least 32 bytes and the file
+must not grant group or world read access. Override the path only with
+`OSGARD_ENV_FILE` on the production host.
