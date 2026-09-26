@@ -26,7 +26,7 @@ export type StoredBlueprint = {
   aiPlan?: { summary: string; components: string[]; risks: string[] }
   canvasSlots?: { id: string; component: string; role: string; states: string[] }[]
   approval?: { status: "approved"; approvedAt: string }
-  generation?: { taskId: string; status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; currentStep?: string; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string }; artifactSeal?: import("./artifact-seal").ArtifactSeal; updatedAt: string }
+  generation?: { taskId: string; status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; currentStep?: string; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string }; sandbox?: { status: "passed" | "failed" | "timeout" | "unavailable"; exitCode: number | null; timedOut: boolean; durationMs: number; logTail?: string }; artifactSeal?: import("./artifact-seal").ArtifactSeal; updatedAt: string }
   generationHistory?: NonNullable<StoredBlueprint["generation"]>[]
   delivery?: { provider: "osgard-cluster" | "vercel" | "netlify" | "custom"; domain?: string; supabaseProjectRef?: string; integrationIds?: number[]; updatedAt: string }
 }

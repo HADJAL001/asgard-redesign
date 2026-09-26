@@ -20,6 +20,21 @@ function safeResult(value: unknown) {
   return Object.keys(result).length ? result : undefined
 }
 
+function safeSandbox(value: unknown) {
+  const raw = value && typeof value === "object" ? value as Record<string, unknown> : null
+  if (!raw) return undefined
+  const exitCode = raw.exitCode === null ? null : Number(raw.exitCode)
+  const durationMs = Number(raw.durationMs)
+  if ((exitCode !== null && !Number.isInteger(exitCode)) || !Number.isFinite(durationMs) || durationMs < 0) return undefined
+  const timedOut = raw.timedOut === true
+  const status = raw.status === "passed" || raw.status === "failed" || raw.status === "timeout" || raw.status === "unavailable"
+    ? raw.status
+    : timedOut ? "timeout" : exitCode === 0 ? "passed" : "failed"
+  const rawLog = typeof raw.stderr === "string" ? raw.stderr : typeof raw.stdout === "string" ? raw.stdout : ""
+  const logTail = rawLog.replace(/[\r\n\t]+/g, " ").replace(/(api[_-]?key|token|secret|password)\s*[=:]\s*[^\s,;]+/gi, "$1=[REDACTED]").slice(-800)
+  return { status, exitCode, timedOut, durationMs: Math.round(durationMs), ...(logTail ? { logTail } : {}) } as NonNullable<StoredBlueprint["generation"]>["sandbox"]
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: "invalid_blueprint_id" }, { status: 400 })
@@ -51,17 +66,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!taskId || !statuses.has(status) || !Number.isFinite(progress)) return NextResponse.json({ error: "invalid_generation_state" }, { status: 400 })
   if (blueprint.generation?.taskId && blueprint.generation.taskId !== taskId) return NextResponse.json({ error: "generation_task_conflict" }, { status: 409 })
   let result = safeResult(body?.result)
+  let sandbox = safeSandbox(body?.sandbox)
   if (status === "completed") {
     if (!BACKEND_URL) return NextResponse.json({ error: "backend_unavailable" }, { status: 503 })
     const taskResponse = await fetch(`${BACKEND_URL}/task/${encodeURIComponent(taskId)}`, { headers: { authorization: `Bearer ${access}` }, cache: "no-store", signal: AbortSignal.timeout(10_000) }).catch(() => null)
     const task = taskResponse?.ok ? await taskResponse.json().catch(() => null) : null
     if (task?.status !== "completed") return NextResponse.json({ error: "generation_completion_not_verified" }, { status: 409 })
     result = safeResult(task.result)
+    sandbox = safeSandbox(task.sandbox)
   }
   const artifactSeal = status === "completed" && result && Object.keys(result).length
     ? createArtifactSeal({ blueprintId: id, tenantId, revision, contractHash: blueprint.contractHash || "", taskId, result })
     : null
-  const generation: NonNullable<StoredBlueprint["generation"]> = { taskId, status, progress: Math.min(100, Math.max(0, Math.round(progress))), ...(typeof body?.currentStep === "string" ? { currentStep: body.currentStep.slice(0, 160) } : {}), ...(typeof body?.error === "string" ? { error: body.error.slice(0, 500) } : {}), ...(result && Object.keys(result).length ? { result } : {}), ...(artifactSeal ? { artifactSeal } : {}), updatedAt: new Date().toISOString() }
+  const generation: NonNullable<StoredBlueprint["generation"]> = { taskId, status, progress: Math.min(100, Math.max(0, Math.round(progress))), ...(typeof body?.currentStep === "string" ? { currentStep: body.currentStep.slice(0, 160) } : {}), ...(typeof body?.error === "string" ? { error: body.error.slice(0, 500) } : {}), ...(result && Object.keys(result).length ? { result } : {}), ...(sandbox ? { sandbox } : {}), ...(artifactSeal ? { artifactSeal } : {}), updatedAt: new Date().toISOString() }
   updateBlueprintGeneration(id, revision, generation, tenantId)
   if (artifactSeal) {
     const summary = `Generation artifact sealed (${artifactSeal.digest.slice(0, 12)}…)`
