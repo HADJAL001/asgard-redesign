@@ -132,6 +132,10 @@ router.post("/blueprint/compile", rateLimit(60_000, 6, (req) => `blueprint-compi
     source = "openai"
   }
   if (!result) {
+    result = parseBlueprintAi(await callGeminiRaw(prompt, 700))
+    source = "gemini"
+  }
+  if (!result) {
     result = await callDeepSeek(prompt, (text) => parseBlueprintAi(text), "blueprint-compile", 700, system, 0.2)
     source = "deepseek"
   }
