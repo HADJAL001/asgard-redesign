@@ -9,6 +9,7 @@ const metrics = new Set(manifest.metrics)
 if (!results || typeof results !== "object" || !Array.isArray(results.runs)) throw new Error("results.runs must be an array")
 
 for (const run of results.runs) {
+  const task = manifest.tasks.find((candidate) => candidate.id === run?.taskId)
   if (!taskIds.has(run?.taskId)) throw new Error(`unknown task: ${run?.taskId}`)
   if (typeof run.provider !== "string" || !run.provider.trim()) throw new Error("provider is required")
   if (typeof run.evidenceUrl !== "string" || !/^https?:\/\//.test(run.evidenceUrl)) throw new Error(`${run.provider}: evidenceUrl is required`)
@@ -20,6 +21,15 @@ for (const run of results.runs) {
   }
   for (const required of ["firstPreviewMs", "workflowMs", "taskSuccess", "axeViolations", "evidenceCoverage"]) {
     if (!(required in run.metrics)) throw new Error(`${run.provider}: missing ${required}`)
+  }
+  if (![0, 1].includes(run.metrics.taskSuccess)) throw new Error(`${run.provider}: taskSuccess must be 0 or 1`)
+  if (!Number.isInteger(run.metrics.axeViolations)) throw new Error(`${run.provider}: axeViolations must be an integer`)
+  if (run.metrics.evidenceCoverage > 1) throw new Error(`${run.provider}: evidenceCoverage must be between 0 and 1`)
+  if (run.metrics.firstPreviewMs > task.budgets.firstPreviewMs) {
+    throw new Error(`${run.provider}: firstPreviewMs exceeds ${task.budgets.firstPreviewMs}ms budget`)
+  }
+  if (run.metrics.workflowMs > task.budgets.verifiedWorkflowMs) {
+    throw new Error(`${run.provider}: workflowMs exceeds ${task.budgets.verifiedWorkflowMs}ms budget`)
   }
 }
 

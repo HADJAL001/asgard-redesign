@@ -16,7 +16,7 @@
     "test:blueprint-store-recovery": "node --experimental-strip-types scripts/blueprint-store-recovery.mjs",
     "test:artifact-seal": "node --experimental-strip-types scripts/artifact-seal.test.mjs",
     "test:golden-tasks": "node scripts/golden-task-benchmark.mjs",
-    "validate:competitor-benchmark": "node scripts/validate-competitor-benchmark.mjs",
+    "validate:competitor-benchmark": "node scripts/validate-competitor-benchmark.mjs docs/competitor-benchmark-example.json",
     "lint:quality": "eslint app components lib scripts e2e --max-warnings=0",
     "start": "next start",
     "lint": "eslint .",
