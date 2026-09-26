@@ -19,6 +19,7 @@ const checks = [
   ["cofounder has a first-screen primary action", "components/cofounder/CofounderConsole.tsx", "data-primary-action=\"create-contract\""],
   ["canvas exposes keyboard multi-select", "components/cofounder/BlueprintCanvas.tsx", "aria-multiselectable=\"true\""],
   ["canvas options are keyboard focusable", "components/cofounder/BlueprintCanvas.tsx", "role=\"option\""],
+  ["canvas option focus is visible", "app/tokens.css", ".ds-blueprint-canvas__slot:focus-visible"],
 ]
 for (const [name, file, needle] of checks) {
   const text = await readFile(join(root, file), "utf8")
