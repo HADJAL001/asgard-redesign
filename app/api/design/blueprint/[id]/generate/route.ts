@@ -21,6 +21,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const missing = required.filter((kind) => latest.get(kind)?.revision !== blueprint.revision || latest.get(kind)?.contractHash !== blueprint.contractHash || latest.get(kind)?.status !== "passed")
   if (missing.length) return NextResponse.json({ error: "quality_evidence_required", missing }, { status: 409 })
   if (!blueprint.delivery) return NextResponse.json({ error: "delivery_policy_required" }, { status: 409 })
+  const deliveryEvidence: BlueprintEvidenceKind[] = [
+    ...(blueprint.delivery.domain ? ["dns-verification" as const] : []),
+    ...(blueprint.delivery.supabaseProjectRef ? ["supabase-verification" as const] : []),
+  ]
+  const missingDelivery = deliveryEvidence.filter((kind) => latest.get(kind)?.revision !== blueprint.revision || latest.get(kind)?.contractHash !== blueprint.contractHash || latest.get(kind)?.status !== "passed")
+  if (missingDelivery.length) return NextResponse.json({ error: "delivery_verification_required", missing: missingDelivery }, { status: 409 })
   if (!BACKEND_URL) return NextResponse.json({ error: "backend_unavailable" }, { status: 503 })
   const delivery = blueprint.delivery
   const deliveryBrief = [`Delivery provider: ${delivery.provider}.`, delivery.domain ? `Custom domain: ${delivery.domain}.` : null, delivery.supabaseProjectRef ? `Supabase project ref: ${delivery.supabaseProjectRef}.` : null, delivery.integrationIds?.length ? `Integration IDs: ${delivery.integrationIds.join(", ")}.` : null].filter(Boolean).join(" ")

@@ -7,13 +7,14 @@ const providers = new Set<NonNullable<StoredBlueprint["delivery"]>["provider"]>(
 
 function preflight(delivery: StoredBlueprint["delivery"]) {
   if (!delivery) return { ready: false, checks: [{ id: "policy", status: "blocked", label: "Delivery policy is required" }] }
+  const checks = [
+    { id: "provider", status: "passed" as const, label: `${delivery.provider} target recorded` },
+    { id: "domain", status: delivery.domain ? "manual" as const : "not-requested" as const, label: delivery.domain ? `DNS verification required for ${delivery.domain}` : "Custom domain not requested" },
+    { id: "supabase", status: delivery.supabaseProjectRef ? "manual" as const : "not-requested" as const, label: delivery.supabaseProjectRef ? "Supabase reference recorded; connection test required in Integrations" : "Supabase project not requested" },
+  ]
   return {
-    ready: true,
-    checks: [
-      { id: "provider", status: "passed", label: `${delivery.provider} target recorded` },
-      { id: "domain", status: delivery.domain ? "manual" : "not-requested", label: delivery.domain ? `DNS verification required for ${delivery.domain}` : "Custom domain not requested" },
-      { id: "supabase", status: delivery.supabaseProjectRef ? "manual" : "not-requested", label: delivery.supabaseProjectRef ? "Supabase reference recorded; connection test required in Integrations" : "Supabase project not requested" },
-    ],
+    ready: checks.every((check) => check.status === "passed" || check.status === "not-requested"),
+    checks,
   }
 }
 
