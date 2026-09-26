@@ -38,7 +38,7 @@ try {
   if (interactiveCount < 3) throw new Error(`interactive surface too small: ${interactiveCount}`)
   await page.locator(".ds-memory-orbit").waitFor({ state: "visible", timeout: 5000 })
   if (await page.locator(".ds-memory-layer").count() !== 4) throw new Error("memory orbit does not expose four layers")
-  if (!(await page.locator(".ds-liquid-gold").isVisible())) throw new Error("liquid gold contract action is not visible")
+  if (!(await page.locator('[data-primary-action="create-contract"]').isVisible())) throw new Error("liquid gold contract action is not visible")
   if (!(await page.locator(".ds-catalog-card[data-selected='true']").isVisible())) throw new Error("selected product holographic card is not visible")
   if (await page.locator(".ds-dna-preview").count() !== 5) throw new Error("visual DNA previews are incomplete")
   await page.keyboard.press("Tab")
