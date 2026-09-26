@@ -3,10 +3,10 @@
 **Scope:** only `osgardnewworld.com` and its repository `HADJAL001/asgard-redesign`.
 No changes, deployments, credentials, or integrations for `osgardos.com`, Senjorio, or any other project are in scope.
 
-**Last updated:** 2026-09-26  
+**Last updated:** 2026-09-26
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Current release:** `c1f7ef75`
+**Current release:** `7ad1d743`
 
 ## Executive status
 
