@@ -71,7 +71,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Latest golden-task benchmark passed in `1933 ms`: contract, storyboard, live preview SLA, explainable diff, natural-language commands, delivery wizard/verification, approval room, and replay all passed.
 - Production remains synchronized at `5d0d571f`; public `/api/health` returned HTTP 200 after the release. A direct SSH localhost probe may exceed its timeout while the public Nginx route remains healthy.
 - End-to-end verification (2026-09-27): golden workflow passed in `2186 ms`; browser gate passed with health `285 ms` and developer route `538 ms`; backend suite passed `773/775` with zero failures; analytics and static accessibility gates passed.
-- Sandbox infrastructure audit (2026-09-27): local `gate:fullstack-build` and the production VPS both report Docker unavailable (`Docker-демон недоступен` / `docker: command not found`). The deploy gate therefore remains intentionally fail-closed; no production sandbox execution is claimed until Docker or an approved isolated builder is provisioned.
+- Sandbox infrastructure audit (2026-09-27): Docker Engine `29.1.3` is now installed and enabled on the production VPS, with `osgard-sandbox-next:latest` present. The first remote fullstack gate started a real Docker build but produced no container/log before the SSH observation was stopped; successful sandbox execution is still unclaimed and the deploy gate remains fail-closed until a completed gate artifact is captured.
 
 ### Tenant isolation and delivery policy
 
