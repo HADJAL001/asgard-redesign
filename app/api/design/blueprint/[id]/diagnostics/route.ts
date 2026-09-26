@@ -59,7 +59,7 @@ async function scan(request: NextRequest, id: string) {
 
   const run = { id: `error-run:${id}:${blueprint.revision}:${Date.now()}`, blueprintId: id, revision: blueprint.revision, contractHash: blueprint.contractHash || "", status: findings.some((finding) => finding.blocking && finding.severity === "high") ? "blocked" as const : findings.length ? "needs-review" as const : "passed" as const, findingCount: findings.length, sandbox: sandboxSummary, phases: ["contract", "evidence", "sandbox", "delivery", "approval"].map((phase) => ({ phase, status: findings.some((finding) => finding.category === phase || (phase === "contract" && finding.category === "quality")) ? "attention" : "passed" })) }
   appendBlueprintErrorRun({ ...run, tenantId, findings, capturedAt: new Date().toISOString() })
-  const history = listBlueprintErrorRuns(id, tenantId).slice(-20).map((entry) => ({ id: entry.id, status: entry.status, findingCount: entry.findingCount, capturedAt: entry.capturedAt, revision: entry.revision }))
+  const history = listBlueprintErrorRuns(id, tenantId).slice(-20).map((entry) => ({ id: entry.id, status: entry.status, findingCount: entry.findingCount, capturedAt: entry.capturedAt, revision: entry.revision, sandbox: entry.sandbox || { status: "not-run", exitCode: null, timedOut: false, durationMs: 0, verified: false } }))
   return NextResponse.json({ version: "1.1.0", run, history, findings, policy: { autoRepair: ["missing-accessible-label", "deterministic-import", "type-error", "formatting"], maxRepairAttempts: 3, approvalRequiredFor: ["security", "data-migration", "provider", "infrastructure"], repairMode: "proposal-only" } }, { headers: { "cache-control": "no-store" } })
 }
 

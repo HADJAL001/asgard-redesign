@@ -87,6 +87,7 @@ export type BlueprintErrorRun = {
   contractHash: string
   status: "passed" | "needs-review" | "blocked"
   findingCount: number
+  sandbox?: { status: "not-run" | "unverified" | "passed" | "failed" | "timeout" | "unavailable"; exitCode: number | null; timedOut: boolean; durationMs: number; verified: boolean }
   findings: unknown[]
   phases: { phase: string; status: string }[]
   capturedAt: string
