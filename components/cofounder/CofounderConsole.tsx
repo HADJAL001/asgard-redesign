@@ -146,23 +146,26 @@ export function CofounderConsole() {
   }
 
   async function loadEvidence(id: string) {
-    try {
-      const response = await fetch(`/api/design/blueprint/${id}/evidence`, { cache: "no-store" })
-      if (!response.ok) return
-      const data = await response.json().catch(() => null)
+    const [evidenceResult, qualityResult, commentsResult] = await Promise.allSettled([
+      fetch(`/api/design/blueprint/${id}/evidence`, { cache: "no-store" }),
+      fetch(`/api/design/blueprint/${id}/quality`, { cache: "no-store" }),
+      fetch(`/api/design/blueprint/${id}/comments`, { cache: "no-store" }),
+    ])
+    if (evidenceResult.status === "fulfilled" && evidenceResult.value.ok) {
+      const data = await evidenceResult.value.json().catch(() => null)
       if (Array.isArray(data?.evidence)) setEvidence(data.evidence as EvidenceRecord[])
-      const qualityResponse = await fetch(`/api/design/blueprint/${id}/quality`, { cache: "no-store" })
-      const quality = await qualityResponse.json().catch(() => null)
-      if (qualityResponse.ok && Array.isArray(quality?.required)) {
+    }
+    if (qualityResult.status === "fulfilled" && qualityResult.value.ok) {
+      const quality = await qualityResult.value.json().catch(() => null)
+      if (Array.isArray(quality?.required)) {
         setQualityState(quality as QualityState)
         if (quality.readyForCodegen) track("blueprint_quality_ready", { blueprintId: id, revision: quality.revision, required: quality.required })
         else if (quality.missing?.length || quality.stale?.length) track("blueprint_quality_blocked", { blueprintId: id, revision: quality.revision, missing: quality.missing, stale: quality.stale?.map((item: { kind: string; reason: string }) => `${item.kind}:${item.reason}`) })
       }
-      const commentsResponse = await fetch(`/api/design/blueprint/${id}/comments`, { cache: "no-store" })
-      const commentsData = await commentsResponse.json().catch(() => null)
-      if (commentsResponse.ok && Array.isArray(commentsData?.comments)) setApprovalComments(commentsData.comments as ApprovalComment[])
-    } catch {
-      // Evidence is supplementary to the blueprint and must not block recovery.
+    }
+    if (commentsResult.status === "fulfilled" && commentsResult.value.ok) {
+      const data = await commentsResult.value.json().catch(() => null)
+      if (Array.isArray(data?.comments)) setApprovalComments(data.comments as ApprovalComment[])
     }
   }
 
