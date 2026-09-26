@@ -5,7 +5,7 @@ import { tenantIdFromRequest } from "@/lib/tenant-context"
 export const dynamic = "force-dynamic"
 // Artifact signatures are created only by the generation route. A browser-held
 // evidence token must never be sufficient to claim cryptographic provenance.
-  const kinds = new Set<BlueprintEvidenceKind>(["typecheck", "unit", "a11y", "security", "performance", "visual-diff", "deploy", "social-preview", "rollback", "integration-verification"])
+const kinds = new Set<BlueprintEvidenceKind>(["typecheck", "unit", "a11y", "security", "performance", "visual-diff", "deploy", "social-preview", "rollback"])
 const statuses = new Set(["passed", "failed", "skipped"])
 const MAX_EVIDENCE_PAYLOAD_BYTES = 16_000
 
