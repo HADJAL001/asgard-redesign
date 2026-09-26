@@ -44,24 +44,42 @@ const preview = await request(`/api/design/blueprint/${blueprint.id}/preview?rev
 assert(preview.response.ok && preview.payload?.renderPlan?.slots?.length, "visual_storyboard failed")
 assert(preview.result.latencyMs < 60_000, `live_preview exceeded 60s (${preview.result.latencyMs}ms)`)
 
-const command = await request(`/api/design/blueprint/${blueprint.id}/command`, {
+const commandCases = [
+  { command: "сделай карточки плотнее", intent: "dense" },
+  { command: "сделай мобильную версию", intent: "mobile" },
+  { command: "добавь Stripe", intent: "stripe" },
+]
+for (const commandCase of commandCases) {
+  const command = await request(`/api/design/blueprint/${blueprint.id}/command`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ revision: blueprint.revision, command: commandCase.command, dryRun: true }),
+  })
+  assert(
+    command.response.ok && command.payload?.dryRun === true && command.payload?.intent === commandCase.intent && command.payload.changes?.length > 0,
+    `explainable_diff failed for ${commandCase.intent}`,
+  )
+}
+
+const appliedCommand = await request(`/api/design/blueprint/${blueprint.id}/command`, {
   method: "POST",
   headers: { "content-type": "application/json" },
-  body: JSON.stringify({ revision: blueprint.revision, command: "сделай карточки плотнее", dryRun: true }),
+  body: JSON.stringify({ revision: blueprint.revision, command: commandCases[0].command, dryRun: false, evidenceToken }),
 })
-assert(command.response.ok && command.payload?.dryRun === true && command.payload.changes?.length > 0, "explainable_diff failed")
+assert(appliedCommand.response.status === 201 && appliedCommand.payload?.blueprint?.revision === blueprint.revision + 1, "command_revision_apply failed")
+const activeBlueprint = appliedCommand.payload.blueprint
 
 const delivery = await request(`/api/design/blueprint/${blueprint.id}/delivery`, {
   method: "PUT",
   headers: { "content-type": "application/json" },
-  body: JSON.stringify({ revision: blueprint.revision, provider: "osgard-cluster", domain: "golden-task.example.com", supabaseProjectRef: "golden-task-ref", evidenceToken }),
+  body: JSON.stringify({ revision: activeBlueprint.revision, provider: "osgard-cluster", domain: "golden-task.example.com", supabaseProjectRef: "golden-task-ref", evidenceToken }),
 })
 assert(delivery.response.ok && delivery.payload?.delivery?.supabaseProjectRef === "golden-task-ref", "delivery_wizard failed")
 
 const deliveryVerification = await request(`/api/design/blueprint/${blueprint.id}/delivery/verify`, {
   method: "POST",
   headers: { "content-type": "application/json" },
-  body: JSON.stringify({ revision: blueprint.revision, evidenceToken }),
+  body: JSON.stringify({ revision: activeBlueprint.revision, evidenceToken }),
 })
 const deliveryVerificationAvailable = deliveryVerification.response.ok && Array.isArray(deliveryVerification.payload?.checks)
 assert(deliveryVerificationAvailable || deliveryVerification.response.status === 404, "delivery_verification failed")
@@ -69,11 +87,11 @@ assert(deliveryVerificationAvailable || deliveryVerification.response.status ===
 const comment = await request(`/api/design/blueprint/${blueprint.id}/comments`, {
   method: "POST",
   headers: { "content-type": "application/json" },
-  body: JSON.stringify({ revision: blueprint.revision, author: "golden-task", comment: "Approve mobile-first purchase path after visual review.", evidenceToken }),
+  body: JSON.stringify({ revision: activeBlueprint.revision, author: "golden-task", comment: "Approve mobile-first purchase path after visual review.", evidenceToken }),
 })
 assert(comment.response.ok && comment.payload?.comment?.body, "approval_room failed")
 
-const replay = await request(`/cofounder/replay/${blueprint.id}?revision=${blueprint.revision}`)
+const replay = await request(`/cofounder/replay/${blueprint.id}?revision=${activeBlueprint.revision}`)
 assert(replay.response.ok, "mission_replay failed")
 
 const totalMs = Date.now() - startedAt
@@ -85,6 +103,7 @@ const output = {
     storyboard: "passed",
     livePreviewUnder60s: "passed",
     explainableDiff: "passed",
+    naturalLanguageCommands: "passed",
     deliveryWizard: "passed",
     deliveryVerification: deliveryVerificationAvailable ? "passed" : "pending_deploy",
     approvalRoom: "passed",

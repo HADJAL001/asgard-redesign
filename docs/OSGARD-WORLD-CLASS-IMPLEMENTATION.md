@@ -113,6 +113,8 @@ Latest telemetry release gate: browser gate passed with health latency `295 ms` 
 
 Latest verified production workflow (2026-09-26): browser quality gate passed; golden task `contract -> storyboard -> preview -> command diff -> delivery verification -> approval room -> replay` completed in `1618 ms`. The first preview response was `255 ms`, within the `60,000 ms` SLA. The benchmark manifest validator passed for the documented OSGARD run. This is evidence for OSGARD only; comparable external Lovable, Bolt, and Tilda runs have not yet been captured and must not be claimed as completed.
 
+Natural-language command coverage is part of the golden task: `сделай карточки плотнее`, `сделай мобильную версию`, and `добавь Stripe` must each return an explainable dry-run diff. The benchmark also applies the density command and verifies that it creates a new revision before delivery, approval, and replay continue.
+
 Latest command-deck regression gate (2026-09-26): the global footer exclusion passed for both `/cofounder` and Mission Replay. Browser evidence also passed for accessibility, visual diff, replay, Open Graph preview, and production health (`284 ms`); Developer Quality Cockpit navigation completed in `523 ms`.
 
 Durability verification: `npm run test:blueprint-store-recovery` passed, including recovery from a deliberately corrupted but syntactically valid primary snapshot. The gate is now part of the package scripts for CI and release checks.
