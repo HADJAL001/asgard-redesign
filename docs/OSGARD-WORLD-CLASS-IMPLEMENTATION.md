@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-26
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Runtime implementation release:** `c1f7ef75`
+**Runtime implementation release:** `7bb6cef2`
 
 ## Executive status
 
@@ -34,6 +34,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Browser quality evidence refreshed for the Diamond Cosmos visual baseline (`b97599be…`): a11y, visual diff, replay, social preview, and production health all passed.
 - Preview recovery is actionable: after three transient preview failures the UI exposes a keyboard-accessible `Повторить preview` control and recovers without a page reload.
 - Developer Quality Cockpit uses client-side navigation for internal Cofounder and Mission Replay links, preserving the React tree and avoiding a full reload between sections.
+- AI Cofounder and Mission Replay are isolated command-deck views: the global economy footer is intentionally omitted, and the browser gate fails if it returns.
 - Product Graph projection links the tenant-scoped idea, ProductContract revisions, evidence, delivery policy, and generation state transitions; Mission Replay exposes the linked records without evidence tokens.
 
 ### Contract, evidence, and generation lifecycle
@@ -112,11 +113,16 @@ Latest telemetry release gate: browser gate passed with health latency `295 ms` 
 
 Latest verified production workflow (2026-09-26): browser quality gate passed; golden task `contract -> storyboard -> preview -> command diff -> delivery verification -> approval room -> replay` completed in `1618 ms`. The first preview response was `255 ms`, within the `60,000 ms` SLA. The benchmark manifest validator passed for the documented OSGARD run. This is evidence for OSGARD only; comparable external Lovable, Bolt, and Tilda runs have not yet been captured and must not be claimed as completed.
 
+Latest command-deck regression gate (2026-09-26): the global footer exclusion passed for both `/cofounder` and Mission Replay. Browser evidence also passed for accessibility, visual diff, replay, Open Graph preview, and production health (`284 ms`); Developer Quality Cockpit navigation completed in `523 ms`.
+
 Durability verification: `npm run test:blueprint-store-recovery` passed, including recovery from a deliberately corrupted but syntactically valid primary snapshot. The gate is now part of the package scripts for CI and release checks.
 
 The production service was active on the last release, the Next build was present, and the previous checkout was retained at `/opt/osgard-platform/backup-before-ddc3a25f`.
 
 ## Release history
+
+- `7bb6cef2` Guard Cofounder and Mission Replay from global-footer regression.
+- `cf62fa1e` Keep Cofounder Command Deck free of the global footer.
 
 - `c1f7ef75` Recheck selected infrastructure adapters at codegen time.
 - `64583e6c` Verify selected infrastructure adapters before codegen.
