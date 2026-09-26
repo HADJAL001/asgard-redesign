@@ -5,7 +5,7 @@ import { chromium } from "playwright"
 
 const base = (process.env.DESIGN_SYSTEM_BASE_URL || "https://osgardnewworld.com").replace(/\/$/, "")
 const screenshotPath = path.resolve(process.env.DESIGN_SYSTEM_SCREENSHOT || "artifacts/design-system/cofounder.png")
-const visualBaselineSha256 = (process.env.DESIGN_SYSTEM_VISUAL_BASELINE || "33d8d3b6dc4a0ac191b088ac755eabf6b99d22d0f0097c00cd28f619738dbbc2,4334546d2733739cd459352fb14ccc78acd021beb3ed1a8c8f54481d11f5bbea,86cd89cbde4babce41077f65626a77da5b7ea1b3f48aa79c90e646ecf6062423,9cc05935e251ea5dd5a75d4120e3857f6bc02a444ea632124c09d212f16caac0,29db5db17900094946024e8d40a463ff821d2e38b4ecfb46712dac9e82fcad17,b97599be34fdd5177d07cc8d85373daf11dadfeec7c9472f5ce140e05af0a0e5,29849fe413fadc016604182c5a14b5f830f244b4c497420fb1a44cf1f3ea3f3c,77034dba0099bb55479666b0e488236697b126047cfcd732383eba3787d85a00").split(",").map((value) => value.trim()).filter(Boolean)
+const visualBaselineSha256 = (process.env.DESIGN_SYSTEM_VISUAL_BASELINE || "33d8d3b6dc4a0ac191b088ac755eabf6b99d22d0f0097c00cd28f619738dbbc2,4334546d2733739cd459352fb14ccc78acd021beb3ed1a8c8f54481d11f5bbea,86cd89cbde4babce41077f65626a77da5b7ea1b3f48aa79c90e646ecf6062423,9cc05935e251ea5dd5a75d4120e3857f6bc02a444ea632124c09d212f16caac0,29db5db17900094946024e8d40a463ff821d2e38b4ecfb46712dac9e82fcad17,b97599be34fdd5177d07cc8d85373daf11dadfeec7c9472f5ce140e05af0a0e5,29849fe413fadc016604182c5a14b5f830f244b4c497420fb1a44cf1f3ea3f3c,77034dba0099bb55479666b0e488236697b126047cfcd732383eba3787d85a00,9fad749ec03d583cd895fe050ef201613a4d0e8da3914b52cc52333f24af50e0").split(",").map((value) => value.trim()).filter(Boolean)
 
 async function json(url, options) {
   const response = await fetch(url, options)
@@ -29,6 +29,9 @@ try {
   await page.goto(`${base}/cofounder`, { waitUntil: "networkidle" })
   const heading = page.getByRole("heading", { name: "AI Cofounder" })
   if (!(await heading.isVisible())) throw new Error("AI Cofounder heading is not visible")
+  // The Cofounder is an isolated command deck. Economy navigation belongs to
+  // the global platform shell and must never leak into this focused workflow.
+  if (await page.getByRole("contentinfo").count()) throw new Error("cofounder rendered the global platform footer")
   const interactiveCount = await page.locator("button, a, input, textarea, select").count()
   if (interactiveCount < 3) throw new Error(`interactive surface too small: ${interactiveCount}`)
   await page.locator(".ds-memory-orbit").waitFor({ state: "visible", timeout: 5000 })
@@ -93,6 +96,7 @@ try {
   if (!(await replayPage.getByRole("heading", { name: "Evidence ledger" }).isVisible())) throw new Error("mission replay evidence ledger is not visible")
   if (!(await replayPage.getByRole("heading", { name: "Delivery outcome" }).isVisible())) throw new Error("mission replay delivery outcome is not visible")
   if (!(await replayPage.getByRole("button", { name: "Share replay" }).isVisible())) throw new Error("mission replay share control is not visible")
+  if (await replayPage.getByRole("contentinfo").count()) throw new Error("mission replay rendered the global platform footer")
   await replayPage.close()
   const socialPreviewResponse = await fetch(`${base}/cofounder/replay/${blueprint.id}/opengraph-image`)
   const socialPreviewType = socialPreviewResponse.headers.get("content-type") || ""
