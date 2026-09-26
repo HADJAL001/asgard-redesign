@@ -38,6 +38,7 @@ const evidenceLabels: Record<string, string> = {
   deploy: "Deployment check",
   "dns-verification": "DNS verification",
   "supabase-verification": "Supabase verification",
+  "integration-verification": "Infrastructure adapters",
 }
 
 const starterMissions = [

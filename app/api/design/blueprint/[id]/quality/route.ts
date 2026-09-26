@@ -13,7 +13,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!blueprint) return NextResponse.json({ error: "blueprint_not_found" }, { status: 404 })
   const evidence = listBlueprintEvidence(id, tenantId)
   const latest = new Map(evidence.map((entry) => [entry.kind, entry]))
-  const required: BlueprintEvidenceKind[] = ["security", "performance", "a11y", "visual-diff", "deploy", ...(blueprint.delivery?.domain ? ["dns-verification" as const] : []), ...(blueprint.delivery?.supabaseProjectRef ? ["supabase-verification" as const] : [])]
+  const required: BlueprintEvidenceKind[] = ["security", "performance", "a11y", "visual-diff", "deploy", ...(blueprint.delivery?.domain ? ["dns-verification" as const] : []), ...(blueprint.delivery?.supabaseProjectRef ? ["supabase-verification" as const] : []), ...(blueprint.delivery?.integrationIds?.length ? ["integration-verification" as const] : [])]
   const missing = required.filter((kind) => latest.get(kind)?.revision !== blueprint.revision || latest.get(kind)?.contractHash !== blueprint.contractHash || latest.get(kind)?.status !== "passed")
   const stale = missing.map((kind) => {
     const entry = latest.get(kind)

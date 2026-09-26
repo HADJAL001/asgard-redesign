@@ -31,7 +31,7 @@ export type StoredBlueprint = {
   delivery?: { provider: "osgard-cluster" | "vercel" | "netlify" | "custom"; domain?: string; supabaseProjectRef?: string; integrationIds?: number[]; updatedAt: string }
 }
 
-export type BlueprintEvidenceKind = "typecheck" | "unit" | "a11y" | "security" | "performance" | "visual-diff" | "deploy" | "social-preview" | "rollback" | "remediation" | "artifact-signature" | "dns-verification" | "supabase-verification"
+export type BlueprintEvidenceKind = "typecheck" | "unit" | "a11y" | "security" | "performance" | "visual-diff" | "deploy" | "social-preview" | "rollback" | "remediation" | "artifact-signature" | "dns-verification" | "supabase-verification" | "integration-verification"
 export type BlueprintEvidence = {
   id: string
   blueprintId: string

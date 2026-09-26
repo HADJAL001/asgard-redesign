@@ -6,6 +6,7 @@ import { tenantIdFromRequest } from "@/lib/tenant-context"
 export const dynamic = "force-dynamic"
 
 type Check = { id: string; status: "passed" | "failed" | "manual" | "not-requested"; label: string }
+const BACKEND_URL = (process.env.BACKEND_URL || "").replace(/\/$/, "")
 
 async function withTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response | null> {
   try {
@@ -31,6 +32,19 @@ async function verifySupabase(projectRef: string): Promise<Check> {
   return { id: "supabase", status: reachable ? "passed" : "failed", label: reachable ? "Supabase endpoint is reachable" : "Supabase endpoint could not be reached" }
 }
 
+async function verifyIntegrations(ids: number[], request: NextRequest): Promise<Check> {
+  if (!ids.length) return { id: "integrations", status: "not-requested", label: "No infrastructure adapters selected" }
+  const access = request.cookies.get("osgard_access")?.value
+  if (!BACKEND_URL || !access) return { id: "integrations", status: "failed", label: "Infrastructure adapter session is unavailable" }
+  const response = await withTimeout(`${BACKEND_URL}/integrations`, { headers: { authorization: `Bearer ${access}` } })
+  if (!response?.ok) return { id: "integrations", status: "failed", label: "Could not read selected infrastructure adapters" }
+  const payload = await response.json().catch(() => null) as { integrations?: Array<{ id: number; status?: string; lastTestStatus?: string | null }> } | null
+  const records = Array.isArray(payload?.integrations) ? payload.integrations : []
+  const selected = ids.map((id) => records.find((item) => item.id === id))
+  const ready = selected.length === ids.length && selected.every((item) => item?.status === "active" && item.lastTestStatus === "passed")
+  return { id: "integrations", status: ready ? "passed" : "failed", label: ready ? `${ids.length} infrastructure adapter(s) verified` : "Selected adapters must be active and pass their latest test" }
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const tenantId = tenantIdFromRequest(request)
@@ -45,10 +59,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   else checks.push({ id: "domain", status: "not-requested", label: "Custom domain not requested" })
   if (blueprint.delivery?.supabaseProjectRef) checks.push(await verifySupabase(blueprint.delivery.supabaseProjectRef))
   else checks.push({ id: "supabase", status: "not-requested", label: "Supabase project not requested" })
+  checks.push(await verifyIntegrations(blueprint.delivery?.integrationIds || [], request))
   const recorded = listBlueprintEvidence(id, tenantId)
-  for (const check of checks.filter((item) => item.id === "domain" || item.id === "supabase")) {
+  for (const check of checks.filter((item) => item.id === "domain" || item.id === "supabase" || item.id === "integrations")) {
     if (check.status === "not-requested") continue
-    const kind = check.id === "domain" ? "dns-verification" : "supabase-verification"
+    const kind = check.id === "domain" ? "dns-verification" : check.id === "supabase" ? "supabase-verification" : "integration-verification"
     const status = check.status === "passed" ? "passed" : check.status === "failed" ? "failed" : "skipped"
     const summary = check.label
     const exists = recorded.some((entry) => entry.kind === kind && entry.revision === blueprint.revision && entry.status === status && entry.summary === summary)

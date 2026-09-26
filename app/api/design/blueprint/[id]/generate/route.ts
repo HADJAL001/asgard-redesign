@@ -24,6 +24,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const deliveryEvidence: BlueprintEvidenceKind[] = [
     ...(blueprint.delivery.domain ? ["dns-verification" as const] : []),
     ...(blueprint.delivery.supabaseProjectRef ? ["supabase-verification" as const] : []),
+    ...(blueprint.delivery.integrationIds?.length ? ["integration-verification" as const] : []),
   ]
   const missingDelivery = deliveryEvidence.filter((kind) => latest.get(kind)?.revision !== blueprint.revision || latest.get(kind)?.contractHash !== blueprint.contractHash || latest.get(kind)?.status !== "passed")
   if (missingDelivery.length) return NextResponse.json({ error: "delivery_verification_required", missing: missingDelivery }, { status: 409 })
