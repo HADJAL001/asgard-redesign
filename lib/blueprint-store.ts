@@ -79,6 +79,19 @@ export type BlueprintGraph = {
   edges: BlueprintGraphEdge[]
 }
 
+export type BlueprintErrorRun = {
+  id: string
+  blueprintId: string
+  tenantId: string
+  revision: number
+  contractHash: string
+  status: "passed" | "needs-review" | "blocked"
+  findingCount: number
+  findings: unknown[]
+  phases: { phase: string; status: string }[]
+  capturedAt: string
+}
+
 type Store = Record<string, StoredBlueprint[]>
 
 const MAX_REVISIONS_PER_BLUEPRINT = 20
@@ -87,6 +100,7 @@ const storePath = process.env.BLUEPRINT_STORE_PATH || path.join(process.cwd(), "
 const evidencePath = process.env.BLUEPRINT_EVIDENCE_PATH || path.join(process.cwd(), ".data", "blueprint-evidence.json")
 const evidenceTokensPath = process.env.BLUEPRINT_EVIDENCE_TOKENS_PATH || path.join(process.cwd(), ".data", "blueprint-evidence-tokens.json")
 const commentsPath = process.env.BLUEPRINT_COMMENTS_PATH || path.join(process.cwd(), ".data", "blueprint-comments.json")
+const errorRunsPath = process.env.BLUEPRINT_ERROR_RUNS_PATH || path.join(process.cwd(), ".data", "blueprint-error-runs.json")
 
 function readJsonObject(filePath: string, isValid: (value: Record<string, unknown>) => boolean): Record<string, unknown> | null {
   for (const candidate of [filePath, `${filePath}.bak`]) {
@@ -165,6 +179,14 @@ function writeComments(store: Record<string, BlueprintComment[]>) {
   writeJsonDurably(commentsPath, store)
 }
 
+function readErrorRuns(): Record<string, BlueprintErrorRun[]> {
+  return readJsonObject(errorRunsPath, (value) => Object.values(value).every((entries) => Array.isArray(entries) && entries.every((entry) => entry && typeof entry === "object" && typeof entry.id === "string" && typeof entry.blueprintId === "string" && Number.isInteger(entry.revision)))) as Record<string, BlueprintErrorRun[]> || {}
+}
+
+function writeErrorRuns(store: Record<string, BlueprintErrorRun[]>) {
+  writeJsonDurably(errorRunsPath, store)
+}
+
 function pruneBlueprintArtifacts(removedIds: string[]) {
   if (!removedIds.length) return
   const removed = new Set(removedIds)
@@ -197,6 +219,15 @@ function pruneBlueprintArtifacts(removedIds: string[]) {
     }
   }
   if (commentsChanged) writeComments(comments)
+  const errorRuns = readErrorRuns()
+  let errorRunsChanged = false
+  for (const id of removed) {
+    if (id in errorRuns) {
+      delete errorRuns[id]
+      errorRunsChanged = true
+    }
+  }
+  if (errorRunsChanged) writeErrorRuns(errorRuns)
 }
 
 export function issueBlueprintEvidenceToken(blueprintId: string, tenantId = DEFAULT_TENANT_ID) {
@@ -212,6 +243,18 @@ export function verifyBlueprintEvidenceToken(blueprintId: string, candidate: unk
   const expected = readEvidenceTokens()[`${tenantId}:${blueprintId}`] || (tenantId === DEFAULT_TENANT_ID ? readEvidenceTokens()[blueprintId] : undefined)
   if (!expected) return false
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(candidate))
+}
+
+export function appendBlueprintErrorRun(run: BlueprintErrorRun) {
+  const store = readErrorRuns()
+  const entries = store[run.blueprintId] || []
+  store[run.blueprintId] = [...entries, run].slice(-100)
+  writeErrorRuns(store)
+  return run
+}
+
+export function listBlueprintErrorRuns(blueprintId: string, tenantId = DEFAULT_TENANT_ID) {
+  return (readErrorRuns()[blueprintId] || []).filter((run) => run.tenantId === tenantId)
 }
 
 export function saveBlueprint(blueprint: StoredBlueprint) {

@@ -106,7 +106,7 @@ try {
   if (!diagnosticsResponse.ok || diagnostics?.run?.blueprintId !== blueprint.id || !Array.isArray(diagnostics?.findings) || diagnostics?.policy?.maxRepairAttempts !== 3) throw new Error("error intelligence diagnostics contract failed")
   const recheckResponse = await fetch(`${base}/api/design/blueprint/${blueprint.id}/diagnostics`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "recheck" }) })
   const recheck = await recheckResponse.json().catch(() => null)
-  if (!recheckResponse.ok || recheck?.run?.id !== diagnostics.run.id || recheck?.version !== "1.1.0") throw new Error("error intelligence recheck contract failed")
+  if (!recheckResponse.ok || recheck?.run?.blueprintId !== diagnostics.run.blueprintId || recheck?.run?.revision !== diagnostics.run.revision || !Array.isArray(recheck?.history) || recheck?.history.length < 2 || recheck?.version !== "1.1.0") throw new Error("error intelligence recheck contract failed")
   const socialPreviewResponse = await fetch(`${base}/cofounder/replay/${blueprint.id}/opengraph-image`)
   const socialPreviewType = socialPreviewResponse.headers.get("content-type") || ""
   const socialPreviewBytes = (await socialPreviewResponse.arrayBuffer()).byteLength
