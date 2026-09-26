@@ -7,6 +7,18 @@ export const dynamic = "force-dynamic"
 
 const statuses = new Set<NonNullable<StoredBlueprint["generation"]>["status"]>(["queued", "processing", "completed", "failed", "cancelled"])
 const MAX_GENERATION_PAYLOAD_BYTES = 16_000
+const BACKEND_URL = (process.env.BACKEND_URL || "").replace(/\/$/, "")
+
+function safeResult(value: unknown) {
+  const raw = value && typeof value === "object" ? value as Record<string, unknown> : null
+  if (!raw) return undefined
+  const result = {
+    ...(typeof raw.appUrl === "string" && /^https?:\/\//.test(raw.appUrl) ? { appUrl: raw.appUrl.slice(0, 500) } : {}),
+    ...(typeof raw.previewUrl === "string" && /^https?:\/\//.test(raw.previewUrl) ? { previewUrl: raw.previewUrl.slice(0, 500) } : {}),
+    ...(typeof raw.repoUrl === "string" && /^https?:\/\//.test(raw.repoUrl) ? { repoUrl: raw.repoUrl.slice(0, 500) } : {}),
+  }
+  return Object.keys(result).length ? result : undefined
+}
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -31,17 +43,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const blueprint = getBlueprint(id, revision, tenantId)
   if (!blueprint) return NextResponse.json({ error: "blueprint_revision_not_found" }, { status: 404 })
   if (!verifyBlueprintEvidenceToken(id, body?.evidenceToken, tenantId)) return NextResponse.json({ error: "evidence_token_required" }, { status: 403 })
+  const access = request.cookies.get("osgard_access")?.value
+  if (!access) return NextResponse.json({ error: "auth_required" }, { status: 401 })
   const status = body?.status as NonNullable<StoredBlueprint["generation"]>["status"]
   const taskId = typeof body?.taskId === "string" ? body.taskId.slice(0, 160) : ""
   const progress = Number(body?.progress)
   if (!taskId || !statuses.has(status) || !Number.isFinite(progress)) return NextResponse.json({ error: "invalid_generation_state" }, { status: 400 })
   if (blueprint.generation?.taskId && blueprint.generation.taskId !== taskId) return NextResponse.json({ error: "generation_task_conflict" }, { status: 409 })
-  const rawResult = body?.result && typeof body.result === "object" ? body.result as Record<string, unknown> : null
-  const result = rawResult ? {
-    ...(typeof rawResult.appUrl === "string" && /^https?:\/\//.test(rawResult.appUrl) ? { appUrl: rawResult.appUrl.slice(0, 500) } : {}),
-    ...(typeof rawResult.previewUrl === "string" && /^https?:\/\//.test(rawResult.previewUrl) ? { previewUrl: rawResult.previewUrl.slice(0, 500) } : {}),
-    ...(typeof rawResult.repoUrl === "string" && /^https?:\/\//.test(rawResult.repoUrl) ? { repoUrl: rawResult.repoUrl.slice(0, 500) } : {}),
-  } : undefined
+  let result = safeResult(body?.result)
+  if (status === "completed") {
+    if (!BACKEND_URL) return NextResponse.json({ error: "backend_unavailable" }, { status: 503 })
+    const taskResponse = await fetch(`${BACKEND_URL}/task/${encodeURIComponent(taskId)}`, { headers: { authorization: `Bearer ${access}` }, cache: "no-store", signal: AbortSignal.timeout(10_000) }).catch(() => null)
+    const task = taskResponse?.ok ? await taskResponse.json().catch(() => null) : null
+    if (task?.status !== "completed") return NextResponse.json({ error: "generation_completion_not_verified" }, { status: 409 })
+    result = safeResult(task.result)
+  }
   const artifactSeal = status === "completed" && result && Object.keys(result).length
     ? createArtifactSeal({ blueprintId: id, tenantId, revision, contractHash: blueprint.contractHash || "", taskId, result })
     : null
