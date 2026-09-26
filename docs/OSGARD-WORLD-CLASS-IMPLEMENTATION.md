@@ -6,7 +6,7 @@ No changes, deployments, credentials, or integrations for `osgardos.com`, Senjor
 **Last updated:** 2026-09-26
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Runtime implementation release:** `7ca40a61`
+**Runtime implementation release:** `12d14443`
 
 ## Executive status
 
@@ -67,6 +67,7 @@ This is a strong production foundation, not a claim that the complete 3–10 yea
 - Measured gate latency: frontend health 296 ms; developer route 895 ms.
 - Backend health returned HTTP 200. No authenticated production generation task was run in this release, so Docker sandbox execution is implemented and gated but not claimed as production-observed evidence.
 - Backend verification suite: 775 tests collected, 773 passed, 0 failed, and 2 intentionally skipped.
+- Diagnostics history now preserves sandbox status, exit code, duration, timeout, and verification state for every recheck; browser gate passed against release `12d14443` (health 327 ms, developer route 1023 ms).
 
 ### Tenant isolation and delivery policy
 
