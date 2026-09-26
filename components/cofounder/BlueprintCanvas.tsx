@@ -174,7 +174,7 @@ export function BlueprintCanvas({
               role="toolbar"
               aria-label="Bulk canvas actions"
             >
-              <span>
+              <span aria-live="polite">
                 {selectedIds.length
                   ? `${selectedIds.length} selected`
                   : "Select blocks to edit together"}
@@ -189,6 +189,7 @@ export function BlueprintCanvas({
                   }))
                 }
                 disabled={!selectedIds.length}
+                title="Apply dense layout to selected blocks"
               >
                 Dense
               </button>
@@ -202,6 +203,7 @@ export function BlueprintCanvas({
                   }))
                 }
                 disabled={!selectedIds.length}
+                title="Mark selected blocks as mobile-ready"
               >
                 Mobile
               </button>
@@ -210,6 +212,7 @@ export function BlueprintCanvas({
                   type="button"
                   className="ds-focus"
                   onClick={() => setSelectedIds([])}
+                  title="Clear selected blocks"
                 >
                   Clear
                 </button>
@@ -245,11 +248,30 @@ export function BlueprintCanvas({
                       <button
                         type="button"
                         className="ds-focus"
+                        aria-pressed={selectedIds.includes(slot.id)}
+                        aria-label={`${selectedIds.includes(slot.id) ? "Remove" : "Add"} ${slot.role} ${selectedIds.includes(slot.id) ? "from" : "to"} selection`}
+                        title={selectedIds.includes(slot.id) ? "Remove from selection" : "Add to selection"}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedIds((ids) =>
+                            ids.includes(slot.id)
+                              ? ids.filter((id) => id !== slot.id)
+                              : [...ids, slot.id],
+                          );
+                        }}
+                      >
+                        {selectedIds.includes(slot.id) ? "Selected" : "Select"}
+                      </button>
+                      <button
+                        type="button"
+                        className="ds-focus"
                         onClick={(e) => {
                           e.stopPropagation();
                           moveBy(index, -1);
                         }}
                         disabled={index === 0}
+                        aria-label={`Move ${slot.role} earlier`}
+                        title="Move block earlier"
                       >
                         ↑
                       </button>
@@ -261,6 +283,8 @@ export function BlueprintCanvas({
                           moveBy(index, 1);
                         }}
                         disabled={index === slots.length - 1}
+                        aria-label={`Move ${slot.role} later`}
+                        title="Move block later"
                       >
                         ↓
                       </button>
@@ -271,6 +295,8 @@ export function BlueprintCanvas({
                           e.stopPropagation();
                           setEditingId(editingId === slot.id ? null : slot.id);
                         }}
+                        aria-label={`${editingId === slot.id ? "Finish editing" : "Edit"} ${slot.role}`}
+                        title={editingId === slot.id ? "Finish editing block" : "Edit block role"}
                       >
                         {editingId === slot.id ? (
                           <Check size={12} />
