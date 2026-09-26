@@ -30,6 +30,7 @@ try {
   const heading = page.getByRole("heading", { name: "AI Cofounder" })
   if (!(await heading.isVisible())) throw new Error("AI Cofounder heading is not visible")
   if (await page.locator('[data-primary-action="create-contract"]').count() !== 1) throw new Error("cofounder first-screen contract action is missing")
+  if (await page.locator('[aria-label="Command examples"] button').count() !== 3) throw new Error("natural-language command examples are incomplete")
   // The Cofounder is an isolated command deck. Economy navigation belongs to
   // the global platform shell and must never leak into this focused workflow.
   if (await page.getByRole("contentinfo").count()) throw new Error("cofounder rendered the global platform footer")

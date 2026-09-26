@@ -20,6 +20,7 @@ const checks = [
   ["canvas exposes keyboard multi-select", "components/cofounder/BlueprintCanvas.tsx", "aria-multiselectable=\"true\""],
   ["canvas options are keyboard focusable", "components/cofounder/BlueprintCanvas.tsx", "role=\"option\""],
   ["canvas option focus is visible", "app/tokens.css", ".ds-blueprint-canvas__slot:focus-visible"],
+  ["command examples are explicit", "components/cofounder/CofounderConsole.tsx", "aria-label=\"Command examples\""],
 ]
 for (const [name, file, needle] of checks) {
   const text = await readFile(join(root, file), "utf8")
