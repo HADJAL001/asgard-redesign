@@ -13,7 +13,7 @@ Updated: 2026-09-27. Scope: `asgard-redesign` and `osgardnewworld.com` only.
 | Sandbox and signed artifacts | Implemented, production use pending | Sandbox gate and artifact seal tests | Run an authenticated production codegen task with a signed result |
 | Collaboration and approval | Verified | Authenticated approval/comments, anonymous writes rejected | Add role-based approval policy when team roles are enabled |
 | Golden tasks and quality gates | Verified | Golden task, 31/31 production E2E, axe, Web Vitals, browser gate | Capture equivalent external competitor runs before comparative claims |
-| Product Graph / four-layer memory direction | Partial | Tenant-bound graph projection and replay exist | Move durable state to Postgres + RLS + pgvector provenance |
+| Product Graph / four-layer memory direction | Foundation implemented, migration pending | Tenant-bound graph projection/replay plus `backend/src/postgres/001_product_memory.sql` with RLS, pgvector and append-only evidence; [runbook](PRODUCT-MEMORY-POSTGRES.md) | Apply to a provisioned Postgres cluster, enable shadow writes, reconcile, then move reads |
 
 ## Production evidence
 
@@ -27,4 +27,4 @@ Updated: 2026-09-27. Scope: `asgard-redesign` and `osgardnewworld.com` only.
 1. Create or connect provider credentials only in encrypted production integration storage.
 2. Verify each selected adapter is active and has a current passing test.
 3. Run a real authenticated codegen task through sandbox, evidence gates, approval, and deploy.
-4. Persist blueprint, evidence, revisions, and graph records in tenant-scoped Postgres tables with RLS before making database-native multi-tenant guarantees.
+4. Run `OSGARD_PRODUCT_POSTGRES_URL=... npm run migrate:product-memory-postgres` against a provisioned cluster, then enable shadow writes and reconcile before moving reads.
