@@ -6,6 +6,7 @@ import { ChainManager, pipelineEvents, getTaskStatus } from "../services/chain-m
 import { DEFAULT_PIPELINE } from "../services/pipeline-agents"
 import { resolveMonthlyLimitForUser, quotaRemaining, getMonthStartMs, getNextMonthStartMs } from "../lib/generation-quota"
 import type { PlanKey } from "../lib/stripe"
+import { buildDirectorBrief, normalizeBlueprintBuildContract, type BlueprintBuildContract } from "../services/product-contract"
 
 /* ================================================================
    OSGARD · Генерация проекта — REST API + SSE-статус
@@ -33,7 +34,7 @@ router.post(
   requireAuth,
   asyncHandler(async (req: AuthRequest, res) => {
     const userId = req.user!.userId
-    const { name, description, delivery } = req.body || {}
+    const { name, description, delivery, productContract: rawProductContract } = req.body || {}
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return res.status(400).json({ error: "Укажите название проекта" })
@@ -75,9 +76,26 @@ router.post(
       supabaseProjectRef: typeof delivery.supabaseProjectRef === "string" ? delivery.supabaseProjectRef.slice(0, 80) : undefined,
       integrationIds: Array.isArray(delivery.integrationIds) ? delivery.integrationIds.filter((value: any): value is number => Number.isInteger(value) && value > 0).slice(0, 12) : undefined,
     } : undefined
+    let productContract: BlueprintBuildContract | null = null
+    if (rawProductContract !== undefined) {
+      try {
+        productContract = normalizeBlueprintBuildContract(rawProductContract)
+      } catch (error) {
+        if (error instanceof Error && error.message === "product_contract_attestation_unavailable") {
+          return res.status(503).json({ error: "product_contract_attestation_unavailable" })
+        }
+        return res.status(400).json({ error: "invalid_product_contract" })
+      }
+    }
+    if (rawProductContract !== undefined && !productContract) {
+      return res.status(400).json({ error: "invalid_product_contract" })
+    }
     const taskId = chainManager.start(userId, {
       name: name.trim(),
-      description: typeof description === "string" ? description : undefined,
+      description: productContract
+        ? buildDirectorBrief(productContract, typeof description === "string" ? description : undefined)
+        : typeof description === "string" ? description : undefined,
+      ...(productContract ? { productContract } : {}),
       ...(deliveryInput ? { delivery: deliveryInput } : {}),
     })
 

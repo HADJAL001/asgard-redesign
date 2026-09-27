@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { DirectorPlanSchema } from "../services/product-contract"
 
 /* ================================================================
    OSGARD · Агенты сборки проекта — общие типы и Zod-схемы
@@ -46,6 +47,7 @@ export const SpecificationSchema = z.object({
   nonFunctionalRequirements: z.array(z.string().min(1)),
   constraints: z.array(z.string().min(1)),
   successMetrics: z.array(z.string().min(1)),
+  directorPlan: DirectorPlanSchema.optional(),
 })
 
 export type Specification = z.infer<typeof SpecificationSchema>
@@ -103,6 +105,7 @@ export const ProjectSchemaSchema = z.object({
   apiEndpoints: z.array(ApiEndpointSchema),
   dependencies: z.array(DependencySchema),
   pages: z.array(PageEntrySchema).min(1),
+  directorPlan: DirectorPlanSchema.optional(),
 })
 
 export type ProjectSchema = z.infer<typeof ProjectSchemaSchema>
@@ -135,6 +138,7 @@ export const DesignSystemSchema = z.object({
   tailwindConfigExtend: z.record(z.string(), z.any()),
   icons: z.array(IconTokenSchema),
   darkMode: z.boolean(),
+  directorPlan: DirectorPlanSchema.optional(),
 })
 
 export type DesignSystem = z.infer<typeof DesignSystemSchema>

@@ -21,6 +21,9 @@ function buildManifestPrompt(input: BackendAgentInput): string {
   return `Ты — Backend-разработчик в мультиагентном пайплайне генерации проектов OSGARD.
 Дана схема данных проекта "${schema.name}" (${schema.description}):
 ${schemaSummary(schema)}
+${input.directorPlan ? `Утверждённые ProductContract требования, которые backend должен обеспечивать:
+${JSON.stringify({ productType: input.directorPlan.contract.productType, workflows: input.directorPlan.contract.workflows, requirements: input.directorPlan.contract.requirements, source: input.directorPlan.source })}
+` : ""}
 ${authRequired ? `Требуется JWT-авторизация. Роли: ${(schema.auth?.roles || ["user"]).join(", ")}.` : "Авторизация не требуется."}
 
 Спроектируй REST API на Node.js + Express + better-sqlite3 (без ORM, чистый параметризованный SQL) + TypeScript.
@@ -52,6 +55,9 @@ function buildFilePrompt(input: BackendAgentInput, manifest: { path: string; pur
 Схема данных:
 ${schemaSummary(schema)}
 ${authRequired ? `JWT-авторизация обязательна (jsonwebtoken + bcryptjs), роли: ${(schema.auth?.roles || ["user"]).join(", ")}.` : ""}
+${input.directorPlan ? `Сохраняй требования утверждённого ProductContract при реализации:
+${JSON.stringify({ workflows: input.directorPlan.contract.workflows, requirements: input.directorPlan.contract.requirements })}
+` : ""}
 
 Полный список файлов бэкенда (для согласованности импортов между ними):
 ${fileList}

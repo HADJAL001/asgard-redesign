@@ -4,6 +4,28 @@ import db from "../lib/db"
 import { UserModel } from "../models/user.model"
 
 test("Secret Room alpha access requires both an active member room and a published release", async () => {
+  // This test is intentionally standalone; provide the minimal user table
+  // expected by UserModel instead of depending on the global test order.
+  db.exec(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT,
+    password_hash TEXT,
+    phone TEXT,
+    ip_address TEXT,
+    referral_code TEXT,
+    referred_by INTEGER,
+    is_verified INTEGER DEFAULT 0,
+    twofa_secret TEXT,
+    twofa_enabled INTEGER DEFAULT 0,
+    nonce INTEGER DEFAULT 0,
+    role TEXT DEFAULT 'user',
+    created_at INTEGER,
+    updated_at INTEGER
+  )`)
+  // Alpha entitlement depends on the base Secret Room schema; keep this test
+  // independently runnable instead of relying on another test's import order.
+  await import("../migrations/070_secret_room")
   await import("../migrations/124_secret_room_alpha")
   const { getAlphaAccess, publishAlphaRelease } = await import("../lib/secret-room-alpha")
   const userId = UserModel.create({ username: `alpha_test_${Date.now()}`, email: null, password_hash: null })

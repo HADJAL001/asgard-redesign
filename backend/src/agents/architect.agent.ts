@@ -34,6 +34,8 @@ export class ArchitectAgent extends BaseAgent<Specification, ProjectSchema> {
 Спецификация проекта (JSON):
 ${JSON.stringify(spec, null, 2)}
 
+If the input contains directorPlan, treat its exact productType, workflows, requirements, and storyboard as implementation constraints. Preserve the domain model; do not replace it with generic CRUD tables.
+
 Верни СТРОГО валидный JSON (без markdown, без пояснений вне JSON) со структурой:
 {
   "name": "slug-имя-проекта (латиница, дефисы)",

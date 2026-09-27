@@ -1,6 +1,7 @@
 import dotenv from "dotenv"
 import { captureError } from "../lib/sentry"
 import { recordAiCall, estimateTokens, reserveAiCallTokens } from "../lib/generation-telemetry"
+import { openAiCompatibleChatCompletionsUrl, ProviderCircuit, withTransientProviderRetry, type ProviderCircuitSnapshot } from "../lib/ai-provider-resilience"
 
 dotenv.config()
 
@@ -41,9 +42,12 @@ const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_K
    шлюз (например, на время отсутствия прямого ключа Anthropic). По умолчанию — офиц. API. */
 const CLAUDE_API_URL = process.env.CLAUDE_API_URL || "https://api.anthropic.com/v1/messages"
 const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929"
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.VEXLY_API_KEY || ""
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || ""
 const OPENAI_API_URL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1"
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.6-sol"
+const VEXLY_API_KEY = process.env.VEXLY_API_KEY || ""
+const VEXLY_BASE_URL = process.env.VEXLY_BASE_URL || ""
+const VEXLY_MODEL = process.env.VEXLY_MODEL || ""
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_STUDIO_KEY || ""
 const GEMINI_API_URL = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta"
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.7-flash"
@@ -56,10 +60,33 @@ export function claudeApiFormat(): "anthropic" | "openai" {
 
 const DEFAULT_PROVIDER_TIMEOUT_MS = 90_000
 
-export type RuntimeProvider = "claude" | "kimi" | "deepseek" | "grok" | "openai" | "gemini"
+export type RuntimeProvider = "claude" | "kimi" | "deepseek" | "grok" | "openai" | "gemini" | "vexly"
 type RuntimeProviderBlock = { until: number; reason: string }
 
-const runtimeProviderBlocks = new Map<RuntimeProvider, RuntimeProviderBlock>()
+function circuitFailureThreshold(): number {
+  const configured = Number(process.env.AI_PROVIDER_CIRCUIT_FAILURE_THRESHOLD)
+  return Number.isFinite(configured) ? Math.min(20, Math.max(1, Math.floor(configured))) : 5
+}
+
+function circuitOpenDurationMs(): number {
+  const configured = Number(process.env.AI_PROVIDER_CIRCUIT_OPEN_MS)
+  return Number.isFinite(configured) ? Math.min(10 * 60_000, Math.max(5_000, Math.round(configured))) : 60_000
+}
+
+const runtimeProviderCircuits = new Map<RuntimeProvider, ProviderCircuit>()
+
+function providerCircuit(provider: RuntimeProvider): ProviderCircuit {
+  let circuit = runtimeProviderCircuits.get(provider)
+  if (!circuit) {
+    circuit = new ProviderCircuit(circuitFailureThreshold(), circuitOpenDurationMs())
+    runtimeProviderCircuits.set(provider, circuit)
+  }
+  return circuit
+}
+
+export function providerCircuitStatus(provider: RuntimeProvider): ProviderCircuitSnapshot {
+  return providerCircuit(provider).snapshot()
+}
 
 function runtimeProviderForLabel(label: string): RuntimeProvider | null {
   if (label.startsWith("claude")) return "claude"
@@ -68,19 +95,14 @@ function runtimeProviderForLabel(label: string): RuntimeProvider | null {
   if (label.startsWith("grok")) return "grok"
   if (label.startsWith("openai")) return "openai"
   if (label.startsWith("gemini")) return "gemini"
+  if (label.startsWith("vexly")) return "vexly"
   return null
-}
-
-function providerFailureCooldownMs(): number {
-  const configured = Number(process.env.AI_PROVIDER_FAILURE_COOLDOWN_MS)
-  if (!Number.isFinite(configured)) return 5 * 60_000
-  return Math.min(30 * 60_000, Math.max(30_000, Math.round(configured)))
 }
 
 function blockRuntimeProvider(label: string, reason: string): void {
   const provider = runtimeProviderForLabel(label)
   if (!provider) return
-  runtimeProviderBlocks.set(provider, { until: Date.now() + providerFailureCooldownMs(), reason })
+  providerCircuit(provider).recordFailure(reason)
 }
 
 export function markProviderRuntimeFailure(provider: RuntimeProvider, reason: string): void {
@@ -89,22 +111,12 @@ export function markProviderRuntimeFailure(provider: RuntimeProvider, reason: st
 
 function clearRuntimeProviderBlock(label: string): void {
   const provider = runtimeProviderForLabel(label)
-  if (provider) runtimeProviderBlocks.delete(provider)
+  if (provider) providerCircuit(provider).recordSuccess()
 }
 
 function runtimeProviderBlock(provider: RuntimeProvider): RuntimeProviderBlock | null {
-  const block = runtimeProviderBlocks.get(provider)
-  if (!block) return null
-  if (block.until <= Date.now()) {
-    runtimeProviderBlocks.delete(provider)
-    return null
-  }
-  return block
-}
-
-function runtimeProviderBlockForLabel(label: string): RuntimeProviderBlock | null {
-  const provider = runtimeProviderForLabel(label)
-  return provider ? runtimeProviderBlock(provider) : null
+  const snapshot = providerCircuit(provider).snapshot()
+  return snapshot.state === "open" ? { until: snapshot.retryAt || Date.now(), reason: snapshot.reason || "circuit_open" } : null
 }
 
 export function shouldDisableProviderThinking(label: string): boolean {
@@ -178,9 +190,11 @@ export async function callOpenAiCompatible<T>(
   maxTokens: number = 1024,
   systemPrompt?: string,
   temperature?: number,
+  circuitProvider?: RuntimeProvider,
 ): Promise<T | null> {
   if (!apiKey) return null
-  if (runtimeProviderBlockForLabel(logLabel)) return null
+  const provider = circuitProvider || runtimeProviderForLabel(logLabel)
+  const circuitLabel = provider || logLabel
 
   /* Замер начинается ДО сетевого вызова и закрывается на каждом пути выхода
      (успех, HTTP-ошибка, исключение) — упавший вызов тоже стоил пользователю
@@ -190,13 +204,17 @@ export async function callOpenAiCompatible<T>(
     estimateTokens(prompt) + estimateTokens(systemPrompt || ""),
     maxTokens,
   )
+  if (provider && !providerCircuit(provider).tryAcquire()) {
+    releaseTokenReservation()
+    return null
+  }
 
   try {
     const messages = systemPrompt
       ? [{ role: "system", content: systemPrompt }, { role: "user", content: prompt }]
       : [{ role: "user", content: prompt }]
 
-    const res = await fetch(apiUrl, {
+    const res = await withTransientProviderRetry(() => fetch(apiUrl, {
       method: "POST",
       signal: AbortSignal.timeout(providerTimeoutMs()),
       headers: {
@@ -210,11 +228,11 @@ export async function callOpenAiCompatible<T>(
         ...(shouldDisableProviderThinking(logLabel) ? { thinking: { type: "disabled" } } : {}),
         ...(temperature !== undefined ? { temperature } : {}),
       }),
-    })
+    }))
 
     if (!res.ok) {
       console.error(`[ai-router] ${logLabel} API error: ${res.status} ${res.statusText}`)
-      blockRuntimeProvider(logLabel, `http_${res.status}`)
+      blockRuntimeProvider(circuitLabel, `http_${res.status}`)
       recordAiCall({
         provider: logLabel,
         model,
@@ -235,6 +253,7 @@ export async function callOpenAiCompatible<T>(
     const measured = typeof usage?.prompt_tokens === "number" && typeof usage?.completion_tokens === "number"
     const truncated = data?.choices?.[0]?.finish_reason === "length"
     const refused = isProviderRefusal(text)
+    const parsed = !truncated && !refused ? parser(text) : null
     recordAiCall({
       provider: logLabel,
       model,
@@ -242,21 +261,25 @@ export async function callOpenAiCompatible<T>(
       outputTokens: measured ? usage.completion_tokens : estimateTokens(text),
       ms: Date.now() - startedAt,
       estimated: !measured,
-      ok: !truncated && !refused,
+      ok: parsed !== null,
     })
     if (truncated) {
-      blockRuntimeProvider(logLabel, "truncated_response")
+      blockRuntimeProvider(circuitLabel, "truncated_response")
       return null
     }
     if (refused) {
-      blockRuntimeProvider(logLabel, "runtime_refusal")
+      blockRuntimeProvider(circuitLabel, "runtime_refusal")
       return null
     }
-    clearRuntimeProviderBlock(logLabel)
-    return parser(text)
+    if (parsed === null) {
+      blockRuntimeProvider(circuitLabel, "invalid_response")
+      return null
+    }
+    clearRuntimeProviderBlock(circuitLabel)
+    return parsed
   } catch (err) {
     captureError(`[ai-router] ${logLabel} API call failed:`, err)
-    blockRuntimeProvider(logLabel, err instanceof Error && err.name === "TimeoutError" ? "timeout" : "network_error")
+    blockRuntimeProvider(circuitLabel, err instanceof Error && err.name === "TimeoutError" ? "timeout" : "network_error")
     recordAiCall({
       provider: logLabel,
       model,
@@ -300,6 +323,14 @@ export function isOpenAiConfigured(): boolean {
   return !!OPENAI_API_KEY
 }
 
+export function isVexlyConfigured(): boolean {
+  return Boolean(VEXLY_API_KEY && VEXLY_BASE_URL && VEXLY_MODEL)
+}
+
+function vexlyChatCompletionsUrl(): string {
+  return openAiCompatibleChatCompletionsUrl(VEXLY_BASE_URL)
+}
+
 export function isGeminiConfigured(): boolean {
   return !!GEMINI_API_KEY
 }
@@ -329,11 +360,6 @@ export async function callClaudeApi(
     options?.onFailure?.("ключ Claude не задан")
     return null
   }
-  if (runtimeProviderBlockForLabel("claude")) {
-    options?.onFailure?.("Claude is temporarily unavailable after a runtime failure")
-    return null
-  }
-
   const startedAt = Date.now()
   /* Фактическая модель вызова. Считать расход всегда по CLAUDE_MODEL нельзя: разбор
      дефектов ходит к более дорогой модели, и счётчик приписал бы её токены обычной —
@@ -360,9 +386,14 @@ export async function callClaudeApi(
     estimateTokens(prompt) + estimateTokens(systemPrompt || ""),
     maxTokens,
   )
+  if (!providerCircuit("claude").tryAcquire()) {
+    releaseTokenReservation()
+    options?.onFailure?.("Claude is temporarily unavailable after a runtime failure")
+    return null
+  }
 
   try {
-    const res = await fetch(CLAUDE_API_URL, {
+    const res = await withTransientProviderRetry(() => fetch(CLAUDE_API_URL, {
       method: "POST",
       signal: AbortSignal.timeout(providerTimeoutMs()),
       headers: {
@@ -377,7 +408,7 @@ export async function callClaudeApi(
         ...(temperature !== undefined ? { temperature } : {}),
         messages: [{ role: "user", content: prompt }],
       }),
-    })
+    }))
 
     if (!res.ok) {
       console.error(`[ai-router] Claude API error: ${res.status} ${res.statusText}`)
@@ -467,16 +498,20 @@ export async function callClaudeRaw(prompt: string, maxTokens: number): Promise<
 
 /** OpenAI Responses API adapter used by the typed code-generation lane. */
 export async function callOpenAiRaw(prompt: string, maxTokens: number): Promise<string | null> {
-  if (!OPENAI_API_KEY || runtimeProviderBlock("openai")) return null
+  if (!OPENAI_API_KEY) return null
   const startedAt = Date.now()
   const releaseTokenReservation = reserveAiCallTokens(estimateTokens(prompt), maxTokens)
+  if (!providerCircuit("openai").tryAcquire()) {
+    releaseTokenReservation()
+    return null
+  }
   try {
-    const response = await fetch(`${OPENAI_API_URL.replace(/\/$/, "")}/responses`, {
+    const response = await withTransientProviderRetry(() => fetch(`${OPENAI_API_URL.replace(/\/$/, "")}/responses`, {
       method: "POST",
       signal: AbortSignal.timeout(providerTimeoutMs()),
       headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: OPENAI_MODEL, input: prompt, max_output_tokens: maxTokens }),
-    })
+    }))
     if (!response.ok) {
       blockRuntimeProvider("openai", `http_${response.status}`)
       recordAiCall({ provider: "openai", model: OPENAI_MODEL, inputTokens: estimateTokens(prompt), outputTokens: 0, ms: Date.now() - startedAt, estimated: true, ok: false })
@@ -510,16 +545,20 @@ export async function callOpenAiRaw(prompt: string, maxTokens: number): Promise<
 
 /** Gemini Flash adapter for the low-latency interview and triage lane. */
 export async function callGeminiRaw(prompt: string, maxTokens: number): Promise<string | null> {
-  if (!GEMINI_API_KEY || runtimeProviderBlock("gemini")) return null
+  if (!GEMINI_API_KEY) return null
   const startedAt = Date.now()
   const releaseTokenReservation = reserveAiCallTokens(estimateTokens(prompt), maxTokens)
+  if (!providerCircuit("gemini").tryAcquire()) {
+    releaseTokenReservation()
+    return null
+  }
   try {
-    const response = await fetch(`${GEMINI_API_URL.replace(/\/$/, "")}/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`, {
+    const response = await withTransientProviderRetry(() => fetch(`${GEMINI_API_URL.replace(/\/$/, "")}/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent`, {
       method: "POST",
       signal: AbortSignal.timeout(Math.min(providerTimeoutMs(), 30_000)),
       headers: { "x-goog-api-key": GEMINI_API_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: maxTokens, temperature: 0.2 } }),
-    })
+    }))
     if (!response.ok) {
       blockRuntimeProvider("gemini", `http_${response.status}`)
       recordAiCall({ provider: "gemini", model: GEMINI_MODEL, inputTokens: estimateTokens(prompt), outputTokens: 0, ms: Date.now() - startedAt, estimated: true, ok: false })
@@ -549,6 +588,18 @@ export async function callGeminiRaw(prompt: string, maxTokens: number): Promise<
 
 export async function callDeepSeekRaw(prompt: string, maxTokens: number): Promise<string | null> {
   return callOpenAiCompatible(DEEPSEEK_API_URL, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, prompt, (t) => t, "deepseek-raw", maxTokens)
+}
+
+/** Vexly is a distinct OpenAI-compatible gateway; it requires an explicit URL and model. */
+export async function callVexlyRaw(prompt: string, maxTokens: number): Promise<string | null> {
+  if (!isVexlyConfigured()) return null
+  let endpoint: string
+  try {
+    endpoint = vexlyChatCompletionsUrl()
+  } catch {
+    return null
+  }
+  return callOpenAiCompatible(endpoint, VEXLY_API_KEY, VEXLY_MODEL, prompt, (text) => text, "vexly-raw", maxTokens, undefined, undefined, "vexly")
 }
 
 export type ProviderProbe = {
@@ -619,6 +670,17 @@ export function probeDeepSeek(): Promise<ProviderProbe> {
 /** OpenAI uses the same authenticated, token-free model catalogue preflight. */
 export function probeOpenAi(): Promise<ProviderProbe> {
   return probeOpenAiCompatible(`${OPENAI_API_URL.replace(/\/$/, "")}/chat/completions`, OPENAI_API_KEY, OPENAI_MODEL, "openai")
+}
+
+export async function probeVexly(): Promise<ProviderProbe> {
+  if (!VEXLY_API_KEY) return { configured: false, available: false, reason: "key_missing" }
+  if (!VEXLY_BASE_URL) return { configured: true, available: false, reason: "base_url_missing" }
+  if (!VEXLY_MODEL) return { configured: true, available: false, reason: "model_missing" }
+  try {
+    return await probeOpenAiCompatible(vexlyChatCompletionsUrl(), VEXLY_API_KEY, VEXLY_MODEL, "vexly")
+  } catch {
+    return { configured: true, available: false, reason: "invalid_base_url" }
+  }
 }
 
 /** Gemini's catalogue names models as `models/<id>`, unlike OpenAI's `id`. */
@@ -702,7 +764,7 @@ export async function callDeepSeek<T>(
   systemPrompt?: string,
   temperature?: number,
 ): Promise<T | null> {
-  return callOpenAiCompatible(DEEPSEEK_API_URL, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, prompt, parser, logLabel, maxTokens, systemPrompt, temperature)
+  return callOpenAiCompatible(DEEPSEEK_API_URL, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, prompt, parser, logLabel, maxTokens, systemPrompt, temperature, "deepseek")
 }
 
 /** Вызывает Grok (xAI) chat/completions с готовым парсером ответа. */
@@ -714,12 +776,12 @@ export async function callGrok<T>(
   systemPrompt?: string,
   temperature?: number,
 ): Promise<T | null> {
-  return callOpenAiCompatible(GROK_API_URL, GROK_API_KEY, GROK_MODEL, prompt, parser, logLabel, maxTokens, systemPrompt, temperature)
+  return callOpenAiCompatible(GROK_API_URL, GROK_API_KEY, GROK_MODEL, prompt, parser, logLabel, maxTokens, systemPrompt, temperature, "grok")
 }
 
 /** true, если хотя бы один реальный AI-провайдер сконфигурирован (иначе везде используется fallback). */
 export function isAiConfigured(): boolean {
-  return !!(DEEPSEEK_API_KEY || KIMI_API_KEY || GROK_API_KEY || CLAUDE_API_KEY || OPENAI_API_KEY || GEMINI_API_KEY)
+  return !!(DEEPSEEK_API_KEY || KIMI_API_KEY || GROK_API_KEY || CLAUDE_API_KEY || OPENAI_API_KEY || GEMINI_API_KEY || isVexlyConfigured())
 }
 
 export function isKimiConfigured(): boolean {

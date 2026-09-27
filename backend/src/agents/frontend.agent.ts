@@ -1,6 +1,7 @@
 import { callClaudeApi, callDeepSeek } from "../services/ai-router"
 import { captureError } from "../lib/sentry"
 import { BaseAgent } from "./base-agent"
+import type { DirectorPlan } from "../services/product-contract"
 import {
   FrontendArtifactSchema,
   type FrontendArtifact,
@@ -34,6 +35,7 @@ import {
 export interface FrontendAgentInput {
   schema: ProjectSchema
   design: DesignSystem
+  directorPlan?: DirectorPlan
 }
 
 const PAGE_MAX_TOKENS = 4096
@@ -111,6 +113,9 @@ export class FrontendAgent extends BaseAgent<FrontendAgentInput, FrontendArtifac
 
 Контекст страницы: ${page.name} — ${page.description}
 Схема проекта: ${input.schema.name}
+${input.directorPlan ? `Утверждённый ProductContract (обязательные доменные и визуальные ограничения; не заменяй выбранный тип универсальным шаблоном):
+${JSON.stringify({ source: input.directorPlan.source, contract: input.directorPlan.contract, storyboard: input.directorPlan.storyboard, architecture: input.directorPlan.architecture })}
+` : ""}
 Цвета дизайн-системы (CSS custom properties, доступны через Tailwind как bg-primary/text-foreground и т.д.):
 ${input.design.colors.map((c) => `--${c.name}: ${c.value}; /* ${c.usage} */`).join("\n")}
 

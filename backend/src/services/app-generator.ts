@@ -2,13 +2,16 @@ import { createHash } from "node:crypto"
 import {
   callClaudeRaw,
   callDeepSeekRaw,
+  callGeminiRaw,
   callGrokRaw,
   callKimiRaw,
   callOpenAiRaw,
+  callVexlyRaw,
   extractJson,
   isClaudeConfigured,
   isDeepSeekConfigured,
   isOpenAiConfigured,
+  isVexlyConfigured,
   isKimiConfigured,
   markProviderRuntimeFailure,
   probeClaude,
@@ -16,9 +19,12 @@ import {
   probeGemini,
   probeKimi,
   probeOpenAi,
+  probeVexly,
   type ProviderProbe,
 } from "./ai-router"
 import { captureError } from "../lib/sentry"
+import { firstAcceptedProviderResponse, type RawProviderCall } from "../lib/ai-failover"
+export { firstAcceptedProviderResponse } from "../lib/ai-failover"
 import {
   deriveExportContract,
   renderExportContract,
@@ -151,20 +157,26 @@ export type ManifestEntry = {
   purpose: string
 }
 
-type RawProvider = (prompt: string, maxTokens: number) => Promise<string | null>
+type RawProvider = RawProviderCall
 
-const PLANNER_CHAIN: RawProvider[] = [callClaudeRaw, callKimiRaw]
+const PLANNER_CHAIN: RawProvider[] = [callVexlyRaw, callClaudeRaw, callKimiRaw, callGeminiRaw, callOpenAiRaw, callDeepSeekRaw]
 // DeepSeek remains the primary implementation model. Kimi is already a
 // verified reasoning provider and can return raw code too, so it prevents a
 // single coding-provider outage from making the whole project pipeline idle.
 // GPT Sol is the preferred implementation model when configured. Existing
 // providers remain explicit fallbacks so an unavailable account never blocks
 // the product pipeline.
-const CODER_CHAIN: RawProvider[] = isOpenAiConfigured()
-  ? [callOpenAiRaw, callDeepSeekRaw, callKimiRaw]
-  : [callDeepSeekRaw, callKimiRaw]
-const REVIEWER_CHAIN: RawProvider[] = [callClaudeRaw, callKimiRaw]
-const GENERAL_CHAIN: RawProvider[] = [callClaudeRaw, callKimiRaw, callDeepSeekRaw, callGrokRaw]
+const CODER_CHAIN: RawProvider[] = [
+  ...(isVexlyConfigured() ? [callVexlyRaw] : []),
+  ...(isOpenAiConfigured() ? [callOpenAiRaw] : []),
+  callDeepSeekRaw,
+  callKimiRaw,
+  callGeminiRaw,
+  callClaudeRaw,
+  ...(!isOpenAiConfigured() ? [callOpenAiRaw] : []),
+]
+const REVIEWER_CHAIN: RawProvider[] = [callVexlyRaw, callClaudeRaw, callKimiRaw, callOpenAiRaw, callGeminiRaw, callDeepSeekRaw]
+const GENERAL_CHAIN: RawProvider[] = [callVexlyRaw, callClaudeRaw, callKimiRaw, callDeepSeekRaw, callGrokRaw, callOpenAiRaw, callGeminiRaw]
 
 const MAX_MANIFEST_FILES = 14
 const MAX_FILE_LINES = 650
@@ -216,24 +228,10 @@ export function ensureManifestFiles(files: GeneratedAppFile[], manifest: Manifes
   return [...byPath.values()]
 }
 
-export async function firstAcceptedProviderResponse(
-  chain: RawProvider[],
-  prompt: string,
-  maxTokens: number,
-  accepts: (response: string) => boolean = (response) => response.trim().length > 0,
-  onRejected?: (index: number, response: string) => void,
-): Promise<string | null> {
-  for (let index = 0; index < chain.length; index += 1) {
-    const provider = chain[index]
-    const result = await provider(prompt, maxTokens)
-    if (result && accepts(result)) return result
-    if (result) onRejected?.(index, result)
-  }
-  return null
-}
-
-function rejectInvalidReasoningResponse(index: number): void {
-  markProviderRuntimeFailure(index === 0 ? "claude" : "kimi", "invalid_structured_response")
+function rejectInvalidReasoningResponse(_index: number, _response: string, providerName: string): void {
+  const provider = providerName.toLowerCase()
+  const label = provider.includes("claude") ? "claude" : provider.includes("kimi") ? "kimi" : provider.includes("gemini") ? "gemini" : provider.includes("openai") ? "openai" : provider.includes("deepseek") ? "deepseek" : null
+  if (label) markProviderRuntimeFailure(label, "invalid_structured_response")
 }
 
 /** Architecture and product planning belong to Claude, with Kimi as the primary fallback. */
@@ -273,7 +271,7 @@ export type ProjectGenerationReadiness = {
   roles: { planner: boolean; coder: boolean; reviewer: boolean }
   missing: Array<"planner" | "coder" | "reviewer">
   checkedAt?: number
-  providers?: { deepSeek: ProviderProbe; claude: ProviderProbe; kimi: ProviderProbe; openAi?: ProviderProbe; gemini?: ProviderProbe }
+  providers?: { deepSeek: ProviderProbe; claude: ProviderProbe; kimi: ProviderProbe; openAi?: ProviderProbe; gemini?: ProviderProbe; vexly?: ProviderProbe }
 }
 
 export type PublicProjectGenerationReadiness = Pick<ProjectGenerationReadiness, "ready" | "checkedAt">
@@ -295,11 +293,12 @@ export function resolveProjectGenerationReadiness(config: {
   kimi: boolean
   openAi?: boolean
   gemini?: boolean
+  vexly?: boolean
 }): ProjectGenerationReadiness {
-  const reasoningProvider = config.claude || config.kimi
+  const reasoningProvider = Boolean(config.claude || config.kimi || config.vexly)
   const roles = {
     planner: reasoningProvider,
-    coder: !!config.openAi || config.deepSeek || config.kimi,
+    coder: !!config.openAi || config.deepSeek || config.kimi || !!config.vexly,
     reviewer: reasoningProvider,
   }
   const missing = (Object.keys(roles) as Array<keyof typeof roles>).filter((role) => !roles[role])
@@ -312,6 +311,7 @@ export function getProjectGenerationReadiness(): ProjectGenerationReadiness {
     claude: isClaudeConfigured(),
     kimi: isKimiConfigured(),
     openAi: isOpenAiConfigured(),
+    vexly: isVexlyConfigured(),
   })
 }
 
@@ -325,17 +325,18 @@ export async function getVerifiedProjectGenerationReadiness(
     return verifiedReadinessCache.value
   }
 
-  const [deepSeek, claude, kimi, openAi, gemini] = await Promise.all([probeDeepSeek(), probeClaude(), probeKimi(), probeOpenAi(), probeGemini()])
+  const [deepSeek, claude, kimi, openAi, gemini, vexly] = await Promise.all([probeDeepSeek(), probeClaude(), probeKimi(), probeOpenAi(), probeGemini(), probeVexly()])
   const resolved = resolveProjectGenerationReadiness({
     deepSeek: deepSeek.available,
     claude: claude.available,
     kimi: kimi.available,
     openAi: openAi.available,
+    vexly: vexly.available,
   })
   const value: ProjectGenerationReadiness = {
     ...resolved,
     checkedAt: now,
-    providers: { deepSeek, claude, kimi, openAi, gemini },
+    providers: { deepSeek, claude, kimi, openAi, gemini, vexly },
   }
   const configuredTtl = Number(process.env.AI_PROVIDER_PREFLIGHT_TTL_MS)
   const ttl = Number.isFinite(configuredTtl)
@@ -350,7 +351,7 @@ export function isProjectGenerationConfigured(): boolean {
 }
 
 export function isProjectReviewerConfigured(): boolean {
-  return isClaudeConfigured() || isKimiConfigured()
+  return isClaudeConfigured() || isKimiConfigured() || isVexlyConfigured()
 }
 
 /** Compatibility alias for existing reasoning callers. */

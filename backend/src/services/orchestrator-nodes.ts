@@ -48,7 +48,7 @@ const NODE_TIMEOUT_MS = 30_000
 const DEFAULT_MAX_TOKENS = 1024
 
 async function callOpenAiNode(input: string, config: OrchestratorNodeConfig, maxTokens: number): Promise<string | null> {
-  const key = process.env.OPENAI_API_KEY || process.env.VEXLY_API_KEY
+  const key = process.env.OPENAI_API_KEY
   if (!key) return null
   const base = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1"
   const response = await fetch(`${base.replace(/\/$/, "")}/responses`, {
