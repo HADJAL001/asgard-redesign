@@ -12,7 +12,7 @@ Updated: 2026-09-27. Scope: `asgard-redesign` and `osgardnewworld.com` only.
 | Delivery wizard | Implemented, provider-dependent | DNS/Supabase verification, adapter recheck before codegen | Connect live provider credentials and pass adapter tests |
 | Sandbox and signed artifacts | Implemented, production use pending | Sandbox gate and artifact seal tests | Run an authenticated production codegen task with a signed result |
 | Collaboration and approval | Verified | Authenticated approval/comments, anonymous writes rejected | Add role-based approval policy when team roles are enabled |
-| Golden tasks and quality gates | Verified | Golden task, 31/31 production E2E, axe, Web Vitals, browser gate | Capture equivalent external competitor runs before comparative claims |
+| Golden tasks and quality gates | Verified | Golden task, 31/31 production E2E, axe, Web Vitals, browser gate | Run the benchmark with `GOLDEN_TASK_COOKIE` after every auth-sensitive release; capture equivalent external competitor runs before comparative claims |
 | Product Graph / four-layer memory direction | Foundation implemented, migration pending | Tenant-bound graph projection/replay plus `backend/src/postgres/001_product_memory.sql` with RLS, pgvector and append-only evidence; [runbook](PRODUCT-MEMORY-POSTGRES.md) | Apply to a provisioned Postgres cluster, enable shadow writes, reconcile, then move reads |
 
 ## Production evidence

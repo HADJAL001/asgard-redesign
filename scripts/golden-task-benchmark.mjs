@@ -8,12 +8,16 @@
  * the only production domain in scope.
  */
 const base = (process.env.GOLDEN_TASK_BASE_URL || "https://osgardnewworld.com").replace(/\/$/, "")
+const sessionCookie = process.env.GOLDEN_TASK_COOKIE || ""
+if (!sessionCookie) throw new Error("GOLDEN_TASK_COOKIE is required for the authenticated golden workflow; no source data was written.")
 const startedAt = Date.now()
 const results = []
 
 async function request(path, options = {}) {
   const started = Date.now()
-  const response = await fetch(`${base}${path}`, options)
+  const headers = new Headers(options.headers || {})
+  headers.set("cookie", sessionCookie)
+  const response = await fetch(`${base}${path}`, { ...options, headers })
   const payload = await response.json().catch(() => null)
   const result = { path, status: response.status, ok: response.ok, latencyMs: Date.now() - started }
   results.push(result)
