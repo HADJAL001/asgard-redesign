@@ -72,7 +72,9 @@ All tenant-bearing tables have Row Level Security enabled and forced.
    npm run reconcile:product-memory-postgres
    ```
 
-   This command is read-only. It prints a JSON report and exits with code `2`
+   This command is read-only. It always checks `osgardnewworld` (plus the
+   configured Product Memory tenant and any tenants present in source data),
+   prints a JSON report, and exits with code `2`
    when contracts, hashes, evidence, graph nodes, graph edges, or unexpected
    PostgreSQL rows diverge. Run it from the same release checkout that owns the
    mounted `.data` files, or set `BLUEPRINT_STORE_PATH` and

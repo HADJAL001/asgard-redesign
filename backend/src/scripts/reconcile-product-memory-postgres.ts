@@ -70,7 +70,8 @@ function expectedGraph(revisions: Blueprint[], entries: Evidence[]) {
 
 export async function reconcileProductMemory(): Promise<ReconciliationReport> {
   const { revisions, entries } = sourceRecords()
-  const sourceTenants = [...new Set([...revisions.map((item) => item.tenantId || defaultTenant), ...entries.map((item) => item.tenantId || defaultTenant)])]
+  const configuredTenants = (process.env.OSGARD_PRODUCT_TENANT_ID || "").split(",").map((item) => item.trim()).filter(Boolean)
+  const sourceTenants = [...new Set([defaultTenant, ...configuredTenants, ...revisions.map((item) => item.tenantId || defaultTenant), ...entries.map((item) => item.tenantId || defaultTenant)])]
   const client = new Client({
     connectionString: process.env.OSGARD_PRODUCT_POSTGRES_URL,
     application_name: "osgard-product-memory-reconcile",
@@ -105,8 +106,12 @@ export async function reconcileProductMemory(): Promise<ReconciliationReport> {
     else if (item.contractHash && row.contract_hash !== item.contractHash) hashMismatches.push(key)
   }
   const missingEvidence: string[] = []
-  const postgresEvidenceIds = new Set(evidence.map((row) => String(row.id)))
-  for (const item of entries) if (!postgresEvidenceIds.has(item.id)) missingEvidence.push(`${item.tenantId || defaultTenant}|${item.id}`)
+  const sourceEvidenceIds = new Set(entries.map((item) => `${item.tenantId || defaultTenant}|${item.id}`))
+  const postgresEvidenceIds = new Set(evidence.map((row) => `${row.tenant_id}|${row.id}`))
+  for (const item of entries) {
+    const key = `${item.tenantId || defaultTenant}|${item.id}`
+    if (!postgresEvidenceIds.has(key)) missingEvidence.push(key)
+  }
   const expected = expectedGraph(revisions, entries)
   const postgresNodeKeys = new Set(nodes.map((row) => `${row.tenant_id}|${row.id}`))
   const postgresEdgeKeys = new Set(edges.map((row) => `${row.tenant_id}|${row.from_node_id}->${row.to_node_id}`))
@@ -115,6 +120,7 @@ export async function reconcileProductMemory(): Promise<ReconciliationReport> {
   const expectedNodeIds = expected.nodes, expectedEdgeIds = expected.edges
   const extras = [
     ...contracts.filter((row) => !sourceContractKeys.has(`${row.tenant_id}|${row.blueprint_id}|${row.revision}`)).map((row) => `contract:${row.tenant_id}|${row.blueprint_id}|${row.revision}`),
+    ...evidence.filter((row) => !sourceEvidenceIds.has(`${row.tenant_id}|${row.id}`)).map((row) => `evidence:${row.tenant_id}|${row.id}`),
     ...nodes.filter((row) => !expectedNodeIds.has(`${row.tenant_id}|${row.id}`)).map((row) => `node:${row.tenant_id}|${row.id}`),
     ...edges.filter((row) => !expectedEdgeIds.has(`${row.tenant_id}|${row.from_node_id}->${row.to_node_id}`)).map((row) => `edge:${row.tenant_id}|${row.id}`),
   ]
