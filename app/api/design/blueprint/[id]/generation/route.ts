@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { appendBlueprintEvidence, getBlueprint, listBlueprintEvidence, updateBlueprintGeneration, verifyBlueprintEvidenceToken, type StoredBlueprint } from "@/lib/blueprint-store"
 import { tenantIdFromRequest } from "@/lib/tenant-context"
 import { createArtifactSeal } from "@/lib/artifact-seal"
+import { observeProductMemory, shadowProductMemory } from "@/lib/product-memory-shadow"
 
 export const dynamic = "force-dynamic"
 
@@ -80,11 +81,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     : null
   const generation: NonNullable<StoredBlueprint["generation"]> = { taskId, status, progress: Math.min(100, Math.max(0, Math.round(progress))), ...(typeof body?.currentStep === "string" ? { currentStep: body.currentStep.slice(0, 160) } : {}), ...(typeof body?.error === "string" ? { error: body.error.slice(0, 500) } : {}), ...(result && Object.keys(result).length ? { result } : {}), ...(sandbox ? { sandbox } : {}), ...(artifactSeal ? { artifactSeal } : {}), updatedAt: new Date().toISOString() }
   updateBlueprintGeneration(id, revision, generation, tenantId)
+  let artifactEvidence
   if (artifactSeal) {
     const summary = `Generation artifact sealed (${artifactSeal.digest.slice(0, 12)}…)`
     const alreadyRecorded = listBlueprintEvidence(id, tenantId).some((entry) => entry.kind === "artifact-signature" && entry.revision === revision && entry.summary === summary)
-    if (!alreadyRecorded) appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: id, tenantId, revision, contractHash: blueprint.contractHash || "", kind: "artifact-signature", status: "passed", summary, capturedAt: artifactSeal.signedAt, source: "generation-artifact-seal" })
+    if (!alreadyRecorded) artifactEvidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: id, tenantId, revision, contractHash: blueprint.contractHash || "", kind: "artifact-signature", status: "passed", summary, capturedAt: artifactSeal.signedAt, source: "generation-artifact-seal" })
   }
   const updated = getBlueprint(id, revision, tenantId)
+  if (updated && artifactEvidence) {
+    await shadowProductMemory(request, updated, [artifactEvidence])
+    await observeProductMemory(request, updated, [artifactEvidence])
+  }
   return NextResponse.json({ blueprintId: id, revision, generation, sealStatus: artifactSeal ? "signed" : status === "completed" ? "unavailable" : "not_applicable", history: updated?.generationHistory || [generation] }, { status: 201, headers: { "cache-control": "no-store" } })
 }
