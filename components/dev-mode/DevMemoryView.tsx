@@ -243,9 +243,12 @@ export function DevMemoryView() {
     setLoading(true)
     setError(null)
     try {
+      // This is an operational readout, not an authentication gate. A visitor
+      // without a session should see the explicit unavailable state below, not
+      // be redirected away from the route while the shell is hydrating.
       const [res, status] = await Promise.all([
-        apiClient.get<PlatformMemory>("/projects/platform-memory"),
-        apiClient.get<ProductMemoryStatus>("/design/product-memory/status").catch(() => null),
+        apiClient.get<PlatformMemory>("/projects/platform-memory", { skipAuthRedirect: true }),
+        apiClient.get<ProductMemoryStatus>("/design/product-memory/status", { skipAuthRedirect: true }).catch(() => null),
       ])
       setData(res)
       setProductMemory(status)

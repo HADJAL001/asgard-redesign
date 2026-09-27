@@ -394,6 +394,20 @@ test.describe("OSGARD design system", () => {
     await expect(page.getByRole("progressbar", { name: "Прогресс недели" })).toHaveAttribute("aria-valuemax", "100")
   })
 
+  test("developer memory keeps its direct route after client hydration", async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on("pageerror", (error) => pageErrors.push(error.message))
+
+    await page.goto("/dev/memory")
+    await expect(page.getByRole("navigation")).toBeVisible()
+
+    // A slow client hydration must never take a person from the diagnostic
+    // surface to a different workspace. This catches an accidental redirect.
+    await page.waitForTimeout(2_000)
+    await expect(page).toHaveURL(/\/dev\/memory$/)
+    expect(pageErrors.filter((message) => /NotFoundError|insertBefore|removeChild/.test(message))).toEqual([])
+  })
+
   test("developer cockpit exposes interaction latency", async ({ page }) => {
     await page.goto("/dev")
     await expect(page.getByText("Interaction latency")).toBeVisible()

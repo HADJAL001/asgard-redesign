@@ -16,11 +16,11 @@ const products: { id: ProductType; label: string; detail: string; Icon: typeof G
 ]
 
 const presets: { id: VisualPreset; label: string; detail: string; color: string }[] = [
-  { id: "minimal", label: "Minimal", detail: "Quiet, precise, fast", color: "#d7f4ff" },
-  { id: "bold", label: "Bold", detail: "High contrast, decisive", color: "#ff8e70" },
-  { id: "playful", label: "Playful", detail: "Warm, expressive, alive", color: "#f5c451" },
-  { id: "corporate", label: "Corporate", detail: "Clear, trusted, composed", color: "#9bbcff" },
-  { id: "futuristic", label: "Futuristic", detail: "Hull, glow, command deck", color: "#64d9e8" },
+  { id: "minimal", label: "Minimal", detail: "Quiet, precise, fast", color: "#E5E4E2" },
+  { id: "bold", label: "Bold", detail: "High contrast, decisive", color: "#D4AF37" },
+  { id: "playful", label: "Playful", detail: "Warm, expressive, alive", color: "#B49762" },
+  { id: "corporate", label: "Corporate", detail: "Clear, trusted, composed", color: "#8E99A8" },
+  { id: "futuristic", label: "Futuristic", detail: "Hull, glow, command deck", color: "#B6A26A" },
 ]
 
 function moveSelection<T extends string>(event: KeyboardEvent<HTMLButtonElement>, values: readonly T[], current: T, onChange: (value: T) => void) {
