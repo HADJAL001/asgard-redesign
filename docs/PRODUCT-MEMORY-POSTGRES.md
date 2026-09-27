@@ -16,7 +16,7 @@ The Product OS migration is additive. It does not replace `.data` or SQLite at d
 
 ## Shadow write
 
-After the schema is present, set `OSGARD_PRODUCT_SHADOW_WRITE=true` in both the protected Next.js and backend environments. Authenticated blueprint creation then sends a bounded request to `POST /design/product-memory/shadow`; the backend derives the tenant as `user-<authenticated user id>`, never from the browser payload. The current store remains the source of reads. If PostgreSQL is unavailable, the shadow failure does not prevent a preview or change the existing blueprint result.
+After the schema is present, set `OSGARD_PRODUCT_SHADOW_WRITE=true` in both the protected Next.js and backend environments. Authenticated blueprint creation then sends a bounded request to `POST /design/product-memory/shadow`. The backend accepts only the server-allowlisted `OSGARD_PRODUCT_TENANT_ID` scope (`osgardnewworld` in production); browser input cannot select a PostgreSQL RLS scope. The current store remains the source of reads. If PostgreSQL is unavailable, the shadow failure does not prevent a preview or change the existing blueprint result.
 
 ## Cutover
 
@@ -37,3 +37,18 @@ After the schema is present, set `OSGARD_PRODUCT_SHADOW_WRITE=true` in both the 
 6. Remove the fallback only after a full release cycle has no reconciliation divergence.
 
 No production read path is switched by this migration. This avoids losing existing product records or falsely claiming database-native multi-tenancy before it is verified.
+
+## Automated gate
+
+The production release runs `osgard-product-memory-reconcile.timer` daily at
+03:15 local server time with a persistent, randomized-delay schedule. It uses
+the same read-only reconciliation command and protected environment described
+above. Review its latest result with:
+
+```bash
+systemctl status osgard-product-memory-reconcile.service --no-pager
+journalctl -u osgard-product-memory-reconcile.service -n 50 --no-pager
+```
+
+The service intentionally becomes inactive after a successful one-shot run; the
+timer itself must remain enabled and active.

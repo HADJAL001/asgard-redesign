@@ -87,6 +87,29 @@ To stop new shadow writes without losing evidence already recorded, set
 restart the two services. Do not drop Product Memory tables as part of an
 application rollback.
 
+## Automated Reconciliation
+
+Production runs the read-only gate once per day through
+`osgard-product-memory-reconcile.timer`. It is scheduled for `03:15` local
+server time with a bounded randomized delay and `Persistent=true`, so a missed
+window is recovered after the server returns. The timer invokes the same
+`npm run reconcile:product-memory-postgres` command from the deployed backend
+checkout, uses the protected Product Memory environment file, and fails after
+30 seconds rather than leaving a hung job.
+
+Operator checks:
+
+```bash
+systemctl list-timers osgard-product-memory-reconcile.timer
+systemctl status osgard-product-memory-reconcile.service --no-pager
+journalctl -u osgard-product-memory-reconcile.service -n 50 --no-pager
+```
+
+`inactive (dead)` for the service after a successful run is expected because it
+is a one-shot job. The timer must remain `enabled` and `active`. A non-zero
+service result is a release signal: keep file-store reads authoritative, inspect
+the JSON divergence report, and do not advance the Postgres cutover.
+
 ## Remaining Work
 
 - Run reconciliation continuously during the shadow-write release window;
