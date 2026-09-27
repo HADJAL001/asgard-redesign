@@ -48,9 +48,9 @@ jobs:
       - run: npm audit --audit-level=high
       - run: npm run build
       - run: npm run lint:quality
+      - run: npx playwright install --with-deps chromium
       - run: npm run test:design-system
       - run: npm run test:analytics-contract
-      - run: npx playwright install --with-deps chromium
       - run: npx playwright test e2e/design-system.spec.ts --reporter=line
       - run: npm run test:design-system-browser
         env:
