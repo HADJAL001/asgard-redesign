@@ -197,9 +197,9 @@ export function BlueprintCanvas({
                   }))
                 }
                 disabled={!selectedIds.length}
-                title="Apply dense layout to selected blocks"
+                title="Сделать выбранные блоки плотнее"
               >
-                Dense
+                Сделать плотнее
               </button>
               <button
                 type="button"
@@ -211,18 +211,18 @@ export function BlueprintCanvas({
                   }))
                 }
                 disabled={!selectedIds.length}
-                title="Mark selected blocks as mobile-ready"
+                title="Подготовить выбранные блоки для mobile"
               >
-                Mobile
+                Для mobile
               </button>
               {selectedIds.length ? (
                 <button
                   type="button"
                   className="ds-focus"
                   onClick={() => setSelectedIds([])}
-                  title="Clear selected blocks"
+                  title="Снять выделение с блоков"
                 >
-                  Clear
+                  Снять выделение
                 </button>
               ) : null}
             </div>
