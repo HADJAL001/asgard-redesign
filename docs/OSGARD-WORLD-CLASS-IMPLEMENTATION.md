@@ -3,10 +3,10 @@
 **Scope:** only `osgardnewworld.com` and its repository `HADJAL001/asgard-redesign`.
 No changes, deployments, credentials, or integrations for `osgardos.com`, Senjorio, or any other project are in scope.
 
-**Last updated:** 2026-09-26
+**Last updated:** 2026-09-27
 **Production host:** `84.46.244.117`  
 **Runtime:** `osgard-web.service`  
-**Runtime implementation release:** `5d0d571f`
+**Runtime implementation release:** `c107f97b`
 
 ## Executive status
 
@@ -302,3 +302,13 @@ The current requirement-by-requirement status is maintained in
 - Model gateway visibility: authenticated production E2E now verifies Claude, OpenAI, and Gemini readiness roles and boolean availability without allowing provider secrets, tokens, or endpoint metadata to reach the browser.
 - Web Vitals gate: desktop Cofounder recorded FCP `1.06s`, LCP `1.45s`, CLS `0.00038`; mobile recorded FCP `1.05s`, LCP `1.42s`, CLS `0.00026`. The permanent gate limits FCP/LCP to `2.5s` and CLS to `0.1` on both viewports.
 - Full public design-system E2E (2026-09-27): `31/31` scenarios passed, covering tenant isolation, contract hash/evidence, command diffs, delivery policy, replay, approval boundaries, provider-readiness secrecy, Canvas editing, preview recovery, Developer Mode, hydration, mobile viewport, and production performance.
+
+### Credential-backed delivery verification (2026-09-27)
+
+- `c107f97b` was published to `main`; the Railway `asgard-backend` deployment built successfully from `/backend` and is the backend hostname configured by `osgardnewworld.com`.
+- Delivery preflight now confirms the exact Supabase project through the user's authenticated Management adapter and Cloudflare zone ownership plus an exact apex/subdomain address record. Both checks use authenticated, rate-limited, read-only provider actions; no DNS or infrastructure is created.
+- Required infrastructure connector IDs are enforced. Product integrations such as Stripe may accompany infrastructure adapters but can no longer satisfy the infrastructure requirement by themselves.
+- Backend build and all backend tests passed (`785` total, `783` passed, `2` skipped); frontend typecheck, delivery-adapter tests, and quality lint passed.
+- The frontend checkout on `84.46.244.117` was fast-forwarded from `decf0442` to `c107f97b`, built, and restarted through `osgard-web.service`. Public `/` and `/cofounder`, backend `/health`, and nginx configuration returned healthy results.
+- Rollback snapshots: Git ref `refs/backup/current-before-c107f97b` and previous build at `/opt/osgard-platform/releases/current-before-c107f97b-next`. Existing `.data/` and modified `next-env.d.ts` were preserved. The separate `/opt/osgard` service and `osgardos.com` were not changed.
+- Provider verification remains credential-dependent: no live customer Cloudflare/Supabase credentials were exercised. A passing check proves access to the exact zone/project and a configured address record; it does not prove the DNS target points at this VPS or that an application deploy is live.
