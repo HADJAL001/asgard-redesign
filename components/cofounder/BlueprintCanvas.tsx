@@ -9,6 +9,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { useState } from "react";
+import { HolographicProductTwin } from "@/components/cofounder/HolographicProductTwin";
 import type {
   ProductType,
   VisualPreset,
@@ -149,6 +150,7 @@ export function BlueprintCanvas({
       >
         {plan ? (
           <div className="ds-blueprint-canvas__surface">
+            <HolographicProductTwin active={commandActivity} />
             <div className="ds-blueprint-canvas__surface-bar">
               <span />
               <span />
