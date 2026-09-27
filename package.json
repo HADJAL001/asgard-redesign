@@ -65,6 +65,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/three": "^0.185.1",
+    "axe-core": "^4.13.0",
     "concurrently": "^10.0.4",
     "eslint": "^9.39.1",
     "eslint-config-next": "^16.2.11",
