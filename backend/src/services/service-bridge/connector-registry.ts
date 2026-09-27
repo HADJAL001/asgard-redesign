@@ -94,6 +94,20 @@ export const CONNECTORS: ConnectorDefinition[] = [
     fields: [{ ...API_KEY_FIELD, label: "Management access token" }],
     actions: [
       { id: "list_projects", label: "List projects", method: "GET", path: "/projects", isTestAction: true },
+      {
+        id: "create_project",
+        label: "Create Supabase project",
+        method: "POST",
+        path: "/projects",
+        description: "Creates a new project in the selected organization. This action creates billable infrastructure and is never used as a connection test.",
+        params: [
+          { key: "name", label: "Project name", in: "body", required: true },
+          { key: "organization_id", label: "Organization ID", in: "body", required: true },
+          { key: "region", label: "Region", in: "body", required: true },
+          { key: "db_pass", label: "Database password", in: "body", required: true },
+          { key: "plan", label: "Plan", in: "body" },
+        ],
+      },
       { id: "get_project", label: "Read project", method: "GET", path: "/projects/{{ref}}", params: [{ key: "ref", label: "Project ref", in: "path", required: true }] },
     ],
   },
