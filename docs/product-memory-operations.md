@@ -121,6 +121,10 @@ The reconciliation client applies five-second PostgreSQL statement and idle
 transaction timeouts. A pooler or query stall must produce an operational failure,
 not leave the daily job running indefinitely.
 
+The report also includes `meaningfulBaseline`. An empty install can be `ok: true`
+because both stores are empty, but it is not evidence for a read cutover until at
+least one authenticated blueprint revision has been reconciled.
+
 ## Remaining Work
 
 - Run reconciliation continuously during the shadow-write release window;

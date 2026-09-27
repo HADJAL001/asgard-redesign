@@ -25,6 +25,8 @@ export type ReconciliationReport = {
   postgres: { contracts: number; evidence: number; nodes: number; edges: number }
   divergence: { missingContracts: string[]; hashMismatches: string[]; missingEvidence: string[]; missingNodes: string[]; missingEdges: string[]; extras: string[] }
   ok: boolean
+  /** False on an empty install: equality is proven, but migration coverage is not. */
+  meaningfulBaseline: boolean
 }
 
 const defaultTenant = "osgardnewworld"
@@ -129,7 +131,8 @@ export async function reconcileProductMemory(): Promise<ReconciliationReport> {
     ...edges.filter((row) => !expectedEdgeIds.has(`${row.tenant_id}|${row.from_node_id}->${row.to_node_id}`)).map((row) => `edge:${row.tenant_id}|${row.id}`),
   ]
   const divergence = { missingContracts, hashMismatches, missingEvidence, missingNodes, missingEdges, extras }
-  return { checkedAt: new Date().toISOString(), source: { blueprints: new Set(revisions.map((item) => item.id)).size, revisions: revisions.length, evidence: entries.length }, postgres: { contracts: contracts.length, evidence: evidence.length, nodes: nodes.length, edges: edges.length }, divergence, ok: Object.values(divergence).every((items) => items.length === 0) }
+  const source = { blueprints: new Set(revisions.map((item) => item.id)).size, revisions: revisions.length, evidence: entries.length }
+  return { checkedAt: new Date().toISOString(), source, postgres: { contracts: contracts.length, evidence: evidence.length, nodes: nodes.length, edges: edges.length }, divergence, ok: Object.values(divergence).every((items) => items.length === 0), meaningfulBaseline: source.revisions > 0 }
 }
 
 if (require.main === module) {
