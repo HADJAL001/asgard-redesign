@@ -89,7 +89,7 @@ const comment = await request(`/api/design/blueprint/${blueprint.id}/comments`, 
   headers: { "content-type": "application/json" },
   body: JSON.stringify({ revision: activeBlueprint.revision, author: "golden-task", comment: "Approve mobile-first purchase path after visual review.", evidenceToken }),
 })
-assert(comment.response.ok && comment.payload?.comment?.body, "approval_room failed")
+assert(comment.response.status === 401 && comment.payload?.error === "auth_required", "approval_room must reject anonymous writes")
 
 const replay = await request(`/cofounder/replay/${blueprint.id}?revision=${activeBlueprint.revision}`)
 assert(replay.response.ok, "mission_replay failed")
@@ -106,7 +106,7 @@ const output = {
     naturalLanguageCommands: "passed",
     deliveryWizard: "passed",
     deliveryVerification: deliveryVerificationAvailable ? "passed" : "pending_deploy",
-    approvalRoom: "passed",
+    approvalRoom: "auth_required",
     replay: "passed",
   },
   targetBudgets: { livePreviewMs: 60_000, workflowMs: 120_000 },
