@@ -23,6 +23,8 @@ export function ObsidianCosmos() {
     }))
     let frame = 0
     let animation = 0
+    let visible = true
+    let observer: IntersectionObserver | null = null
     let width = 0
     let height = 0
     const resize = () => {
@@ -36,6 +38,7 @@ export function ObsidianCosmos() {
       draw(0)
     }
     const draw = (time: number) => {
+      animation = 0
       frame += 1
       context.clearRect(0, 0, width, height)
       const px = pointer.current.x - 0.5
@@ -56,12 +59,23 @@ export function ObsidianCosmos() {
         context.arc(x, y, star.size * star.depth, 0, Math.PI * 2)
         context.fill()
       }
-      if (!reduced.matches) animation = window.requestAnimationFrame(draw)
+      if (!reduced.matches && visible) animation = window.requestAnimationFrame(draw)
     }
     const move = (event: PointerEvent) => {
       pointer.current = { x: event.clientX / Math.max(window.innerWidth, 1), y: event.clientY / Math.max(window.innerHeight, 1) }
     }
     resize()
+    if ("IntersectionObserver" in window) {
+      observer = new IntersectionObserver(([entry]) => {
+        visible = entry.isIntersecting
+        if (visible && !reduced.matches && !animation) animation = window.requestAnimationFrame(draw)
+        if (!visible && animation) {
+          window.cancelAnimationFrame(animation)
+          animation = 0
+        }
+      }, { threshold: 0 })
+      observer.observe(canvas)
+    }
     window.addEventListener("resize", resize, { passive: true })
     window.addEventListener("pointermove", move, { passive: true })
     if (!reduced.matches) animation = window.requestAnimationFrame(draw)
@@ -69,6 +83,7 @@ export function ObsidianCosmos() {
       window.cancelAnimationFrame(animation)
       window.removeEventListener("resize", resize)
       window.removeEventListener("pointermove", move)
+      observer?.disconnect()
       if (frame) context.clearRect(0, 0, width, height)
     }
   }, [])
