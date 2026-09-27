@@ -51,6 +51,47 @@ export function isProductMemoryObservationEnabled() {
   return process.env.OSGARD_PRODUCT_DUAL_READ === "true" && Boolean(process.env.OSGARD_PRODUCT_POSTGRES_URL)
 }
 
+export type ProductMemoryStatus = {
+  shadowWriteEnabled: boolean
+  dualReadEnabled: boolean
+  databaseConfigured: boolean
+  databaseReachable: boolean
+  meaningfulBaseline: boolean
+  cutoverAllowed: boolean
+  counts: { contracts: number; evidence: number; nodes: number; edges: number }
+  checkedAt: string
+}
+
+/** Read-only operational signal for the developer cockpit. Never returns connection details. */
+export async function getProductMemoryStatus(): Promise<ProductMemoryStatus> {
+  const shadowWriteEnabled = isProductMemoryShadowEnabled()
+  const dualReadEnabled = isProductMemoryObservationEnabled()
+  const databaseConfigured = Boolean(process.env.OSGARD_PRODUCT_POSTGRES_URL)
+  const empty = { contracts: 0, evidence: 0, nodes: 0, edges: 0 }
+  if (!databaseConfigured) return { shadowWriteEnabled, dualReadEnabled, databaseConfigured, databaseReachable: false, meaningfulBaseline: false, cutoverAllowed: false, counts: empty, checkedAt: new Date().toISOString() }
+  const client = await clientPool().connect()
+  try {
+    await client.query("BEGIN READ ONLY")
+    const result = await client.query<{ contracts: string; evidence: string; nodes: string; edges: string }>(
+      `SELECT
+        (SELECT count(*) FROM osgard_product.product_contracts)::text AS contracts,
+        (SELECT count(*) FROM osgard_product.evidence_ledger)::text AS evidence,
+        (SELECT count(*) FROM osgard_product.product_graph_nodes)::text AS nodes,
+        (SELECT count(*) FROM osgard_product.product_graph_edges)::text AS edges`,
+    )
+    await client.query("COMMIT")
+    const row = result.rows[0] ?? { contracts: "0", evidence: "0", nodes: "0", edges: "0" }
+    const counts = { contracts: Number(row.contracts), evidence: Number(row.evidence), nodes: Number(row.nodes), edges: Number(row.edges) }
+    const meaningfulBaseline = counts.contracts > 0 && counts.evidence > 0 && counts.nodes > 0
+    return { shadowWriteEnabled, dualReadEnabled, databaseConfigured, databaseReachable: true, meaningfulBaseline, cutoverAllowed: meaningfulBaseline && dualReadEnabled, counts, checkedAt: new Date().toISOString() }
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined)
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
 function clientPool() {
   if (!pool) pool = new Pool({ connectionString: process.env.OSGARD_PRODUCT_POSTGRES_URL, max: 4, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 1_000 })
   return pool

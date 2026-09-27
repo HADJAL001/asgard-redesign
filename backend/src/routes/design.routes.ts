@@ -26,7 +26,7 @@ import {
   type DesignBrief,
 } from "../lib/design-system"
 import { explainDesignQuality } from "../lib/design-qa"
-import { isProductMemoryObservationEnabled, isProductMemoryShadowEnabled, observeProductMemory, shadowProductMemory, type ProductMemoryObservationInput, type ProductMemoryShadowInput } from "../services/product-memory-shadow"
+import { getProductMemoryStatus, isProductMemoryObservationEnabled, isProductMemoryShadowEnabled, observeProductMemory, shadowProductMemory, type ProductMemoryObservationInput, type ProductMemoryShadowInput } from "../services/product-memory-shadow"
 
 /* ================================================================
    OSGARD · Дизайн-студия проекта
@@ -80,6 +80,15 @@ router.get("/provider-readiness", requireAuth, asyncHandler(async (_req: AuthReq
   const value = await providerReadinessInFlight
   providerReadinessCache = { value, expiresAt: Date.now() + 30_000 }
   res.json(value)
+}))
+
+router.get("/product-memory/status", requireAuth, asyncHandler(async (_req: AuthRequest, res) => {
+  res.setHeader("Cache-Control", "private, no-store")
+  try {
+    return res.json(await getProductMemoryStatus())
+  } catch {
+    return res.status(503).json({ error: "product_memory_unreachable", shadowWriteEnabled: isProductMemoryShadowEnabled(), dualReadEnabled: isProductMemoryObservationEnabled(), databaseConfigured: Boolean(process.env.OSGARD_PRODUCT_POSTGRES_URL), databaseReachable: false, meaningfulBaseline: false, cutoverAllowed: false })
+  }
 }))
 
 router.post("/product-memory/shadow", requireAuth, asyncHandler(async (req: AuthRequest, res) => {

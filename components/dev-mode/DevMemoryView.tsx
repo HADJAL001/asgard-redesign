@@ -130,6 +130,17 @@ type PlatformMemory = {
   coverage?: { allTime: LearningCoverage; lastWeek: LearningCoverage }
 }
 
+type ProductMemoryStatus = {
+  shadowWriteEnabled: boolean
+  dualReadEnabled: boolean
+  databaseConfigured: boolean
+  databaseReachable: boolean
+  meaningfulBaseline: boolean
+  cutoverAllowed: boolean
+  counts: { contracts: number; evidence: number; nodes: number; edges: number }
+  checkedAt: string
+}
+
 /* Человеческие имена ветвей получения кода. Ветвь важнее процента: она отвечает на
    вопрос «почему не учится», а не только «насколько». */
 const PATH_LABELS: Record<string, string> = {
@@ -224,6 +235,7 @@ function MemoryConstellation({ learned, waiting, silent, failed }: { learned: nu
 
 export function DevMemoryView() {
   const [data, setData] = useState<PlatformMemory | null>(null)
+  const [productMemory, setProductMemory] = useState<ProductMemoryStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -231,8 +243,12 @@ export function DevMemoryView() {
     setLoading(true)
     setError(null)
     try {
-      const res = await apiClient.get<PlatformMemory>("/projects/platform-memory")
+      const [res, status] = await Promise.all([
+        apiClient.get<PlatformMemory>("/projects/platform-memory"),
+        apiClient.get<ProductMemoryStatus>("/design/product-memory/status").catch(() => null),
+      ])
       setData(res)
+      setProductMemory(status)
     } catch {
       /* Витрина диагностическая: не получилось — так и говорим, а не
          рисуем нули, которые выглядели бы как «платформа не учится». */
@@ -286,6 +302,37 @@ export function DevMemoryView() {
                 : "Платформа пока ничему не научилась — уроки появятся после первых сборок с дефектами."}
         </p>
       </section>
+
+      {productMemory ? (
+        <section className="mt-6 rounded-2xl px-5 py-5" style={{ border: DASHED, background: productMemory.cutoverAllowed ? "rgb(52 211 153 / 5%)" : "rgb(245 158 11 / 5%)" }} aria-label="Product Memory readiness">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[15px] font-medium">Product Memory · migration readiness</h2>
+              <p className="mt-1 text-[13px]" style={{ color: MUTED }}>
+                {productMemory.cutoverAllowed
+                  ? "Dual-read can be observed. The file store remains authoritative until an explicit cutover."
+                  : productMemory.meaningfulBaseline
+                    ? "Baseline exists; dual-read is still disabled. Keep the current store authoritative."
+                    : "Cutover is blocked: create and verify an authenticated blueprint revision before enabling dual-read."}
+              </p>
+            </div>
+            <span className="rounded-full px-2.5 py-1 text-[11px] font-medium" style={{ border: DASHED, color: productMemory.cutoverAllowed ? "#34D399" : "#F59E0B" }}>
+              {productMemory.cutoverAllowed ? "OBSERVATION READY" : "CUTOVER BLOCKED"}
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              ["Contracts", productMemory.counts.contracts],
+              ["Evidence", productMemory.counts.evidence],
+              ["Graph nodes", productMemory.counts.nodes],
+              ["Graph edges", productMemory.counts.edges],
+            ].map(([label, value]) => <div key={String(label)} className="rounded-xl px-3 py-2" style={{ border: DASHED }}><div className="text-[12px]" style={{ color: MUTED }}>{label}</div><strong className="mt-1 block text-[16px]">{value}</strong></div>)}
+          </div>
+          <p className="mt-3 text-[11px]" style={{ color: MUTED }}>
+            Shadow write: {productMemory.shadowWriteEnabled ? "on" : "off"} · Database: {productMemory.databaseReachable ? "reachable" : productMemory.databaseConfigured ? "unreachable" : "not configured"} · Checked {new Date(productMemory.checkedAt).toLocaleTimeString()}
+          </p>
+        </section>
+      ) : null}
 
       {loading ? (
         <div className="mt-8 flex items-center gap-2.5" role="status">
