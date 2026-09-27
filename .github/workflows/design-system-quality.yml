@@ -71,7 +71,6 @@ jobs:
 
   golden-benchmark:
     name: Authenticated golden workflow benchmark
-    if: ${{ secrets.GOLDEN_TASK_COOKIE != '' }}
     needs: [backend-quality, production-contract]
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -82,8 +81,14 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npm run test:golden-tasks
+      - name: Run evidence-gated golden workflow
+        run: |
+          if [ -z "$GOLDEN_TASK_COOKIE" ]; then
+            echo "GOLDEN_TASK_COOKIE is not configured; benchmark is skipped without writing results."
+            exit 0
+          fi
+          npm run test:golden-tasks
+          npm run validate:competitor-benchmark
         env:
           GOLDEN_TASK_BASE_URL: https://osgardnewworld.com
           GOLDEN_TASK_COOKIE: ${{ secrets.GOLDEN_TASK_COOKIE }}
-      - run: npm run validate:competitor-benchmark
