@@ -238,10 +238,11 @@ async function buildLocally(): Promise<{ ok: boolean; logs: string; durationMs: 
   let logs = ""
   let ok = false
   try {
-    const install = await execFileAsync("npm", ["install", "--no-audit", "--no-fund"], {
+    const install = await execFileAsync("npm", ["install", "--no-audit", "--no-fund", "--prefer-offline"], {
       cwd: dir,
       maxBuffer: 32 * 1024 * 1024,
       shell: true,
+      timeout: 4 * 60 * 1000,
     })
     logs += install.stdout + install.stderr
 
@@ -249,6 +250,7 @@ async function buildLocally(): Promise<{ ok: boolean; logs: string; durationMs: 
       cwd: dir,
       maxBuffer: 32 * 1024 * 1024,
       shell: true,
+      timeout: 8 * 60 * 1000,
       env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
     })
     logs += build.stdout + build.stderr
@@ -267,7 +269,7 @@ async function main() {
     `[gate] fullstack-набор: ${files.length} файлов, реальная сборка ${local ? "локально (без Docker)" : "в Docker"}`,
   )
   const started = Date.now()
-  const result = local ? await buildLocally() : await buildNextFullstackApp(files, { logLabel: "gate-fullstack" })
+  const result = local ? await buildLocally() : await buildNextFullstackApp(files, { logLabel: "gate-fullstack", timeoutMs: 4 * 60 * 1000 })
 
   const seconds = Math.round(result.durationMs / 1000)
   console.log(`\n[gate] ok=${result.ok} timedOut=${result.timedOut} ${seconds}с`)
