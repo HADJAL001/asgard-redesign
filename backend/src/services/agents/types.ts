@@ -1,3 +1,5 @@
+import type { DirectorPlan } from "../product-contract"
+
 /* ================================================================
    OSGARD · Agent Pipeline — общие контракты
    ----------------------------------------------------------------
@@ -122,11 +124,13 @@ export type AgentArtifact = BackendArtifact | TestArtifact | OptimizedArtifact |
 export interface BackendAgentInput {
   schema: ProjectSchema
   frontend: FrontendArtifact
+  directorPlan?: DirectorPlan
 }
 
 export interface TesterAgentInput {
   frontend: FrontendArtifact
   backend: BackendArtifact
+  directorPlan?: DirectorPlan
 }
 
 export interface OptimizerAgentInput {
@@ -134,6 +138,7 @@ export interface OptimizerAgentInput {
   frontend: FrontendArtifact
   backend: BackendArtifact
   tests: TestArtifact
+  directorPlan?: DirectorPlan
 }
 
 export interface SecurityAgentInput {
@@ -141,4 +146,5 @@ export interface SecurityAgentInput {
   frontend: FrontendArtifact
   backend: BackendArtifact
   tests: TestArtifact
+  directorPlan?: DirectorPlan
 }

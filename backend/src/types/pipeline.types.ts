@@ -54,6 +54,7 @@ export interface AgentContext {
   taskId: string
   userId: number
   artifacts: Artifact[]
+  initialInput?: unknown
 }
 
 export interface Agent {

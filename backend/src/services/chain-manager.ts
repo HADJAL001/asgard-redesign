@@ -274,7 +274,7 @@ export class ChainManager {
         })
         for (const agent of group) pipelineEvents.emit(channel, { type: "step_start", step: agent.type })
 
-        const outputs = await Promise.all(group.map((agent) => agent.execute(current, { taskId, userId, artifacts })))
+        const outputs = await Promise.all(group.map((agent) => agent.execute(current, { taskId, userId, artifacts, initialInput: input })))
 
         for (let j = 0; j < group.length; j++) {
           const artifact: Artifact = { id: randomUUID(), type: group[j].type, content: outputs[j], timestamp: new Date() }

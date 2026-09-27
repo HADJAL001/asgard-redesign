@@ -9,11 +9,18 @@ import {
   Undo2,
 } from "lucide-react";
 import { useState } from "react";
-import { HolographicProductTwin } from "@/components/cofounder/HolographicProductTwin";
+import dynamic from "next/dynamic";
 import type {
   ProductType,
   VisualPreset,
 } from "@/components/cofounder/ProductCatalog";
+
+// Three.js is valuable once a real blueprint exists, but must not compete with
+// the first interaction or first meaningful paint of the Command Deck.
+const HolographicProductTwin = dynamic(
+  () => import("@/components/cofounder/HolographicProductTwin").then((module) => module.HolographicProductTwin),
+  { ssr: false, loading: () => null },
+);
 type PreviewSlot = {
   id: string;
   component: string;

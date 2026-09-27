@@ -12,6 +12,8 @@ import {
   probeClaude,
   probeGemini,
   probeOpenAi,
+  probeVexly,
+  providerCircuitStatus,
 } from "../services/ai-router"
 import { rateLimit } from "../middleware/rateLimiter"
 import {
@@ -57,24 +59,25 @@ import { getProductMemoryStatus, isProductMemoryObservationEnabled, isProductMem
    ================================================================ */
 
 const router = Router()
-type PublicProviderReadiness = { checkedAt: number; providers: Record<string, { role: string; configured: boolean; available: boolean }> }
+type PublicProviderReadiness = { checkedAt: number; providers: Record<string, { role: string; configured: boolean; available: boolean; circuit: { state: "closed" | "open" | "half-open"; failures: number; retryAt?: number; probeInFlight?: boolean } }> }
 let providerReadinessCache: { expiresAt: number; value: PublicProviderReadiness } | null = null
 let providerReadinessInFlight: Promise<PublicProviderReadiness> | null = null
 
 /**
- * Authenticated operational status for the three product lanes. This deliberately
+ * Authenticated operational status for configured product providers. This deliberately
  * exposes no key material, endpoint, raw provider payload, or account metadata.
  */
 router.get("/provider-readiness", requireAuth, asyncHandler(async (_req: AuthRequest, res) => {
   const now = Date.now()
   res.setHeader("Cache-Control", "private, no-store")
   if (providerReadinessCache && providerReadinessCache.expiresAt > now) return res.json(providerReadinessCache.value)
-  providerReadinessInFlight ??= Promise.all([probeClaude(), probeOpenAi(), probeGemini()]).then(([claude, openai, gemini]) => ({
+  providerReadinessInFlight ??= Promise.all([probeClaude(), probeOpenAi(), probeGemini(), probeVexly()]).then(([claude, openai, gemini, vexly]) => ({
     checkedAt: Date.now(),
     providers: {
-      claude: { role: "architect-reviewer", configured: claude.configured, available: claude.available },
-      openai: { role: "builder-repair", configured: openai.configured, available: openai.available },
-      gemini: { role: "interview-triage", configured: gemini.configured, available: gemini.available },
+      claude: { role: "architect-reviewer", configured: claude.configured, available: claude.available, circuit: providerCircuitStatus("claude") },
+      openai: { role: "builder-repair", configured: openai.configured, available: openai.available, circuit: providerCircuitStatus("openai") },
+      gemini: { role: "interview-triage", configured: gemini.configured, available: gemini.available, circuit: providerCircuitStatus("gemini") },
+      vexly: { role: "model-gateway-failover", configured: vexly.configured, available: vexly.available, circuit: providerCircuitStatus("vexly") },
     },
   })).finally(() => { providerReadinessInFlight = null })
   const value = await providerReadinessInFlight

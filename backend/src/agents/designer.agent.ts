@@ -23,6 +23,8 @@ export class DesignerAgent extends BaseAgent<ProjectSchema, DesignSystem> {
 Схема проекта (JSON):
 ${JSON.stringify(schema, null, 2)}
 
+If the schema contains directorPlan, follow its Visual DNA preset and product type. Color and decorative effects must not replace information hierarchy or product workflows.
+
 Верни СТРОГО валидный JSON (без markdown, без пояснений вне JSON) со структурой:
 {
   "colors": [

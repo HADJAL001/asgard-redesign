@@ -88,9 +88,17 @@ export function createRealPipeline(): (Agent | Agent[])[] {
   const optimizer = new OptimizerAgent()
   const security = new SecurityAgent()
   const deploy = new DeployAgent()
+  const directorAnalyst = {
+    async execute(input: any) {
+      const description = input && typeof input === "object" && typeof input.description === "string"
+        ? input.description
+        : typeof input === "string" ? input : JSON.stringify(input)
+      return analyst.execute(description)
+    },
+  }
 
   return [
-    adaptEnvelopeAgent("spec", analyst),
+    adaptEnvelopeAgent("spec", directorAnalyst),
     adaptEnvelopeAgent("schema", architect),
     adaptEnvelopeAgent("design", designer),
     adaptCompositeAgent("frontend", frontend, (ctx) => ({

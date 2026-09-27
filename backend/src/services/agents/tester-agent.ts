@@ -20,6 +20,7 @@ interface TestPlanEntry {
   sourcePath: string
   sourceContent: string
   kind: "unit" | "e2e"
+  contractRequirements: string[]
 }
 
 function slug(path: string): string {
@@ -35,6 +36,7 @@ function isFrontendPage(path: string): boolean {
 
 function buildTestPlan(input: TesterAgentInput): TestPlanEntry[] {
   const plan: TestPlanEntry[] = []
+  const contractRequirements = input.directorPlan?.contract.requirements.map((requirement) => requirement.text) || []
 
   const backendRoutes = input.backend.files.filter((f) => /^routes\/[\w\-]+\.ts$/.test(f.path))
   for (const f of backendRoutes) {
@@ -44,6 +46,7 @@ function buildTestPlan(input: TesterAgentInput): TestPlanEntry[] {
       sourcePath: f.path,
       sourceContent: f.content,
       kind: "unit",
+      contractRequirements,
     })
   }
 
@@ -55,6 +58,7 @@ function buildTestPlan(input: TesterAgentInput): TestPlanEntry[] {
       sourcePath: f.path,
       sourceContent: f.content,
       kind: "e2e",
+      contractRequirements,
     })
   }
 
@@ -132,7 +136,11 @@ export class TesterAgent extends BaseAgent<TesterAgentInput, TestArtifact> {
 
     const files = await generateFilesFromManifest({
       manifest,
-      filePrompt: (entry) => buildFilePrompt(planByPath.get(entry.path)!),
+      filePrompt: (entry) => {
+        const testPlan = planByPath.get(entry.path)!
+        const contractChecks = testPlan.contractRequirements.map((requirement) => `- ${requirement}`).join("\n")
+        return `${contractChecks ? `Утверждённые acceptance requirements ProductContract:\n${contractChecks}\n\n` : ""}${buildFilePrompt(testPlan)}`
+      },
       fileMaxTokens: 4000,
       logLabel: "tester-agent",
     })

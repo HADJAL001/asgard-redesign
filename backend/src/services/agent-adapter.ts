@@ -1,4 +1,5 @@
 import type { Agent, AgentContext, ArtifactType } from "../types/pipeline.types"
+import { directorPlanFromTaskInput } from "./product-contract"
 
 /* ================================================================
    OSGARD · Адаптер реальных агентов (Клод #2 / Клод #3) под ChainManager
@@ -46,11 +47,28 @@ export function adaptEnvelopeAgent(
 ): Agent {
   return {
     type,
-    async execute(input: any): Promise<any> {
-      const result = await agent.execute(input)
-      return result.data
+    async execute(input: any, context: AgentContext): Promise<any> {
+      const agentInput = type === "spec" && input && typeof input === "object" && typeof input.description === "string"
+        ? input.description
+        : input
+      const result = await agent.execute(agentInput)
+      const plan = findDirectorPlan(context.initialInput) || findDirectorPlan(input)
+      return plan && result.data && typeof result.data === "object"
+        ? { ...result.data, directorPlan: plan }
+        : result.data
     },
   }
+}
+
+function findDirectorPlan(input: unknown) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return undefined
+  const value = (input as Record<string, unknown>).productContract
+    ? input
+    : (input as Record<string, unknown>).directorPlan
+      ? { productContract: (input as Record<string, unknown>).directorPlan }
+      : undefined
+  if (!value) return undefined
+  return directorPlanFromTaskInput(value)
 }
 
 /**
@@ -78,7 +96,9 @@ export function adaptCompositeAgent(
     type,
     async execute(_input: any, context: AgentContext): Promise<any> {
       const input = buildInput(context)
-      return agent.run ? agent.run(input, context.taskId) : agent.execute(input)
+      const plan = findDirectorPlan(context.initialInput) || findDirectorPlan(input)
+      const plannedInput = plan && input && typeof input === "object" ? { ...input, directorPlan: plan } : input
+      return agent.run ? agent.run(plannedInput, context.taskId) : agent.execute(plannedInput)
     },
   }
 }
