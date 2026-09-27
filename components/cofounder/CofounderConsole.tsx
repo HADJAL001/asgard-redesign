@@ -1,6 +1,6 @@
 "use client"
 
-import { FormEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { FilePlus2, Gem, Lightbulb, Mic, MicOff, Radar, RefreshCw, ShieldCheck, Share2, Wand2, X } from "lucide-react"
 import { MemoryLayerRail } from "@/components/design-system/MemoryLayerRail"
@@ -9,7 +9,6 @@ import { PresetSwitcher } from "@/components/design-system/PresetSwitcher"
 import { CinematicSequence, type SequenceStage } from "@/components/design-system/CinematicSequence"
 import { track } from "@/lib/analytics"
 import { useAuth } from "@/lib/auth-store"
-import { CofounderLoadingShell } from "@/components/cofounder/CofounderLoadingShell"
 import { ProductCatalog, type ProductType, type VisualPreset } from "@/components/cofounder/ProductCatalog"
 import { BlueprintCanvas, type BlueprintCanvasPlan } from "@/components/cofounder/BlueprintCanvas"
 import { StoryboardRail } from "@/components/cofounder/StoryboardRail"
@@ -57,7 +56,6 @@ const commandExamples = ["сделай карточки плотнее", "сде
 const GENERATION_STATE_KEY = "osgard-latest-generation"
 
 export function CofounderConsole() {
-  const hydrated = useSyncExternalStore(() => () => {}, () => true, () => false)
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [contractName, setContractName] = useState("")
@@ -352,8 +350,6 @@ export function CofounderConsole() {
       if (pollTimer !== undefined) window.clearTimeout(pollTimer)
     }
   }, [generationTask, persistGenerationRemote, persistGenerationState])
-
-  if (!hydrated) return <CofounderLoadingShell />
 
   async function submitContract(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
