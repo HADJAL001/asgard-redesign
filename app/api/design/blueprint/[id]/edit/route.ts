@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import crypto from "node:crypto"
 import { appendBlueprintEvidence, getBlueprint, listBlueprintRevisions, saveBlueprint, verifyBlueprintEvidenceToken, type StoredBlueprint } from "@/lib/blueprint-store"
 import { tenantIdFromRequest } from "@/lib/tenant-context"
+import { shadowProductMemory } from "@/lib/product-memory-shadow"
 
 const allowed = new Set(["app-shell", "hero", "bento-grid", "form-wizard", "preview-frame", "cinematic-sequence"])
 const maxBytes = 24_000
@@ -36,5 +37,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const edited: StoredBlueprint = { ...source, revision: (latest?.revision || source.revision) + 1, contractHash, canvasSlots: slots, components, generatedAt: new Date().toISOString(), approval: undefined, quality: { ...source.quality, humanReviewRequired: true } }
   saveBlueprint(edited)
   const evidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: id, tenantId, revision: edited.revision, contractHash, kind: "rollback", status: "passed", summary: `Canvas draft saved as revision ${edited.revision}; approval and quality evidence reset`, capturedAt: new Date().toISOString(), source: "blueprint-canvas-edit" })
+  // Canvas changes are first committed locally, then mirrored best-effort to the feature-flagged Product OS ledger.
+  await shadowProductMemory(request, edited, [evidence])
   return NextResponse.json({ blueprint: edited, evidence }, { status: 201, headers: { "cache-control": "no-store" } })
 }
