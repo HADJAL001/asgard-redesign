@@ -12,6 +12,7 @@ type ShadowEvidence = {
 }
 
 export type ProductMemoryShadowInput = {
+  tenantId: string
   blueprint: {
     id: string
     revision: number
@@ -54,9 +55,8 @@ async function writeGraphNode(client: PoolClient, tenantId: string, id: string, 
  * explicitly provisioned. The current blueprint store remains the read source
  * until reconciliation proves zero divergence.
  */
-export async function shadowProductMemory(userId: number, input: ProductMemoryShadowInput) {
+export async function shadowProductMemory(tenantId: string, input: ProductMemoryShadowInput) {
   if (!isProductMemoryShadowEnabled()) return { status: "disabled" as const }
-  const tenantId = `user-${userId}`
   const client = await clientPool().connect()
   try {
     await client.query("BEGIN")

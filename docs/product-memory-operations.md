@@ -19,11 +19,15 @@ environment file:
 ```ini
 OSGARD_PRODUCT_POSTGRES_URL=postgresql://...
 OSGARD_PRODUCT_SHADOW_WRITE=true
+OSGARD_PRODUCT_TENANT_ID=osgardnewworld
 ```
 
 The environment file is outside the checkout, has mode `0600`, and is loaded
 through systemd drop-ins for `osgard-web.service` and `osgard-api.service`.
 Never commit the URL, database password, API keys, or a populated `.env` file.
+`OSGARD_PRODUCT_TENANT_ID` is an allowlisted server value. The backend rejects
+shadow payloads that name a different tenant, so browser input cannot select a
+Postgres RLS scope.
 
 For Supabase on an IPv4-only host, use the shared transaction pooler URI. It
 does not require enabling the dedicated IPv4 add-on. Keep the connection
