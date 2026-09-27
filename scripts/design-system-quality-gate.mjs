@@ -6,6 +6,7 @@ const checks = [
   "scripts/design-system-a11y.mjs",
   "scripts/design-system-runtime-a11y.mjs",
   "scripts/design-system-axe.mjs",
+  "scripts/design-system-web-vitals.mjs",
   "scripts/design-system-performance.mjs",
   "scripts/design-system-assets.mjs",
 ]
