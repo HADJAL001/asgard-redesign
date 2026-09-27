@@ -68,3 +68,22 @@ jobs:
         env:
           DESIGN_SYSTEM_BASE_URL: https://osgardnewworld.com
           DESIGN_SYSTEM_ORIGIN: https://osgardnewworld.com
+
+  golden-benchmark:
+    name: Authenticated golden workflow benchmark
+    if: ${{ secrets.GOLDEN_TASK_COOKIE != '' }}
+    needs: [backend-quality, production-contract]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run test:golden-tasks
+        env:
+          GOLDEN_TASK_BASE_URL: https://osgardnewworld.com
+          GOLDEN_TASK_COOKIE: ${{ secrets.GOLDEN_TASK_COOKIE }}
+      - run: npm run validate:competitor-benchmark
