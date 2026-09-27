@@ -3,15 +3,17 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { FilePlus2, Gem, Lightbulb, Mic, MicOff, Radar, RefreshCw, ShieldCheck, Share2, Wand2, X } from "lucide-react"
-import { MemoryLayerRail } from "@/components/design-system/MemoryLayerRail"
-import { OrbitalMemory } from "@/components/design-system/OrbitalMemory"
-import { PresetSwitcher } from "@/components/design-system/PresetSwitcher"
-import { CinematicSequence, type SequenceStage } from "@/components/design-system/CinematicSequence"
+import type { SequenceStage } from "@/components/design-system/CinematicSequence"
 import { track } from "@/lib/analytics"
 import { useAuth } from "@/lib/auth-store"
-import { ProductCatalog, type ProductType, type VisualPreset } from "@/components/cofounder/ProductCatalog"
+import type { ProductType, VisualPreset } from "@/components/cofounder/ProductCatalog"
 import { BlueprintCanvas, type BlueprintCanvasPlan } from "@/components/cofounder/BlueprintCanvas"
-import { StoryboardRail } from "@/components/cofounder/StoryboardRail"
+const MemoryLayerRail = dynamic(() => import("@/components/design-system/MemoryLayerRail").then((module) => module.MemoryLayerRail), { ssr: false, loading: () => null })
+const OrbitalMemory = dynamic(() => import("@/components/design-system/OrbitalMemory").then((module) => module.OrbitalMemory), { ssr: false, loading: () => null })
+const PresetSwitcher = dynamic(() => import("@/components/design-system/PresetSwitcher").then((module) => module.PresetSwitcher), { ssr: false, loading: () => null })
+const CinematicSequence = dynamic(() => import("@/components/design-system/CinematicSequence").then((module) => module.CinematicSequence), { ssr: false, loading: () => null })
+const ProductCatalog = dynamic(() => import("@/components/cofounder/ProductCatalog").then((module) => module.ProductCatalog), { ssr: false, loading: () => null })
+const StoryboardRail = dynamic(() => import("@/components/cofounder/StoryboardRail").then((module) => module.StoryboardRail), { ssr: false, loading: () => null })
 
 // Ambient layers are intentionally loaded after the usable command surface.
 // They keep the luxury atmosphere without delaying the primary workflow.
