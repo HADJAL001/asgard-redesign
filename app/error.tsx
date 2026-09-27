@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { ArrowLeft, ShieldAlert } from "lucide-react"
 import { captureError } from "@/lib/sentry-client"
 
 /* Перехватывает ошибки рендера внутри layout.tsx (не задевает сам root layout —
@@ -11,7 +12,8 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
   }, [error])
 
   return (
-    <div
+    <main
+      className="ds-body"
       style={{
         minHeight: "60vh",
         display: "flex",
@@ -24,6 +26,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       }}
     >
       <h2 style={{ fontSize: 20, fontWeight: 600 }}>Что-то пошло не так</h2>
+      <ShieldAlert aria-hidden="true" size={30} style={{ color: "var(--ds-secondary)" }} />
       <p style={{ opacity: 0.7, maxWidth: 480 }}>
         Мы уже знаем об этой ошибке. Попробуйте обновить страницу или вернуться позже.
       </p>
@@ -41,6 +44,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       >
         Попробовать снова
       </button>
-    </div>
+      <a className="ds-dialog-secondary ds-focus" href="/cofounder"><ArrowLeft size={16} aria-hidden="true" /> Open command deck</a>
+    </main>
   )
 }
