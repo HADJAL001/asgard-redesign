@@ -222,6 +222,9 @@ The production service was active on the last release, the Next build was presen
 
 ## Remaining gaps and roadmap
 
+The current requirement-by-requirement status is maintained in
+[`OSGARD-OBJECTIVE-AUDIT.md`](./OSGARD-OBJECTIVE-AUDIT.md).
+
 ### 0–90 days: production foundations
 
 1. Move blueprint, evidence, revisions, and generation state from file-backed `.data` persistence to tenant-scoped Postgres tables with RLS and pgvector references.
