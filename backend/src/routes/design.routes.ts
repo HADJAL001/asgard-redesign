@@ -26,6 +26,7 @@ import {
   type DesignBrief,
 } from "../lib/design-system"
 import { explainDesignQuality } from "../lib/design-qa"
+import { isProductMemoryShadowEnabled, shadowProductMemory, type ProductMemoryShadowInput } from "../services/product-memory-shadow"
 
 /* ================================================================
    OSGARD · Дизайн-студия проекта
@@ -79,6 +80,19 @@ router.get("/provider-readiness", requireAuth, asyncHandler(async (_req: AuthReq
   const value = await providerReadinessInFlight
   providerReadinessCache = { value, expiresAt: Date.now() + 30_000 }
   res.json(value)
+}))
+
+router.post("/product-memory/shadow", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+  if (!isProductMemoryShadowEnabled()) return res.status(503).json({ error: "product_memory_shadow_disabled" })
+  const input = req.body as ProductMemoryShadowInput
+  const blueprint = input?.blueprint
+  const allowedEvidenceKinds = new Set(["typecheck", "unit", "a11y", "security", "performance", "visual-diff", "deploy", "social-preview", "rollback", "remediation", "artifact-signature", "dns-verification", "supabase-verification", "integration-verification"])
+  const validEvidence = Array.isArray(input?.evidence) && input.evidence.length <= 100 && input.evidence.every((entry) => /^[0-9a-f-]{36}$/i.test(entry.id) && Number.isInteger(entry.revision) && entry.revision > 0 && /^[0-9a-f]{64}$/i.test(entry.contractHash) && allowedEvidenceKinds.has(entry.kind) && ["passed", "failed", "skipped"].includes(entry.status) && typeof entry.summary === "string" && entry.summary.length <= 500 && typeof entry.source === "string" && entry.source.length <= 120 && !Number.isNaN(Date.parse(entry.capturedAt)))
+  if (!blueprint || !/^[0-9a-f-]{36}$/i.test(blueprint.id) || !Number.isInteger(blueprint.revision) || blueprint.revision < 1 || !/^[0-9a-f]{64}$/i.test(blueprint.contractHash) || !validEvidence) {
+    return res.status(400).json({ error: "invalid_product_memory_shadow" })
+  }
+  await shadowProductMemory(req.user!.userId, input)
+  res.status(202).json({ status: "accepted" })
 }))
 
 const BLUEPRINT_COMPONENTS = new Set(["app-shell", "hero", "bento-grid", "form-wizard", "preview-frame", "cinematic-sequence"])

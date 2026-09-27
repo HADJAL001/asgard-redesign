@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import crypto from "node:crypto"
 import { appendBlueprintEvidence, issueBlueprintEvidenceToken, saveBlueprint, type StoredBlueprint } from "@/lib/blueprint-store"
 import { tenantIdFromRequest } from "@/lib/tenant-context"
+import { shadowProductMemory } from "@/lib/product-memory-shadow"
 
 const WINDOW_MS = 60_000
 const MAX_REQUESTS = 30
@@ -81,5 +82,6 @@ export async function POST(request: NextRequest) {
   const securityEvidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: blueprint.id, tenantId, revision: blueprint.revision, contractHash, kind: "security", status: "passed", summary: "Component allowlist and arbitrary HTML guard passed", capturedAt: new Date().toISOString(), source: "blueprint-guard" })
   const assemblyDurationMs = Math.round(performance.now() - assemblyStartedAt)
   const performanceEvidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: blueprint.id, tenantId, revision: blueprint.revision, contractHash, kind: "performance", status: assemblyDurationMs <= 500 ? "passed" : "failed", summary: `Blueprint assembly completed in ${assemblyDurationMs}ms (budget: 500ms)`, capturedAt: new Date().toISOString(), source: "blueprint-runtime-budget" })
+  await shadowProductMemory(request, blueprint, [securityEvidence, performanceEvidence])
   return NextResponse.json({ version: "1.1.0", requestId, blueprint, evidenceToken, evidence: [securityEvidence, performanceEvidence] }, { status: 201, headers: { ...rateHeaders, "cache-control": "no-store", "x-request-id": requestId } })
 }
