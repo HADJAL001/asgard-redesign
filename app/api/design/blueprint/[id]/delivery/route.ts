@@ -12,7 +12,7 @@ function preflight(delivery: StoredBlueprint["delivery"]) {
   const checks = [
     { id: "provider", status: "passed" as const, label: `${delivery.provider} target recorded` },
     { id: "domain", status: delivery.domain ? "manual" as const : "not-requested" as const, label: delivery.domain ? `DNS verification required for ${delivery.domain}` : "Custom domain not requested" },
-    { id: "supabase", status: delivery.supabaseProjectRef ? "manual" as const : "not-requested" as const, label: delivery.supabaseProjectRef ? "Supabase reference recorded; connection test required in Integrations" : "Supabase project not requested" },
+    { id: "supabase", status: delivery.supabaseProjectRef ? "manual" as const : "not-requested" as const, label: delivery.supabaseProjectRef ? "Connect Supabase Management to confirm access to this exact project" : "Supabase project not requested" },
   ]
   return {
     ready: checks.every((check) => check.status === "passed" || check.status === "not-requested"),
@@ -46,6 +46,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const domain = typeof body?.domain === "string" ? body.domain.trim().toLowerCase() : ""
   if (domain && (!/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i.test(domain))) return NextResponse.json({ error: "invalid_delivery_domain" }, { status: 400 })
   const supabaseProjectRef = typeof body?.supabaseProjectRef === "string" ? body.supabaseProjectRef.trim().slice(0, 80) : ""
+  if (supabaseProjectRef && !/^[a-z0-9]{20}$/i.test(supabaseProjectRef)) return NextResponse.json({ error: "invalid_supabase_project_ref" }, { status: 400 })
   const integrationIds = Array.isArray(body?.integrationIds) ? [...new Set(body.integrationIds.filter((value): value is number => Number.isInteger(value) && value > 0))].slice(0, 12) : []
   const delivery: NonNullable<StoredBlueprint["delivery"]> = { provider, ...(domain ? { domain } : {}), ...(supabaseProjectRef ? { supabaseProjectRef } : {}), ...(integrationIds.length ? { integrationIds } : {}), updatedAt: new Date().toISOString() }
   const updated = updateBlueprintDelivery(id, revision, delivery, tenantId)

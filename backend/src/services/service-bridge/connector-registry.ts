@@ -78,7 +78,7 @@ export const CONNECTORS: ConnectorDefinition[] = [
     fields: [{ ...API_KEY_FIELD, label: "API Token" }],
     actions: [
       { id: "verify_token", label: "Verify API token", method: "GET", path: "/user/tokens/verify", isTestAction: true },
-      { id: "list_zones", label: "List zones", method: "GET", path: "/zones", params: [{ key: "name", label: "Domain name", in: "query" }] },
+      { id: "list_zones", label: "List zones", method: "GET", path: "/zones", params: [{ key: "name", label: "Domain name", in: "query" }, { key: "page", label: "Page", in: "query" }, { key: "per_page", label: "Page size", in: "query" }] },
       { id: "list_dns_records", label: "List DNS records", method: "GET", path: "/zones/{{zoneId}}/dns_records", params: [{ key: "zoneId", label: "Zone ID", in: "path", required: true }] },
       { id: "create_dns_record", label: "Create DNS record", method: "POST", path: "/zones/{{zoneId}}/dns_records", params: [{ key: "zoneId", label: "Zone ID", in: "path", required: true }, { key: "type", label: "Record type", in: "body", required: true }, { key: "name", label: "Record name", in: "body", required: true }, { key: "content", label: "Record value", in: "body", required: true }, { key: "ttl", label: "TTL", in: "body" }, { key: "proxied", label: "Proxy through Cloudflare", in: "body" }] },
     ],

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import crypto from "node:crypto"
 import { appendBlueprintEvidence, getBlueprint, listBlueprintEvidence, verifyBlueprintEvidenceToken } from "@/lib/blueprint-store"
 import { tenantIdFromRequest } from "@/lib/tenant-context"
-import { verifyDeliveryAdapters } from "@/lib/delivery-adapters"
+import { verifyDeliveryAdapters, verifyDeliveryDomain, verifySupabaseProject } from "@/lib/delivery-adapters"
 import { observeProductMemory, shadowProductMemory } from "@/lib/product-memory-shadow"
 import { requireBlueprintActor } from "@/lib/blueprint-auth"
 
@@ -10,34 +10,10 @@ export const dynamic = "force-dynamic"
 
 type Check = { id: string; status: "passed" | "failed" | "manual" | "not-requested"; label: string }
 
-async function withTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response | null> {
-  try {
-    return await fetch(input, { ...init, signal: AbortSignal.timeout(8_000), cache: "no-store" })
-  } catch {
-    return null
-  }
-}
-
-async function verifyDomain(domain: string): Promise<Check> {
-  if (!/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i.test(domain)) return { id: "domain", status: "failed", label: "Stored domain failed validation" }
-  const response = await withTimeout(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=A`, { headers: { accept: "application/dns-json" } })
-  if (!response?.ok) return { id: "domain", status: "failed", label: `DNS lookup unavailable for ${domain}` }
-  const payload = await response.json().catch(() => null) as { Answer?: unknown[] } | null
-  return { id: "domain", status: Array.isArray(payload?.Answer) && payload.Answer.length > 0 ? "passed" : "manual", label: Array.isArray(payload?.Answer) && payload.Answer.length > 0 ? `DNS resolves for ${domain}` : `DNS record not visible yet for ${domain}` }
-}
-
-async function verifySupabase(projectRef: string): Promise<Check> {
-  if (!/^[a-z0-9-]{8,80}$/i.test(projectRef)) return { id: "supabase", status: "failed", label: "Supabase project reference is invalid" }
-  const response = await withTimeout(`https://${projectRef}.supabase.co/rest/v1/`, { method: "HEAD" })
-  // A 401/403 is expected without a project key and proves that the endpoint is reachable.
-  const reachable = Boolean(response && (response.ok || response.status === 401 || response.status === 403))
-  return { id: "supabase", status: reachable ? "passed" : "failed", label: reachable ? "Supabase endpoint is reachable" : "Supabase endpoint could not be reached" }
-}
-
-async function verifyIntegrations(ids: number[], request: NextRequest): Promise<Check> {
-  if (!ids.length) return { id: "integrations", status: "not-requested", label: "No infrastructure adapters selected" }
+async function verifyIntegrations(ids: number[], requiredConnectorIds: string[], request: NextRequest): Promise<Check> {
+  if (!ids.length && !requiredConnectorIds.length) return { id: "integrations", status: "not-requested", label: "No infrastructure adapters selected" }
   const access = request.cookies.get("osgard_access")?.value
-  const check = await verifyDeliveryAdapters(ids, access)
+  const check = await verifyDeliveryAdapters(ids, access, requiredConnectorIds)
   return { id: "integrations", status: check.ready ? "passed" : "failed", label: check.label }
 }
 
@@ -53,11 +29,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!blueprint) return NextResponse.json({ error: "blueprint_revision_not_found" }, { status: 404 })
   if (!verifyBlueprintEvidenceToken(id, body?.evidenceToken, tenantId)) return NextResponse.json({ error: "evidence_token_required" }, { status: 403 })
   const checks: Check[] = [{ id: "provider", status: blueprint.delivery ? "passed" : "failed", label: blueprint.delivery ? `${blueprint.delivery.provider} target recorded` : "Delivery target is missing" }]
-  if (blueprint.delivery?.domain) checks.push(await verifyDomain(blueprint.delivery.domain))
+  const integrationIds = blueprint.delivery?.integrationIds || []
+  const access = request.cookies.get("osgard_access")?.value
+  if (blueprint.delivery?.domain) {
+    const check = await verifyDeliveryDomain(blueprint.delivery.domain, integrationIds, access)
+    checks.push({ id: "domain", status: check.ready ? "passed" : "failed", label: check.label })
+  }
   else checks.push({ id: "domain", status: "not-requested", label: "Custom domain not requested" })
-  if (blueprint.delivery?.supabaseProjectRef) checks.push(await verifySupabase(blueprint.delivery.supabaseProjectRef))
+  if (blueprint.delivery?.supabaseProjectRef) {
+    const check = await verifySupabaseProject(blueprint.delivery.supabaseProjectRef, integrationIds, access)
+    checks.push({ id: "supabase", status: check.ready ? "passed" : "failed", label: check.label })
+  }
   else checks.push({ id: "supabase", status: "not-requested", label: "Supabase project not requested" })
-  checks.push(await verifyIntegrations(blueprint.delivery?.integrationIds || [], request))
+  const requiredConnectorIds = [
+    ...(blueprint.delivery?.domain ? ["cloudflare"] : []),
+    ...(blueprint.delivery?.supabaseProjectRef ? ["supabase-management"] : []),
+  ]
+  checks.push(await verifyIntegrations(integrationIds, requiredConnectorIds, request))
   const recorded = listBlueprintEvidence(id, tenantId)
   const capturedEvidence = []
   for (const check of checks.filter((item) => item.id === "domain" || item.id === "supabase" || item.id === "integrations")) {

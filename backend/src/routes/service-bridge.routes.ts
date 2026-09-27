@@ -235,6 +235,73 @@ router.post(
   }),
 )
 
+/* ---------------- POST /integrations/:id/verify-project ---------------- */
+router.post(
+  "/:id/verify-project",
+  requireAuth,
+  rateLimit(60_000, 12),
+  asyncHandler(async (req: AuthRequest, res) => {
+    const integration = loadIntegration(req.user!.userId, Number(req.params.id))
+    if (!integration) return res.status(404).json({ error: "integration_not_found" })
+    if (integration.connector_id !== "supabase-management" || integration.status !== "active") {
+      return res.status(400).json({ error: "active_supabase_management_integration_required" })
+    }
+    const projectRef = typeof req.body?.projectRef === "string" ? req.body.projectRef.trim() : ""
+    if (!/^[a-z0-9]{20}$/i.test(projectRef)) return res.status(400).json({ error: "invalid_supabase_project_ref" })
+
+    // Supabase GET /projects/{ref} is a read-only ownership/access check. Do
+    // not route it through /execute: verification must not spend action quota.
+    const result = await runIntegrationAction(integration, "get_project", { ref: projectRef }, { isTest: true })
+    const data = result.data && typeof result.data === "object" ? result.data as Record<string, unknown> : null
+    const returnedRef = typeof data?.ref === "string" ? data.ref : typeof data?.id === "string" ? data.id : ""
+    const verified = result.success && returnedRef.toLowerCase() === projectRef.toLowerCase()
+    res.status(verified ? 200 : result.success ? 404 : 502).json({ verified, projectRef: verified ? projectRef : undefined, error: verified ? undefined : result.error || "supabase_project_not_accessible" })
+  }),
+)
+
+/* ---------------- POST /integrations/:id/verify-domain ---------------- */
+router.post(
+  "/:id/verify-domain",
+  requireAuth,
+  rateLimit(60_000, 12),
+  asyncHandler(async (req: AuthRequest, res) => {
+    const integration = loadIntegration(req.user!.userId, Number(req.params.id))
+    if (!integration) return res.status(404).json({ error: "integration_not_found" })
+    if (integration.connector_id !== "cloudflare" || integration.status !== "active") {
+      return res.status(400).json({ error: "active_cloudflare_integration_required" })
+    }
+    const domain = typeof req.body?.domain === "string" ? req.body.domain.trim().toLowerCase() : ""
+    if (!/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i.test(domain)) {
+      return res.status(400).json({ error: "invalid_domain" })
+    }
+
+    // Both actions are read-only and run as tests, so they do not spend the
+    // Service Bridge action quota or mutate DNS.
+    const zones = await runIntegrationAction(integration, "list_zones", { per_page: 50, page: 1 }, { isTest: true })
+    const zoneData = zones.data && typeof zones.data === "object" ? zones.data as Record<string, unknown> : null
+    const zoneRows = Array.isArray(zoneData?.result) ? zoneData.result as Array<Record<string, unknown>> : []
+    const zone = zoneRows
+      .filter((item) => typeof item.name === "string" && (domain === item.name.toLowerCase() || domain.endsWith(`.${item.name.toLowerCase()}`)))
+      .sort((left, right) => String(right.name).length - String(left.name).length)[0]
+    if (!zones.success || !zone || typeof zone.id !== "string") {
+      return res.status(zones.success ? 404 : 502).json({ verified: false, error: zones.error || "cloudflare_zone_not_found_or_not_accessible" })
+    }
+    const records = await runIntegrationAction(integration, "list_dns_records", { zoneId: zone.id }, { isTest: true })
+    const recordData = records.data && typeof records.data === "object" ? records.data as Record<string, unknown> : null
+    const recordRows = Array.isArray(recordData?.result) ? recordData.result as Array<Record<string, unknown>> : []
+    const hasAddressRecord = records.success && recordRows.some((item) =>
+      typeof item.name === "string" && item.name.toLowerCase() === domain &&
+      ["A", "AAAA", "CNAME"].includes(String(item.type).toUpperCase()) &&
+      typeof item.content === "string" && item.content.trim().length > 0,
+    )
+    return res.status(hasAddressRecord ? 200 : records.success ? 409 : 502).json({
+      verified: hasAddressRecord,
+      domain: hasAddressRecord ? domain : undefined,
+      error: hasAddressRecord ? undefined : records.error || "cloudflare_address_record_missing",
+    })
+  }),
+)
+
 /* ---------------- POST /integrations/:id/execute ---------------- */
 router.post(
   "/:id/execute",

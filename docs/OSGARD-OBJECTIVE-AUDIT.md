@@ -9,7 +9,7 @@ Updated: 2026-09-27. Scope: `asgard-redesign` and `osgardnewworld.com` only.
 | Preview under 60 seconds | Verified | Production golden task: 241 ms; SLA guard: 60,000 ms | Keep under SLA as product load grows |
 | Text commands and explainable diff | Verified | Dense, mobile, Stripe commands tested by golden task | Add semantic command coverage as new commands are introduced |
 | Visual editor and multi-select | Verified | `BlueprintCanvas`, keyboard/multi-select E2E | None for the current workflow |
-| Delivery wizard | Implemented, provider-dependent | DNS/Supabase verification, adapter recheck before codegen | Connect live provider credentials and pass adapter tests |
+| Delivery wizard | Implemented, provider-dependent | Cloudflare zone + DNS-record and exact Supabase project access checks through authenticated read-only adapters; adapter recheck before codegen | Connect live provider credentials and pass adapter tests; separately verify DNS target/deployment health |
 | Sandbox and signed artifacts | Implemented, production use pending | Sandbox gate and artifact seal tests | Run an authenticated production codegen task with a signed result |
 | Collaboration and approval | Verified | Authenticated approval/comments, anonymous writes rejected | Add role-based approval policy when team roles are enabled |
 | Golden tasks and quality gates | Verified | Golden task, 31/31 production E2E, axe, Web Vitals, browser gate | Run the benchmark with `GOLDEN_TASK_COOKIE` after every auth-sensitive release; capture equivalent external competitor runs before comparative claims |

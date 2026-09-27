@@ -29,7 +29,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   ]
   const missingDelivery = deliveryEvidence.filter((kind) => latest.get(kind)?.revision !== blueprint.revision || latest.get(kind)?.contractHash !== blueprint.contractHash || latest.get(kind)?.status !== "passed")
   if (missingDelivery.length) return NextResponse.json({ error: "delivery_verification_required", missing: missingDelivery }, { status: 409 })
-  const adapters = await verifyDeliveryAdapters(blueprint.delivery.integrationIds || [], access)
+  const adapters = await verifyDeliveryAdapters(blueprint.delivery.integrationIds || [], access, [
+    ...(blueprint.delivery.domain ? ["cloudflare"] : []),
+    ...(blueprint.delivery.supabaseProjectRef ? ["supabase-management"] : []),
+  ])
   if (!adapters.ready) return NextResponse.json({ error: "delivery_adapter_recheck_required", message: adapters.label }, { status: 409 })
   if (!BACKEND_URL) return NextResponse.json({ error: "backend_unavailable" }, { status: 503 })
   const delivery = blueprint.delivery
