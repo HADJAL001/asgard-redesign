@@ -3,6 +3,7 @@ import crypto from "node:crypto"
 import { appendBlueprintEvidence, issueBlueprintEvidenceToken, saveBlueprint, type StoredBlueprint } from "@/lib/blueprint-store"
 import { tenantIdFromRequest } from "@/lib/tenant-context"
 import { observeProductMemory, shadowProductMemory } from "@/lib/product-memory-shadow"
+import { requireBlueprintActor } from "@/lib/blueprint-auth"
 
 const WINDOW_MS = 60_000
 const MAX_REQUESTS = 30
@@ -35,6 +36,13 @@ function normalizeIntent(value: unknown) {
 export async function POST(request: NextRequest) {
   const tenantId = tenantIdFromRequest(request)
   if (!tenantId) return NextResponse.json({ error: "tenant_not_available" }, { status: 404 })
+  // Product Memory shadow-write is enabled in production. A blueprint created
+  // without a verified OSGARD session could never be reconciled into the
+  // tenant-scoped ledger, so fail closed before writing the file store.
+  if (process.env.OSGARD_PRODUCT_SHADOW_WRITE === "true") {
+    const actor = await requireBlueprintActor(request)
+    if ("error" in actor) return NextResponse.json({ error: actor.error }, { status: actor.error === "auth_required" ? 401 : 503 })
+  }
   const assemblyStartedAt = performance.now()
   const requestId = crypto.randomUUID()
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
