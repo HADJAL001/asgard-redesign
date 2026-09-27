@@ -4,6 +4,7 @@ import { appendBlueprintEvidence, getBlueprint, listBlueprintEvidence, verifyBlu
 import { tenantIdFromRequest } from "@/lib/tenant-context"
 import { verifyDeliveryAdapters } from "@/lib/delivery-adapters"
 import { observeProductMemory, shadowProductMemory } from "@/lib/product-memory-shadow"
+import { requireBlueprintActor } from "@/lib/blueprint-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -44,6 +45,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id } = await params
   const tenantId = tenantIdFromRequest(request)
   if (!tenantId) return NextResponse.json({ error: "tenant_not_available" }, { status: 404 })
+  const actor = await requireBlueprintActor(request)
+  if ("error" in actor) return NextResponse.json({ error: actor.error }, { status: actor.error === "auth_required" ? 401 : 503 })
   const body = await request.json().catch(() => null) as Record<string, unknown> | null
   const revision = Number(body?.revision)
   const blueprint = getBlueprint(id, Number.isInteger(revision) && revision > 0 ? revision : undefined, tenantId)

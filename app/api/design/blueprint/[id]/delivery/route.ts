@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getBlueprint, updateBlueprintDelivery, verifyBlueprintEvidenceToken, type StoredBlueprint } from "@/lib/blueprint-store"
 import { tenantIdFromRequest } from "@/lib/tenant-context"
 import { observeProductMemory, shadowProductMemory } from "@/lib/product-memory-shadow"
+import { requireBlueprintActor } from "@/lib/blueprint-auth"
 
 export const dynamic = "force-dynamic"
 const providers = new Set<NonNullable<StoredBlueprint["delivery"]>["provider"]>(["osgard-cluster", "vercel", "netlify", "custom"])
@@ -33,6 +34,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params
   const tenantId = tenantIdFromRequest(request)
   if (!tenantId) return NextResponse.json({ error: "tenant_not_available" }, { status: 404 })
+  const actor = await requireBlueprintActor(request)
+  if ("error" in actor) return NextResponse.json({ error: actor.error }, { status: actor.error === "auth_required" ? 401 : 503 })
   const body = await request.json().catch(() => null) as Record<string, unknown> | null
   const revision = Number(body?.revision)
   const blueprint = getBlueprint(id, revision, tenantId)

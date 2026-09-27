@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { appendBlueprintEvidence, getBlueprint, listBlueprintEvidence, type BlueprintEvidence, type BlueprintEvidenceKind, verifyBlueprintEvidenceToken } from "@/lib/blueprint-store"
 import { tenantIdFromRequest } from "@/lib/tenant-context"
 import { observeProductMemory, shadowProductMemory } from "@/lib/product-memory-shadow"
+import { requireBlueprintActor } from "@/lib/blueprint-auth"
 
 export const dynamic = "force-dynamic"
 // Artifact signatures are created only by the generation route. A browser-held
@@ -23,6 +24,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id } = await params
   const tenantId = tenantIdFromRequest(request)
   if (!tenantId) return NextResponse.json({ error: "tenant_not_available" }, { status: 404 })
+  const actor = await requireBlueprintActor(request)
+  if ("error" in actor) return NextResponse.json({ error: actor.error }, { status: actor.error === "auth_required" ? 401 : 503 })
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: "invalid_blueprint_id" }, { status: 400 })
   if (!request.headers.get("content-type")?.includes("application/json")) return NextResponse.json({ error: "json_required" }, { status: 415 })
   const blueprint = getBlueprint(id, undefined, tenantId)
