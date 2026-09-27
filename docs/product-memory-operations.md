@@ -123,6 +123,7 @@ the JSON divergence report, and do not advance the Postgres cutover.
   promote only after a full release cycle reports `ok: true`.
 - Run the first authenticated non-zero blueprint flow and retain a clean
   dual-read observation window before promoting Postgres to a read source.
-- Shadow generation, quality-gate, and approval events.
+- Shadow generation events and their sandbox outcomes.
+- Approval lifecycle revisions plus manual and delivery-verification Evidence Ledger writes are shadowed.
 - Add signed sandbox artifacts and verified deployment evidence.
 - Add provider credential adapters behind a server-side service bridge.

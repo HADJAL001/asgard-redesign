@@ -24,12 +24,17 @@ CREATE TABLE IF NOT EXISTS osgard_product.product_contracts (
   provenance jsonb NOT NULL DEFAULT '{}'::jsonb,
   confidence numeric(4,3) CHECK (confidence IS NULL OR confidence BETWEEN 0 AND 1),
   created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (tenant_id, blueprint_id, revision),
-  UNIQUE (tenant_id, contract_hash)
+  UNIQUE (tenant_id, blueprint_id, revision)
 );
 
 CREATE INDEX IF NOT EXISTS product_contracts_tenant_blueprint_idx
   ON osgard_product.product_contracts (tenant_id, blueprint_id, revision DESC);
+
+-- A contract hash identifies immutable content, not a unique revision. Approval
+-- and delivery lifecycle transitions can create a later revision with the same
+-- ProductContract payload, so this intentionally remains a non-unique index.
+CREATE INDEX IF NOT EXISTS product_contracts_tenant_contract_hash_idx
+  ON osgard_product.product_contracts (tenant_id, contract_hash);
 
 CREATE TABLE IF NOT EXISTS osgard_product.evidence_ledger (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

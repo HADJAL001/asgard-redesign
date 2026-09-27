@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { appendBlueprintEvidence, getBlueprint, listBlueprintEvidence, type BlueprintEvidence, type BlueprintEvidenceKind, verifyBlueprintEvidenceToken } from "@/lib/blueprint-store"
 import { tenantIdFromRequest } from "@/lib/tenant-context"
+import { observeProductMemory, shadowProductMemory } from "@/lib/product-memory-shadow"
 
 export const dynamic = "force-dynamic"
 // Artifact signatures are created only by the generation route. A browser-held
@@ -40,5 +41,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!verifyBlueprintEvidenceToken(id, evidenceToken, tenantId)) return NextResponse.json({ error: "evidence_token_required" }, { status: 403 })
   const evidence: BlueprintEvidence = { id: crypto.randomUUID(), blueprintId: id, tenantId, revision: blueprint.revision, contractHash, kind: kind as BlueprintEvidenceKind, status: status as BlueprintEvidence["status"], summary, capturedAt: new Date().toISOString(), source }
   appendBlueprintEvidence(evidence)
+  await shadowProductMemory(request, blueprint, [evidence])
+  await observeProductMemory(request, blueprint, [evidence])
   return NextResponse.json({ evidence }, { status: 201, headers: { "cache-control": "no-store" } })
 }

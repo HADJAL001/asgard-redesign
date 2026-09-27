@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getBlueprint, listBlueprintRevisions, saveBlueprint, type StoredBlueprint } from "@/lib/blueprint-store"
 import { tenantIdFromRequest } from "@/lib/tenant-context"
 import { requireBlueprintActor } from "@/lib/blueprint-auth"
+import { observeProductMemory, shadowProductMemory } from "@/lib/product-memory-shadow"
 
 export const dynamic = "force-dynamic"
 
@@ -22,5 +23,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!source || !revisions.length) return NextResponse.json({ error: "blueprint_revision_not_found" }, { status: 404 })
   const approved: StoredBlueprint = { ...source, revision: revisions[revisions.length - 1].revision + 1, generatedAt: new Date().toISOString(), approval: { status: "approved", approvedAt: new Date().toISOString() } }
   saveBlueprint(approved)
+  // Approval is a valid new lifecycle revision even when its contract payload
+  // has not changed. Persist the revision in the shadow ledger before any
+  // future read cutover; the file store remains authoritative today.
+  await shadowProductMemory(request, approved, [])
+  await observeProductMemory(request, approved, [])
   return NextResponse.json({ blueprint: approved, approvedRevision: revision }, { status: 201, headers: { "cache-control": "no-store" } })
 }
