@@ -118,6 +118,6 @@ export async function reconcileProductMemory(): Promise<ReconciliationReport> {
   return { checkedAt: new Date().toISOString(), source: { blueprints: new Set(revisions.map((item) => item.id)).size, revisions: revisions.length, evidence: entries.length }, postgres: { contracts: contracts.length, evidence: evidence.length, nodes: nodes.length, edges: edges.length }, divergence, ok: Object.values(divergence).every((items) => items.length === 0) }
 }
 
-if (import.meta.url === `file://${process.argv[1]?.replaceAll("\\", "/")}`) {
+if (require.main === module) {
   reconcileProductMemory().then((report) => { console.log(JSON.stringify(report, null, 2)); if (!report.ok) process.exitCode = 2 }).catch((error) => { console.error(error instanceof Error ? error.message : error); process.exitCode = 1 })
 }
