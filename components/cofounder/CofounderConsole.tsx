@@ -1,6 +1,7 @@
 "use client"
 
 import { FormEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
+import dynamic from "next/dynamic"
 import { FilePlus2, Gem, Lightbulb, Mic, MicOff, Radar, RefreshCw, ShieldCheck, Share2, Wand2, X } from "lucide-react"
 import { MemoryLayerRail } from "@/components/design-system/MemoryLayerRail"
 import { OrbitalMemory } from "@/components/design-system/OrbitalMemory"
@@ -10,10 +11,13 @@ import { track } from "@/lib/analytics"
 import { useAuth } from "@/lib/auth-store"
 import { CofounderLoadingShell } from "@/components/cofounder/CofounderLoadingShell"
 import { ProductCatalog, type ProductType, type VisualPreset } from "@/components/cofounder/ProductCatalog"
-import { ObsidianCosmos } from "@/components/design-system/ObsidianCosmos"
-import { CosmicCursor } from "@/components/design-system/CosmicCursor"
 import { BlueprintCanvas, type BlueprintCanvasPlan } from "@/components/cofounder/BlueprintCanvas"
 import { StoryboardRail } from "@/components/cofounder/StoryboardRail"
+
+// Ambient layers are intentionally loaded after the usable command surface.
+// They keep the luxury atmosphere without delaying the primary workflow.
+const ObsidianCosmos = dynamic(() => import("@/components/design-system/ObsidianCosmos").then((module) => module.ObsidianCosmos), { ssr: false, loading: () => null })
+const CosmicCursor = dynamic(() => import("@/components/design-system/CosmicCursor").then((module) => module.CosmicCursor), { ssr: false, loading: () => null })
 
 type ProductIntent = { audience: string; outcome: string; platform: "web" | "mobile" | "desktop" | "cross-platform" | "any"; constraints: string[] }
 type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; intent?: ProductIntent; productType?: ProductType; preset?: VisualPreset; contractVersion?: string; contractHash?: string; createdAt: string; aiSummary?: string; aiComponents?: string[]; aiRisks?: string[]; approved?: boolean; evidenceToken?: string }
