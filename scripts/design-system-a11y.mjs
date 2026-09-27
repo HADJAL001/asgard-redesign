@@ -13,6 +13,7 @@ const checks = [
   ["canvas bulk actions have a named toolbar", "components/cofounder/BlueprintCanvas.tsx", "aria-label=\"Bulk canvas actions\""],
   ["canvas selection announces changes", "components/cofounder/BlueprintCanvas.tsx", "aria-live=\"polite\""],
   ["canvas block actions are named", "components/cofounder/BlueprintCanvas.tsx", "aria-label={`Move ${slot.role} earlier`}"],
+  ["canvas inline editor is named", "components/cofounder/BlueprintCanvas.tsx", "aria-label={`Edit ${slot.role} label`}"],
   ["canvas preview modes are named", "components/cofounder/BlueprintCanvas.tsx", "aria-label=\"Desktop preview\""],
   ["theme toggle has a tooltip", "components/design-system/PresetSwitcher.tsx", "title={themeAction}"],
   ["delivery wizard links to integrations", "components/cofounder/CofounderConsole.tsx", "href=\"/integrations\" target=\"_blank\""],

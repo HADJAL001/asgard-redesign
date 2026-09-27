@@ -331,6 +331,7 @@ export function BlueprintCanvas({
                     <input
                       className="ds-blueprint-canvas__edit"
                       autoFocus
+                      aria-label={`Edit ${slot.role} label`}
                       value={slot.role}
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) => updateRole(slot.id, e.target.value)}
