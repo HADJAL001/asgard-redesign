@@ -117,6 +117,10 @@ is a one-shot job. The timer must remain `enabled` and `active`. A non-zero
 service result is a release signal: keep file-store reads authoritative, inspect
 the JSON divergence report, and do not advance the Postgres cutover.
 
+The reconciliation client applies five-second PostgreSQL statement and idle
+transaction timeouts. A pooler or query stall must produce an operational failure,
+not leave the daily job running indefinitely.
+
 ## Remaining Work
 
 - Run reconciliation continuously during the shadow-write release window;

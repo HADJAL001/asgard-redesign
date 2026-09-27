@@ -81,6 +81,10 @@ export async function reconcileProductMemory(): Promise<ReconciliationReport> {
   const contracts: any[] = [], evidence: any[] = [], nodes: any[] = [], edges: any[] = []
   try {
     await client.connect()
+    // Reconciliation is a read-only operational probe. Never allow a stalled
+    // pooler/query to hold the daily systemd job indefinitely.
+    await client.query("SET statement_timeout = '5000ms'")
+    await client.query("SET idle_in_transaction_session_timeout = '5000ms'")
     for (const tenant of sourceTenants) {
       await client.query("BEGIN")
       await client.query("SELECT set_config('osgard.tenant_id', $1, true)", [tenant])
