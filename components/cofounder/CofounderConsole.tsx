@@ -71,6 +71,7 @@ export function CofounderConsole() {
   const [deliveryPreflight, setDeliveryPreflight] = useState<DeliveryPreflight | null>(null)
   const [verifyingDelivery, setVerifyingDelivery] = useState(false)
   const [modelReadiness, setModelReadiness] = useState<ModelReadiness | null>(null)
+  const [refreshingModelReadiness, setRefreshingModelReadiness] = useState(false)
   const [interviewQuestions, setInterviewQuestions] = useState(defaultInterviewQuestions)
   const [commandText, setCommandText] = useState("")
   const [commandPreview, setCommandPreview] = useState<CommandPreview | null>(null)
@@ -111,6 +112,18 @@ export function CofounderConsole() {
       const data = await response.json().catch(() => null)
       if (Array.isArray(data?.integrations)) setDeliveryIntegrations(data.integrations as DeliveryIntegration[])
     }).catch(() => undefined)
+  }, [user])
+
+  const loadModelReadiness = useCallback(async () => {
+    if (!user) return
+    setRefreshingModelReadiness(true)
+    try {
+      const response = await fetch("/api/design/provider-readiness", { credentials: "include", cache: "no-store" })
+      const data = response.ok ? await response.json().catch(() => null) : null
+      if (data?.providers) setModelReadiness(data as ModelReadiness)
+    } finally {
+      setRefreshingModelReadiness(false)
+    }
   }, [user])
 
   useEffect(() => {
@@ -614,7 +627,7 @@ export function CofounderConsole() {
           <label className="ds-field">{interviewQuestions[1]}<input required maxLength={320} value={intentOutcome} onChange={(event) => setIntentOutcome(event.target.value)} placeholder="Например: verified first release in one session" /></label>
           <label className="ds-field">{interviewQuestions[2]} <span>(optional, comma-separated)</span><input maxLength={640} value={intentConstraints} onChange={(event) => setIntentConstraints(event.target.value)} placeholder="WCAG AA, mobile-first, Stripe" /></label>
         </section>
-        {modelReadiness ? <section className="ds-dialog-result" aria-label="AI execution readiness" aria-live="polite"><strong>AI execution lanes</strong><div className="ds-ai-readiness">{Object.entries(modelReadiness.providers).map(([provider, state]) => <span key={provider} data-status={state.available ? "passed" : "pending"}><i aria-hidden="true" />{state.role.replace(/-/g, " ")}<em>{state.available ? "Ready" : state.configured ? "Check model" : "Not connected"}</em></span>)}</div></section> : null}
+        {modelReadiness ? <section className="ds-dialog-result" aria-label="AI execution readiness" aria-live="polite"><div className="ds-dialog-result__head"><strong>AI execution lanes</strong><button type="button" className="ds-focus ds-evidence-ledger__refresh" onClick={() => void loadModelReadiness()} disabled={refreshingModelReadiness} aria-label="Обновить AI lanes" title="Проверить состояние AI providers"><RefreshCw size={13} aria-hidden="true" className={refreshingModelReadiness ? "ds-spin" : undefined} /></button></div><div className="ds-ai-readiness">{Object.entries(modelReadiness.providers).map(([provider, state]) => <span key={provider} data-status={state.available ? "passed" : "pending"}><i aria-hidden="true" />{state.role.replace(/-/g, " ")}<em>{state.available ? "Ready" : state.configured ? "Check model" : "Not connected"}</em></span>)}</div></section> : null}
         <form onSubmit={submitContract} aria-busy={submitting}>
           {compileResult && qualityState && !qualityState.delivery ? <p className="ds-dialog-error" role="status">Choose a delivery target before code generation can start.</p> : null}
           <fieldset className="ds-field" style={{ border: 0, padding: 0, margin: 0 }}><legend className="ds-utility">DELIVERY TARGET</legend><div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: ".65rem" }}><label>Provider<select value={deliveryProvider} onChange={(event) => setDeliveryProvider(event.target.value as DeliveryProvider)}><option value="osgard-cluster">OSGARD Cluster</option><option value="vercel">Vercel</option><option value="netlify">Netlify</option><option value="custom">Custom server</option></select></label><label>Domain (optional)<input value={deliveryDomain} onChange={(event) => setDeliveryDomain(event.target.value)} placeholder="app.example.com" inputMode="url" /></label><label>Supabase project ref (optional)<input value={supabaseProjectRef} onChange={(event) => setSupabaseProjectRef(event.target.value)} placeholder="abcdefghijklmnop" autoComplete="off" /></label></div><small className="ds-field-hint">Connect Cloudflare, hosting and Supabase credentials in Integrations. This wizard stores only public references and never stores secrets.</small>{deliveryIntegrations.length ? <div className="ds-delivery-integrations" aria-label="Connected delivery integrations"><span className="ds-utility">CONNECTED ADAPTERS</span>{deliveryIntegrations.filter((item) => ["cloudflare", "supabase-management", "vercel", "netlify", "hostinger", "contabo"].includes(item.connectorId)).map((item) => <label key={item.id}><input type="checkbox" checked={selectedIntegrationIds.includes(item.id)} onChange={(event) => setSelectedIntegrationIds((ids) => event.target.checked ? [...ids, item.id] : ids.filter((id) => id !== item.id))} /><span>{item.connectorName} · {item.name}</span><small data-status={item.lastTestStatus || "untested"}>{item.lastTestStatus || "untested"}</small></label>)}</div> : <small className="ds-field-hint">No domain or infrastructure adapter is connected yet. Open Integrations to connect one, then return here.</small>}</fieldset>

@@ -262,6 +262,9 @@ test.describe("OSGARD design system", () => {
       expect(typeof provider.available).toBe("boolean")
     }
     expect(JSON.stringify(body)).not.toMatch(/api[_-]?key|bearer|token|endpoint/i)
+    await page.goto("/cofounder")
+    await page.locator('[data-primary-action="create-contract"]').click()
+    await expect(page.getByRole("button", { name: "Обновить AI lanes" })).toBeVisible()
   })
 
   test("rejects unusable client briefs", async ({ request }) => {
