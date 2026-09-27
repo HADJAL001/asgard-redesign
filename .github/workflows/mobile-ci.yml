@@ -110,6 +110,9 @@ jobs:
             sleep 1
           done
 
+      - name: Install Android emulator runtime dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libpulse0
+
       - name: Run Detox e2e tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
