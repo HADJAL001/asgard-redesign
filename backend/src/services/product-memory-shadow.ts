@@ -24,6 +24,7 @@ export type ProductMemoryShadowInput = {
     intent?: unknown
     components: string[]
     generatedAt: string
+    delivery?: { provider: string; domain?: string; supabaseProjectRef?: string; integrationIds?: number[]; updatedAt: string }
   }
   evidence: ShadowEvidence[]
 }
@@ -39,7 +40,7 @@ function clientPool() {
   return pool
 }
 
-async function writeGraphNode(client: PoolClient, tenantId: string, id: string, blueprintId: string, kind: "idea" | "contract" | "evidence", label: string, revision: number, status: string | null, contractHash: string | null, occurredAt: string) {
+async function writeGraphNode(client: PoolClient, tenantId: string, id: string, blueprintId: string, kind: "idea" | "contract" | "evidence" | "delivery", label: string, revision: number, status: string | null, contractHash: string | null, occurredAt: string) {
   await client.query(
     `INSERT INTO osgard_product.product_graph_nodes (id, tenant_id, blueprint_id, kind, label, revision, status, contract_hash, occurred_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
@@ -90,6 +91,15 @@ export async function shadowProductMemory(userId: number, input: ProductMemorySh
     if (!contractId) throw new Error("product_contract_not_persisted")
     const contractNodeId = `contract:${contract.id}:${contract.revision}`
     await writeGraphNode(client, tenantId, contractNodeId, contract.id, "contract", `ProductContract v${contract.revision}`, contract.revision, null, contract.contractHash, contract.generatedAt)
+    if (contract.delivery) {
+      const deliveryNodeId = `delivery:${contract.id}:${contract.revision}:${contract.delivery.updatedAt}`
+      await writeGraphNode(client, tenantId, deliveryNodeId, contract.id, "delivery", contract.delivery.provider, contract.revision, null, contract.contractHash, contract.delivery.updatedAt)
+      await client.query(
+        `INSERT INTO osgard_product.product_graph_edges (id, tenant_id, from_node_id, to_node_id, kind)
+         VALUES ($1,$2,$3,$4,'delivered_to') ON CONFLICT (id) DO NOTHING`,
+        [`${contractNodeId}->${deliveryNodeId}`, tenantId, contractNodeId, deliveryNodeId],
+      )
+    }
     for (const evidence of input.evidence) {
       await client.query(
         `INSERT INTO osgard_product.evidence_ledger

@@ -13,6 +13,7 @@ export async function shadowProductMemory(request: Request, blueprint: StoredBlu
     body: JSON.stringify({
       blueprint: {
         id: blueprint.id, revision: blueprint.revision, contractVersion: blueprint.contractVersion || "1.0.0", contractHash: blueprint.contractHash || "", app: blueprint.app, productType: blueprint.productType, preset: blueprint.preset, brief: blueprint.brief, intent: blueprint.intent, components: blueprint.components, generatedAt: blueprint.generatedAt,
+        delivery: blueprint.delivery,
       },
       evidence,
     }),
