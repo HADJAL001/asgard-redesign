@@ -87,6 +87,22 @@ All tenant-bearing tables have Row Level Security enabled and forced.
    mounted `.data` files, or set `BLUEPRINT_STORE_PATH` and
    `BLUEPRINT_EVIDENCE_PATH` explicitly.
 
+## Authenticated Readiness Surface
+
+`GET /design/product-memory/status` is an authenticated, metadata-only
+operational endpoint. The `/dev/memory` view reads it alongside platform
+learning metrics and presents the same information to an authorized operator.
+
+It exposes only migration-safe facts: whether shadow-write and dual-read are
+enabled, whether the Product Memory database is configured and reachable, the
+aggregate counts for contracts, evidence, graph nodes, and graph edges, and
+whether a meaningful non-zero baseline permits the next observation phase. It
+never returns connection strings, credentials, tenant records, or raw evidence.
+
+`cutoverAllowed: false` is the correct state for an empty or unreconciled graph.
+The file Blueprint Store remains the API read authority until an authenticated
+blueprint flow produces a reconciled baseline and the observation gate passes.
+
 ## Rollback
 
 To stop new shadow writes without losing evidence already recorded, set
