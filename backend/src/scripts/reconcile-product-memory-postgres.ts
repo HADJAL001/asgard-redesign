@@ -71,7 +71,11 @@ function expectedGraph(revisions: Blueprint[], entries: Evidence[]) {
 export async function reconcileProductMemory(): Promise<ReconciliationReport> {
   const { revisions, entries } = sourceRecords()
   const sourceTenants = [...new Set([...revisions.map((item) => item.tenantId || defaultTenant), ...entries.map((item) => item.tenantId || defaultTenant)])]
-  const client = new Client({ connectionString: process.env.OSGARD_PRODUCT_POSTGRES_URL, application_name: "osgard-product-memory-reconcile" })
+  const client = new Client({
+    connectionString: process.env.OSGARD_PRODUCT_POSTGRES_URL,
+    application_name: "osgard-product-memory-reconcile",
+    connectionTimeoutMillis: 5_000,
+  })
   if (!process.env.OSGARD_PRODUCT_POSTGRES_URL) throw new Error("OSGARD_PRODUCT_POSTGRES_URL is required; no database action was taken.")
   const contracts: any[] = [], evidence: any[] = [], nodes: any[] = [], edges: any[] = []
   try {
