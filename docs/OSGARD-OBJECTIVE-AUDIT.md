@@ -20,7 +20,7 @@ Updated: 2026-09-27. Scope: `asgard-redesign` and `osgardnewworld.com` only.
 - Full public design-system E2E: 31/31 passed.
 - Axe WCAG A/AA: zero violations on `/cofounder` and `/dev`.
 - Web Vitals: FCP/LCP under 2.5 s and CLS under 0.1 for Cofounder desktop and mobile.
-- Golden workflow: 1.843 s total, with first preview at 241 ms.
+- Golden workflow: 1.767 s total, with first preview at 262 ms (2026-09-27 production run).
 
 ## Conditions before claiming full turnkey delivery
 
