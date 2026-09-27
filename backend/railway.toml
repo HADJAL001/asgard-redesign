@@ -4,5 +4,6 @@ buildCommand = "npm run build"
 
 [deploy]
 startCommand = "node --experimental-sqlite start.js"
+# Keep the production service on the repository's explicit Node entrypoint.
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
