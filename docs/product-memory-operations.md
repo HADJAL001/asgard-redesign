@@ -61,7 +61,18 @@ All tenant-bearing tables have Row Level Security enabled and forced.
 5. In an authenticated session create a blueprint, issue a command, save an
    editor revision, and configure a delivery target.
 6. Reconcile the resulting contract, evidence records, and graph nodes against
-   the file Blueprint Store before enabling any Postgres read path.
+   the file Blueprint Store before enabling any Postgres read path:
+
+   ```bash
+   cd backend
+   npm run reconcile:product-memory-postgres
+   ```
+
+   This command is read-only. It prints a JSON report and exits with code `2`
+   when contracts, hashes, evidence, graph nodes, graph edges, or unexpected
+   PostgreSQL rows diverge. Run it from the same release checkout that owns the
+   mounted `.data` files, or set `BLUEPRINT_STORE_PATH` and
+   `BLUEPRINT_EVIDENCE_PATH` explicitly.
 
 ## Rollback
 
@@ -72,8 +83,10 @@ application rollback.
 
 ## Remaining Work
 
-- Add a reconciliation command and a dual-read flag before promoting Postgres
-  to a read source.
+- Run reconciliation continuously during the shadow-write release window;
+  promote only after a full release cycle reports `ok: true`.
+- Add a disabled-by-default dual-read observability flag before promoting
+  Postgres to a read source.
 - Shadow generation, quality-gate, and approval events.
 - Add signed sandbox artifacts and verified deployment evidence.
 - Add provider credential adapters behind a server-side service bridge.

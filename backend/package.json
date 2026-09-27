@@ -13,6 +13,7 @@
     "migrate:premium-upgrade": "tsx src/migrations/003_premium_upgrade.ts",
     "migrate:subscriptions": "tsx src/migrations/004_subscriptions.ts",
     "migrate:product-memory-postgres": "tsx src/scripts/migrate-product-memory-postgres.ts",
+    "reconcile:product-memory-postgres": "tsx src/scripts/reconcile-product-memory-postgres.ts",
     "test": "tsx --test --test-concurrency=4 \"src/tests/**/*.test.ts\"",
     "test:file": "tsx --test",
     "sandbox:image": "tsx src/scripts/build-sandbox-image.ts",
