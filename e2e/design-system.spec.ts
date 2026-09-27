@@ -366,6 +366,8 @@ test.describe("OSGARD design system", () => {
     await expect(page.getByRole("status", { name: /Frontend quality/ })).toBeVisible()
     await expect(page.getByRole("heading", { name: "Проверяем путь до результата" })).toBeVisible()
     await expect(page.getByRole("button", { name: "Обновить quality cockpit" })).toBeVisible()
+    await expect(page.getByRole("progressbar", { name: "Прогресс квеста" })).toHaveAttribute("aria-valuemax", "100")
+    await expect(page.getByRole("progressbar", { name: "Прогресс недели" })).toHaveAttribute("aria-valuemax", "100")
   })
 
   test("developer cockpit exposes interaction latency", async ({ page }) => {

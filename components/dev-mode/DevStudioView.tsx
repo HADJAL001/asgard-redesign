@@ -399,7 +399,7 @@ export function DevStudioView() {
             <div>
               <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "rgb(245 196 81 / 75%)" }}>Квест дня</p>
               <p className="mt-1 text-[13px]" style={{ color: "#F1F5F9" }}>{dailyQuest}</p>
-              <div className="dev-quest-progress" aria-label="Прогресс квеста"><span style={{ width: `${questDone ? 100 : Math.min(100, serverQuest?.progress ?? 0)}%` }} /></div>
+              <div className="dev-quest-progress" role="progressbar" aria-label="Прогресс квеста" aria-valuemin={0} aria-valuemax={100} aria-valuenow={questDone ? 100 : Math.min(100, serverQuest?.progress ?? 0)}><span style={{ width: `${questDone ? 100 : Math.min(100, serverQuest?.progress ?? 0)}%` }} /></div>
             </div>
           </div>
           <button
@@ -425,7 +425,7 @@ export function DevStudioView() {
                 <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "rgb(125 211 252 / 75%)" }}>Weekly challenge</p>
                 <p className="mt-1 text-[13px]" style={{ color: "#F1F5F9" }}>{weeklyQuest.title}</p>
                 <p className="mt-1 text-[12px]" style={{ color: "rgb(148 163 184 / 90%)" }}>+{weeklyQuest.reward.generationBonus} generation limit for this week</p>
-                <div className="dev-quest-progress" aria-label="Прогресс недели"><span style={{ width: `${weeklyQuestDone ? 100 : Math.min(100, weeklyQuest.progress ?? 0)}%` }} /></div>
+                <div className="dev-quest-progress" role="progressbar" aria-label="Прогресс недели" aria-valuemin={0} aria-valuemax={100} aria-valuenow={weeklyQuestDone ? 100 : Math.min(100, weeklyQuest.progress ?? 0)}><span style={{ width: `${weeklyQuestDone ? 100 : Math.min(100, weeklyQuest.progress ?? 0)}%` }} /></div>
               </div>
             </div>
             <button
