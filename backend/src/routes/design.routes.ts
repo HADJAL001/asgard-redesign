@@ -26,7 +26,7 @@ import {
   type DesignBrief,
 } from "../lib/design-system"
 import { explainDesignQuality } from "../lib/design-qa"
-import { isProductMemoryShadowEnabled, shadowProductMemory, type ProductMemoryShadowInput } from "../services/product-memory-shadow"
+import { isProductMemoryObservationEnabled, isProductMemoryShadowEnabled, observeProductMemory, shadowProductMemory, type ProductMemoryObservationInput, type ProductMemoryShadowInput } from "../services/product-memory-shadow"
 
 /* ================================================================
    OSGARD · Дизайн-студия проекта
@@ -94,6 +94,25 @@ router.post("/product-memory/shadow", requireAuth, asyncHandler(async (req: Auth
   }
   await shadowProductMemory(configuredTenantId, input)
   res.status(202).json({ status: "accepted" })
+}))
+
+/**
+ * Read-only dual-read observation. This endpoint exposes only comparison
+ * booleans/IDs; it never supplies a Product Memory record to the browser.
+ */
+router.post("/product-memory/observe", requireAuth, asyncHandler(async (req: AuthRequest, res) => {
+  if (!isProductMemoryObservationEnabled()) return res.status(503).json({ error: "product_memory_observation_disabled" })
+  const input = req.body as ProductMemoryObservationInput
+  const configuredTenantId = process.env.OSGARD_PRODUCT_TENANT_ID
+  const blueprint = input?.blueprint
+  const evidenceIds = Array.isArray(input?.evidenceIds) ? input.evidenceIds : []
+  const validEvidenceIds = evidenceIds.length <= 100 && new Set(evidenceIds).size === evidenceIds.length && evidenceIds.every((id) => /^[0-9a-f-]{36}$/i.test(id))
+  if (!configuredTenantId || !/^[a-z0-9][a-z0-9-]{1,62}$/i.test(configuredTenantId) || input?.tenantId !== configuredTenantId || !blueprint || !/^[0-9a-f-]{36}$/i.test(blueprint.id) || !Number.isInteger(blueprint.revision) || blueprint.revision < 1 || !/^[0-9a-f]{64}$/i.test(blueprint.contractHash) || !validEvidenceIds) {
+    return res.status(400).json({ error: "invalid_product_memory_observation" })
+  }
+  const observation = await observeProductMemory(configuredTenantId, input)
+  res.setHeader("Cache-Control", "private, no-store")
+  res.json({ status: "observed", observation })
 }))
 
 const BLUEPRINT_COMPONENTS = new Set(["app-shell", "hero", "bento-grid", "form-wizard", "preview-frame", "cinematic-sequence"])

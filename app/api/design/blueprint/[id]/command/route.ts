@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import crypto from "node:crypto"
 import { appendBlueprintEvidence, getBlueprint, listBlueprintRevisions, saveBlueprint, verifyBlueprintEvidenceToken, type StoredBlueprint } from "@/lib/blueprint-store"
 import { tenantIdFromRequest } from "@/lib/tenant-context"
-import { shadowProductMemory } from "@/lib/product-memory-shadow"
+import { observeProductMemory, shadowProductMemory } from "@/lib/product-memory-shadow"
 
 const MAX_BYTES = 8_000
 const allowed = new Set(["app-shell", "hero", "bento-grid", "form-wizard", "preview-frame", "cinematic-sequence"])
@@ -76,5 +76,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const evidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: id, tenantId, revision: edited.revision, contractHash: nextHash, kind: "remediation", status: "passed", summary: `Natural-language command applied (${interpretation.intent}); revision ${edited.revision} requires quality gates`, capturedAt: new Date().toISOString(), source: "blueprint-command" })
   // The source store stays authoritative; this records the same revision in Product OS when the guarded dual-write is enabled.
   await shadowProductMemory(request, edited, [evidence])
+  await observeProductMemory(request, edited, [evidence])
   return NextResponse.json({ dryRun: false, blueprint: edited, intent: interpretation.intent, changes, evidence }, { status: 201, headers: { "cache-control": "no-store" } })
 }

@@ -33,8 +33,11 @@ After the schema is present, set `OSGARD_PRODUCT_SHADOW_WRITE=true` in both the 
    blocks cutover. It never writes to either store.
 3. Compare contract revision count, hashes, evidence IDs and graph edges for every tenant.
 4. Record reconciliation evidence in the Evidence Ledger.
-5. Enable Postgres reads behind a tenant-scoped feature flag, retaining fallback reads.
-6. Remove the fallback only after a full release cycle has no reconciliation divergence.
+5. Optionally enable `OSGARD_PRODUCT_DUAL_READ=true` for a bounded observation
+   period. It performs a read-only contract hash/evidence-ID comparison and
+   never changes the file-store response source.
+6. Enable Postgres reads behind a tenant-scoped feature flag, retaining fallback reads.
+7. Remove the fallback only after a full release cycle has no reconciliation divergence.
 
 No production read path is switched by this migration. This avoids losing existing product records or falsely claiming database-native multi-tenancy before it is verified.
 

@@ -30,10 +30,25 @@ export type ProductMemoryShadowInput = {
   evidence: ShadowEvidence[]
 }
 
+export type ProductMemoryObservationInput = {
+  tenantId: string
+  blueprint: Pick<ProductMemoryShadowInput["blueprint"], "id" | "revision" | "contractHash">
+  evidenceIds: string[]
+}
+
 let pool: Pool | null = null
 
 export function isProductMemoryShadowEnabled() {
   return process.env.OSGARD_PRODUCT_SHADOW_WRITE === "true" && Boolean(process.env.OSGARD_PRODUCT_POSTGRES_URL)
+}
+
+/**
+ * Observation is intentionally independent of the write switch. It may be
+ * enabled only after shadow-write reconciliation is proven, and never becomes
+ * a response source for the product flow.
+ */
+export function isProductMemoryObservationEnabled() {
+  return process.env.OSGARD_PRODUCT_DUAL_READ === "true" && Boolean(process.env.OSGARD_PRODUCT_POSTGRES_URL)
 }
 
 function clientPool() {
@@ -118,6 +133,44 @@ export async function shadowProductMemory(tenantId: string, input: ProductMemory
     }
     await client.query("COMMIT")
     return { status: "written" as const }
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined)
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
+/** Read-only comparison primitive for the later dual-read observation window. */
+export async function observeProductMemory(tenantId: string, input: ProductMemoryObservationInput) {
+  if (!isProductMemoryObservationEnabled()) return { status: "disabled" as const }
+  const client = await clientPool().connect()
+  try {
+    await client.query("BEGIN READ ONLY")
+    await client.query("SELECT set_config('osgard.tenant_id', $1, true)", [tenantId])
+    const contract = await client.query<{ contract_hash: string }>(
+      `SELECT contract_hash FROM osgard_product.product_contracts
+       WHERE tenant_id = $1 AND blueprint_id = $2 AND revision = $3`,
+      [tenantId, input.blueprint.id, input.blueprint.revision],
+    )
+    const evidence = input.evidenceIds.length
+      ? await client.query<{ id: string }>(
+        `SELECT id FROM osgard_product.evidence_ledger
+         WHERE tenant_id = $1 AND contract_id = (
+           SELECT id FROM osgard_product.product_contracts
+           WHERE tenant_id = $1 AND blueprint_id = $2 AND revision = $3
+         ) AND id = ANY($4::uuid[])`,
+        [tenantId, input.blueprint.id, input.blueprint.revision, input.evidenceIds],
+      )
+      : { rows: [] as Array<{ id: string }> }
+    await client.query("COMMIT")
+    const matchedEvidenceIds = new Set(evidence.rows.map((row) => row.id))
+    return {
+      status: "observed" as const,
+      contractPresent: contract.rows.length === 1,
+      contractHashMatches: contract.rows[0]?.contract_hash === input.blueprint.contractHash,
+      missingEvidenceIds: input.evidenceIds.filter((id) => !matchedEvidenceIds.has(id)),
+    }
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined)
     throw error

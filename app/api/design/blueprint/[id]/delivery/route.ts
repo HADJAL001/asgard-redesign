@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getBlueprint, updateBlueprintDelivery, verifyBlueprintEvidenceToken, type StoredBlueprint } from "@/lib/blueprint-store"
 import { tenantIdFromRequest } from "@/lib/tenant-context"
-import { shadowProductMemory } from "@/lib/product-memory-shadow"
+import { observeProductMemory, shadowProductMemory } from "@/lib/product-memory-shadow"
 
 export const dynamic = "force-dynamic"
 const providers = new Set<NonNullable<StoredBlueprint["delivery"]>["provider"]>(["osgard-cluster", "vercel", "netlify", "custom"])
@@ -47,6 +47,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const delivery: NonNullable<StoredBlueprint["delivery"]> = { provider, ...(domain ? { domain } : {}), ...(supabaseProjectRef ? { supabaseProjectRef } : {}), ...(integrationIds.length ? { integrationIds } : {}), updatedAt: new Date().toISOString() }
   const updated = updateBlueprintDelivery(id, revision, delivery, tenantId)
   const savedDelivery = updated?.delivery || delivery
-  if (updated) await shadowProductMemory(request, updated, [])
+  if (updated) {
+    await shadowProductMemory(request, updated, [])
+    await observeProductMemory(request, updated, [])
+  }
   return NextResponse.json({ blueprintId: id, revision, delivery: savedDelivery, preflight: preflight(savedDelivery) }, { status: 200, headers: { "cache-control": "no-store" } })
 }

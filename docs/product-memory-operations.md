@@ -19,6 +19,7 @@ environment file:
 ```ini
 OSGARD_PRODUCT_POSTGRES_URL=postgresql://...
 OSGARD_PRODUCT_SHADOW_WRITE=true
+OSGARD_PRODUCT_DUAL_READ=false
 OSGARD_PRODUCT_TENANT_ID=osgardnewworld
 ```
 
@@ -28,6 +29,12 @@ Never commit the URL, database password, API keys, or a populated `.env` file.
 `OSGARD_PRODUCT_TENANT_ID` is an allowlisted server value. The backend rejects
 shadow payloads that name a different tenant, so browser input cannot select a
 Postgres RLS scope.
+
+`OSGARD_PRODUCT_DUAL_READ` is a separate, disabled-by-default observation
+flag. When enabled after a successful shadow-write window, it compares the
+file-backed contract and evidence IDs against Postgres without changing any API
+response source. It must remain `false` until a real authenticated flow has
+been reconciled with non-zero records.
 
 For Supabase on an IPv4-only host, use the shared transaction pooler URI. It
 does not require enabling the dedicated IPv4 add-on. Keep the connection
@@ -114,8 +121,8 @@ the JSON divergence report, and do not advance the Postgres cutover.
 
 - Run reconciliation continuously during the shadow-write release window;
   promote only after a full release cycle reports `ok: true`.
-- Add a disabled-by-default dual-read observability flag before promoting
-  Postgres to a read source.
+- Run the first authenticated non-zero blueprint flow and retain a clean
+  dual-read observation window before promoting Postgres to a read source.
 - Shadow generation, quality-gate, and approval events.
 - Add signed sandbox artifacts and verified deployment evidence.
 - Add provider credential adapters behind a server-side service bridge.
