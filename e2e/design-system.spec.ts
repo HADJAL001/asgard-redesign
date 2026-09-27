@@ -243,6 +243,27 @@ test.describe("OSGARD design system", () => {
     expect(response.status()).toBe(401)
   })
 
+  test("exposes only safe model readiness to authenticated users", async ({ page }) => {
+    await page.goto("/login")
+    await page.locator('input[type="text"], input[name="email"]').first().fill("alex_odin")
+    await page.locator('input[type="password"]').first().fill("password123")
+    await page.locator('button[type="submit"]').first().click()
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 })
+    const response = await page.request.get("/api/design/provider-readiness")
+    expect(response.status()).toBe(200)
+    const body = await response.json()
+    expect(body).toMatchObject({ providers: {
+      claude: { role: "architect-reviewer" },
+      openai: { role: "builder-repair" },
+      gemini: { role: "interview-triage" },
+    } })
+    for (const provider of Object.values(body.providers) as Array<{ configured: unknown; available: unknown }>) {
+      expect(typeof provider.configured).toBe("boolean")
+      expect(typeof provider.available).toBe("boolean")
+    }
+    expect(JSON.stringify(body)).not.toMatch(/api[_-]?key|bearer|token|endpoint/i)
+  })
+
   test("rejects unusable client briefs", async ({ request }) => {
     const response = await request.post("/api/design/blueprint", { data: { brief: "too short" } })
     expect(response.status()).toBe(400)
