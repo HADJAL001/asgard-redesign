@@ -346,15 +346,20 @@ export function CofounderConsole() {
     const startedAt = performance.now()
     track("blueprint_compile_started", { source: "cofounder", productType, preset: visualPreset })
     try {
+      const normalizedBrief = [
+        `Audience: ${intentAudience.trim()}`,
+        `Outcome: ${intentOutcome.trim()}`,
+        intentConstraints.trim() ? `Constraints: ${intentConstraints.trim()}` : "",
+      ].filter(Boolean).join("\n")
       let aiPlan: { summary?: string; components?: string[]; risks?: string[] } | null = null
       if (user) {
-        const aiResponse = await fetch("/api/design/blueprint/compile", { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ brief }) })
+        const aiResponse = await fetch("/api/design/blueprint/compile", { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ brief: normalizedBrief }) })
         if (aiResponse.ok) {
           const aiData = await aiResponse.json().catch(() => null)
           if (Array.isArray(aiData?.blueprint?.components)) aiPlan = aiData.blueprint
         }
       }
-      const normalizedBrief = [brief.trim(), `Audience: ${intentAudience.trim()}`, `Outcome: ${intentOutcome.trim()}`, intentConstraints.trim() ? `Constraints: ${intentConstraints.trim()}` : ""].filter(Boolean).join("\n")
+      setBrief(normalizedBrief)
       const intent: ProductIntent = { audience: intentAudience.trim(), outcome: intentOutcome.trim(), platform: "any", constraints: intentConstraints.split(",").map((item) => item.trim()).filter(Boolean) }
       const response = await fetch("/api/design/blueprint", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app: contractName, brief: normalizedBrief, intent, productType, preset: visualPreset, components: aiPlan?.components, aiPlan }) })
       const data = await response.json().catch(() => null)
@@ -568,7 +573,7 @@ export function CofounderConsole() {
     <main className="ds-body cofounder-cosmos" style={{ minHeight: "100vh", padding: "clamp(1rem, 4vw, 4rem)" }}>
       <ObsidianCosmos />
       <CosmicCursor />
-      <section className="ds-hull ds-glass" style={{ padding: "clamp(1.25rem, 4vw, 3rem)", display: "flex", justifyContent: "space-between", gap: "2rem", alignItems: "end" }}>
+      <section className="cofounder-hero ds-hull ds-glass" style={{ padding: "clamp(1.25rem, 4vw, 3rem)", display: "flex", justifyContent: "space-between", gap: "2rem", alignItems: "end" }}>
         <div>
            <span className="ds-utility"><Radar size={14} /> AI COFOUNDER / COMMAND DECK</span>
            <h1 className="ds-display" style={{ fontSize: "clamp(2rem, 6vw, 5rem)", margin: ".5rem 0" }}>AI Cofounder</h1>
@@ -581,7 +586,7 @@ export function CofounderConsole() {
       <ProductCatalog productType={productType} preset={visualPreset} onProductTypeChange={setProductType} onPresetChange={setVisualPreset} />
       <OrbitalMemory />
       <CinematicSequence stages={deliveryStages} />
-      <BlueprintCanvas key={previewPlan?.revision ?? "empty"} plan={previewPlan as BlueprintCanvasPlan | null} productType={productType} preset={visualPreset} onCreate={() => setOpen(true)} onSave={saveCanvasDraft} saving={savingCanvas} />
+      <BlueprintCanvas key={previewPlan?.revision ?? "empty"} plan={previewPlan as BlueprintCanvasPlan | null} productType={productType} preset={visualPreset} onCreate={() => setOpen(true)} onSave={saveCanvasDraft} saving={savingCanvas} commandActivity={Boolean(commandText.trim())} />
       <section className="ds-hull ds-glass ds-command-panel" aria-labelledby="command-title">
         <div className="ds-command-panel__head"><div><span className="ds-utility">NATURAL LANGUAGE EDITOR</span><h2 id="command-title" className="ds-display">Скажите, что изменить</h2><p>Сначала увидите explainable diff. Ничего не применится без вашего подтверждения.</p></div><Wand2 size={18} aria-hidden="true" /></div>
         <div className="ds-command-panel__form"><label className="ds-field"><span className="sr-only">Команда изменения</span><input value={commandText} onChange={(event) => setCommandText(event.target.value)} placeholder="Например: сделай карточки плотнее" maxLength={500} disabled={!compileResult || commandBusy} /><button type="button" className="ds-dialog-secondary ds-focus" onClick={toggleVoiceCommand} disabled={!compileResult || commandBusy} aria-label={voiceListening ? "Остановить голосовой ввод" : "Ввести команду голосом"} title={voiceListening ? "Остановить голосовой ввод" : "Ввести команду голосом"}>{voiceListening ? <MicOff size={16} aria-hidden="true" /> : <Mic size={16} aria-hidden="true" />}</button><button type="button" className="ds-dialog-secondary ds-focus" onClick={() => void previewCommand()} disabled={!compileResult || commandBusy || commandText.trim().length < 3}>{commandBusy ? "Проверяем…" : "Показать diff"}</button></label></div>
@@ -606,7 +611,7 @@ export function CofounderConsole() {
         <section className="ds-interview" aria-labelledby="interview-title">
           <div className="ds-brief-starters__head"><Lightbulb size={15} aria-hidden="true" /><span id="interview-title" className="ds-utility">THREE-QUESTION INTERVIEW</span><small>Ответы становятся частью ProductContract</small></div>
           <label className="ds-field">{interviewQuestions[0]}<input required maxLength={240} value={intentAudience} onChange={(event) => setIntentAudience(event.target.value)} placeholder="Например: product teams and their customers" /></label>
-          <label className="ds-field">{interviewQuestions[1]}<input required maxLength={320} value={intentOutcome} onChange={(event) => { const value = event.target.value; setIntentOutcome(value); if (!brief.trim()) setBrief(value) }} placeholder="Например: verified first release in one session" /></label>
+          <label className="ds-field">{interviewQuestions[1]}<input required maxLength={320} value={intentOutcome} onChange={(event) => setIntentOutcome(event.target.value)} placeholder="Например: verified first release in one session" /></label>
           <label className="ds-field">{interviewQuestions[2]} <span>(optional, comma-separated)</span><input maxLength={640} value={intentConstraints} onChange={(event) => setIntentConstraints(event.target.value)} placeholder="WCAG AA, mobile-first, Stripe" /></label>
         </section>
         {modelReadiness ? <section className="ds-dialog-result" aria-label="AI execution readiness" aria-live="polite"><strong>AI execution lanes</strong><div className="ds-ai-readiness">{Object.entries(modelReadiness.providers).map(([provider, state]) => <span key={provider} data-status={state.available ? "passed" : "pending"}><i aria-hidden="true" />{state.role.replace(/-/g, " ")}<em>{state.available ? "Ready" : state.configured ? "Check model" : "Not connected"}</em></span>)}</div></section> : null}
@@ -618,7 +623,6 @@ export function CofounderConsole() {
           {compileResult && (compileResult.aiSummary || compileResult.aiComponents?.length || compileResult.aiRisks?.length) ? <section className="ds-dialog-result" aria-label="AI architecture signal"><strong>AI architecture signal</strong>{compileResult.aiSummary ? <span>{compileResult.aiSummary}</span> : null}{compileResult.aiComponents?.length ? <small>Selected components: {compileResult.aiComponents.join(", ")}</small> : null}{compileResult.aiRisks?.length ? <small>Risks to review: {compileResult.aiRisks.join("; ")}</small> : null}</section> : null}
           <label className="ds-field">Название<input required value={contractName} onChange={(event) => setContractName(event.target.value)} placeholder="Например, кабинет партнёра" /></label>
           <section className="ds-brief-starters" aria-labelledby="starter-missions-title"><div className="ds-brief-starters__head"><Lightbulb size={15} aria-hidden="true" /><span id="starter-missions-title" className="ds-utility">STARTER MISSIONS</span><small>Начните с готового вектора</small></div><div className="ds-brief-starters__grid">{starterMissions.map((mission) => <button key={mission.id} type="button" className="ds-brief-starter ds-focus" onClick={() => chooseStarterMission(mission)} aria-label={`Use starter mission: ${mission.label}`} title="Fill the brief with this starting direction"><strong>{mission.label}</strong><span>{mission.brief}</span></button>)}</div></section>
-          <label className="ds-field">Результат для проверки<textarea required rows={4} value={brief} onChange={(event) => setBrief(event.target.value)} placeholder="Какой результат должен быть готов?" /></label>
           <p className="ds-dialog-live" role="status" aria-live="polite" aria-atomic="true">{submitting ? "Собираем blueprint…" : compileResult ? "Blueprint готов к проверке." : ""}</p>
           {compileError ? <div className="ds-dialog-error" role="alert"><p>{compileError}</p>{compileResult ? <button type="button" className="ds-dialog-secondary ds-focus" onClick={retryPreview} aria-label="Retry preview" title="Retry preview">Повторить preview</button> : null}</div> : null}
           {previewPlan ? <section className="ds-dialog-preview" aria-label="Blueprint preview"><div className="ds-utility">LIVE PREVIEW / REVISION {previewPlan.revision}</div><div className="ds-dialog-preview-slots">{previewPlan.slots.map((slot) => <article key={slot.id} className="ds-dialog-preview-slot"><strong>{slot.component}</strong><span>{slot.role}</span><small>{slot.states.join(" · ")}</small></article>)}</div><div className="ds-dialog-preview-stages" aria-label="Preview stages">{previewPlan.stages.map((stage, index) => <span key={stage} data-active={index === 0}>{stage}</span>)}</div></section> : null}

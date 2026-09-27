@@ -103,6 +103,7 @@ export interface SecurityReport {
 export interface DeployAgentInput {
   files: GeneratedFile[]
   projectName: string
+  mode?: "sandbox" | "publish"
 }
 
 export interface DeployArtifact {
@@ -112,7 +113,7 @@ export interface DeployArtifact {
   dockerfile?: string
   /** "fallback" — нет токена/сетевая ошибка на любом из шагов (appUrl и/или repoUrl уйдут в null),
    *  а не выдуманный URL: вызывающий код не должен путать это с успешным деплоем. */
-  source: "live" | "fallback"
+  source: "live" | "fallback" | "sandbox-only"
   sandbox?: { status: "passed" | "failed" | "timeout" | "unavailable"; exitCode: number | null; timedOut: boolean; durationMs: number; logTail?: string }
 }
 

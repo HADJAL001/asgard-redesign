@@ -266,3 +266,22 @@ The production service was active on the last release, the Next build was presen
 - 100% of tenant mutation endpoints covered by host/RLS isolation tests.
 - Zero unreviewed provider deployments; every production delivery has canary and rollback evidence.
 - Maintain 60 fps for enabled motion on a mid-range device and a fully usable reduced-motion mode.
+# Generation delivery safety
+
+- Project generation now defaults to sandbox-only delivery. After the isolated build gate passes, the pipeline returns generated artifacts without creating a GitHub repository or deploying to Vercel.
+- External publication requires both `OSGARD_GENERATION_MODE=publish` and an explicit pipeline input `mode: "publish"`; absent either condition, the pipeline remains sandbox-only. Configure this only where provider actions are intended and credentials are controlled.
+- A sandbox failure or unavailable Docker runtime remains a failed/fallback gate and never proceeds to provider publication.
+- `DeployAgent` receives injectable sandbox/provider adapters; a contract test proves that a successful sandbox-only run calls neither GitHub nor Vercel.
+- Verification (2026-09-27): backend TypeScript build passed; full backend suite passed 774 tests, with 2 skipped and 0 failures. The focused DeployAgent suite passed 5/5.
+- Production rollout remains pending; do not enable provider publishing until the release is deployed and production integration credentials/policies are intentionally configured.
+
+### Command Deck holographic bridge (2026-09-27)
+
+- Replaced the empty Cofounder canvas state with a CSS holographic product scene and perspective floor; entering a natural-language edit activates a visible scene response.
+- Refined Cofounder-only glass panels, restrained card tilt, cinematic delivery impulses, orbital core motion, command focus, and liquid-gold actions. Reduced-motion users get static equivalents.
+- Mobile visual smoke exposed a compressed hero; the title and preset switcher now stack at narrow widths.
+- Verification: Next.js production build passed; changed React components passed ESLint; design-system accessibility invariants passed. Desktop and mobile full-page screenshots were inspected. Playwright confirmed 390px has no horizontal overflow, command state changes the hologram, catalog tilt is active, all five tracker stages render, and reduced-motion disables ambient animations.
+- Approval security audit (2026-09-27): `/api/design/blueprint/:id/approve` previously trusted only the production host/tenant and allowed anonymous approval. It now requires an access cookie validated by backend `/auth/me` before writing. Anonymous E2E coverage expects 401; authenticated E2E verifies approval succeeds while codegen remains evidence-gated. Runtime smoke confirmed 401 and unchanged revision. Production rollout is still pending.
+- Collaboration security follow-up (2026-09-27): approval comments now use the same verified session boundary and derive the recorded author from `/auth/me`; browser-supplied `author` is ignored. Anonymous runtime smoke with a valid evidence token returned 401 and persisted zero comments. Guest blueprint preview/edit capabilities remain unchanged.
+- ProductContract interview correction (2026-09-27): the three answers (audience, outcome, constraints) are now normalized before both the authenticated AI compiler request and blueprint creation. The duplicate free-form brief textarea was removed, so the visible three-question interview is the single source for the generated storyboard and contract. `scripts/cofounder-interview-guard.mjs` prevents regression to a stale compiler payload or a fourth brief input.
+- Verification: ESLint and the Next.js production build passed. The complete design-system gate passed approval/auth, interview, accessibility, runtime, performance and asset checks. Public-site E2E is intentionally reported separately: it detects that the current production checkout has not yet received the local approval boundary and current Canvas controls; local tenant tests also require the configured tenant/backend test environment rather than a bare `localhost` host.

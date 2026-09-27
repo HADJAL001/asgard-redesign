@@ -31,6 +31,7 @@ export function BlueprintCanvas({
   onCreate,
   onSave,
   saving = false,
+  commandActivity = false,
 }: {
   plan: BlueprintCanvasPlan | null;
   productType: ProductType;
@@ -38,6 +39,7 @@ export function BlueprintCanvas({
   onCreate: () => void;
   onSave?: (slots: PreviewSlot[]) => void;
   saving?: boolean;
+  commandActivity?: boolean;
 }) {
   const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
   const [slots, setSlots] = useState<PreviewSlot[]>(plan?.slots || []);
@@ -143,7 +145,7 @@ export function BlueprintCanvas({
         </div>
       </header>
       <div
-        className={`ds-blueprint-canvas__stage ds-blueprint-canvas__stage--${viewport}`}
+        className={`ds-blueprint-canvas__stage ds-blueprint-canvas__stage--${viewport}${commandActivity ? " is-command-active" : ""}`}
       >
         {plan ? (
           <div className="ds-blueprint-canvas__surface">
@@ -347,14 +349,22 @@ export function BlueprintCanvas({
           </div>
         ) : (
           <div className="ds-blueprint-canvas__empty">
-            <Sparkles size={20} />
-            <strong>Your product will appear here</strong>
-            <button
-              type="button"
-              className="ds-dialog-primary ds-focus"
-              onClick={onCreate}
-            >
-              Open builder
+            <div className="ds-blueprint-canvas__hologram" aria-hidden="true">
+              <span className="ds-blueprint-canvas__hologram-orbit" />
+              <div className="ds-blueprint-canvas__hologram-screen">
+                <i /><i /><i />
+                <span className="ds-blueprint-canvas__hologram-hero" />
+                <span className="ds-blueprint-canvas__hologram-row" />
+                <span className="ds-blueprint-canvas__hologram-row" />
+                <span className="ds-blueprint-canvas__hologram-cards"><b /><b /><b /></span>
+              </div>
+              <span className="ds-blueprint-canvas__hologram-floor" />
+              <Sparkles size={17} />
+            </div>
+            <strong>Сцена продукта готова к сборке</strong>
+            <span>Выберите тип продукта, стиль и опишите результат. Здесь появится его интерактивный blueprint.</span>
+            <button type="button" className="ds-dialog-primary ds-focus" onClick={onCreate}>
+              <Sparkles size={15} aria-hidden="true" /> Собрать blueprint
             </button>
           </div>
         )}

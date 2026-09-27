@@ -132,6 +132,7 @@ export function createRealPipeline(): (Agent | Agent[])[] {
       return {
         files: mergeFiles(frontendFiles, backendFiles, optimizedFiles, securityFiles),
         projectName: slugify(schema.name),
+        mode: process.env.OSGARD_GENERATION_MODE === "publish" ? "publish" : "sandbox",
       }
     }),
   ]

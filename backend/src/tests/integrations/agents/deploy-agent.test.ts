@@ -48,6 +48,35 @@ test("DeployAgent: без токенов деградирует на fallback (�
   assert.equal(result.repoUrl, null)
 })
 
+test("DeployAgent: sandbox mode stops after a successful build without publishing", async () => {
+  const buildSandbox = async () => ({
+    ok: true,
+    skipped: false,
+    timedOut: false,
+    durationMs: 10,
+    exitCode: 0,
+    logs: "build passed",
+  }) as any
+  let vercelCalls = 0
+  let githubCalls = 0
+  const agent = new DeployAgent({
+    deployToVercel: async () => { vercelCalls++; return "https://unexpected.example" },
+    createGitHubRepo: async () => { githubCalls++; return "https://unexpected.example" },
+  }, buildSandbox)
+  const files = [
+    { path: "index.html", content: "<html><body>Hello</body></html>" },
+    { path: "package.json", content: JSON.stringify({ name: "test-app" }) },
+  ]
+
+  const result = await agent.execute({ files, projectName: "sandbox-only-test", mode: "sandbox" })
+
+  assert.equal(result.source, "sandbox-only")
+  assert.equal(result.appUrl, null)
+  assert.equal(result.repoUrl, null)
+  assert.equal(vercelCalls, 0)
+  assert.equal(githubCalls, 0)
+})
+
 test("DeployAgent: при наличии package.json генерирует Dockerfile, если его ещё нет в дереве", async () => {
   const agent = new DeployAgent()
   const files = [{ path: "package.json", content: JSON.stringify({ name: "test-app" }) }]

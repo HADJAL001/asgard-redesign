@@ -86,7 +86,11 @@ export async function runFullPipeline(description: string, taskId?: string): Pro
   )
 
   const deployFiles = mergeFiles(frontend.files, backend.files, optimized.files, security.files)
-  const deploy = await deployAgent.run({ files: deployFiles, projectName: slugify(schema.name) }, taskId)
+  const deploy = await deployAgent.run({
+    files: deployFiles,
+    projectName: slugify(schema.name),
+    mode: process.env.OSGARD_GENERATION_MODE === "publish" ? "publish" : "sandbox",
+  }, taskId)
 
   return { schema, frontend, backend, tests, optimized, security, deploy }
 }

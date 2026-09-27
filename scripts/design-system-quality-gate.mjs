@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process"
 
 const checks = [
+  "scripts/design-system-approval-guard.mjs",
+  "scripts/cofounder-interview-guard.mjs",
   "scripts/design-system-a11y.mjs",
   "scripts/design-system-runtime-a11y.mjs",
   "scripts/design-system-performance.mjs",

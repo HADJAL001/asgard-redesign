@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getBlueprint, listBlueprintRevisions, saveBlueprint, type StoredBlueprint } from "@/lib/blueprint-store"
 import { tenantIdFromRequest } from "@/lib/tenant-context"
+import { requireBlueprintActor } from "@/lib/blueprint-auth"
 
 export const dynamic = "force-dynamic"
 
@@ -9,6 +10,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const tenantId = tenantIdFromRequest(request)
   if (!tenantId) return NextResponse.json({ error: "tenant_not_available" }, { status: 404 })
   if (!/^[0-9a-f-]{36}$/i.test(id)) return NextResponse.json({ error: "invalid_blueprint_id" }, { status: 400 })
+  const actor = await requireBlueprintActor(request)
+  if ("error" in actor) return NextResponse.json({ error: actor.error }, { status: actor.error === "auth_required" ? 401 : 503 })
   if (request.headers.get("content-type")?.includes("application/json") !== true) return NextResponse.json({ error: "json_required" }, { status: 415 })
   let body: { revision?: unknown } = {}
   try { body = await request.json() as { revision?: unknown } } catch { return NextResponse.json({ error: "invalid_json" }, { status: 400 }) }

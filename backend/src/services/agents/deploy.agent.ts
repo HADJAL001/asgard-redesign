@@ -39,6 +39,13 @@ function ensureDockerfile(files: GeneratedFile[], projectName: string): { files:
 export class DeployAgent extends BaseAgent<DeployAgentInput, DeployArtifact> {
   readonly name = "deploy"
 
+  constructor(
+    private readonly providers = { deployToVercel, createGitHubRepo },
+    private readonly buildSandbox: typeof verifyBuildInSandbox = verifyBuildInSandbox,
+  ) {
+    super()
+  }
+
   async execute(input: DeployAgentInput): Promise<DeployArtifact> {
     if (input.files.length === 0) {
       return { type: "deployed", appUrl: null, repoUrl: null, source: "fallback" }
@@ -46,7 +53,7 @@ export class DeployAgent extends BaseAgent<DeployAgentInput, DeployArtifact> {
 
     const { files, dockerfile } = ensureDockerfile(input.files, input.projectName)
 
-    const sandbox = await verifyBuildInSandbox(files, { profile: "fullstack", logLabel: `generated-${input.projectName}` })
+    const sandbox = await this.buildSandbox(files, { profile: "fullstack", logLabel: `generated-${input.projectName}` })
     const sandboxStatus = sandbox.skipped ? "unavailable" as const : sandbox.timedOut ? "timeout" as const : sandbox.ok ? "passed" as const : "failed" as const
     const rawLog = sandbox.logs.replace(/[\r\n\t]+/g, " ")
     const logTail = rawLog.replace(/(api[_-]?key|token|secret|password)\s*[=:]\s*[^\s,;]+/gi, "$1=[REDACTED]").slice(-800)
@@ -55,12 +62,16 @@ export class DeployAgent extends BaseAgent<DeployAgentInput, DeployArtifact> {
       return { type: "deployed", appUrl: null, repoUrl: null, dockerfile, source: "fallback", sandbox: sandboxProvenance }
     }
 
+    if (input.mode !== "publish" || process.env.OSGARD_GENERATION_MODE !== "publish") {
+      return { type: "deployed", appUrl: null, repoUrl: null, dockerfile, source: "sandbox-only", sandbox: sandboxProvenance }
+    }
+
     const [appUrl, repoUrl] = await Promise.all([
-      deployToVercel(files, input.projectName).catch((err) => {
+      this.providers.deployToVercel(files, input.projectName).catch((err) => {
         captureError("[deploy-agent] Vercel deploy failed:", err)
         return null
       }),
-      createGitHubRepo(files, input.projectName).catch((err) => {
+      this.providers.createGitHubRepo(files, input.projectName).catch((err) => {
         captureError("[deploy-agent] GitHub repo creation failed:", err)
         return null
       }),
