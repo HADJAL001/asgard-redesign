@@ -136,5 +136,9 @@ export async function reconcileProductMemory(): Promise<ReconciliationReport> {
 }
 
 if (require.main === module) {
-  reconcileProductMemory().then((report) => { console.log(JSON.stringify(report, null, 2)); if (!report.ok) process.exitCode = 2 }).catch((error) => { console.error(error instanceof Error ? error.message : error); process.exitCode = 1 })
+  reconcileProductMemory().then((report) => {
+    console.log(JSON.stringify(report, null, 2))
+    if (report.ok && !report.meaningfulBaseline) console.warn("Product Memory reconciliation is clean but has no authenticated source revision yet; cutover remains blocked.")
+    if (!report.ok) process.exitCode = 2
+  }).catch((error) => { console.error(error instanceof Error ? error.message : error); process.exitCode = 1 })
 }
