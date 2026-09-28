@@ -56,9 +56,13 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:design-system
       - run: npm run test:analytics-contract
+      - name: Initialize isolated local database
+        run: npm --prefix backend run init-db
+        env:
+          DB_PATH: /tmp/osgard-ci.sqlite
       - name: Start isolated local backend
         run: |
-          NODE_ENV=test PORT=3002 npm --prefix backend run start > /tmp/osgard-backend.log 2>&1 &
+          NODE_ENV=test PORT=3002 DB_PATH=/tmp/osgard-ci.sqlite npm --prefix backend run start > /tmp/osgard-backend.log 2>&1 &
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:3002/health > /dev/null; then
               exit 0
