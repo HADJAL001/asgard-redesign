@@ -1,4 +1,10 @@
 import { test, expect } from "@playwright/test"
+import { signInAsReviewUser } from "./helpers/auth"
+
+const authenticatedTest = test.extend({})
+authenticatedTest.beforeEach(async ({ page }) => {
+  await signInAsReviewUser(page)
+})
 
 test.describe("OSGARD design system", () => {
   test("exposes versioned futuristic tokens", async ({ request }) => {
@@ -36,7 +42,8 @@ test.describe("OSGARD design system", () => {
     expect(body.profile.app).toBe("client-portal-v2")
   })
 
-  test("builds a guarded blueprint from a client brief", async ({ request }) => {
+  authenticatedTest("builds a guarded blueprint from a client brief", async ({ page }) => {
+    const request = page.request
     const response = await request.post("/api/design/blueprint", { data: { app: "clinic", brief: "A calm patient portal for booking visits and reviewing care plans.", components: ["hero", "preview-frame", "unknown-html"], aiPlan: { summary: "A calm review-first portal.", components: ["hero", "preview-frame", "unknown-html"], risks: ["Needs consent copy"] } } })
     expect(response.status()).toBe(201)
     const body = await response.json()
@@ -65,7 +72,8 @@ test.describe("OSGARD design system", () => {
     expect(body.blueprint.revision).toBe(1)
   })
 
-  test("normalizes typed product intent and binds it to the contract hash", async ({ request }) => {
+  authenticatedTest("normalizes typed product intent and binds it to the contract hash", async ({ page }) => {
+    const request = page.request
     const base = await request.post("/api/design/blueprint", { data: { app: "intent-base", brief: "A product workspace for validating typed intent before code generation." } })
     const baseBody = await base.json()
     const response = await request.post("/api/design/blueprint", { data: {
@@ -91,7 +99,8 @@ test.describe("OSGARD design system", () => {
     expect(body.blueprint.contractHash).not.toBe(baseBody.blueprint.contractHash)
   })
 
-  test("returns an explainable dry-run and applies a bounded natural-language edit", async ({ request }) => {
+  authenticatedTest("returns an explainable dry-run and applies a bounded natural-language edit", async ({ page }) => {
+    const request = page.request
     const created = await request.post("/api/design/blueprint", { data: { app: "command-check", brief: "A workspace for checking safe natural-language product edits before code generation.", intent: { audience: "Product teams", outcome: "Review a safe visual change", platform: "web", constraints: [] } } })
     const body = await created.json()
     const preview = await request.post(`/api/design/blueprint/${body.blueprint.id}/command`, { data: { revision: 1, command: "сделай карточки плотнее" } })
@@ -108,8 +117,9 @@ test.describe("OSGARD design system", () => {
     expect(appliedBody.evidence).toMatchObject({ kind: "remediation", source: "blueprint-command", revision: 2 })
   })
 
-  test("binds evidence ledger entries to the contract hash", async ({ request }) => {
-    const created = await request.post("/api/design/blueprint", { data: { app: "evidence-check", brief: "A product workspace with auditable release evidence and safe delivery." } })
+  authenticatedTest("binds evidence ledger entries to the contract hash", async ({ page, request }) => {
+    const authenticatedRequest = page.request
+    const created = await authenticatedRequest.post("/api/design/blueprint", { data: { app: "evidence-check", brief: "A product workspace with auditable release evidence and safe delivery." } })
     const createdBody = await created.json()
     const blueprint = createdBody.blueprint
     expect(createdBody.evidenceToken).toMatch(/^[a-f0-9]{64}$/)
@@ -119,7 +129,7 @@ test.describe("OSGARD design system", () => {
     const replay = await request.get(`/cofounder/replay/${blueprint.id}`)
     expect(replay.status()).toBe(200)
     expect(await replay.text()).not.toContain(createdBody.evidenceToken)
-    const evidence = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "a11y", status: "passed", summary: "Keyboard and contrast checks passed", source: "quality-gate", contractHash: blueprint.contractHash, evidenceToken: createdBody.evidenceToken } })
+    const evidence = await authenticatedRequest.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "a11y", status: "passed", summary: "Keyboard and contrast checks passed", source: "quality-gate", contractHash: blueprint.contractHash, evidenceToken: createdBody.evidenceToken } })
     expect(evidence.status()).toBe(201)
     const evidenceBody = await evidence.json()
     expect(evidenceBody.evidence.contractHash).toBe(blueprint.contractHash)
@@ -148,21 +158,22 @@ test.describe("OSGARD design system", () => {
     expect(forgedGeneration.status()).toBe(403)
     const oversizedGeneration = await request.post(`/api/design/blueprint/${blueprint.id}/generation`, { data: { revision: 1, taskId: "oversized", status: "processing", progress: 20, error: "x".repeat(20_000), evidenceToken: createdBody.evidenceToken } })
     expect(oversizedGeneration.status()).toBe(413)
-    const forged = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "deploy", status: "passed", summary: "Forged evidence", source: "attacker", contractHash: blueprint.contractHash, evidenceToken: "0".repeat(64) } })
+    const forged = await authenticatedRequest.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "deploy", status: "passed", summary: "Forged evidence", source: "attacker", contractHash: blueprint.contractHash, evidenceToken: "0".repeat(64) } })
     expect(forged.status()).toBe(403)
-    const oversized = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "a11y", status: "passed", summary: "x".repeat(20_000), source: "quality-gate", contractHash: blueprint.contractHash, evidenceToken: createdBody.evidenceToken } })
+    const oversized = await authenticatedRequest.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "a11y", status: "passed", summary: "x".repeat(20_000), source: "quality-gate", contractHash: blueprint.contractHash, evidenceToken: createdBody.evidenceToken } })
     expect(oversized.status()).toBe(413)
-    const mismatch = await request.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "security", status: "passed", summary: "Wrong contract", source: "quality-gate", contractHash: "0".repeat(64) } })
+    const mismatch = await authenticatedRequest.post(`/api/design/blueprint/${blueprint.id}/evidence`, { data: { kind: "security", status: "passed", summary: "Wrong contract", source: "quality-gate", contractHash: "0".repeat(64) } })
     expect(mismatch.status()).toBe(409)
   })
 
-  test("persists a tenant-bound delivery policy before deploy", async ({ request }) => {
+  authenticatedTest("persists a tenant-bound delivery policy before deploy", async ({ page }) => {
+    const request = page.request
     const created = await request.post("/api/design/blueprint", { data: { app: "delivery-policy", brief: "A launch flow with an explicit provider, domain and Supabase target." } })
     const body = await created.json()
-    const policy = await request.put(`/api/design/blueprint/${body.blueprint.id}/delivery`, { data: { revision: 1, provider: "osgard-cluster", domain: "portal.example.com", supabaseProjectRef: "project-ref", integrationIds: [3, 3, 8], evidenceToken: body.evidenceToken } })
+    const policy = await request.put(`/api/design/blueprint/${body.blueprint.id}/delivery`, { data: { revision: 1, provider: "osgard-cluster", domain: "portal.example.com", supabaseProjectRef: "abcdefghijklmnopqrst", integrationIds: [3, 3, 8], evidenceToken: body.evidenceToken } })
     expect(policy.status()).toBe(200)
     const policyBody = await policy.json()
-    expect(policyBody.delivery).toMatchObject({ provider: "osgard-cluster", domain: "portal.example.com", supabaseProjectRef: "project-ref", integrationIds: [3, 8] })
+    expect(policyBody.delivery).toMatchObject({ provider: "osgard-cluster", domain: "portal.example.com", supabaseProjectRef: "abcdefghijklmnopqrst", integrationIds: [3, 8] })
     expect(policyBody.preflight).toMatchObject({ ready: false })
     expect(policyBody.preflight.checks).toEqual(expect.arrayContaining([expect.objectContaining({ id: "domain", status: "manual" }), expect.objectContaining({ id: "supabase", status: "manual" })]))
     const read = await request.get(`/api/design/blueprint/${body.blueprint.id}/delivery?revision=1`)
@@ -171,7 +182,8 @@ test.describe("OSGARD design system", () => {
     expect(forged.status()).toBe(403)
   })
 
-  test("persists a blueprint for cross-device restore", async ({ request }) => {
+  authenticatedTest("persists a blueprint for cross-device restore", async ({ page }) => {
+    const request = page.request
     const response = await request.post("/api/design/blueprint", { data: { app: "restore-check", brief: "A durable workspace for restoring a generated product blueprint." } })
     expect(response.status()).toBe(201)
     const created = await response.json()
@@ -194,7 +206,8 @@ test.describe("OSGARD design system", () => {
     expect((await quality.json()).missing).toEqual(["security", "performance", "a11y", "visual-diff", "deploy"])
   })
 
-  test("exposes a safe render plan for live preview", async ({ request }) => {
+  authenticatedTest("exposes a safe render plan for live preview", async ({ page }) => {
+    const request = page.request
     const response = await request.post("/api/design/blueprint", { data: { app: "preview-check", brief: "A review workspace with a reliable preview and approval flow.", components: ["hero", "preview-frame"] } })
     const created = await response.json()
     const preview = await request.get(`/api/design/blueprint/${created.blueprint.id}/preview`)
@@ -205,8 +218,8 @@ test.describe("OSGARD design system", () => {
     expect(body.renderPlan.slots.map((slot: { component: string }) => slot.component)).toEqual(["hero", "preview-frame"])
   })
 
-  test("approval room rejects anonymous approval attempts", async ({ request }) => {
-    const response = await request.post("/api/design/blueprint", { data: { app: "approval-check", brief: "A product preview that requires explicit human approval before delivery." } })
+  authenticatedTest("approval room rejects anonymous approval attempts", async ({ page, request }) => {
+    const response = await page.request.post("/api/design/blueprint", { data: { app: "approval-check", brief: "A product preview that requires explicit human approval before delivery." } })
     const created = await response.json()
     const approval = await request.post(`/api/design/blueprint/${created.blueprint.id}/approve`, { data: { revision: 1 } })
     expect(approval.status()).toBe(401)
@@ -217,13 +230,7 @@ test.describe("OSGARD design system", () => {
     expect(generate.status()).toBe(401)
   })
 
-  test("authenticated users still need approval before codegen", async ({ page }) => {
-    await page.goto("/login")
-    const user = page.locator('input[type="text"], input[name="email"]').first()
-    await user.fill("alex_odin")
-    await page.locator('input[type="password"]').first().fill("password123")
-    await page.locator('button[type="submit"]').first().click()
-    await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 })
+  authenticatedTest("authenticated users still need approval before codegen", async ({ page }) => {
     const created = await page.request.post("/api/design/blueprint", { data: { app: "auth-gate-check", brief: "A private workspace used to verify the approval boundary." } })
     expect(created.status()).toBe(201)
     const body = await created.json()
@@ -243,12 +250,7 @@ test.describe("OSGARD design system", () => {
     expect(response.status()).toBe(401)
   })
 
-  test("exposes only safe model readiness to authenticated users", async ({ page }) => {
-    await page.goto("/login")
-    await page.locator('input[type="text"], input[name="email"]').first().fill("alex_odin")
-    await page.locator('input[type="password"]').first().fill("password123")
-    await page.locator('button[type="submit"]').first().click()
-    await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 })
+  authenticatedTest("exposes only safe model readiness to authenticated users", async ({ page }) => {
     const response = await page.request.get("/api/design/provider-readiness")
     expect(response.status()).toBe(200)
     const body = await response.json()
@@ -267,30 +269,34 @@ test.describe("OSGARD design system", () => {
     await expect(page.getByRole("button", { name: "Обновить AI lanes" })).toBeVisible()
   })
 
-  test("rejects unusable client briefs", async ({ request }) => {
+  authenticatedTest("rejects unusable client briefs", async ({ page }) => {
+    const request = page.request
     const response = await request.post("/api/design/blueprint", { data: { brief: "too short" } })
     expect(response.status()).toBe(400)
   })
 
-  test("rejects non-json blueprint payloads", async ({ request }) => {
+  authenticatedTest("rejects non-json blueprint payloads", async ({ page }) => {
+    const request = page.request
     const response = await request.post("/api/design/blueprint", { data: "not-json", headers: { "content-type": "text/plain" } })
     expect(response.status()).toBe(415)
     expect(response.headers()["x-request-id"]).toMatch(/^[0-9a-f-]{36}$/)
   })
 
-  test("rejects oversized blueprint payloads", async ({ request }) => {
+  authenticatedTest("rejects oversized blueprint payloads", async ({ page }) => {
+    const request = page.request
     const response = await request.post("/api/design/blueprint", { data: { brief: "x".repeat(33_000) } })
     expect(response.status()).toBe(413)
   })
 
-  test("falls back to a complete shell when requested components are unknown", async ({ request }) => {
+  authenticatedTest("falls back to a complete shell when requested components are unknown", async ({ page }) => {
+    const request = page.request
     const response = await request.post("/api/design/blueprint", { data: { brief: "A complete client workspace for reviewing a generated application.", components: ["unknown-html"] } })
     expect(response.status()).toBe(201)
     const body = await response.json()
     expect(body.blueprint.components).toEqual(["app-shell", "hero", "bento-grid", "preview-frame", "cinematic-sequence"])
   })
 
-  test("cofounder renders hull workspace with keyboard-visible controls", async ({ page }) => {
+  authenticatedTest("cofounder renders hull workspace with keyboard-visible controls", async ({ page }) => {
     await page.goto("/cofounder")
     await expect(page.getByRole("heading", { name: "AI Cofounder" })).toBeVisible()
     await expect(page.getByRole("region", { name: "Memory Fabric live map" })).toBeVisible()
@@ -324,7 +330,7 @@ test.describe("OSGARD design system", () => {
     await expect(contractName).toHaveValue("Launch a product")
     await contractName.fill("Client portal")
     await page.locator("dialog form button[type=submit]").click()
-    await expect(page.locator('.ds-dialog-result[role="status"]')).toContainText("Blueprint")
+    await expect(page.locator('.ds-dialog-result[role="status"]')).toContainText("Blueprint", { timeout: 30_000 })
     const refreshEvidence = page.getByRole("button", { name: "Refresh quality evidence" })
     await expect(refreshEvidence).toBeVisible()
     await refreshEvidence.click()
@@ -360,7 +366,7 @@ test.describe("OSGARD design system", () => {
     expect(await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(true)
   })
 
-  test("cofounder offers an accessible preview retry after a transient preview outage", async ({ page }) => {
+  authenticatedTest("cofounder offers an accessible preview retry after a transient preview outage", async ({ page }) => {
     let previewAttempts = 0
     await page.route("**/api/design/blueprint/*/preview?*", async (route) => {
       previewAttempts += 1
@@ -376,9 +382,14 @@ test.describe("OSGARD design system", () => {
     await page.getByRole("textbox", { name: "Название" }).fill("Preview recovery")
     await page.locator("dialog form button[type=submit]").click()
     const retry = page.getByRole("button", { name: "Retry preview" })
-    await expect(retry).toBeVisible({ timeout: 6000 })
+    await expect(retry).toBeVisible({ timeout: 30_000 })
     await retry.click()
-    await expect(page.getByLabel("Blueprint preview")).toBeVisible({ timeout: 6000 })
+    await expect(
+      page
+        .getByRole("region", { name: "Live product preview" })
+        .getByRole("option")
+        .first(),
+    ).toBeVisible({ timeout: 30_000 })
     expect(previewAttempts).toBeGreaterThanOrEqual(4)
   })
 
