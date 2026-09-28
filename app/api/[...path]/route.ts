@@ -36,7 +36,10 @@ const GUEST_CLAIM_MAX_AGE = 7 * 24 * 60 * 60
 function cookieOptions(maxAge: number) {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    // Local release contracts use loopback HTTP. This opt-in is only set in
+    // ephemeral CI and never on the deployed origin, where cookies remain
+    // Secure-only.
+    secure: process.env.NODE_ENV === "production" && process.env.OSGARD_E2E_ALLOW_INSECURE_COOKIES !== "true",
     sameSite: "lax" as const,
     path: "/",
     maxAge,
