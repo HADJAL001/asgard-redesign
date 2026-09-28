@@ -150,6 +150,28 @@ export function BlueprintCanvas({
           >
             <Smartphone size={15} aria-hidden="true" />
           </button>
+          <span className="ds-blueprint-canvas__history" role="group" aria-label="Canvas history">
+            <button
+              type="button"
+              className="ds-focus"
+              onClick={undo}
+              disabled={!past.length}
+              aria-label="Undo"
+              title="Undo last canvas change"
+            >
+              <Undo2 size={13} />
+            </button>
+            <button
+              type="button"
+              className="ds-focus"
+              onClick={redo}
+              disabled={!future.length}
+              aria-label="Redo"
+              title="Redo canvas change"
+            >
+              <Redo2 size={13} />
+            </button>
+          </span>
         </div>
       </header>
       <div
@@ -163,28 +185,6 @@ export function BlueprintCanvas({
               <span className="ds-blueprint-canvas__indicator" />
               <span className="ds-blueprint-canvas__indicator" />
               <small>OSGARD / {label.toUpperCase()}</small>
-              <span className="ds-blueprint-canvas__history">
-                <button
-                  type="button"
-                  className="ds-focus"
-                  onClick={undo}
-                  disabled={!past.length}
-                  aria-label="Undo"
-                  title="Undo last canvas change"
-                >
-                  <Undo2 size={13} />
-                </button>
-                <button
-                  type="button"
-                  className="ds-focus"
-                  onClick={redo}
-                  disabled={!future.length}
-                  aria-label="Redo"
-                  title="Redo canvas change"
-                >
-                  <Redo2 size={13} />
-                </button>
-              </span>
             </div>
             <div
               className="ds-blueprint-canvas__selection-toolbar"
