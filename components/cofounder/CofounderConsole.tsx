@@ -21,6 +21,15 @@ const CosmicCursor = dynamic(() => import("@/components/design-system/CosmicCurs
 type ProductIntent = { audience: string; outcome: string; platform: "web" | "mobile" | "desktop" | "cross-platform" | "any"; constraints: string[] }
 type CompileResult = { id: string; revision: number; score: number; review: boolean; warnings: string[]; app: string; brief: string; intent?: ProductIntent; productType?: ProductType; preset?: VisualPreset; contractVersion?: string; contractHash?: string; createdAt: string; aiSummary?: string; aiComponents?: string[]; aiRisks?: string[]; approved?: boolean; evidenceToken?: string }
 type PreviewPlan = { revision: number; slots: { id: string; component: string; role: string; states: string[] }[]; stages: string[] }
+type PreviewSession = {
+  version: string
+  blueprintId: string
+  revision: number
+  contractHash: string
+  contractPreview: { status: "ready"; source: "product-contract" }
+  runtime: { status: "ready" | "building" | "failed" | "unavailable"; source: string; url?: string; reason?: string }
+  timing: { firstReadyAt: string; firstReadyDurationMs: number; targetMs: number; withinTarget: boolean }
+}
 type EvidenceRecord = { id: string; revision: number; kind: string; status: "passed" | "failed" | "skipped"; summary: string; source: string; capturedAt: string; contractHash: string }
 type QualityState = { required: string[]; missing: string[]; stale: { kind: string; reason: string; revision?: number; expectedRevision: number }[]; approval: boolean; delivery?: boolean; readyForCodegen: boolean }
 type GenerationStatus = { status: "queued" | "processing" | "completed" | "failed" | "cancelled"; progress: number; currentStep?: string; error?: string; result?: { appUrl?: string; previewUrl?: string; repoUrl?: string } }
@@ -85,6 +94,7 @@ export function CofounderConsole() {
   const [submitting, setSubmitting] = useState(false)
   const [compileResult, setCompileResult] = useState<CompileResult | null>(null)
   const [previewPlan, setPreviewPlan] = useState<PreviewPlan | null>(null)
+  const [previewSession, setPreviewSession] = useState<PreviewSession | null>(null)
   const [evidence, setEvidence] = useState<EvidenceRecord[]>([])
   const [qualityState, setQualityState] = useState<QualityState | null>(null)
   const [diagnostics, setDiagnostics] = useState<DiagnosticsState | null>(null)
@@ -104,6 +114,7 @@ export function CofounderConsole() {
   const [recheckingDiagnostics, setRecheckingDiagnostics] = useState(false)
   const lastGenerationStatus = useRef<string | null>(null)
   const generationPollFailures = useRef(0)
+  const recordedPreviewTelemetry = useRef(new Set<string>())
   const dialogRef = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
@@ -167,8 +178,21 @@ export function CofounderConsole() {
         if (!response.ok) throw new Error(`preview_${response.status}`)
         const data = await response.json()
         const plan = data?.renderPlan
-        if (plan && Array.isArray(plan.slots)) {
+        const session = data?.previewSession as PreviewSession | undefined
+        if (plan && Array.isArray(plan.slots) && session?.blueprintId === id && session.revision === data.revision && session.contractPreview?.status === "ready") {
           setPreviewPlan({ revision: data.revision, slots: plan.slots, stages: Array.isArray(plan.stages) ? plan.stages : [] })
+          setPreviewSession(session)
+          const telemetryKey = `${session.blueprintId}:${session.revision}`
+          if (!recordedPreviewTelemetry.current.has(telemetryKey)) {
+            recordedPreviewTelemetry.current.add(telemetryKey)
+            track("blueprint_first_preview_ready", {
+              blueprintId: session.blueprintId,
+              revision: session.revision,
+              durationMs: session.timing.firstReadyDurationMs,
+              withinTarget: session.timing.withinTarget,
+              runtimeStatus: session.runtime.status,
+            })
+          }
           return
         }
         throw new Error("preview_invalid")
@@ -373,6 +397,7 @@ export function CofounderConsole() {
       track("blueprint_delivery_policy_saved", { blueprintId: data.blueprint.id, revision: data.blueprint.revision, provider: deliveryProvider, hasCustomDomain: Boolean(deliveryDomain.trim()), hasSupabase: Boolean(supabaseProjectRef.trim()) })
       setCompileResult(result)
       setPreviewPlan(null)
+      setPreviewSession(null)
       void loadPreview(result.id, result.revision)
       void loadEvidence(result.id)
       setHistory((previous) => { const next = [result, ...previous.filter((item) => item.id !== result.id)].slice(0, 5); localStorage.setItem("osgard-blueprint-history", JSON.stringify(next)); return next })
@@ -397,6 +422,7 @@ export function CofounderConsole() {
       const restored: CompileResult = { id: data.blueprint.id, revision: data.blueprint.revision, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, warnings: data.blueprint.quality.warnings, app: data.blueprint.app, brief: data.blueprint.brief, productType: data.blueprint.productType || item.productType, preset: data.blueprint.preset || item.preset, contractVersion: data.blueprint.contractVersion || item.contractVersion, contractHash: data.blueprint.contractHash || item.contractHash, createdAt: data.blueprint.generatedAt, aiSummary: persistedPlan?.summary || item.aiSummary, aiComponents: persistedPlan?.components || item.aiComponents, aiRisks: persistedPlan?.risks || item.aiRisks, evidenceToken: item.evidenceToken }
       setCompileResult(restored)
       setPreviewPlan(null)
+      setPreviewSession(null)
       void loadPreview(restored.id, restored.revision)
       void loadEvidence(restored.id)
       setContractName(restored.app)
@@ -517,6 +543,7 @@ export function CofounderConsole() {
       const next = { ...compileResult, revision: data.blueprint.revision, contractHash: data.blueprint.contractHash, score: data.blueprint.quality.score, review: data.blueprint.quality.humanReviewRequired, approved: false }
       setCompileResult(next)
       setPreviewPlan(null)
+      setPreviewSession(null)
       void loadPreview(next.id, next.revision)
       void loadEvidence(next.id)
       setCompileError(null)
@@ -549,6 +576,7 @@ export function CofounderConsole() {
       setCommandPreview(null)
       setCommandText("")
       setPreviewPlan(null)
+      setPreviewSession(null)
       void loadPreview(next.id, next.revision)
       void loadEvidence(next.id)
       track("blueprint_command_applied", { blueprintId: next.id, revision: next.revision, intent: data.intent, changes: data.changes?.length || 0 })
@@ -580,7 +608,7 @@ export function CofounderConsole() {
       <ProductCatalog productType={productType} preset={visualPreset} onProductTypeChange={setProductType} onPresetChange={setVisualPreset} />
       <OrbitalMemory />
       <CinematicSequence stages={deliveryStages} />
-      <BlueprintCanvas key={previewPlan?.revision ?? "empty"} plan={previewPlan as BlueprintCanvasPlan | null} productType={productType} preset={visualPreset} onCreate={() => setOpen(true)} onSave={saveCanvasDraft} saving={savingCanvas} commandActivity={Boolean(commandText.trim())} />
+      <BlueprintCanvas key={previewPlan?.revision ?? "empty"} plan={previewPlan as BlueprintCanvasPlan | null} previewSession={previewSession} productType={productType} preset={visualPreset} onCreate={() => setOpen(true)} onSave={saveCanvasDraft} saving={savingCanvas} commandActivity={Boolean(commandText.trim())} />
       <section className="ds-hull ds-glass ds-command-panel" aria-labelledby="command-title">
         <div className="ds-command-panel__head"><div><span className="ds-utility">NATURAL LANGUAGE EDITOR</span><h2 id="command-title" className="ds-display">Скажите, что изменить</h2><p>Сначала увидите explainable diff. Ничего не применится без вашего подтверждения.</p></div><Wand2 size={18} aria-hidden="true" /></div>
         <div className="ds-command-panel__form"><label className="ds-field"><span className="sr-only">Команда изменения</span><input value={commandText} onChange={(event) => setCommandText(event.target.value)} placeholder="Например: сделай карточки плотнее" maxLength={500} disabled={!compileResult || commandBusy} /><button type="button" className="ds-dialog-secondary ds-focus" onClick={toggleVoiceCommand} disabled={!compileResult || commandBusy} aria-label={voiceListening ? "Остановить голосовой ввод" : "Ввести команду голосом"} title={voiceListening ? "Остановить голосовой ввод" : "Ввести команду голосом"}>{voiceListening ? <MicOff size={16} aria-hidden="true" /> : <Mic size={16} aria-hidden="true" />}</button><button type="button" className="ds-dialog-secondary ds-focus" onClick={() => void previewCommand()} disabled={!compileResult || commandBusy || commandText.trim().length < 3}>{commandBusy ? "Проверяем…" : "Показать diff"}</button></label></div>

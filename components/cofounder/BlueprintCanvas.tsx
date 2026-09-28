@@ -32,8 +32,14 @@ export type BlueprintCanvasPlan = {
   slots: PreviewSlot[];
   stages: string[];
 };
+export type BlueprintCanvasPreviewSession = {
+  contractPreview: { status: "ready" };
+  runtime: { status: "ready" | "building" | "failed" | "unavailable"; url?: string; reason?: string };
+  timing: { firstReadyDurationMs: number; targetMs: number; withinTarget: boolean };
+};
 export function BlueprintCanvas({
   plan,
+  previewSession,
   productType,
   preset,
   onCreate,
@@ -42,6 +48,7 @@ export function BlueprintCanvas({
   commandActivity = false,
 }: {
   plan: BlueprintCanvasPlan | null;
+  previewSession?: BlueprintCanvasPreviewSession | null;
   productType: ProductType;
   preset: VisualPreset;
   onCreate: () => void;
@@ -124,6 +131,21 @@ export function BlueprintCanvas({
               ? `Revision ${plan.revision} · ${label} · ${preset} DNA`
               : "Соберите blueprint, чтобы увидеть структуру продукта здесь."}
           </p>
+          {previewSession ? (
+            <div className="ds-blueprint-canvas__evidence" role="status">
+              <span>Contract preview ready</span>
+              <span>First preview {Math.round(previewSession.timing.firstReadyDurationMs / 100) / 10}s / target &lt;{Math.round(previewSession.timing.targetMs / 1000)}s</span>
+              {previewSession.runtime.status === "ready" && previewSession.runtime.url ? (
+                <a href={previewSession.runtime.url} target="_blank" rel="noreferrer">Open verified runtime preview</a>
+              ) : previewSession.runtime.status === "building" ? (
+                <span>Runtime preview building</span>
+              ) : previewSession.runtime.status === "failed" ? (
+                <span>Runtime preview failed — review generation evidence</span>
+              ) : (
+                <span>Runtime preview unavailable — {previewSession.runtime.reason === "signed_preview_url_required" ? "a signed artifact is required" : "generation has not started"}</span>
+              )}
+            </div>
+          ) : null}
         </div>
         <div
           className="ds-blueprint-canvas__controls"

@@ -93,6 +93,22 @@ export type BlueprintErrorRun = {
   capturedAt: string
 }
 
+/**
+ * A preview timing record is deliberately stored outside the immutable
+ * ProductContract revision. It proves when a person first saw a usable
+ * contract preview without changing the contract hash that was reviewed.
+ */
+export type BlueprintPreviewTelemetry = {
+  id: string
+  blueprintId: string
+  tenantId: string
+  revision: number
+  contractHash: string
+  firstReadyAt: string
+  firstReadyDurationMs: number
+  lastRequestedAt: string
+}
+
 type Store = Record<string, StoredBlueprint[]>
 
 const MAX_REVISIONS_PER_BLUEPRINT = 20
@@ -102,6 +118,7 @@ const evidencePath = process.env.BLUEPRINT_EVIDENCE_PATH || path.join(process.cw
 const evidenceTokensPath = process.env.BLUEPRINT_EVIDENCE_TOKENS_PATH || path.join(process.cwd(), ".data", "blueprint-evidence-tokens.json")
 const commentsPath = process.env.BLUEPRINT_COMMENTS_PATH || path.join(process.cwd(), ".data", "blueprint-comments.json")
 const errorRunsPath = process.env.BLUEPRINT_ERROR_RUNS_PATH || path.join(process.cwd(), ".data", "blueprint-error-runs.json")
+const previewTelemetryPath = process.env.BLUEPRINT_PREVIEW_TELEMETRY_PATH || path.join(process.cwd(), ".data", "blueprint-preview-telemetry.json")
 
 function readJsonObject(filePath: string, isValid: (value: Record<string, unknown>) => boolean): Record<string, unknown> | null {
   for (const candidate of [filePath, `${filePath}.bak`]) {
@@ -188,6 +205,14 @@ function writeErrorRuns(store: Record<string, BlueprintErrorRun[]>) {
   writeJsonDurably(errorRunsPath, store)
 }
 
+function readPreviewTelemetry(): Record<string, BlueprintPreviewTelemetry> {
+  return readJsonObject(previewTelemetryPath, (value) => Object.values(value).every((entry) => entry && typeof entry === "object" && typeof (entry as BlueprintPreviewTelemetry).id === "string" && typeof (entry as BlueprintPreviewTelemetry).blueprintId === "string" && Number.isInteger((entry as BlueprintPreviewTelemetry).revision))) as Record<string, BlueprintPreviewTelemetry> || {}
+}
+
+function writePreviewTelemetry(store: Record<string, BlueprintPreviewTelemetry>) {
+  writeJsonDurably(previewTelemetryPath, store)
+}
+
 function pruneBlueprintArtifacts(removedIds: string[]) {
   if (!removedIds.length) return
   const removed = new Set(removedIds)
@@ -229,6 +254,15 @@ function pruneBlueprintArtifacts(removedIds: string[]) {
     }
   }
   if (errorRunsChanged) writeErrorRuns(errorRuns)
+  const previewTelemetry = readPreviewTelemetry()
+  let previewTelemetryChanged = false
+  for (const key of Object.keys(previewTelemetry)) {
+    if (removed.has(previewTelemetry[key].blueprintId)) {
+      delete previewTelemetry[key]
+      previewTelemetryChanged = true
+    }
+  }
+  if (previewTelemetryChanged) writePreviewTelemetry(previewTelemetry)
 }
 
 export function issueBlueprintEvidenceToken(blueprintId: string, tenantId = DEFAULT_TENANT_ID) {
@@ -256,6 +290,34 @@ export function appendBlueprintErrorRun(run: BlueprintErrorRun) {
 
 export function listBlueprintErrorRuns(blueprintId: string, tenantId = DEFAULT_TENANT_ID) {
   return (readErrorRuns()[blueprintId] || []).filter((run) => run.tenantId === tenantId)
+}
+
+export function recordBlueprintPreviewTelemetry(blueprint: StoredBlueprint, tenantId = DEFAULT_TENANT_ID) {
+  const telemetry = readPreviewTelemetry()
+  const key = `${tenantId}:${blueprint.id}:${blueprint.revision}`
+  const now = new Date().toISOString()
+  const existing = telemetry[key]
+  if (existing) {
+    const next = { ...existing, lastRequestedAt: now }
+    telemetry[key] = next
+    writePreviewTelemetry(telemetry)
+    return next
+  }
+  const generatedAtMs = Date.parse(blueprint.generatedAt)
+  const firstReadyAtMs = Date.now()
+  const next: BlueprintPreviewTelemetry = {
+    id: crypto.randomUUID(),
+    blueprintId: blueprint.id,
+    tenantId,
+    revision: blueprint.revision,
+    contractHash: blueprint.contractHash || "",
+    firstReadyAt: now,
+    firstReadyDurationMs: Number.isFinite(generatedAtMs) ? Math.max(0, firstReadyAtMs - generatedAtMs) : 0,
+    lastRequestedAt: now,
+  }
+  telemetry[key] = next
+  writePreviewTelemetry(telemetry)
+  return next
 }
 
 export function saveBlueprint(blueprint: StoredBlueprint) {

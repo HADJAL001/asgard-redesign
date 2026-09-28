@@ -216,6 +216,17 @@ test.describe("OSGARD design system", () => {
     expect(body.renderPlan.arbitraryHtml).toBe(false)
     expect(body.renderPlan.layout).toBe("hull-fluid")
     expect(body.renderPlan.slots.map((slot: { component: string }) => slot.component)).toEqual(["hero", "preview-frame"])
+    expect(body.previewSession).toMatchObject({
+      version: "1.0.0",
+      blueprintId: created.blueprint.id,
+      revision: 1,
+      contractHash: created.blueprint.contractHash,
+      contractPreview: { status: "ready", source: "product-contract" },
+      runtime: { status: "unavailable", reason: "generation_not_started" },
+      timing: { targetMs: 60_000 },
+    })
+    expect(typeof body.previewSession.timing.firstReadyDurationMs).toBe("number")
+    expect(body.previewSession).not.toHaveProperty("previewUrl")
   })
 
   authenticatedTest("approval room rejects anonymous approval attempts", async ({ page, request }) => {
