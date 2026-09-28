@@ -27,15 +27,30 @@ function readServerBrand(): TenantBrand {
   }
 }
 
-export async function GET(request: NextRequest) {
+function isTenantHostAllowed(host: string | undefined) {
+  if (host === "osgardnewworld.com" || host === "www.osgardnewworld.com") return true
+  // This opt-in exists solely for the isolated local CI contract.
+  // Production does not set the flag and remains fail-closed by hostname.
+  return process.env.OSGARD_E2E_LOCAL_TENANT === "true" && (host === "localhost" || host === "127.0.0.1")
+}
+
+function requestHost(request: NextRequest) {
   const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim()
-  const host = (forwardedHost || request.headers.get("host"))?.split(":")[0]?.toLowerCase()
-  if (host !== "osgardnewworld.com" && host !== "www.osgardnewworld.com") {
-    return NextResponse.json({ error: "Tenant недоступен для этого домена" }, { status: 404 })
-  }
+  return (forwardedHost || request.headers.get("host"))?.split(":")[0]?.toLowerCase()
+}
+
+function tenantUnavailable() {
+  return NextResponse.json({ error: "Tenant недоступен для этого домена" }, { status: 404 })
+}
+
+export async function GET(request: NextRequest) {
+  if (!isTenantHostAllowed(requestHost(request))) return tenantUnavailable()
+
   let brand = readServerBrand()
   const backendUrl = (process.env.BACKEND_URL || "").replace(/\/$/, "")
-  const authorization = request.headers.get("authorization") || (request.cookies.get("osgard_access")?.value ? `Bearer ${request.cookies.get("osgard_access")!.value}` : null)
+  const token = request.cookies.get("osgard_access")?.value
+  const authorization = request.headers.get("authorization") || (token ? `Bearer ${token}` : null)
+
   if (backendUrl && authorization?.startsWith("Bearer ")) {
     try {
       const upstream = await fetch(`${backendUrl}/design/tenant/brand`, { headers: { authorization }, cache: "no-store" })
@@ -49,19 +64,26 @@ export async function GET(request: NextRequest) {
       // Public tenant defaults remain available during backend maintenance.
     }
   }
+
   return NextResponse.json({ version: "1.0.0", brand }, {
     headers: { "cache-control": "private, max-age=60, stale-while-revalidate=300", vary: "Host, Cookie" },
   })
 }
 
 export async function PUT(request: NextRequest) {
-  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim()
-  const host = (forwardedHost || request.headers.get("host"))?.split(":")[0]?.toLowerCase()
-  if (host !== "osgardnewworld.com" && host !== "www.osgardnewworld.com") return NextResponse.json({ error: "Tenant недоступен для этого домена" }, { status: 404 })
-  const authorization = request.headers.get("authorization") || (request.cookies.get("osgard_access")?.value ? `Bearer ${request.cookies.get("osgard_access")!.value}` : null)
+  if (!isTenantHostAllowed(requestHost(request))) return tenantUnavailable()
+
+  const token = request.cookies.get("osgard_access")?.value
+  const authorization = request.headers.get("authorization") || (token ? `Bearer ${token}` : null)
   const backendUrl = (process.env.BACKEND_URL || "").replace(/\/$/, "")
   if (!backendUrl || !authorization?.startsWith("Bearer ")) return NextResponse.json({ error: "Требуется авторизация" }, { status: 401 })
+
   const body = await request.json().catch(() => null)
-  const upstream = await fetch(`${backendUrl}/design/tenant/brand`, { method: "PUT", headers: { authorization, "content-type": "application/json" }, body: JSON.stringify(body), cache: "no-store" })
+  const upstream = await fetch(`${backendUrl}/design/tenant/brand`, {
+    method: "PUT",
+    headers: { authorization, "content-type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  })
   return NextResponse.json(await upstream.json().catch(() => ({ error: "Backend недоступен" })), { status: upstream.status })
 }
