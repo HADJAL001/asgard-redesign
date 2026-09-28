@@ -54,8 +54,6 @@ jobs:
       - run: npm --prefix backend run build
       - run: npm run lint:quality
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:design-system
-      - run: npm run test:analytics-contract
       - name: Initialize isolated local database
         run: npm --prefix backend run init-db
         env:
@@ -82,6 +80,11 @@ jobs:
           done
           cat /tmp/osgard-next.log
           exit 1
+      - name: Run deterministic design-system quality gate
+        run: npm run test:design-system
+        env:
+          DESIGN_SYSTEM_VITALS_BASE_URL: http://127.0.0.1:3000
+      - run: npm run test:analytics-contract
       - name: Run authenticated blueprint contract locally
         run: npx playwright test e2e/authenticated-blueprint.spec.ts --reporter=line
         env:

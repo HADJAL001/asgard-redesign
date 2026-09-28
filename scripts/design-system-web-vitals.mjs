@@ -1,6 +1,9 @@
 import { chromium } from "playwright"
 
-const base = (process.env.DESIGN_SYSTEM_BASE_URL || "https://osgardnewworld.com").replace(/\/$/, "")
+// Browser rendering is measured against an explicitly supplied deterministic
+// production build when available. Other release probes keep using the public
+// origin, so this isolates render-budget evidence from CDN/deployment jitter.
+const base = (process.env.DESIGN_SYSTEM_VITALS_BASE_URL || process.env.DESIGN_SYSTEM_BASE_URL || "https://osgardnewworld.com").replace(/\/$/, "")
 const targets = [
   { name: "desktop", viewport: { width: 1440, height: 1000 } },
   { name: "mobile", viewport: { width: 390, height: 844 } },
