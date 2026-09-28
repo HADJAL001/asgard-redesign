@@ -71,7 +71,7 @@ jobs:
           exit 1
       - name: Start deterministic local production server
         run: |
-          BACKEND_URL=http://127.0.0.1:3002 npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/osgard-next.log 2>&1 &
+          BACKEND_URL=http://127.0.0.1:3002 OSGARD_E2E_ALLOW_INSECURE_COOKIES=true npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/osgard-next.log 2>&1 &
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:3000/api/health > /dev/null; then
               exit 0
