@@ -541,9 +541,11 @@ test.describe("OSGARD design system", () => {
       }).observe({ type: "event", buffered: true, durationThreshold: 40 } as PerformanceObserverInit)
     })
     await page.goto("/cofounder", { waitUntil: "load" })
+    await page.getByRole("heading", { name: /AI Cofounder/i }).waitFor({ state: "visible" })
     // Paint timing can land just after the load event when the command deck's
-    // client shell hydrates; wait for the actual browser entry before reading it.
+    // client shell hydrates; wait for actual browser entries before reading them.
     await page.waitForFunction(() => performance.getEntriesByName("first-contentful-paint").length > 0, undefined, { timeout: 3000 }).catch(() => undefined)
+    await page.waitForFunction(() => (window as Window & { __osgardLcp?: number }).__osgardLcp! > 0, undefined, { timeout: 3000 }).catch(() => undefined)
     const metrics = await page.evaluate(() => {
       const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined
       const paints = performance.getEntriesByType("paint")
