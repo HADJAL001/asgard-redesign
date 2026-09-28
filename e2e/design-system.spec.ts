@@ -217,7 +217,7 @@ test.describe("OSGARD design system", () => {
     expect(body.renderPlan.layout).toBe("hull-fluid")
     expect(body.renderPlan.slots.map((slot: { component: string }) => slot.component)).toEqual(["hero", "preview-frame"])
     expect(body.previewSession).toMatchObject({
-      version: "1.0.0",
+      version: "1.1.0",
       blueprintId: created.blueprint.id,
       revision: 1,
       contractHash: created.blueprint.contractHash,
