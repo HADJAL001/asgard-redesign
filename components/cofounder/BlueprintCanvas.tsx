@@ -159,9 +159,9 @@ export function BlueprintCanvas({
           <div className="ds-blueprint-canvas__surface">
             <HolographicProductTwin active={commandActivity} />
             <div className="ds-blueprint-canvas__surface-bar">
-              <span />
-              <span />
-              <span />
+              <span className="ds-blueprint-canvas__indicator" />
+              <span className="ds-blueprint-canvas__indicator" />
+              <span className="ds-blueprint-canvas__indicator" />
               <small>OSGARD / {label.toUpperCase()}</small>
               <span className="ds-blueprint-canvas__history">
                 <button
