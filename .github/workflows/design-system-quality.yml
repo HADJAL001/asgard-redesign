@@ -51,6 +51,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:design-system
       - run: npm run test:analytics-contract
+      - run: npx playwright test e2e/authenticated-blueprint.spec.ts --reporter=line
       - run: npx playwright test e2e/design-system.spec.ts --reporter=line
       - run: npm run test:design-system-browser
         env:
