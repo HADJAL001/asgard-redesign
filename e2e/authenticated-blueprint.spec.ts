@@ -1,12 +1,9 @@
 import { test, expect } from "@playwright/test"
+import { signInAsReviewUser } from "./helpers/auth"
 
 test.describe("Authenticated blueprint workflow", () => {
   test("allows a signed-in reviewer to approve and comment before codegen", async ({ page }) => {
-    await page.goto("/login")
-    await page.locator('input[type="text"], input[name="email"]').first().fill("alex_odin")
-    await page.locator('input[type="password"]').first().fill("password123")
-    await page.locator('button[type="submit"]').first().click()
-    await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 })
+    await signInAsReviewUser(page)
 
     const created = await page.request.post("/api/design/blueprint", {
       data: { app: "authenticated-e2e", brief: "A private product workspace for reviewing a verified release." },
