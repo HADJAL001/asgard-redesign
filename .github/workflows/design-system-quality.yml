@@ -44,16 +44,32 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
       - run: npm ci --ignore-scripts
+      - run: npm --prefix backend ci
       - run: npm audit --audit-level=high
       - run: npm run build
+      - run: npm --prefix backend run build
       - run: npm run lint:quality
       - run: npx playwright install --with-deps chromium
       - run: npm run test:design-system
       - run: npm run test:analytics-contract
+      - name: Start isolated local backend
+        run: |
+          NODE_ENV=test PORT=3002 npm --prefix backend run start > /tmp/osgard-backend.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3002/health > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/osgard-backend.log
+          exit 1
       - name: Start deterministic local production server
         run: |
-          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/osgard-next.log 2>&1 &
+          BACKEND_URL=http://127.0.0.1:3002 npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/osgard-next.log 2>&1 &
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:3000/api/health > /dev/null; then
               exit 0
