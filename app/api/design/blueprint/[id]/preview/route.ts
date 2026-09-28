@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getBlueprint } from "@/lib/blueprint-store"
+import { getBlueprint, recordBlueprintPreviewTelemetry } from "@/lib/blueprint-store"
+import { buildPreviewSession } from "@/lib/preview-session"
 import { tenantIdFromRequest } from "@/lib/tenant-context"
 
 const registry: Record<string, { role: string; states: string[] }> = {
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (rawRevision && (!Number.isInteger(selectedRevision) || (selectedRevision as number) < 1)) return NextResponse.json({ error: "invalid_revision" }, { status: 400 })
   const blueprint = getBlueprint(id, selectedRevision, tenantId)
   if (!blueprint) return NextResponse.json({ error: "blueprint_not_found" }, { status: 404 })
+  const timing = recordBlueprintPreviewTelemetry(blueprint, tenantId)
   const slots = (blueprint.canvasSlots || blueprint.components.map((component, index) => ({
     id: `${component}-${index + 1}`,
     component,
@@ -28,5 +30,5 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     states: registry[component]?.states || ["default"],
     order: index,
   }))).map((slot, index) => ({ ...slot, order: index }))
-  return NextResponse.json({ version: "1.0.0", blueprintId: blueprint.id, revision: blueprint.revision, profile: { app: blueprint.app, preset: blueprint.preset }, renderPlan: { layout: "hull-fluid", grid: 12, slots, stages: blueprint.stages, arbitraryHtml: false }, quality: blueprint.quality, aiPlan: blueprint.aiPlan || null }, { headers: { "cache-control": "no-store" } })
+  return NextResponse.json({ version: "1.1.0", blueprintId: blueprint.id, revision: blueprint.revision, profile: { app: blueprint.app, preset: blueprint.preset }, renderPlan: { layout: "hull-fluid", grid: 12, slots, stages: blueprint.stages, arbitraryHtml: false }, previewSession: buildPreviewSession(blueprint, timing), quality: blueprint.quality, aiPlan: blueprint.aiPlan || null }, { headers: { "cache-control": "no-store" } })
 }

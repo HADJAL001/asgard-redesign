@@ -45,6 +45,7 @@ const ALLOWED_EVENTS = new Set([
   "blueprint_starter_selected",
   "blueprint_quality_ready",
   "blueprint_quality_blocked",
+  "blueprint_first_preview_ready",
   "blueprint_approval_completed",
   "blueprint_codegen_blocked",
   "blueprint_compile_started",
