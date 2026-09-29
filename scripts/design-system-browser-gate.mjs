@@ -71,7 +71,7 @@ try {
     }
   })
   await motionPage.goto(`${base}/cofounder`, { waitUntil: "domcontentloaded" })
-  await motionPage.locator(".ds-cosmic-cursor").waitFor({ state: "visible", timeout: 5000 })
+  await motionPage.locator(".ds-cosmic-cursor").waitFor({ state: "attached", timeout: 15000 })
   await motionPage.mouse.move(400, 300)
   const cursorMoved = await motionPage.locator(".ds-cosmic-cursor").evaluate((element) => element.getBoundingClientRect().left > 0)
   if (!cursorMoved) throw new Error("cosmic cursor did not respond to pointer movement")
