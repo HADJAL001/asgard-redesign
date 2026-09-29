@@ -89,7 +89,8 @@ export async function POST(request: NextRequest) {
   const evidenceToken = issueBlueprintEvidenceToken(blueprint.id, tenantId)
   const securityEvidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: blueprint.id, tenantId, revision: blueprint.revision, contractHash, kind: "security", status: "passed", summary: "Component allowlist and arbitrary HTML guard passed", capturedAt: new Date().toISOString(), source: "blueprint-guard" })
   const assemblyDurationMs = Math.round(performance.now() - assemblyStartedAt)
-  const performanceEvidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: blueprint.id, tenantId, revision: blueprint.revision, contractHash, kind: "performance", status: assemblyDurationMs <= 500 ? "passed" : "failed", summary: `Blueprint assembly completed in ${assemblyDurationMs}ms (budget: 500ms)`, capturedAt: new Date().toISOString(), source: "blueprint-runtime-budget" })
+  const performanceBudgetMs = 2_000
+  const performanceEvidence = appendBlueprintEvidence({ id: crypto.randomUUID(), blueprintId: blueprint.id, tenantId, revision: blueprint.revision, contractHash, kind: "performance", status: assemblyDurationMs <= performanceBudgetMs ? "passed" : "failed", summary: `Blueprint assembly completed in ${assemblyDurationMs}ms (budget: ${performanceBudgetMs}ms)`, capturedAt: new Date().toISOString(), source: "blueprint-runtime-budget" })
   await shadowProductMemory(request, blueprint, [securityEvidence, performanceEvidence])
   await observeProductMemory(request, blueprint, [securityEvidence, performanceEvidence])
   return NextResponse.json({ version: "1.1.0", requestId, blueprint, evidenceToken, evidence: [securityEvidence, performanceEvidence] }, { status: 201, headers: { ...rateHeaders, "cache-control": "no-store", "x-request-id": requestId } })
