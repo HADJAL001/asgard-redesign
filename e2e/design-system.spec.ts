@@ -421,7 +421,9 @@ test.describe("OSGARD design system", () => {
     page.on("pageerror", (error) => pageErrors.push(error.message))
 
     await page.goto("/dev/memory")
-    await expect(page.getByRole("navigation")).toBeVisible()
+    await expect(
+      page.getByRole("navigation", { name: "Разделы студии разработчика" }),
+    ).toBeVisible()
 
     // A slow client hydration must never take a person from the diagnostic
     // surface to a different workspace. This catches an accidental redirect.
