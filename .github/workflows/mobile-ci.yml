@@ -33,7 +33,10 @@ jobs:
   e2e-android:
     needs: test
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Gradle APK compilation plus the API-34 emulator cold boot can exceed
+    # 30 minutes on GitHub-hosted runners. Keep the real Detox gate intact,
+    # but give it enough wall-clock budget to finish instead of being killed.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 
