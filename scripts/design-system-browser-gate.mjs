@@ -14,14 +14,26 @@ async function json(url, options) {
   return payload
 }
 
-const created = await json(`${base}/api/design/blueprint`, {
+const createResponse = await fetch(`${base}/api/design/blueprint`, {
   method: "POST",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({ app: "browser-quality-gate", brief: "A cinematic AI product workspace with accessible, measurable delivery proof" }),
 })
-const blueprint = created?.blueprint
-const evidenceToken = created?.evidenceToken
-if (!blueprint?.id || !blueprint.contractHash || !evidenceToken) throw new Error("blueprint contract or evidence token missing")
+const created = await createResponse.json().catch(() => null)
+// Production must keep code-generation private. The complete, authenticated
+// contract is exercised against the isolated CI deployment; production verifies
+// the same public interface without treating a correct auth boundary as a fault.
+const productionAuthBoundary = base === "https://osgardnewworld.com"
+  && createResponse.status === 401
+  && created?.error === "auth_required"
+if (!createResponse.ok && !productionAuthBoundary) {
+  throw new Error(`${base}/api/design/blueprint returned ${createResponse.status}: ${JSON.stringify(created)}`)
+}
+const blueprint = productionAuthBoundary ? null : created?.blueprint
+const evidenceToken = productionAuthBoundary ? null : created?.evidenceToken
+if (!productionAuthBoundary && (!blueprint?.id || !blueprint.contractHash || !evidenceToken)) {
+  throw new Error("blueprint contract or evidence token missing")
+}
 
 const browser = await chromium.launch({ headless: true })
 try {
@@ -90,6 +102,9 @@ try {
   if (!devFocused) throw new Error("developer mode keyboard focus indicator is not visible")
   await devPage.close()
 
+  let socialPreviewType = ""
+  let socialPreviewBytes = 0
+  if (blueprint && evidenceToken) {
   const replayPage = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" })
   const replayResponse = await replayPage.goto(`${base}/cofounder/replay/${blueprint.id}`, { waitUntil: "domcontentloaded" })
   if (!replayResponse?.ok()) throw new Error(`mission replay returned ${replayResponse?.status() || "no response"}`)
@@ -108,21 +123,22 @@ try {
   const recheck = await recheckResponse.json().catch(() => null)
   if (!recheckResponse.ok || recheck?.run?.blueprintId !== diagnostics.run.blueprintId || recheck?.run?.revision !== diagnostics.run.revision || !Array.isArray(recheck?.history) || recheck?.history.length < 2 || !recheck.history.every((entry) => entry?.sandbox && typeof entry.sandbox.status === "string" && typeof entry.sandbox.verified === "boolean") || recheck?.version !== "1.1.0") throw new Error("error intelligence recheck contract failed")
   const socialPreviewResponse = await fetch(`${base}/cofounder/replay/${blueprint.id}/opengraph-image`)
-  const socialPreviewType = socialPreviewResponse.headers.get("content-type") || ""
-  const socialPreviewBytes = (await socialPreviewResponse.arrayBuffer()).byteLength
+  socialPreviewType = socialPreviewResponse.headers.get("content-type") || ""
+  socialPreviewBytes = (await socialPreviewResponse.arrayBuffer()).byteLength
   if (!socialPreviewResponse.ok || !socialPreviewType.includes("image/png") || socialPreviewBytes < 1000) throw new Error(`social preview failed: ${socialPreviewResponse.status} ${socialPreviewType} ${socialPreviewBytes} bytes`)
+  }
 
   await fs.mkdir(path.dirname(screenshotPath), { recursive: true })
   await page.screenshot({ path: screenshotPath, fullPage: true, animations: "disabled" })
   const screenshotHash = crypto.createHash("sha256").update(await fs.readFile(screenshotPath)).digest("hex")
   const screenshot = { sha256: screenshotHash, bytes: (await fs.stat(screenshotPath)).size }
   if (!visualBaselineSha256.includes(screenshotHash)) throw new Error(`visual baseline mismatch: expected one of ${visualBaselineSha256.join(", ")}, got ${screenshotHash}`)
-  await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
+  if (blueprint && evidenceToken) await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ kind: "a11y", status: "passed", summary: `Cofounder has named heading, ${interactiveCount} controls and focus; developer mode pulse/link/focus passed`, source: "playwright-browser-gate", contractHash: blueprint.contractHash, evidenceToken }),
   })
-  await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
+  if (blueprint && evidenceToken) await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ kind: "visual-diff", status: "passed", summary: `Visual baseline matched (sha256 ${screenshot.sha256.slice(0, 16)}, ${screenshot.bytes} bytes)`, source: "playwright-browser-gate", contractHash: blueprint.contractHash, evidenceToken }),
@@ -131,17 +147,17 @@ try {
   const healthResponse = await fetch(`${base}/api/health`, { cache: "no-store" })
   const healthLatencyMs = Math.round(performance.now() - healthStarted)
   if (!healthResponse.ok) throw new Error(`health returned ${healthResponse.status}`)
-  await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
+  if (blueprint && evidenceToken) await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ kind: "deploy", status: "passed", summary: `Production health returned HTTP ${healthResponse.status} in ${healthLatencyMs}ms`, source: "production-health-gate", contractHash: blueprint.contractHash, evidenceToken }),
   })
-  await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
+  if (blueprint && evidenceToken) await json(`${base}/api/design/blueprint/${blueprint.id}/evidence`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ kind: "social-preview", status: "passed", summary: `Open Graph image returned image/png (${socialPreviewBytes} bytes)`, source: "social-preview-gate", contractHash: blueprint.contractHash, evidenceToken }),
   })
-  console.log(JSON.stringify({ blueprintId: blueprint.id, a11y: "passed", visualDiff: "passed", deploy: "passed", replay: "passed", socialPreview: "passed", healthLatencyMs, developerLatencyMs, screenshot }, null, 2))
+  console.log(JSON.stringify({ blueprintId: blueprint?.id || null, authBoundary: productionAuthBoundary ? "passed" : "authenticated", a11y: "passed", visualDiff: "passed", deploy: "passed", replay: blueprint ? "passed" : "covered-by-authenticated-ci", socialPreview: blueprint ? "passed" : "covered-by-authenticated-ci", healthLatencyMs, developerLatencyMs, screenshot }, null, 2))
 } finally {
   await browser.close()
 }
