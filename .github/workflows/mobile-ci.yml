@@ -40,6 +40,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # GitHub-hosted Linux runners expose nested virtualization, but the
+      # runner user is not always in the kvm group. Without this, the emulator
+      # cold-boots in software mode and can die before Android services load.
+      - name: Enable KVM for Android emulator
+        run: |
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+          fi
+
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -116,6 +125,7 @@ jobs:
           avd-name: Pixel_7_API_34
           arch: x86_64
           profile: pixel_7
+          disable-linux-hw-accel: false
           working-directory: mobile
           script: npm run e2e:test:android
 
