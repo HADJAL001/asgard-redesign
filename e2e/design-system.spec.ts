@@ -488,7 +488,7 @@ test.describe("OSGARD design system", () => {
     // Hydration can complete before Playwright observes the transient shell.
     // When it is observable, validate its copy and dismissal; otherwise assert
     // the ready workspace directly so this remains a behavior contract, not a race.
-    if (await boot.count()) {
+    if (await boot.isVisible().catch(() => false)) {
       await expect(boot).toContainText("OSGARD / INITIALIZING COMMAND DECK")
       await expect(boot).toBeHidden({ timeout: 5000 })
     }
