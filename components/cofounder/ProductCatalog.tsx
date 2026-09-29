@@ -39,14 +39,14 @@ export function ProductCatalog({ productType, preset, onProductTypeChange, onPre
       <header className="ds-catalog-head">
         <div>
           <span className="ds-utility">PRODUCT CATALOG / BUILD DNA</span>
-          <h2 id="catalog-title" className="ds-display">Choose the world to build</h2>
-          <p>Start with the product shape and visual language. The AI compiler carries both into preview and codegen.</p>
+          <h2 id="catalog-title" className="ds-display">Choose what to build</h2>
+          <p>Pick the product outcome and its visual direction. The AI compiler carries this Build Vector into preview, contract, and code generation.</p>
         </div>
-        <div className="ds-catalog-readout" aria-live="polite"><span>SELECTED VECTOR</span><strong>{selectedProduct.label}</strong><small>{selectedPreset.label} DNA</small></div>
+        <div className="ds-catalog-readout ds-catalog-readout--vector" aria-live="polite"><span>BUILD VECTOR · READY</span><strong>{selectedProduct.label}</strong><small>{selectedPreset.label} Design DNA</small></div>
       </header>
       <div className="ds-catalog-columns">
         <div>
-          <span className="ds-catalog-label">Product type</span>
+          <span className="ds-catalog-label">1 · Product outcome</span>
           <div className="ds-catalog-grid" role="listbox" aria-label="Product type">
             {products.map(({ id, label, detail, Icon }) => {
               const selected = id === productType
@@ -55,7 +55,7 @@ export function ProductCatalog({ productType, preset, onProductTypeChange, onPre
           </div>
         </div>
         <div>
-          <span className="ds-catalog-label">Visual DNA</span>
+          <span className="ds-catalog-label">2 · Visual direction</span>
           <div className="ds-catalog-presets" role="radiogroup" aria-label="Visual DNA">
             {presets.map(({ id, label, detail, color }) => {
               const selected = id === preset
