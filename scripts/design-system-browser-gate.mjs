@@ -4,7 +4,8 @@ import path from "node:path"
 import { chromium } from "playwright"
 
 const base = (process.env.DESIGN_SYSTEM_BASE_URL || "https://osgardnewworld.com").replace(/\/$/, "")
-const sessionCookie = process.env.DESIGN_SYSTEM_COOKIE || ""
+const rawSessionCookie = process.env.DESIGN_SYSTEM_COOKIE || ""
+const sessionCookie = rawSessionCookie && rawSessionCookie.includes("=") ? rawSessionCookie : rawSessionCookie ? `osgard_access=${rawSessionCookie}` : ""
 if (!sessionCookie) throw new Error("DESIGN_SYSTEM_COOKIE is required for the authenticated browser gate; no production write was attempted.")
 const authHeaders = { cookie: sessionCookie }
 const screenshotPath = path.resolve(process.env.DESIGN_SYSTEM_SCREENSHOT || "artifacts/design-system/cofounder.png")
