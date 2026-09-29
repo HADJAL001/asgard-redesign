@@ -202,7 +202,7 @@
 @media(max-width:760px) { .osgard-footer__top { grid-template-columns:1fr; }.osgard-dock { justify-content:flex-start; }.osgard-footer__bottom { align-items:flex-start; flex-direction:column; } }
 @media(prefers-reduced-motion:reduce) { .osgard-dock__item,.osgard-dock__item span { transition:none; }.osgard-dock__item:hover,.osgard-dock__item:focus-visible { transform:none; } }
 .ds-blueprint-canvas { width:min(1120px,100%); margin:var(--ds-space-6) auto; padding:clamp(1.1rem,3vw,2rem); }
-.ds-blueprint-canvas__head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+.ds-blueprint-canvas__head { position:relative; z-index:2; display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
 .ds-blueprint-canvas__head h2 { margin:.45rem 0 .3rem; font-size:clamp(1.25rem,3vw,2rem); }
 .ds-blueprint-canvas__head p { margin:0; color:var(--ds-muted); font-size:.8rem; }
 .ds-blueprint-canvas__controls { display:flex; gap:.35rem; padding:.3rem; border:1px solid var(--ds-line); background:rgb(0 0 0 / 18%); }
