@@ -377,6 +377,17 @@ test.describe("OSGARD design system", () => {
     expect(await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(true)
   })
 
+  test("cofounder mounts the fine-pointer cosmic cursor", async ({ page }) => {
+    await page.addInitScript(() => {
+      const original = window.matchMedia
+      window.matchMedia = (query) => query === "(pointer: fine)"
+        ? { matches: true, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent() { return false } }
+        : original(query)
+    })
+    await page.goto("/cofounder")
+    await expect(page.locator(".ds-cosmic-cursor")).toBeAttached()
+  })
+
   authenticatedTest("cofounder offers an accessible preview retry after a transient preview outage", async ({ page }) => {
     let previewAttempts = 0
     await page.route("**/api/design/blueprint/*/preview?*", async (route) => {
@@ -421,7 +432,9 @@ test.describe("OSGARD design system", () => {
     page.on("pageerror", (error) => pageErrors.push(error.message))
 
     await page.goto("/dev/memory")
-    await expect(page.getByRole("navigation")).toBeVisible()
+    await expect(
+      page.getByRole("navigation", { name: "Разделы студии разработчика" }),
+    ).toBeVisible()
 
     // A slow client hydration must never take a person from the diagnostic
     // surface to a different workspace. This catches an accidental redirect.
@@ -488,8 +501,9 @@ test.describe("OSGARD design system", () => {
     // Hydration can complete before Playwright observes the transient shell.
     // When it is observable, validate its copy and dismissal; otherwise assert
     // the ready workspace directly so this remains a behavior contract, not a race.
-    if (await boot.isVisible().catch(() => false)) {
-      await expect(boot).toContainText("OSGARD / INITIALIZING COMMAND DECK")
+    const bootText = await boot.textContent().catch(() => null)
+    if (bootText !== null) {
+      expect(bootText).toContain("OSGARD / INITIALIZING COMMAND DECK")
       await expect(boot).toBeHidden({ timeout: 5000 })
     }
     await expect(page.getByRole("heading", { name: "AI Cofounder" })).toBeVisible()
