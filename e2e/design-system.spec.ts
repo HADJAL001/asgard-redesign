@@ -377,6 +377,17 @@ test.describe("OSGARD design system", () => {
     expect(await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(true)
   })
 
+  test("cofounder mounts the fine-pointer cosmic cursor", async ({ page }) => {
+    await page.addInitScript(() => {
+      const original = window.matchMedia
+      window.matchMedia = (query) => query === "(pointer: fine)"
+        ? { matches: true, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent() { return false } }
+        : original(query)
+    })
+    await page.goto("/cofounder")
+    await expect(page.locator(".ds-cosmic-cursor")).toBeAttached()
+  })
+
   authenticatedTest("cofounder offers an accessible preview retry after a transient preview outage", async ({ page }) => {
     let previewAttempts = 0
     await page.route("**/api/design/blueprint/*/preview?*", async (route) => {
