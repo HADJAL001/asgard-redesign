@@ -5,8 +5,39 @@ import { chromium } from "playwright"
 
 const base = (process.env.DESIGN_SYSTEM_BASE_URL || "https://osgardnewworld.com").replace(/\/$/, "")
 const rawSessionCookie = process.env.DESIGN_SYSTEM_COOKIE || ""
-const sessionCookie = rawSessionCookie && rawSessionCookie.includes("=") ? rawSessionCookie : rawSessionCookie ? `osgard_access=${rawSessionCookie}` : ""
-if (!sessionCookie) throw new Error("DESIGN_SYSTEM_COOKIE is required for the authenticated browser gate; no production write was attempted.")
+
+function cookieValue(setCookie) {
+  const match = setCookie.match(/^osgard_access=([^;]+)/)
+  return match ? `osgard_access=${match[1]}` : ""
+}
+
+async function authenticatedSession() {
+  const configured = rawSessionCookie && rawSessionCookie.includes("=")
+    ? rawSessionCookie
+    : rawSessionCookie
+      ? `osgard_access=${rawSessionCookie}`
+      : ""
+
+  if (configured) return { cookie: configured, mode: "configured-session" }
+
+  const response = await fetch(`${base}/api/guest/start`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{}",
+    cache: "no-store",
+  })
+  const cookies = typeof response.headers.getSetCookie === "function"
+    ? response.headers.getSetCookie()
+    : [response.headers.get("set-cookie") || ""]
+  const accessCookie = cookies.map(cookieValue).find(Boolean)
+  if (!response.ok || !accessCookie) {
+    throw new Error(`guest authentication bootstrap failed with HTTP ${response.status}`)
+  }
+  return { cookie: accessCookie, mode: "ephemeral-guest-session" }
+}
+
+const session = await authenticatedSession()
+const sessionCookie = session.cookie
 const authHeaders = { cookie: sessionCookie }
 const screenshotPath = path.resolve(process.env.DESIGN_SYSTEM_SCREENSHOT || "artifacts/design-system/cofounder.png")
 const visualBaselineSha256 = (process.env.DESIGN_SYSTEM_VISUAL_BASELINE || "33d8d3b6dc4a0ac191b088ac755eabf6b99d22d0f0097c00cd28f619738dbbc2,4334546d2733739cd459352fb14ccc78acd021beb3ed1a8c8f54481d11f5bbea,86cd89cbde4babce41077f65626a77da5b7ea1b3f48aa79c90e646ecf6062423,9cc05935e251ea5dd5a75d4120e3857f6bc02a444ea632124c09d212f16caac0,29db5db17900094946024e8d40a463ff821d2e38b4ecfb46712dac9e82fcad17,b97599be34fdd5177d07cc8d85373daf11dadfeec7c9472f5ce140e05af0a0e5,29849fe413fadc016604182c5a14b5f830f244b4c497420fb1a44cf1f3ea3f3c,77034dba0099bb55479666b0e488236697b126047cfcd732383eba3787d85a00,9fad749ec03d583cd895fe050ef201613a4d0e8da3914b52cc52333f24af50e0,5bc2a02ea32c3624d995a4d676662ff62a5188943c2e7280223ce7e688d36410,9e88b2bdff7bda45e6eb4e7bb3cff89cebc2678b0b6229ac82f553239c597df6,3fc37496a0ef8056382a4fe4b81803b3a7b1219ce6528a73f4616b5e1df61c2b").split(",").map((value) => value.trim()).filter(Boolean)
@@ -148,7 +179,7 @@ try {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ kind: "social-preview", status: "passed", summary: `Open Graph image returned image/png (${socialPreviewBytes} bytes)`, source: "social-preview-gate", contractHash: blueprint.contractHash, evidenceToken }),
   })
-  console.log(JSON.stringify({ blueprintId: blueprint.id, a11y: "passed", visualDiff: "passed", deploy: "passed", replay: "passed", socialPreview: "passed", healthLatencyMs, developerLatencyMs, screenshot }, null, 2))
+  console.log(JSON.stringify({ blueprintId: blueprint.id, authentication: session.mode, a11y: "passed", visualDiff: "passed", deploy: "passed", replay: "passed", socialPreview: "passed", healthLatencyMs, developerLatencyMs, screenshot }, null, 2))
   await context.close()
 } finally {
   await browser.close()
