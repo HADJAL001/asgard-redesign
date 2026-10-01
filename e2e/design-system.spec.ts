@@ -225,8 +225,11 @@ test.describe("OSGARD design system", () => {
       runtime: { status: "unavailable", reason: "generation_not_started" },
       timing: { targetMs: 60_000 },
     })
-    expect(typeof body.previewSession.timing.firstReadyDurationMs).toBe("number")
-    expect(body.previewSession).not.toHaveProperty("previewUrl")
+   expect(typeof body.previewSession.timing.firstReadyDurationMs).toBe("number")
+    expect(preview.headers()["x-osgard-preview-target-ms"]).toBe("60000")
+    expect(preview.headers()["x-osgard-preview-within-target"]).toMatch(/^(true|false)$/)
+    expect(preview.headers()["server-timing"]).toMatch(/^preview;dur=\d+$/)
+   expect(body.previewSession).not.toHaveProperty("previewUrl")
   })
 
   authenticatedTest("approval room rejects anonymous approval attempts", async ({ page, request }) => {
