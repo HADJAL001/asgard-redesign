@@ -63,6 +63,7 @@ export function BlueprintCanvas({
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [anchorId, setAnchorId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   function commitSlots(next: PreviewSlot[]) {
     if (next === slots) return;
@@ -96,6 +97,19 @@ export function BlueprintCanvas({
       slots.map((s) => (selectedIds.includes(s.id) ? transform(s) : s)),
     );
     setDirty(true);
+  }
+  function toggleSelection(id: string, range = false) {
+    const index = slots.findIndex((slot) => slot.id === id);
+    const anchorIndex = anchorId ? slots.findIndex((slot) => slot.id === anchorId) : -1;
+    setSelectedIds((current) => {
+      if (range && anchorIndex >= 0 && index >= 0) {
+        const from = Math.min(anchorIndex, index);
+        const to = Math.max(anchorIndex, index);
+        return Array.from(new Set([...current, ...slots.slice(from, to + 1).map((slot) => slot.id)]));
+      }
+      return current.includes(id) ? current.filter((value) => value !== id) : [...current, id];
+    });
+    setAnchorId(id);
   }
   function undo() {
     const previous = past.at(-1);
@@ -217,11 +231,23 @@ export function BlueprintCanvas({
                 {selectedIds.length
                   ? `${selectedIds.length} selected`
                   : "Select blocks to edit together"}
-              </span>
+             </span>
               <button
                 type="button"
                 className="ds-focus"
-                onClick={() =>
+                onClick={() => {
+                  setSelectedIds(selectedIds.length === slots.length ? [] : slots.map((slot) => slot.id));
+                  setAnchorId(null);
+                }}
+                aria-label={selectedIds.length === slots.length ? "Clear all block selections" : "Select all product blocks"}
+                title={selectedIds.length === slots.length ? "Clear all block selections" : "Select all product blocks"}
+              >
+                {selectedIds.length === slots.length ? "Clear all" : "Select all"}
+              </button>
+             <button
+               type="button"
+               className="ds-focus"
+               onClick={() =>
                   applyToSelection((s) => ({
                     ...s,
                     states: Array.from(new Set([...s.states, "dense layout"])),
@@ -266,22 +292,12 @@ export function BlueprintCanvas({
                   tabIndex={0}
                   aria-selected={selectedIds.includes(slot.id)}
                   aria-label={`${slot.role}, ${selectedIds.includes(slot.id) ? "selected" : "not selected"}`}
-                  draggable
-                  onClick={() =>
-                    setSelectedIds((ids) =>
-                      ids.includes(slot.id)
-                        ? ids.filter((id) => id !== slot.id)
-                        : [...ids, slot.id],
-                    )
-                  }
-                  onKeyDown={(event) => {
-                    if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return
-                    event.preventDefault()
-                    setSelectedIds((ids) =>
-                      ids.includes(slot.id)
-                        ? ids.filter((id) => id !== slot.id)
-                        : [...ids, slot.id],
-                    )
+                 draggable
+                  onClick={(event) => toggleSelection(slot.id, event.shiftKey)}
+                 onKeyDown={(event) => {
+                   if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return
+                   event.preventDefault()
+                    toggleSelection(slot.id, event.shiftKey)
                   }}
                   onDragStart={() => setDraggedId(slot.id)}
                   onDragOver={(event) => event.preventDefault()}
@@ -303,14 +319,10 @@ export function BlueprintCanvas({
                         aria-pressed={selectedIds.includes(slot.id)}
                         aria-label={`${selectedIds.includes(slot.id) ? "Remove" : "Add"} ${slot.role} ${selectedIds.includes(slot.id) ? "from" : "to"} selection`}
                         title={selectedIds.includes(slot.id) ? "Remove from selection" : "Add to selection"}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setSelectedIds((ids) =>
-                            ids.includes(slot.id)
-                              ? ids.filter((id) => id !== slot.id)
-                              : [...ids, slot.id],
-                          );
-                        }}
+                       onClick={(event) => {
+                         event.stopPropagation();
+                          toggleSelection(slot.id, event.shiftKey);
+                       }}
                       >
                         {selectedIds.includes(slot.id) ? "Selected" : "Select"}
                       </button>
