@@ -43,6 +43,12 @@ function contractHash(source: StoredBlueprint, slots: Slot[]) {
   return crypto.createHash("sha256").update(JSON.stringify(contract)).digest("hex")
 }
 
+function explainableDiff(source: StoredBlueprint, command: string, changes: Array<{ slotId: string; role: string; before: string; after: string }>, nextHash: string) {
+  const normalized = { command: command.trim(), baseRevision: source.revision, nextRevision: source.revision + 1, contractHash: nextHash, changes }
+  const diffHash = crypto.createHash("sha256").update(JSON.stringify(normalized)).digest("hex")
+  return { id: `diff:${source.id}:${source.revision}:${diffHash.slice(0, 16)}`, hash: diffHash, source: "blueprint-command" as const, baseRevision: source.revision, proposedRevision: source.revision + 1, command: command.trim() }
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const tenantId = tenantIdFromRequest(request)
@@ -70,8 +76,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return before === after ? [] : [{ slotId: slot.id, role: slot.role, before, after }]
   })
   const nextHash = contractHash(source, interpretation.slots)
+  const diff = explainableDiff(source, command, changes, nextHash)
   const dryRun = body.dryRun !== false
-  if (dryRun) return NextResponse.json({ dryRun: true, blueprintId: id, revision: source.revision, intent: interpretation.intent, contractHash: nextHash, changes, proposedSlots: interpretation.slots }, { headers: { "cache-control": "no-store" } })
+  if (dryRun) return NextResponse.json({ dryRun: true, blueprintId: id, revision: source.revision, intent: interpretation.intent, contractHash: nextHash, changes, diff, proposedSlots: interpretation.slots }, { headers: { "cache-control": "no-store" } })
   if (!verifyBlueprintEvidenceToken(id, body.evidenceToken, tenantId)) return NextResponse.json({ error: "invalid_evidence_token" }, { status: 403 })
   const revisions = listBlueprintRevisions(id, tenantId)
   const edited: StoredBlueprint = { ...source, revision: (revisions.at(-1)?.revision || source.revision) + 1, contractHash: nextHash, canvasSlots: interpretation.slots, components: interpretation.slots.map((slot) => slot.component), generatedAt: new Date().toISOString(), approval: undefined, quality: { ...source.quality, humanReviewRequired: true } }
@@ -80,5 +87,5 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // The source store stays authoritative; this records the same revision in Product OS when the guarded dual-write is enabled.
   await shadowProductMemory(request, edited, [evidence])
   await observeProductMemory(request, edited, [evidence])
-  return NextResponse.json({ dryRun: false, blueprint: edited, intent: interpretation.intent, changes, evidence }, { status: 201, headers: { "cache-control": "no-store" } })
+  return NextResponse.json({ dryRun: false, blueprint: edited, intent: interpretation.intent, changes, diff: { ...diff, proposedRevision: edited.revision }, evidence }, { status: 201, headers: { "cache-control": "no-store" } })
 }
