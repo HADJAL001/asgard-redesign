@@ -110,11 +110,15 @@ test.describe("OSGARD design system", () => {
     expect(previewBody.intent).toBe("dense")
     expect(previewBody.changes.length).toBeGreaterThan(0)
     expect(previewBody.contractHash).toMatch(/^[a-f0-9]{64}$/)
+    expect(previewBody.diff).toMatchObject({ source: "blueprint-command", baseRevision: 1, proposedRevision: 2 })
+    expect(previewBody.diff.id).toMatch(/^diff:/)
+    expect(previewBody.diff.hash).toMatch(/^[a-f0-9]{64}$/)
     const applied = await request.post(`/api/design/blueprint/${body.blueprint.id}/command`, { data: { revision: 1, command: "сделай карточки плотнее", dryRun: false, evidenceToken: body.evidenceToken } })
     expect(applied.status()).toBe(201)
     const appliedBody = await applied.json()
     expect(appliedBody.blueprint.revision).toBe(2)
     expect(appliedBody.evidence).toMatchObject({ kind: "remediation", source: "blueprint-command", revision: 2 })
+    expect(appliedBody.diff).toMatchObject({ id: previewBody.diff.id, hash: previewBody.diff.hash, proposedRevision: 2 })
   })
 
   authenticatedTest("binds evidence ledger entries to the contract hash", async ({ page, request }) => {
