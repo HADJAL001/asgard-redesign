@@ -23,6 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const blueprint = getBlueprint(id, selectedRevision, tenantId)
   if (!blueprint) return NextResponse.json({ error: "blueprint_not_found" }, { status: 404 })
   const timing = recordBlueprintPreviewTelemetry(blueprint, tenantId)
+  const previewSession = buildPreviewSession(blueprint, timing)
   const slots = (blueprint.canvasSlots || blueprint.components.map((component, index) => ({
     id: `${component}-${index + 1}`,
     component,
@@ -30,5 +31,5 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     states: registry[component]?.states || ["default"],
     order: index,
   }))).map((slot, index) => ({ ...slot, order: index }))
-  return NextResponse.json({ version: "1.1.0", blueprintId: blueprint.id, revision: blueprint.revision, profile: { app: blueprint.app, preset: blueprint.preset }, renderPlan: { layout: "hull-fluid", grid: 12, slots, stages: blueprint.stages, arbitraryHtml: false }, previewSession: buildPreviewSession(blueprint, timing), quality: blueprint.quality, aiPlan: blueprint.aiPlan || null }, { headers: { "cache-control": "no-store" } })
+  return NextResponse.json({ version: "1.1.0", blueprintId: blueprint.id, revision: blueprint.revision, profile: { app: blueprint.app, preset: blueprint.preset }, renderPlan: { layout: "hull-fluid", grid: 12, slots, stages: blueprint.stages, arbitraryHtml: false }, previewSession, quality: blueprint.quality, aiPlan: blueprint.aiPlan || null }, { headers: { "cache-control": "no-store", "server-timing": "preview;dur=" + previewSession.timing.firstReadyDurationMs, "x-osgard-preview-duration-ms": String(previewSession.timing.firstReadyDurationMs), "x-osgard-preview-target-ms": String(previewSession.timing.targetMs), "x-osgard-preview-within-target": String(previewSession.timing.withinTarget) } })
 }
