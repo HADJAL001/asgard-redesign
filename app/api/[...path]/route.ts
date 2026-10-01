@@ -106,7 +106,13 @@ async function forwardToBackend(
      встраивающие README/страницы никогда не видят эти заголовки. */
   const etag = upstream.headers.get("etag") || undefined
   const cacheControl = upstream.headers.get("cache-control") || undefined
-  const vary = upstream.headers.get("vary") || undefined
+ const vary = upstream.headers.get("vary") || undefined
+  const previewTelemetry = {
+    serverTiming: upstream.headers.get("server-timing") || undefined,
+    durationMs: upstream.headers.get("x-osgard-preview-duration-ms") || undefined,
+    targetMs: upstream.headers.get("x-osgard-preview-target-ms") || undefined,
+    withinTarget: upstream.headers.get("x-osgard-preview-within-target") || undefined,
+  }
 
   /* Бинарные ответы (например ZIP-экспорт проекта) нельзя читать через .text() —
      это портит содержимое. JSON/текстовые ответы, наоборот, должны остаться как .text(),
@@ -115,7 +121,7 @@ async function forwardToBackend(
 
   if (isBinary) {
     const buffer = upstream.status === 304 ? new ArrayBuffer(0) : await upstream.arrayBuffer()
-    return { status: upstream.status, text: "", json: null, contentType, contentDisposition, etag, cacheControl, vary, isBinary: true as const, buffer }
+    return { status: upstream.status, text: "", json: null, contentType, contentDisposition, etag, cacheControl, vary, ...previewTelemetry, isBinary: true as const, buffer }
   }
 
   const text = upstream.status === 304 ? "" : await upstream.text()
@@ -126,7 +132,7 @@ async function forwardToBackend(
     /* не JSON — оставляем как есть */
   }
 
-  return { status: upstream.status, text, json, contentType, contentDisposition, etag, cacheControl, vary, isBinary: false as const, buffer: undefined }
+  return { status: upstream.status, text, json, contentType, contentDisposition, etag, cacheControl, vary, ...previewTelemetry, isBinary: false as const, buffer: undefined }
 }
 
 /** Строит NextResponse из результата forwardToBackend, сохраняя бинарное тело как есть
@@ -136,7 +142,11 @@ function buildUpstreamResponse(upstream: Awaited<ReturnType<typeof forwardToBack
   if (upstream.contentDisposition) headers["content-disposition"] = upstream.contentDisposition
   if (upstream.etag) headers["etag"] = upstream.etag
   if (upstream.cacheControl) headers["cache-control"] = upstream.cacheControl
-  if (upstream.vary) headers["vary"] = upstream.vary
+ if (upstream.vary) headers["vary"] = upstream.vary
+  if (upstream.serverTiming) headers["server-timing"] = upstream.serverTiming
+  if (upstream.durationMs) headers["x-osgard-preview-duration-ms"] = upstream.durationMs
+  if (upstream.targetMs) headers["x-osgard-preview-target-ms"] = upstream.targetMs
+  if (upstream.withinTarget) headers["x-osgard-preview-within-target"] = upstream.withinTarget
 
   // 304 не может нести тело — Next/undici кидает исключение при попытке его отдать.
   if (upstream.status === 304) {
