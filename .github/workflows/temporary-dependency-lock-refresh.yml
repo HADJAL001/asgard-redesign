@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - fix/dependency-audit-runtime
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
