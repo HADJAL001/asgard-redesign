@@ -32,7 +32,7 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
-      # Gate shipped dependencies; all dependency findings remain visible in security-scan.
+      # Block critical shipped CVEs. The complete tree, including remaining high/moderate Solana transitive advisories, is still reported by security-scan; resolving those requires a separately tested Solana upgrade.
       - run: npm audit --omit=dev --audit-level=critical
       - run: npm run build
       - run: npm test
@@ -52,7 +52,7 @@ jobs:
             backend/package-lock.json
       - run: npm ci --ignore-scripts
       - run: npm --prefix backend ci
-      # Keep the production gate focused on shipped dependencies. Build-only tools have a known unpatched braces advisory.
+      # Gate shipped dependencies. The full tree remains reported by security-scan; the build-only braces advisory has no patched upstream release as of this change.
       - run: npm audit --omit=dev --audit-level=high
       - run: npm run build
       - run: npm --prefix backend run build
