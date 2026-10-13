@@ -89,6 +89,7 @@ type AuthValue = {
 const AuthContext = createContext<AuthValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter()
   /* Если в localStorage есть кешированный пользователь — стартуем без
      состояния загрузки (мгновенная гидрация). Иначе loading=true пока
      не придёт ответ /auth/me или не истечёт таймаут.
@@ -221,10 +222,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStoredUser(null)
     setUser(null)
     claimedGuestForUserId.current = null
-    if (typeof window !== "undefined") {
-      window.location.href = "/login"
-    }
-  }, [])
+    router.replace("/login")
+  }, [router])
 
   const refreshMe = useCallback(async () => {
     try {
