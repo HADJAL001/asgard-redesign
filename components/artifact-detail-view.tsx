@@ -133,6 +133,7 @@ export function ArtifactDetailView({ id }: { id: number }) {
           {/* Left — hero card */}
           <div className="flex flex-col gap-4">
             <div
+              aria-label={`${base.name}, редкость: ${RARITY[rarity].label}`}
               className="eg-surface flex flex-col items-center rounded-2xl p-8"
               style={{
                 border: `2px solid ${RARITY[rarity].color}`,
