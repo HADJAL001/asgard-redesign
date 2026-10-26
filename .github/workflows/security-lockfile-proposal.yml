@@ -1,0 +1,55 @@
+name: OSGARD Safe Lockfile Remediation Proposal
+
+on:
+  push:
+    branches: [osgard-security-lockfile-audit-v1]
+    paths:
+      - '.github/workflows/security-lockfile-proposal.yml'
+      - 'scripts/emit-lockfile-remediation.mjs'
+  workflow_dispatch:
+
+# Never grant a runner permission to write to the repo or bypass protected main.
+permissions:
+  contents: read
+
+jobs:
+  propose-nonbreaking-fixes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Save immutable baselines
+        run: |
+          cp package-lock.json /tmp/osgard-root-lock-before.json
+          cp backend/package-lock.json /tmp/osgard-backend-lock-before.json
+      - name: Attempt npm's non-breaking lockfile-only updates
+        shell: bash
+        run: |
+          set +e
+          npm audit fix --package-lock-only --ignore-scripts --no-fund > /tmp/osgard-root-fix.log 2>&1
+          root_exit=$?
+          (cd backend && npm audit fix --package-lock-only --ignore-scripts --no-fund) > /tmp/osgard-backend-fix.log 2>&1
+          backend_exit=$?
+          echo "ROOT_AUDIT_EXIT=$root_exit" >> "$GITHUB_ENV"
+          echo "BACKEND_AUDIT_EXIT=$backend_exit" >> "$GITHUB_ENV"
+          echo "root audit fix exit: $root_exit; backend audit fix exit: $backend_exit"
+          # A dependency update must never change package manifests or app code.
+          git diff --exit-code -- package.json backend/package.json
+      - name: Emit reviewable exact lockfile patch (no force upgrades)
+        run: node scripts/emit-lockfile-remediation.mjs
+      - name: Capture remaining advisory counts
+        shell: bash
+        run: |
+          set +e
+          npm audit --json > artifacts/security/root-residual-audit.json
+          (cd backend && npm audit --json) > artifacts/security/backend-residual-audit.json
+          exit 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: osgard-nonbreaking-security-lockfile-patch
+          path: artifacts/security/
+          if-no-files-found: error
