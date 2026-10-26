@@ -38,6 +38,18 @@ const PROTECTED_PATHS = [
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // Static public design preview: do not weaken nonce policy for the real Next application.
+  const isPremiumPreview = pathname.startsWith("/premium-ab-preview/")
+  if (isPremiumPreview) {
+    const previewResponse = NextResponse.next()
+    previewResponse.headers.set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+    previewResponse.headers.set("X-Robots-Tag", "noindex, nofollow")
+    previewResponse.headers.set("X-Content-Type-Options", "nosniff")
+    previewResponse.headers.set("X-Frame-Options", "DENY")
+    previewResponse.headers.set("Referrer-Policy", "no-referrer")
+    return previewResponse
+  }
+
   const isProtected = PROTECTED_PATHS.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   )
