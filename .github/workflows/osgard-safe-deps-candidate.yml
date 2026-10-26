@@ -1,0 +1,87 @@
+name: OSGARD NEW WORLD Non-Force Dependency Candidate
+
+# Single-branch experiment only. Does not deploy or merge automatically.
+on:
+  push:
+    branches: [osgard-safe-deps-candidate]
+    paths:
+      - '.github/workflows/osgard-safe-deps-candidate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compatible-lockfile-candidate:
+    if: github.ref == 'refs/heads/osgard-safe-deps-candidate'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+      - name: Compute root/frontend nonbreaking fixes (no untrusted install scripts)
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          set +e
+          npm audit fix --package-lock-only --ignore-scripts --no-fund
+          status=$?
+          set -e
+          echo "Frontend non-force fix exit: $status. All remaining advisories remain blocking."
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Compute backend nonbreaking fixes (no untrusted install scripts)
+        working-directory: backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          set +e
+          npm audit fix --package-lock-only --ignore-scripts --no-fund
+          status=$?
+          set -e
+          echo "Backend non-force fix exit: $status. All remaining advisories remain blocking."
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Refuse unexpected package.json or app changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          changed="$(git diff --name-only)"
+          printf 'Candidate changed paths:\n%s\n' "$changed"
+          [[ -n "$changed" ]] || { echo 'No non-force lockfile fix available; require manual review'; exit 1; }
+          while IFS= read -r item; do
+            case "$item" in
+              package-lock.json|backend/package-lock.json) ;;
+              *) echo "Refusing unexpected changed path: $item"; exit 1 ;;
+            esac
+          done <<< "$changed"
+          git diff --stat -- package-lock.json backend/package-lock.json
+      - name: Commit only lockfile candidate back to isolated branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/osgard-safe-deps-candidate ]] || exit 1
+          [[ -n "$GH_TOKEN" ]] || exit 1
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- package-lock.json backend/package-lock.json
+          git commit -m 'chore(deps): non-force lockfile security fixes in isolated candidate'
+          gh auth setup-git
+          git push origin HEAD:refs/heads/osgard-safe-deps-candidate
+      - name: Remaining frontend vulnerabilities must keep CI red
+        run: npm audit --audit-level=high
+      - name: Remaining backend critical vulnerabilities must keep CI red
+        working-directory: backend
+        run: npm audit --audit-level=critical
