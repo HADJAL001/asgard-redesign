@@ -1,0 +1,27 @@
+name: OSGARD Premium V9 Bridge Quality
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'public/premium-ab-preview/**'
+      - 'scripts/check-premium-bridge.mjs'
+      - 'scripts/premium-expected.json'
+      - '.github/workflows/premium-bridge-quality.yml'
+  pull_request:
+    paths:
+      - 'public/premium-ab-preview/**'
+      - 'scripts/check-premium-bridge.mjs'
+      - 'scripts/premium-expected.json'
+      - '.github/workflows/premium-bridge-quality.yml'
+permissions:
+  contents: read
+jobs:
+  static-brand-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify brand source and original assets
+        run: node scripts/check-premium-bridge.mjs newworld
