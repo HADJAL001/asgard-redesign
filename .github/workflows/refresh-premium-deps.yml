@@ -1,0 +1,44 @@
+name: Approved Premium - compatible dependency security refresh
+on:
+  push:
+    branches: [osgard-premium-v9-native-entry]
+    paths: ['.github/workflows/refresh-premium-deps.yml']
+permissions:
+  contents: write
+jobs:
+  refresh:
+    if: github.repository == 'HADJAL001/asgard-redesign' && github.ref == 'refs/heads/osgard-premium-v9-native-entry'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: osgard-premium-v9-native-entry
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Repair only compatible lockfile updates; no force and no postinstall scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm audit fix --package-lock-only --ignore-scripts || echo "npm audit fix left unresolved advisories; audit gates remain mandatory"
+          unexpected="$(git diff --name-only | grep -v '^package-lock.json$' || true)"
+          if [[ -n "$unexpected" ]]; then echo "::error::Unexpected files modified: $unexpected"; exit 1; fi
+          npm ci --ignore-scripts
+          # Never manufacture success: full PR/CI also runs production and build checks.
+          npm audit --omit=dev --audit-level=high
+      - name: Commit verified lockfile (feature branch only; no direct production changes)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- package-lock.json; then
+            echo 'No compatible lockfile changes required'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- package-lock.json
+          git commit -m 'fix(deps): refresh compatible audited premium-release lockfile'
+          git push origin HEAD:refs/heads/osgard-premium-v9-native-entry
