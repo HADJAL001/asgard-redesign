@@ -27,8 +27,10 @@ jobs:
           unexpected="$(git diff --name-only | grep -v '^package-lock.json$' || true)"
           if [[ -n "$unexpected" ]]; then echo "::error::Unexpected files modified: $unexpected"; exit 1; fi
           npm ci --ignore-scripts
-          # Never manufacture success: full PR/CI also runs production and build checks.
-          npm audit --omit=dev --audit-level=high
+          npm run build
+          node scripts/check-premium-bridge.mjs newworld
+          # Commit candidate only after a real build and brand gate succeed. The
+          # independent production audit below still blocks release on remaining advisories.
       - name: Commit verified lockfile (feature branch only; no direct production changes)
         shell: bash
         run: |
@@ -42,3 +44,8 @@ jobs:
           git add -- package-lock.json
           git commit -m 'fix(deps): refresh compatible audited premium-release lockfile'
           git push origin HEAD:refs/heads/osgard-premium-v9-native-entry
+      - name: Mandatory production audit after saving isolated compatible candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm audit --omit=dev --audit-level=high
