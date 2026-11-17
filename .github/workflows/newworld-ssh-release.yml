@@ -1,0 +1,94 @@
+name: NEW WORLD verified GitHub-to-SSH release
+on:
+  pull_request:
+    paths: ['.github/workflows/newworld-ssh-release.yml', 'public/premium-ab-preview/**']
+  push:
+    branches: [main]
+    paths: ['.github/workflows/newworld-ssh-release.yml', 'public/premium-ab-preview/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: newworld-reviewed-ssh
+  cancel-in-progress: false
+jobs:
+  source-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm }
+      - name: Verify shipping dependencies, native build, original approved artwork
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm audit --omit=dev --audit-level=high
+          npm run build
+          node scripts/check-premium-bridge.mjs newworld
+          bash -n deploy/own-server/verified-release.sh
+  ssh-release:
+    needs: [source-quality]
+    if: github.repository == 'HADJAL001/asgard-redesign' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: osgardnewworld-production
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - name: Validate pinned host identity and deploy account
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.NEWWORLD_DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.NEWWORLD_DEPLOY_USER }}
+          SSH_KEY: ${{ secrets.NEWWORLD_DEPLOY_KEY_B64 }}
+          SSH_KNOWN: ${{ secrets.NEWWORLD_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          for variable in SSH_HOST SSH_USER SSH_KEY SSH_KNOWN; do
+            [[ -n "${!variable:-}" ]] || { echo "::error::Missing approved NEW WORLD SSH value: $variable"; exit 1; }
+          done
+          [[ "$SSH_HOST" =~ ^[A-Za-z0-9.-]+$ && "$SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || exit 1
+          install -d -m 700 ~/.ssh
+          printf '%s' "$SSH_KEY" | base64 -d > ~/.ssh/newworld_key
+          chmod 600 ~/.ssh/newworld_key
+          printf '%s\n' "$SSH_KNOWN" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh-keygen -F "$SSH_HOST" -f ~/.ssh/known_hosts >/dev/null || { echo '::error::Approved host key not pinned'; exit 1; }
+          printf '%s' "$SSH_USER@$SSH_HOST" > /tmp/newworld-ssh-target
+      - name: Use existing verified-release.sh with automatic rollback and independent HTTPS parity
+        shell: bash
+        env:
+          REV: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          target="$(cat /tmp/newworld-ssh-target)"
+          options=(-i "$HOME/.ssh/newworld_key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15)
+          previous="$(ssh "${options[@]}" "$target" 'git -C /opt/osgard-platform/current rev-parse HEAD')"
+          [[ "$previous" =~ ^[0-9a-f]{40}$ ]] || { echo '::error::Server main checkout unverified'; exit 1; }
+          deployed=0
+          rollback() {
+            if [[ "$deployed" == 1 ]]; then
+              echo '::warning::Reverting after failed public HTTPS parity'
+              ssh "${options[@]}" "$target" "sudo -n bash -s -- '$previous'" < deploy/own-server/verified-release.sh || true
+            fi
+          }
+          trap rollback ERR
+          ssh "${options[@]}" "$target" "sudo -n bash -s -- '$REV'" < deploy/own-server/verified-release.sh
+          deployed=1
+          for file in index.html app.js styles.css shell.css assets/hero-a-newworld.webp assets/hero-b-newworld.webp; do
+            pass=0
+            for try in 1 2 3 4 5; do
+              if curl -fsSL --max-time 15 -H 'Cache-Control: no-cache' \
+                 -o /tmp/newworld-live-asset "https://osgardnewworld.com/premium-ab-preview/$file?rev=$REV" &&
+                 cmp -s "public/premium-ab-preview/$file" /tmp/newworld-live-asset; then
+                 pass=1; break
+              fi
+              sleep 3
+            done
+            [[ "$pass" == 1 ]] || { echo "::error::Public asset mismatch for $file"; false; }
+          done
+          deployed=0
+          trap - ERR
+          echo "PASS: live NEW WORLD assets match source commit $REV"

@@ -1,0 +1,13 @@
+{
+  "slug": "newworld",
+  "art": {
+    "a": {
+      "bytes": 52808,
+      "sha256": "1166179c3bc5e0af3f309cf8893747b05bbdb969d5e2943e5db3c93523508022"
+    },
+    "b": {
+      "bytes": 54302,
+      "sha256": "233e37b8623f537b083aa3bf3d78289bb90a3a5ea4ccd90d6c42543abac4f68c"
+    }
+  }
+}
