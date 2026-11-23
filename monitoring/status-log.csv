@@ -2725,3 +2725,5 @@ timestamp,endpoint,http_code,response_time_s,ok
 2026-11-22T21:29:47Z,tc-market-state,200,0.620732,1
 2026-11-23T01:55:04Z,health,200,1.064531,1
 2026-11-23T01:55:04Z,tc-market-state,200,0.651285,1
+2026-11-23T10:08:54Z,health,200,0.696370,1
+2026-11-23T10:08:54Z,tc-market-state,200,0.678958,1
